@@ -206,7 +206,7 @@ const Memories = () => {
 
     return (
         <div className="memories-page-container">
-            <div style={TableContainerStyle} className="glass-card">
+            <div style={TableContainerStyle} className="table-responsive-container">
                 {/* Search Header with Tab Buttons */}
                 <div className="search-header-flex" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
@@ -232,7 +232,7 @@ const Memories = () => {
                 </div>
 
                 {/* Table Section */}
-                <div style={{ overflowX: 'auto', width: '100%' }}>
+                <div className="table-wrapper">
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
@@ -509,60 +509,95 @@ const Memories = () => {
 
                 .memories-page-container {
                     color: var(--text-main);
-                    padding: 24px;
                 }
 
-                .tabs-header {
-                    display: flex;
-                    gap: 15px;
-                    marginBottom: 30px;
+                .table-wrapper {
+                    overflow-x: auto;
+                    width: 100%;
                 }
 
-                .search-header-flex {
+                .modal-label {
+                    font-size: 0.75rem; 
+                    color: var(--text-sub); 
+                    text-transform: uppercase; 
+                    font-weight: 700; 
+                    letter-spacing: 0.05em; 
+                    display: block; 
+                    margin-bottom: 8px;
+                }
+
+                .modal-input {
+                    width: 100%; 
+                    padding: 12px 16px; 
+                    border-radius: 12px;
+                    background: var(--bg-lite); 
+                    border: 1px solid var(--border-color);
+                    color: var(--text-main); 
+                    font-size: 14px; 
+                    outline: none;
+                }
+
+                .modal-row {
                     display: flex;
-                    justify-content: space-between;
-                    alignItems: center;
-                    marginBottom: 24px;
                     gap: 16px;
                 }
 
+                .responsive-modal {
+                    background: var(--card-bg); 
+                    border-radius: 24px; 
+                    padding: 32px;
+                    max-width: 500px; 
+                    width: 90%; 
+                    border: 1px solid var(--border-color);
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                }
+
+                .icon-badge {
+                    width: 40px;
+                    height: 40px;
+                    background: rgba(59, 130, 246, 0.1);
+                    border: 1px solid rgba(59, 130, 246, 0.2);
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .med-pill {
+                    padding: 3px 8px;
+                    background: rgba(59, 130, 246, 0.1);
+                    border: 1px solid rgba(59, 130, 246, 0.2);
+                    border-radius: 6px;
+                    font-size: 0.65rem;
+                    color: var(--primary-glow);
+                    font-weight: 600;
+                }
+
                 @media (max-width: 768px) {
-                    .memories-page-container {
-                        padding: 16px;
-                    }
-
-                    .tabs-header {
-                        gap: 10px;
-                        margin-bottom: 20px;
-                    }
-
-                    .tabs-header button {
-                        flex: 1;
-                        padding: 10px 12px !important;
-                        font-size: 0.75rem !important;
-                        justify-content: center;
-                    }
-
-                    .search-header-flex {
-                        flex-direction: column;
-                        margin-bottom: 20px;
-                    }
-
-                    .glass-card {
+                    .table-responsive-container {
                         padding: 16px !important;
-                        border-radius: 20px !important;
                     }
-
-                    th, td {
-                        padding: 12px 8px !important;
+                    .hide-on-compact, .hide-on-mobile {
+                        display: none !important;
+                    }
+                    th, td { padding: 12px 10px !important; }
+                    .responsive-modal {
+                        padding: 24px;
+                        width: 95%;
+                    }
+                    .modal-row {
+                        flex-direction: column;
+                        gap: 12px;
                     }
                 }
 
-                @media (max-width: 900px) { 
-                    .medical-grid { grid-template-columns: 1fr; }
-                    .hide-on-mobile { display: none; }
-                    th, td { padding: 12px 8px !important; }
-                    .glass-card { padding: 15px; }
+                @media (max-width: 480px) {
+                    .table-responsive-container {
+                        border-radius: 16px !important;
+                    }
+                    td, th {
+                        padding: 12px 8px !important;
+                    }
                 }
 
             `}</style>

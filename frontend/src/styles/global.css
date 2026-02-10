@@ -1,0 +1,257 @@
+/**
+ * GLOBAL DESIGN SYSTEM
+ * Master stylesheet importing all design system components
+ * 
+ * IMPORTANT: Dashboard and Settings pages are EXCLUDED from forced styling
+ * They maintain their unique layouts but benefit from performance optimizations
+ */
+
+/* Import Design Tokens */
+@import './tokens.css';
+
+/* Import Component Styles */
+@import './components.css';
+
+/* Import Layout Styles */
+@import './layout.css';
+
+/* ========== BASE RESET ========== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    color: var(--text-main);
+    background: var(--bg-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ========== FOCUS STYLES ========== */
+:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+/* ========== SELECTION STYLES ========== */
+::selection {
+    background: var(--primary-500);
+    color: white;
+}
+
+::-moz-selection {
+    background: var(--primary-500);
+    color: white;
+}
+
+/* ========== IMAGE OPTIMIZATION ========== */
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+img[loading="lazy"] {
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+img[loading="lazy"].loaded {
+    opacity: 1;
+}
+
+/* ========== PERFORMANCE OPTIMIZATIONS ========== */
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* GPU acceleration for animations */
+.gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* Prevent layout shift */
+.prevent-shift {
+    content-visibility: auto;
+}
+
+/* ========== ACCESSIBILITY ========== */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-500);
+    color: white;
+    padding: var(--space-2) var(--space-4);
+    text-decoration: none;
+    z-index: var(--z-notification);
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* ========== PRINT STYLES ========== */
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .page-content {
+        max-width: 100%;
+        padding: 0;
+    }
+}
+
+/* ========== DARK MODE SUPPORT (Future) ========== */
+@media (prefers-color-scheme: light) {
+    /* Light mode overrides can be added here if needed */
+}
+
+/* ========== BROWSER-SPECIFIC FIXES ========== */
+/* Firefox */
+@-moz-document url-prefix() {
+
+    .input,
+    .search-input {
+        padding-top: calc(var(--space-3) + 1px);
+        padding-bottom: calc(var(--space-3) - 1px);
+    }
+}
+
+/* Safari */
+@supports (-webkit-appearance: none) {
+
+    .input,
+    .search-input {
+        -webkit-appearance: none;
+        appearance: none;
+    }
+}
+
+/* ========== LOADING STATES ========== */
+.page-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+}
+
+.page-loading .spinner {
+    width: 48px;
+    height: 48px;
+    border-width: 4px;
+}
+
+/* ========== ERROR STATES ========== */
+.error-container {
+    text-align: center;
+    padding: var(--space-16) var(--space-8);
+}
+
+.error-title {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-bold);
+    color: var(--danger-color);
+    margin-bottom: var(--space-4);
+}
+
+.error-message {
+    font-size: var(--text-base);
+    color: var(--text-sub);
+    margin-bottom: var(--space-6);
+}
+
+/* ========== TOAST NOTIFICATIONS (React Hot Toast Override) ========== */
+.toast-notification {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-lg) !important;
+    color: var(--text-main) !important;
+    padding: var(--space-4) !important;
+    box-shadow: var(--shadow-xl) !important;
+}
+
+.toast-success {
+    border-color: var(--success-border) !important;
+}
+
+.toast-error {
+    border-color: var(--danger-border) !important;
+}
+
+/* ========== SMOOTH SCROLLING ========== */
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
+/* ========== CONTENT VISIBILITY OPTIMIZATION ========== */
+.lazy-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 500px;
+}
+
+/* ========== BACKDROP FILTERS (Performance) ========== */
+@supports (backdrop-filter: blur(10px)) {
+    .glass-effect {
+        backdrop-filter: blur(10px);
+    }
+}
+
+@supports not (backdrop-filter: blur(10px)) {
+    .glass-effect {
+        background: var(--card-bg);
+    }
+}
