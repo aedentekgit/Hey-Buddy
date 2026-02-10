@@ -2,45 +2,14 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast, Toaster } from 'react-hot-toast';
 import {
-    Plus, Edit2, Trash2, Search, X, Loader2, Shield, Eye
+    Plus, Edit2, Trash2, Search, X, Loader2, Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
-
 import Pagination from '../components/Pagination';
-
 import {
-    ThStyle, TdStyle, ActionButtonStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
+    ThStyle, TdStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
 } from '../components/TableStyles';
-
-const ModalOverlay = {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 2000,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px'
-};
-
-const ModalBackground = {
-    position: 'absolute',
-    inset: 0,
-    background: 'rgba(0, 0, 0, 0.4)',
-    backdropFilter: 'blur(10px)'
-};
-
-const ModalContent = {
-    position: 'relative',
-    width: '100%',
-    maxWidth: '500px',
-    background: 'var(--card-bg)',
-    borderRadius: '30px',
-    boxShadow: 'var(--card-shadow)',
-    overflow: 'hidden',
-    border: '1px solid var(--border-color)',
-    backdropFilter: 'blur(20px)'
-};
 
 const Roles = () => {
     const [roles, setRoles] = useState([]);
@@ -182,7 +151,7 @@ const Roles = () => {
         <div style={{ color: 'var(--text-main)' }} className="roles-page">
             <Toaster position="top-right" />
 
-            <div style={TableContainerStyle} className="table-responsive-container">
+            <div className="table-container">
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -202,17 +171,8 @@ const Roles = () => {
                         />
                     </div>
                     <button
-                        className="btn-primary"
+                        className="btn btn-primary"
                         onClick={() => handleOpenModal()}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '10px 20px',
-                            whiteSpace: 'nowrap'
-                        }}
                     >
                         <Plus size={20} />
                         <span className="hide-mobile-text">Add Role</span><span className="show-mobile-text">Add</span>
@@ -283,24 +243,27 @@ const Roles = () => {
                                                 <button
                                                     onClick={() => handleOpenModal(role, true)}
                                                     title="View"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--success-color)', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
                                                 >
-                                                    <Eye size={12} />
+                                                    <Eye size={16} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleOpenModal(role)}
                                                     title="Edit"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: 'var(--primary-glow)', background: 'color-mix(in srgb, var(--primary-color) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--primary-color) 20%, transparent)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--info-color)', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}
                                                 >
-                                                    <Edit2 size={12} />
+                                                    <Edit2 size={16} />
                                                 </button>
                                                 {!role.isSystem && (
                                                     <button
                                                         onClick={() => handleDeleteClick(role._id)}
                                                         title="Delete"
-                                                        style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                        className="btn btn-icon btn-sm"
+                                                        style={{ color: 'var(--danger-color)', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
                                                     >
-                                                        <Trash2 size={12} />
+                                                        <Trash2 size={16} />
                                                     </button>
                                                 )}
                                             </div>
@@ -317,79 +280,78 @@ const Roles = () => {
 
             <AnimatePresence>
                 {isModalOpen && (
-                    <div style={ModalOverlay}>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={handleCloseModal} style={ModalBackground} />
-                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="responsive-modal">
-                            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', background: 'var(--bg-color)' }}>
-                                <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem' }}>
+                    <div className="modal-backdrop" onClick={handleCloseModal}>
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="modal"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="modal-header">
+                                <h3 className="modal-title">
                                     {isViewMode ? 'View Role' : (currentRole ? 'Edit Role' : 'New Role')}
                                 </h3>
-                                <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)' }}><X size={20} /></button>
+                                <button onClick={handleCloseModal} className="modal-close">
+                                    <X size={20} />
+                                </button>
                             </div>
-                            <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label className="modal-label">ROLE NAME</label>
-                                    <input className="modal-input" required disabled={isViewMode || currentRole?.isSystem} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                    {currentRole?.isSystem && !isViewMode && <span style={{ fontSize: '0.7rem', color: '#eab308', marginTop: '4px' }}>System role name cannot be changed</span>}
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <label className="modal-label">PAGE ACCESS CONTROL</label>
-                                    <div className="permissions-grid">
-                                        {AVAILABLE_PAGES.map(page => {
-                                            const isChecked = formData.allowedPages?.includes(page.id);
-                                            return (
-                                                <div
-                                                    key={page.id}
-                                                    onClick={() => {
-                                                        if (isViewMode) return;
-                                                        const newPages = isChecked
-                                                            ? formData.allowedPages.filter(p => p !== page.id)
-                                                            : [...formData.allowedPages, page.id];
-                                                        const newPerms = isChecked
-                                                            ? formData.permissions.filter(p => p !== page.id)
-                                                            : [...formData.permissions, page.id];
-                                                        setFormData({ ...formData, allowedPages: newPages, permissions: newPerms });
-                                                    }}
-                                                    className={`permission-item ${isChecked ? 'active' : ''}`}
-                                                    style={{
-                                                        cursor: isViewMode ? 'default' : 'pointer',
-                                                        opacity: isViewMode && !isChecked ? 0.6 : 1
-                                                    }}
-                                                >
-                                                    <div className={`checkbox ${isChecked ? 'active' : ''}`}>
-                                                        {isChecked && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                            <form onSubmit={handleSubmit}>
+                                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">ROLE NAME</label>
+                                        <input className="input" required disabled={isViewMode || currentRole?.isSystem} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                        {currentRole?.isSystem && !isViewMode && <span className="form-hint" style={{ color: '#eab308' }}>System role name cannot be changed</span>}
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">PAGE ACCESS CONTROL</label>
+                                        <div className="permissions-grid">
+                                            {AVAILABLE_PAGES.map(page => {
+                                                const isChecked = formData.allowedPages?.includes(page.id);
+                                                return (
+                                                    <div
+                                                        key={page.id}
+                                                        onClick={() => {
+                                                            if (isViewMode) return;
+                                                            const newPages = isChecked
+                                                                ? formData.allowedPages.filter(p => p !== page.id)
+                                                                : [...formData.allowedPages, page.id];
+                                                            const newPerms = isChecked
+                                                                ? formData.permissions.filter(p => p !== page.id)
+                                                                : [...formData.permissions, page.id];
+                                                            setFormData({ ...formData, allowedPages: newPages, permissions: newPerms });
+                                                        }}
+                                                        className={`permission-item ${isChecked ? 'active' : ''}`}
+                                                        style={{
+                                                            cursor: isViewMode ? 'default' : 'pointer',
+                                                            opacity: isViewMode && !isChecked ? 0.6 : 1
+                                                        }}
+                                                    >
+                                                        <div className={`checkbox ${isChecked ? 'active' : ''}`}>
+                                                            {isChecked && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                                        </div>
+                                                        <span style={{ fontSize: '0.9rem', fontWeight: isChecked ? '600' : '500', color: isChecked ? 'var(--primary-500)' : 'var(--text-main)' }}>
+                                                            {page.label}
+                                                        </span>
                                                     </div>
-                                                    <span style={{ fontSize: '0.9rem', fontWeight: isChecked ? '600' : '500', color: isChecked ? 'var(--primary-color)' : 'var(--text-main)' }}>
-                                                        {page.label}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexDirection: window.innerWidth < 480 ? 'column' : 'row' }}>
+                                <div className="modal-footer">
                                     <button
                                         type="button"
                                         onClick={handleCloseModal}
-                                        style={{
-                                            flex: 1,
-                                            padding: '12px',
-                                            borderRadius: '12px',
-                                            border: '1px solid var(--border-color)',
-                                            background: 'transparent',
-                                            color: 'var(--text-sub)',
-                                            fontWeight: '600'
-                                        }}
-                                        className="btn-outline"
+                                        className="btn btn-secondary"
                                     >
                                         {isViewMode ? 'Close' : 'Cancel'}
                                     </button>
                                     {!isViewMode && (
                                         <button
                                             type="submit"
-                                            style={{ flex: 1 }}
-                                            className="btn-primary"
+                                            className="btn btn-primary"
                                         >
                                             Save Role
                                         </button>
@@ -414,44 +376,6 @@ const Roles = () => {
                 .animate-spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 
-                .table-wrapper {
-                    overflow-x: auto;
-                    width: 100%;
-                }
-
-                .modal-label {
-                    font-size: 0.75rem; 
-                    color: var(--text-sub); 
-                    text-transform: uppercase; 
-                    font-weight: 700; 
-                    letter-spacing: 0.05em; 
-                    display: block; 
-                    margin-bottom: 4px;
-                }
-
-                .modal-input {
-                    width: 100%; 
-                    padding: 12px 16px; 
-                    border-radius: 12px;
-                    background: var(--bg-lite); 
-                    border: 1px solid var(--border-color);
-                    color: var(--text-main); 
-                    font-size: 14px; 
-                    outline: none;
-                }
-
-                .responsive-modal {
-                    position: relative;
-                    width: 100%;
-                    max-width: 500px;
-                    background: var(--card-bg);
-                    border-radius: 24px;
-                    box-shadow: var(--card-shadow);
-                    overflow: hidden;
-                    border: 1px solid var(--border-color);
-                    backdrop-filter: blur(20px);
-                }
-
                 .permissions-grid {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
@@ -495,16 +419,10 @@ const Roles = () => {
                 .show-on-tablet { display: none; }
 
                 @media (max-width: 768px) {
-                    .table-responsive-container {
-                        padding: 16px !important;
-                    }
                     .hide-on-mobile { display: none !important; }
                     .hide-on-tablet { display: none !important; }
                     .show-on-tablet { display: block; }
                     th, td { padding: 12px 10px !important; }
-                    .responsive-modal {
-                        width: 95%;
-                    }
                     .hide-mobile-text { display: none; }
                     .show-mobile-text { display: inline-block; }
                     .permissions-grid {
@@ -513,18 +431,12 @@ const Roles = () => {
                 }
 
                 @media (max-width: 480px) {
-                    .table-responsive-container {
-                        border-radius: 16px !important;
-                    }
                     td, th {
                         padding: 12px 8px !important;
                     }
-                    .responsive-modal {
-                        padding-bottom: 20px;
-                    }
                 }
             `}</style>
-        </div >
+        </div>
     );
 };
 

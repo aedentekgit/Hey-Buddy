@@ -3,43 +3,14 @@ import api from '../services/api';
 import CustomSelect from '../components/CustomSelect';
 import { toast, Toaster } from 'react-hot-toast';
 import {
-    UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Mail, Phone, ShieldCheck, Eye, EyeOff
+    UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Pagination from '../components/Pagination';
 import {
-    ThStyle, TdStyle, ActionButtonStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
+    ThStyle, TdStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
 } from '../components/TableStyles';
-
-const ModalOverlay = {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 2000,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px'
-};
-
-const ModalBackground = {
-    position: 'absolute',
-    inset: 0,
-    background: 'rgba(0, 0, 0, 0.4)',
-    backdropFilter: 'blur(10px)'
-};
-
-const ModalContent = {
-    position: 'relative',
-    width: '100%',
-    maxWidth: '500px',
-    background: 'var(--card-bg)',
-    borderRadius: '30px',
-    boxShadow: 'var(--card-shadow)',
-    overflow: 'hidden',
-    border: '1px solid var(--border-color)',
-    backdropFilter: 'blur(20px)'
-};
 
 const Users = () => {
     const [users, setUsers] = useState([]);
@@ -213,7 +184,7 @@ const Users = () => {
         <div style={{ color: 'var(--text-main)' }} className="users-page">
             <Toaster position="top-right" />
 
-            <div className="users-card table-responsive-container" style={TableContainerStyle}>
+            <div className="table-container">
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -233,17 +204,8 @@ const Users = () => {
                         />
                     </div>
                     <button
-                        className="btn-primary"
+                        className="btn btn-primary"
                         onClick={() => handleOpenModal()}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '10px 20px',
-                            whiteSpace: 'nowrap'
-                        }}
                     >
                         <UserPlus size={20} />
                         <span className="hide-mobile-text">Add User</span><span className="show-mobile-text">Add</span>
@@ -324,23 +286,26 @@ const Users = () => {
                                                 <button
                                                     onClick={() => handleOpenModal(user, true)}
                                                     title="View"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--success-color)', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
                                                 >
-                                                    <Eye size={12} />
+                                                    <Eye size={16} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleOpenModal(user)}
                                                     title="Edit"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: 'var(--primary-glow)', background: 'color-mix(in srgb, var(--primary-color) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--primary-color) 20%, transparent)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--info-color)', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}
                                                 >
-                                                    <Edit2 size={12} />
+                                                    <Edit2 size={16} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteClick(user._id)}
                                                     title="Delete"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--danger-color)', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
                                                 >
-                                                    <Trash2 size={12} />
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>
@@ -356,106 +321,105 @@ const Users = () => {
 
             <AnimatePresence>
                 {isModalOpen && (
-                    <div style={ModalOverlay}>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={handleCloseModal} style={ModalBackground} />
-                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="responsive-modal">
-                            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', background: 'var(--bg-color)' }}>
-                                <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem' }}>
+                    <div className="modal-backdrop" onClick={handleCloseModal}>
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="modal"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="modal-header">
+                                <h3 className="modal-title">
                                     {isViewMode ? 'View User' : (currentUser ? 'Edit User' : 'New User')}
                                 </h3>
-                                <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)' }}><X size={20} /></button>
+                                <button onClick={handleCloseModal} className="modal-close">
+                                    <X size={20} />
+                                </button>
                             </div>
-                            <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label className="modal-label">FULL NAME</label>
-                                    <input className="modal-input" required disabled={isViewMode} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label className="modal-label">EMAIL</label>
-                                    <input className="modal-input" type="email" required disabled={isViewMode} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                                </div>
-                                {!isViewMode && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <label className="modal-label">PASSWORD {currentUser && '(LEAVE BLANK TO UNCHANGED)'}</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input
-                                                className="modal-input"
-                                                type={showPassword ? "text" : "password"}
-                                                style={{ paddingRight: '40px' }}
-                                                placeholder="Enter password..."
-                                                required={!currentUser}
-                                                value={formData.password}
-                                                onChange={e => {
-                                                    setFormData({ ...formData, password: e.target.value });
-                                                    setPasswordError(validatePassword(e.target.value) || '');
-                                                }}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                style={{
-                                                    position: 'absolute',
-                                                    right: '10px',
-                                                    top: '50%',
-                                                    transform: 'translateY(-50%)',
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    color: 'var(--text-sub)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    padding: 0
-                                                }}
-                                            >
-                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                            </button>
+                            <form onSubmit={handleSubmit}>
+                                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">FULL NAME</label>
+                                        <input className="input" required disabled={isViewMode} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">EMAIL</label>
+                                        <input className="input" type="email" required disabled={isViewMode} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                    </div>
+                                    {!isViewMode && (
+                                        <div className="form-group">
+                                            <label className="form-label">PASSWORD {currentUser && '(LEAVE BLANK TO UNCHANGED)'}</label>
+                                            <div style={{ position: 'relative' }}>
+                                                <input
+                                                    className="input"
+                                                    type={showPassword ? "text" : "password"}
+                                                    style={{ paddingRight: '40px' }}
+                                                    placeholder="Enter password..."
+                                                    required={!currentUser}
+                                                    value={formData.password}
+                                                    onChange={e => {
+                                                        setFormData({ ...formData, password: e.target.value });
+                                                        setPasswordError(validatePassword(e.target.value) || '');
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: '10px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        color: 'var(--text-sub)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: 0
+                                                    }}
+                                                >
+                                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                            {passwordError && <span className="form-error">{passwordError}</span>}
                                         </div>
-                                        {passwordError && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>{passwordError}</span>}
-                                    </div>
-                                )}
-                                <div className="modal-row">
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <label className="modal-label">PHONE</label>
-                                        <input className="modal-input" disabled={isViewMode} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                                    </div>
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <label className="modal-label">ROLE</label>
-                                        <CustomSelect
-                                            disabled={isViewMode}
-                                            value={formData.role}
-                                            onChange={e => setFormData({ ...formData, role: e.target.value })}
-                                            options={roles.length > 0 ? roles.map(role => ({
-                                                value: role.name,
-                                                label: role.name
-                                            })) : [
-                                                { value: 'admin', label: 'Admin' },
-                                                { value: 'user', label: 'User' }
-                                            ]}
-                                        />
+                                    )}
+                                    <div style={{ display: 'flex', gap: '16px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label className="form-label">PHONE</label>
+                                            <input className="input" disabled={isViewMode} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label className="form-label">ROLE</label>
+                                            <CustomSelect
+                                                disabled={isViewMode}
+                                                value={formData.role}
+                                                onChange={e => setFormData({ ...formData, role: e.target.value })}
+                                                options={roles.length > 0 ? roles.map(role => ({
+                                                    value: role.name,
+                                                    label: role.name
+                                                })) : [
+                                                    { value: 'admin', label: 'Admin' },
+                                                    { value: 'user', label: 'User' }
+                                                ]}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexDirection: window.innerWidth < 480 ? 'column' : 'row' }}>
+                                <div className="modal-footer">
                                     <button
                                         type="button"
                                         onClick={handleCloseModal}
-                                        style={{
-                                            flex: 1,
-                                            padding: '12px',
-                                            borderRadius: '12px',
-                                            border: '1px solid var(--border-color)',
-                                            background: 'transparent',
-                                            color: 'var(--text-sub)',
-                                            fontWeight: '600'
-                                        }}
-                                        className="btn-outline"
+                                        className="btn btn-secondary"
                                     >
                                         {isViewMode ? 'Close' : 'Cancel'}
                                     </button>
                                     {!isViewMode && (
                                         <button
                                             type="submit"
-                                            style={{ flex: 1 }}
-                                            className="btn-primary"
+                                            className="btn btn-primary"
                                         >
                                             Save User
                                         </button>
@@ -480,49 +444,6 @@ const Users = () => {
                 .animate-spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 
-                .table-wrapper {
-                    overflow-x: auto;
-                    width: 100%;
-                }
-
-                .modal-label {
-                    font-size: 0.75rem; 
-                    color: var(--text-sub); 
-                    text-transform: uppercase; 
-                    font-weight: 700; 
-                    letter-spacing: 0.05em; 
-                    display: block; 
-                    margin-bottom: 4px;
-                }
-
-                .modal-input {
-                    width: 100%; 
-                    padding: 12px 16px; 
-                    border-radius: 12px;
-                    background: var(--bg-lite); 
-                    border: 1px solid var(--border-color);
-                    color: var(--text-main); 
-                    font-size: 14px; 
-                    outline: none;
-                }
-
-                .modal-row {
-                    display: flex;
-                    gap: 16px;
-                }
-
-                .responsive-modal {
-                    position: relative;
-                    width: 100%;
-                    max-width: 500px;
-                    background: var(--card-bg);
-                    border-radius: 24px;
-                    box-shadow: var(--card-shadow);
-                    overflow: hidden;
-                    border: 1px solid var(--border-color);
-                    backdrop-filter: blur(20px);
-                }
-
                 .show-mobile-text { display: none; }
                 .show-on-tablet { display: none; }
 
@@ -532,26 +453,12 @@ const Users = () => {
                 }
                 
                 @media (max-width: 768px) {
-                    .table-responsive-container {
-                        padding: 16px !important;
-                    }
                     .hide-on-mobile { display: none !important; }
-                    th, td { padding: 12px 10px !important; }
-                    .responsive-modal {
-                        width: 95%;
-                    }
-                    .modal-row {
-                        flex-direction: column;
-                        gap: 12px;
-                    }
                     .hide-mobile-text { display: none; }
                     .show-mobile-text { display: inline-block; }
                 }
 
                 @media (max-width: 480px) {
-                    .table-responsive-container {
-                        border-radius: 16px !important;
-                    }
                     td, th {
                         padding: 12px 8px !important;
                     }

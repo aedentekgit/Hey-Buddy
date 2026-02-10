@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-hot-toast';
-import { User, Phone, MapPin, Trash2, AlertTriangle, Save, Loader2, Mail, Calendar, CheckCircle, XCircle, Link2, Unlink } from 'lucide-react';
+import { toast, Toaster } from 'react-hot-toast';
+import {
+    User, Phone, MapPin, Trash2, AlertTriangle, Save, Loader2, Mail, Calendar,
+    CheckCircle, XCircle, Link2, Unlink, Settings, Shield, Eye, EyeOff, LayoutGrid
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import voiceService from '../services/voiceService';
@@ -10,11 +13,13 @@ import { useNavigate } from 'react-router-dom';
 const UserSettings = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState('general');
     const [loading, setLoading] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
 
+    // Form Data
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -33,6 +38,12 @@ const UserSettings = () => {
         }
     }, [user]);
 
+    // Calendar State
+    const [calendarLinking, setCalendarLinking] = useState(false);
+    const [calendarUnlinking, setCalendarUnlinking] = useState(false);
+    const isCalendarLinked = user?.googleRefreshToken ? true : false;
+
+    // Handlers
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
@@ -44,7 +55,6 @@ const UserSettings = () => {
             const res = await api.put('/users/profile', formData);
             if (res.data.success) {
                 toast.success('Profile updated successfully');
-                // You might want to update the local user context here if it doesn't auto-refresh
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to update profile');
@@ -68,11 +78,6 @@ const UserSettings = () => {
         }
     };
 
-    const [calendarLinking, setCalendarLinking] = useState(false);
-    const [calendarUnlinking, setCalendarUnlinking] = useState(false);
-
-    const isCalendarLinked = user?.googleRefreshToken ? true : false;
-
     const handleLinkCalendar = async () => {
         setCalendarLinking(true);
         try {
@@ -94,7 +99,6 @@ const UserSettings = () => {
             await api.post('/users/unlink-calendar');
             toast.success('Google Calendar unlinked successfully');
             setShowUnlinkConfirm(false);
-            // Refresh user data
             window.location.reload();
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to unlink calendar');
@@ -103,12 +107,11 @@ const UserSettings = () => {
         }
     };
 
-    // Listen for Google Auth callback success
+    // Listen for Google Auth callback
     useEffect(() => {
         const handleMessage = (event) => {
             if (event.data === 'GOOGLE_AUTH_SUCCESS') {
                 toast.success('Google Calendar linked successfully!');
-                // Refresh user data
                 window.location.reload();
             }
         };
@@ -116,487 +119,488 @@ const UserSettings = () => {
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
-    return (
-        <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', color: 'white' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '2rem', fontWeight: 'bold', background: 'linear-gradient(90deg, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0 }}>
-                    Account Settings
-                </h1>
-                <p style={{ color: 'var(--text-sub)', marginTop: '0.5rem' }}>Manage your personal profile and account preferences</p>
-            </div>
+    const tabs = [
+        { id: 'general', label: 'General', icon: Settings },
+        { id: 'integrations', label: 'Integrations', icon: LayoutGrid },
+        { id: 'danger', label: 'Account Zone', icon: Shield }
+    ];
 
-            <div style={{ display: 'grid', gap: '2rem' }}>
-                {/* General Profile Section */}
-                <section style={{
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    padding: '2rem',
+    return (
+        <div style={{ color: 'var(--text-main)' }}>
+            <Toaster position="top-right" />
+
+            {/* Layout Grid */}
+            <div className="settings-container" style={{
+                display: 'grid',
+                gridTemplateColumns: '240px 1fr',
+                gap: '2rem'
+            }}>
+                {/* Sidebar Tabs */}
+                <div className="settings-tabs" style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.4rem',
+                    background: 'var(--card-bg)',
+                    padding: '12px',
                     borderRadius: '24px',
                     border: '1px solid var(--border-color)',
-                    backdropFilter: 'blur(10px)'
+                    height: 'fit-content',
+                    backdropFilter: 'blur(15px)',
+                    boxShadow: 'var(--card-shadow)',
+                    position: 'sticky',
+                    top: '20px'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem' }}>
-                        <div style={{ padding: '10px', background: 'rgba(0, 117, 255, 0.1)', borderRadius: '12px', color: '#0075ff' }}>
-                            <User size={24} />
-                        </div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>General Information</h2>
+                    <div className="tabs-header" style={{ padding: '8px 12px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px', opacity: 0.8 }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Menu</span>
                     </div>
-
-                    <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '1.5rem', maxWidth: '600px' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.9rem' }}>Full Name</label>
-                            <div style={{ position: 'relative' }}>
-                                <User size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
-                                <input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px 16px 12px 48px',
-                                        background: 'rgba(15, 23, 42, 0.6)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontSize: '0.95rem'
-                                    }}
-                                    placeholder="Your Name"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.9rem' }}>Email Address</label>
-                            <div style={{ position: 'relative' }}>
-                                <Mail size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    disabled
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px 16px 12px 48px',
-                                        background: 'rgba(15, 23, 42, 0.4)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '12px',
-                                        color: 'rgba(255, 255, 255, 0.5)',
-                                        fontSize: '0.95rem',
-                                        cursor: 'not-allowed'
-                                    }}
-                                    placeholder="Your Email"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.9rem' }}>Phone Number</label>
-                            <div style={{ position: 'relative' }}>
-                                <Phone size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px 16px 12px 48px',
-                                        background: 'rgba(15, 23, 42, 0.6)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontSize: '0.95rem'
-                                    }}
-                                    placeholder="Your Phone Number"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.9rem' }}>Address</label>
-                            <div style={{ position: 'relative' }}>
-                                <MapPin size={18} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-sub)' }} />
-                                <textarea
-                                    name="address"
-                                    value={formData.address}
-                                    onChange={handleChange}
-                                    rows="4"
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px 16px 12px 48px',
-                                        background: 'rgba(15, 23, 42, 0.6)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontSize: '0.95rem',
-                                        resize: 'vertical',
-                                        minHeight: '100px',
-                                        fontFamily: 'inherit'
-                                    }}
-                                    placeholder="Your Address"
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ paddingTop: '1rem' }}>
+                    {tabs.map(tab => {
+                        const Icon = tab.icon;
+                        return (
                             <button
-                                type="submit"
-                                disabled={loading}
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
                                 style={{
-                                    padding: '12px 32px',
-                                    background: 'var(--primary-color)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '8px',
-                                    opacity: loading ? 0.7 : 1
+                                    gap: '1rem',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '12px',
+                                    border: 'none',
+                                    background: activeTab === tab.id ? 'var(--primary-color)' : 'transparent',
+                                    color: activeTab === tab.id ? 'white' : 'var(--text-sub)',
+                                    fontWeight: '700',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    textAlign: 'left',
+                                    boxShadow: activeTab === tab.id ? '0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent)' : 'none'
                                 }}
                             >
-                                {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                                Save Changes
+                                <Icon size={18} />
+                                {tab.label}
                             </button>
-                        </div>
-                    </form>
-                </section>
+                        );
+                    })}
+                </div>
 
-                {/* Google Calendar Integration Section */}
-                <section style={{
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    padding: '2rem',
-                    borderRadius: '24px',
-                    border: '1px solid var(--border-color)',
-                    backdropFilter: 'blur(10px)'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem' }}>
-                        <div style={{ padding: '10px', background: 'rgba(66, 133, 244, 0.1)', borderRadius: '12px', color: '#4285F4' }}>
-                            <Calendar size={24} />
-                        </div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Google Calendar Integration</h2>
-                    </div>
+                {/* Content Area */}
+                <div className="settings-content">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            {/* General Tab */}
+                            {activeTab === 'general' && (
+                                <section style={{
+                                    background: 'rgba(255, 255, 255, 0.02)',
+                                    padding: '2rem',
+                                    borderRadius: '24px',
+                                    border: '1px solid var(--border-color)',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
+                                    <SectionTitle label="General Information" icon={User} color="var(--primary-color)" />
 
-                    <div style={{ maxWidth: '600px' }}>
-                        <p style={{ color: 'var(--text-sub)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                            Connect your Google Calendar to automatically sync reminders and events created through Buddy AI.
-                        </p>
+                                    <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '1.5rem', maxWidth: '600px' }}>
+                                        <InputGroup
+                                            label="Full Name"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            placeholder="Your Name"
+                                            icon={<User size={18} />}
+                                        />
+                                        <InputGroup
+                                            label="Email Address"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            placeholder="Your Email"
+                                            disabled
+                                            icon={<Mail size={18} />}
+                                        />
+                                        <InputGroup
+                                            label="Phone Number"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            placeholder="Your Phone Number"
+                                            type="tel"
+                                            icon={<Phone size={18} />}
+                                        />
+                                        <InputGroup
+                                            label="Address"
+                                            name="address"
+                                            value={formData.address}
+                                            onChange={handleChange}
+                                            placeholder="Your Address"
+                                            type="textarea"
+                                            icon={<MapPin size={18} />}
+                                        />
 
-                        {/* Connection Status */}
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '16px',
-                            background: isCalendarLinked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)',
-                            borderRadius: '12px',
-                            border: `1px solid ${isCalendarLinked ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.2)'}`,
-                            marginBottom: '1.5rem'
-                        }}>
-                            {isCalendarLinked ? (
-                                <>
-                                    <CheckCircle size={20} color="#10b981" />
-                                    <div style={{ flex: 1 }}>
-                                        <p style={{ margin: 0, fontWeight: '600', color: '#10b981' }}>Connected</p>
-                                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)' }}>
-                                            Your Google Calendar is linked and syncing
-                                        </p>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <XCircle size={20} color="#94a3b8" />
-                                    <div style={{ flex: 1 }}>
-                                        <p style={{ margin: 0, fontWeight: '600', color: '#94a3b8' }}>Not Connected</p>
-                                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)' }}>
-                                            Link your Google Calendar to enable sync
-                                        </p>
-                                    </div>
-                                </>
+                                        <div style={{ paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                                            <button
+                                                type="submit"
+                                                disabled={loading}
+                                                style={{
+                                                    padding: '12px 32px',
+                                                    background: 'var(--primary-color)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '12px',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    opacity: loading ? 0.7 : 1,
+                                                    boxShadow: '0 10px 20px -5px rgba(var(--primary-rgb), 0.4)'
+                                                }}
+                                            >
+                                                {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                                                Save Changes
+                                            </button>
+                                        </div>
+                                    </form>
+                                </section>
                             )}
-                        </div>
 
-                        {/* Action Buttons */}
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                            {!isCalendarLinked ? (
-                                <button
-                                    onClick={handleLinkCalendar}
-                                    disabled={calendarLinking}
-                                    style={{
-                                        padding: '12px 24px',
-                                        background: '#4285F4',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        opacity: calendarLinking ? 0.7 : 1
-                                    }}
-                                >
-                                    {calendarLinking ? <Loader2 className="animate-spin" size={18} /> : <Link2 size={18} />}
-                                    Link Google Calendar
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => setShowUnlinkConfirm(true)}
-                                    disabled={calendarUnlinking}
-                                    style={{
-                                        padding: '12px 24px',
-                                        background: 'rgba(239, 68, 68, 0.1)',
-                                        color: '#ef4444',
-                                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                                        borderRadius: '12px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        opacity: calendarUnlinking ? 0.7 : 1
-                                    }}
-                                >
-                                    {calendarUnlinking ? <Loader2 className="animate-spin" size={18} /> : <Unlink size={18} />}
-                                    Unlink Calendar
-                                </button>
+                            {/* Integrations Tab */}
+                            {activeTab === 'integrations' && (
+                                <section style={{
+                                    background: 'rgba(255, 255, 255, 0.02)',
+                                    padding: '2rem',
+                                    borderRadius: '24px',
+                                    border: '1px solid var(--border-color)',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
+                                    <SectionTitle label="Google Calendar Integration" icon={Calendar} color="#4285F4" />
+
+                                    <div style={{ maxWidth: '600px' }}>
+                                        <p style={{ color: 'var(--text-sub)', marginBottom: '1.5rem', lineHeight: '1.6', fontSize: '0.95rem' }}>
+                                            Connect your Google Calendar to automatically sync reminders and events created through Buddy AI.
+                                        </p>
+
+                                        {/* Status Card */}
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '16px',
+                                            padding: '20px',
+                                            background: isCalendarLinked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                            borderRadius: '16px',
+                                            border: `1px solid ${isCalendarLinked ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.2)'}`,
+                                            marginBottom: '2rem'
+                                        }}>
+                                            <div style={{
+                                                padding: '10px',
+                                                borderRadius: '50%',
+                                                background: isCalendarLinked ? '#10b981' : '#94a3b8',
+                                                color: 'white',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                {isCalendarLinked ? <CheckCircle size={24} /> : <XCircle size={24} />}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '700', color: isCalendarLinked ? '#10b981' : 'var(--text-sub)' }}>
+                                                    {isCalendarLinked ? 'Connected' : 'Not Connected'}
+                                                </h4>
+                                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)' }}>
+                                                    {isCalendarLinked ? 'Your Google Calendar is syncing.' : 'Link your calendar to enable sync.'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            {!isCalendarLinked ? (
+                                                <button
+                                                    onClick={handleLinkCalendar}
+                                                    disabled={calendarLinking}
+                                                    style={{
+                                                        padding: '12px 24px',
+                                                        background: '#4285F4',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '12px',
+                                                        fontWeight: '600',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        opacity: calendarLinking ? 0.7 : 1,
+                                                        boxShadow: '0 4px 15px rgba(66, 133, 244, 0.3)'
+                                                    }}
+                                                >
+                                                    {calendarLinking ? <Loader2 className="animate-spin" size={18} /> : <Link2 size={18} />}
+                                                    Link Google Calendar
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setShowUnlinkConfirm(true)}
+                                                    disabled={calendarUnlinking}
+                                                    style={{
+                                                        padding: '12px 24px',
+                                                        background: 'transparent',
+                                                        color: '#ef4444',
+                                                        border: '1px solid rgba(239, 68, 68, 0.5)',
+                                                        borderRadius: '12px',
+                                                        fontWeight: '600',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        opacity: calendarUnlinking ? 0.7 : 1
+                                                    }}
+                                                >
+                                                    {calendarUnlinking ? <Loader2 className="animate-spin" size={18} /> : <Unlink size={18} />}
+                                                    Unlink Calendar
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </section>
                             )}
-                        </div>
 
-                        {/* Info Note */}
-                        {isCalendarLinked && (
-                            <div style={{
-                                marginTop: '1.5rem',
-                                padding: '12px 16px',
-                                background: 'rgba(59, 130, 246, 0.1)',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(59, 130, 246, 0.2)'
-                            }}>
-                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)', lineHeight: '1.5' }}>
-                                    💡 <strong>Tip:</strong> When creating reminders with Buddy, you can choose to save them to "Buddy + Google" to automatically sync with your Google Calendar.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </section>
+                            {/* Danger Zone Tab */}
+                            {activeTab === 'danger' && (
+                                <section style={{
+                                    background: 'rgba(239, 68, 68, 0.05)',
+                                    padding: '2rem',
+                                    borderRadius: '24px',
+                                    border: '1px solid rgba(239, 68, 68, 0.2)'
+                                }}>
+                                    <SectionTitle label="Danger Zone" icon={AlertTriangle} color="#ef4444" />
 
-                {/* Danger Zone */}
-                <section style={{
-                    background: 'rgba(239, 68, 68, 0.05)',
-                    padding: '2rem',
-                    borderRadius: '24px',
-                    border: '1px solid rgba(239, 68, 68, 0.2)'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem' }}>
-                        <div style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', color: '#ef4444' }}>
-                            <AlertTriangle size={24} />
-                        </div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0, color: '#ef4444' }}>Danger Zone</h2>
-                    </div>
+                                    <p style={{ color: 'var(--text-sub)', marginBottom: '2rem', maxWidth: '600px', lineHeight: '1.6' }}>
+                                        Once you delete your account, there is no going back. Please be certain. All your data including profile, settings, and activity will be permanently removed.
+                                    </p>
 
-                    <p style={{ color: 'var(--text-sub)', marginBottom: '1.5rem', maxWidth: '600px', lineHeight: '1.6' }}>
-                        Once you delete your account, there is no going back. Please be certain. All your data including profile, settings, and activity will be permanently removed.
-                    </p>
+                                    <button
+                                        onClick={() => setShowDeleteConfirm(true)}
+                                        style={{
+                                            padding: '12px 24px',
+                                            background: '#ef4444',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)'
+                                        }}
+                                    >
+                                        <Trash2 size={18} />
+                                        Delete My Account
+                                    </button>
+                                </section>
+                            )}
 
-                    <button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        style={{
-                            padding: '12px 24px',
-                            background: '#ef4444',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '12px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <Trash2 size={18} />
-                        Delete My Account
-                    </button>
-                </section>
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
             </div>
 
-            {/* Delete Confirmation Modal */}
+            {/* Modals */}
             <AnimatePresence>
                 {showDeleteConfirm && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        style={{
-                            position: 'fixed',
-                            inset: 0,
-                            background: 'rgba(0,0,0,0.8)',
-                            backdropFilter: 'blur(5px)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 1000
-                        }}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            style={{
-                                background: '#1e293b',
-                                padding: '2rem',
-                                borderRadius: '24px',
-                                maxWidth: '400px',
-                                width: '90%',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                            }}
-                        >
-                            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                                <div style={{
-                                    width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)',
-                                    color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem'
-                                }}>
-                                    <AlertTriangle size={32} />
-                                </div>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Are you sure?</h3>
-                                <p style={{ color: 'var(--text-sub)' }}>
-                                    This action cannot be undone. This will permanently delete your account and remove your data from our servers.
-                                </p>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button
-                                    onClick={() => setShowDeleteConfirm(false)}
-                                    disabled={deleteLoading}
-                                    style={{
-                                        flex: 1,
-                                        padding: '12px',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontWeight: '600',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleDeleteAccount}
-                                    disabled={deleteLoading}
-                                    style={{
-                                        flex: 1,
-                                        padding: '12px',
-                                        background: '#ef4444',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    {deleteLoading ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Delete'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
+                    <Modal
+                        icon={AlertTriangle}
+                        iconColor="#ef4444"
+                        title="Are you sure?"
+                        description="This action cannot be undone. This will permanently delete your account."
+                        confirmText="Confirm Delete"
+                        confirmColor="#ef4444"
+                        onConfirm={handleDeleteAccount}
+                        onCancel={() => setShowDeleteConfirm(false)}
+                        loading={deleteLoading}
+                    />
                 )}
-            </AnimatePresence>
-
-            {/* Unlink Calendar Confirmation Modal */}
-            <AnimatePresence>
                 {showUnlinkConfirm && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        style={{
-                            position: 'fixed',
-                            inset: 0,
-                            background: 'rgba(0,0,0,0.8)',
-                            backdropFilter: 'blur(5px)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 1000
-                        }}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            style={{
-                                background: '#1e293b',
-                                padding: '2rem',
-                                borderRadius: '24px',
-                                maxWidth: '400px',
-                                width: '90%',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                            }}
-                        >
-                            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                                <div style={{
-                                    width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)',
-                                    color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem'
-                                }}>
-                                    <Unlink size={32} />
-                                </div>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Unlink Google Calendar?</h3>
-                                <p style={{ color: 'var(--text-sub)' }}>
-                                    This will disconnect your Google Calendar from Buddy AI. You can always reconnect it later.
-                                </p>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button
-                                    onClick={() => setShowUnlinkConfirm(false)}
-                                    disabled={calendarUnlinking}
-                                    style={{
-                                        flex: 1,
-                                        padding: '12px',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontWeight: '600',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleUnlinkCalendar}
-                                    disabled={calendarUnlinking}
-                                    style={{
-                                        flex: 1,
-                                        padding: '12px',
-                                        background: '#ef4444',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        color: 'white',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    {calendarUnlinking ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Unlink'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
+                    <Modal
+                        icon={Unlink}
+                        iconColor="#ef4444"
+                        title="Unlink Google Calendar?"
+                        description="This will disconnect your Google Calendar. You can reconnect it later."
+                        confirmText="Confirm Unlink"
+                        confirmColor="#ef4444"
+                        onConfirm={handleUnlinkCalendar}
+                        onCancel={() => setShowUnlinkConfirm(false)}
+                        loading={calendarUnlinking}
+                    />
                 )}
             </AnimatePresence>
+
+            <style>{`
+                @media (max-width: 768px) {
+                    .settings-container {
+                        grid-template-columns: 1fr !important;
+                        gap: 1.5rem !important;
+                    }
+                    .settings-tabs {
+                        flex-direction: row !important;
+                        overflow-x: auto;
+                        padding: 8px !important;
+                    }
+                    .tabs-header {
+                        display: none;
+                    }
+                    .settings-tabs button {
+                        padding: 8px 12px !important;
+                        white-space: nowrap;
+                    }
+                }
+            `}</style>
         </div>
     );
+};
+
+// --- Sub-components & Styles ---
+const SectionTitle = ({ label, icon: Icon, color }) => (
+    <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            background: 'var(--bg-lite)',
+            border: '1px solid var(--border-color)',
+            color: color || 'var(--primary-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+        }}>
+            <Icon size={20} />
+        </div>
+        <div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>{label}</h3>
+        </div>
+    </div>
+);
+
+const InputGroup = ({ label, name, value, onChange, type = 'text', placeholder = '', required = false, disabled = false, icon }) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const isPassword = type === 'password';
+    const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
+    return (
+        <div style={{ marginBottom: '0.5rem' }}>
+            <label style={LabelStyle}>{label} {required && <span style={{ color: '#ef4444' }}>*</span>}</label>
+            {type === 'textarea' ? (
+                <div style={{ position: 'relative' }}>
+                    {icon && <div style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-sub)' }}>{icon}</div>}
+                    <textarea
+                        name={name}
+                        style={{ ...InputStyle, minHeight: '100px', fontFamily: 'inherit', paddingLeft: icon ? '48px' : '16px' }}
+                        value={value}
+                        onChange={onChange}
+                        placeholder={placeholder}
+                        required={required}
+                        disabled={disabled}
+                    />
+                </div>
+            ) : (
+                <div style={{ position: 'relative' }}>
+                    {icon && <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }}>{icon}</div>}
+                    <input
+                        type={inputType}
+                        name={name}
+                        style={{ ...InputStyle, paddingRight: isPassword ? '40px' : '16px', paddingLeft: icon ? '48px' : '16px' }}
+                        value={value}
+                        onChange={onChange}
+                        placeholder={placeholder}
+                        required={required}
+                        disabled={disabled}
+                    />
+                    {isPassword && (
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            style={{
+                                position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)'
+                            }}
+                        >
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const Modal = ({ icon: Icon, iconColor, title, description, confirmText, confirmColor, onConfirm, onCancel, loading }) => (
+    <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}
+    >
+        <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            style={{
+                background: 'var(--card-bg)', padding: '2rem', borderRadius: '24px', maxWidth: '400px', width: '90%',
+                border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
+        >
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <div style={{
+                    width: '60px', height: '60px', borderRadius: '50%', background: `color-mix(in srgb, ${confirmColor} 10%, transparent)`,
+                    color: confirmColor, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem'
+                }}>
+                    <Icon size={32} />
+                </div>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)' }}>{title}</h3>
+                <p style={{ color: 'var(--text-sub)' }}>{description}</p>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+                <button
+                    onClick={onCancel}
+                    disabled={loading}
+                    style={{
+                        flex: 1, padding: '12px', background: 'var(--bg-lite)', border: '1px solid var(--border-color)',
+                        borderRadius: '12px', color: 'var(--text-main)', fontWeight: '600', cursor: 'pointer'
+                    }}
+                >
+                    Cancel
+                </button>
+                <button
+                    onClick={onConfirm}
+                    disabled={loading}
+                    style={{
+                        flex: 1, padding: '12px', background: confirmColor, border: 'none', borderRadius: '12px',
+                        color: 'white', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                    }}
+                >
+                    {loading ? <Loader2 size={18} className="animate-spin" /> : confirmText}
+                </button>
+            </div>
+        </motion.div>
+    </motion.div>
+);
+
+const LabelStyle = {
+    display: 'block', color: 'var(--text-sub)', fontSize: '0.75rem', fontWeight: '800',
+    marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.8
+};
+
+const InputStyle = {
+    width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-color)',
+    background: 'var(--bg-lite)', color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: '500',
+    outline: 'none', transition: 'all 0.2s ease', backdropFilter: 'blur(10px)'
 };
 
 export default UserSettings;

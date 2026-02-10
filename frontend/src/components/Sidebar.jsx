@@ -86,7 +86,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                         <div className="logo-icon-box">
                             <ShieldCheck size={18} color="white" />
                         </div>
-                        {!isCollapsed && <span className="logo-text">VISION UI PRO</span>}
+                        {!isCollapsed && <span className="logo-text">BUDDY AI</span>}
                     </div>
                 </div>
 
@@ -162,20 +162,23 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                 .logo-icon-box {
                     width: 32px;
                     height: 32px;
-                    background: linear-gradient(135deg, var(--primary-color) 0%, color-mix(in srgb, var(--primary-color), black 20%) 100%);
-                    border-radius: 8px;
+                    background: linear-gradient(135deg, #0075ff 0%, #00f2ad 100%);
+                    border-radius: 10px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     flex-shrink: 0;
-                    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+                    box-shadow: 0 4px 12px rgba(0, 117, 255, 0.3);
                 }
 
                 .logo-text {
                     font-weight: 800;
-                    font-size: 0.9rem;
-                    letter-spacing: 0.05em;
+                    font-size: 1rem;
+                    letter-spacing: 0.1em;
                     color: white;
+                    background: linear-gradient(135deg, #fff 0%, #a5f3fc 100%);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
                 }
 
                 .sidebar-separator {
