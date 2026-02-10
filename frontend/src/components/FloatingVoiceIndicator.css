@@ -1,0 +1,122 @@
+.floating-voice-indicator {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 9999;
+}
+
+.voice-bubble {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    transition: transform 0.2s ease;
+}
+
+.voice-bubble:hover .voice-icon {
+    transform: scale(1.1);
+    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
+}
+
+.voice-bubble:active .voice-icon {
+    transform: scale(0.95);
+}
+
+.voice-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.voice-icon.ambient {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.voice-icon.listening {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7),
+        0 8px 24px rgba(16, 185, 129, 0.6);
+    animation: listening-pulse 1.5s ease-in-out infinite;
+    position: relative;
+}
+
+.voice-icon.listening::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 3px solid rgba(16, 185, 129, 0.5);
+    animation: ring-expand 1.5s ease-out infinite;
+}
+
+.voice-icon.listening::after {
+    content: '';
+    position: absolute;
+    inset: -16px;
+    border-radius: 50%;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+    animation: ring-expand 1.5s ease-out infinite 0.3s;
+}
+
+.voice-transcript {
+    background: rgba(15, 7, 32, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 12px 20px;
+    border-radius: 20px;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    max-width: 300px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.voice-transcript p {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+        transform: scale(1);
+    }
+
+    50% {
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.6);
+        transform: scale(1.05);
+    }
+}
+
+@keyframes listening-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.6);
+    }
+
+    50% {
+        box-shadow: 0 8px 40px rgba(16, 185, 129, 0.9);
+    }
+}
+
+@keyframes ring-expand {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+}

@@ -1,0 +1,187 @@
+const User = require('../models/User');
+const paginate = require('../utils/paginate');
+
+// Get all users
+const getUsers = async (req, res) => {
+    try {
+        const query = {};
+        if (req.query.role) {
+            if (req.query.role === '!user') {
+                query.role = { $ne: 'user' };
+            } else {
+                query.role = req.query.role;
+            }
+        }
+        const results = await paginate(User, query, req.query);
+        // Remove passwords from results
+        results.data = results.data.map(u => {
+            const user = u.toObject();
+            delete user.password;
+            return user;
+        });
+        res.json({ success: true, ...results });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Create user
+const createUser = async (req, res) => {
+    try {
+        const { name, email, password, phone, role } = req.body;
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(400).json({ success: false, message: 'User already exists' });
+        }
+        const user = await User.create({ name, email, password, phone, role });
+        const userResponse = user.toObject();
+        delete userResponse.password;
+        res.status(201).json({ success: true, data: userResponse });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Update user
+const updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, phone, role, password } = req.body;
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.name = name || user.name;
+        user.email = email || user.email;
+        user.phone = phone || user.phone;
+        user.role = role || user.role;
+
+
+        if (password) {
+            user.password = password;
+        }
+
+        if (req.body.voicePreferences) {
+            user.voicePreferences = {
+                ...user.voicePreferences,
+                ...req.body.voicePreferences
+            };
+        }
+
+        await user.save();
+        const userResponse = user.toObject();
+        delete userResponse.password;
+        res.json({ success: true, data: userResponse });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Delete user
+const deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findByIdAndDelete(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.json({ success: true, message: 'User deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Save FCM token
+const saveFcmToken = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ success: false, message: 'Token is required' });
+        }
+
+        await User.findByIdAndUpdate(userId, {
+            $addToSet: { fcmTokens: token }
+        });
+
+        res.json({ success: true, message: 'Token saved' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const updateProfile = async (req, res) => {
+    try {
+        const userId = req.user._id; // Ensure authentication passes req.user
+        const { name, phone, address } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.name = name || user.name;
+        user.phone = phone || user.phone;
+        user.address = address || user.address;
+
+        if (req.body.voicePreferences) {
+            user.voicePreferences = {
+                ...user.voicePreferences,
+                ...req.body.voicePreferences
+            };
+        }
+
+        await user.save();
+        const userResponse = user.toObject();
+        delete userResponse.password;
+
+        res.json({ success: true, message: 'Profile updated successfully', data: userResponse });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const deleteMyAccount = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await User.findByIdAndDelete(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.json({ success: true, message: 'Account deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const unlinkCalendar = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.googleRefreshToken = null;
+        await user.save();
+
+        res.json({ success: true, message: 'Google Calendar unlinked successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+module.exports = {
+    getUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+    saveFcmToken,
+    updateProfile,
+    deleteMyAccount,
+    unlinkCalendar
+};

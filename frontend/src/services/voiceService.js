@@ -1,0 +1,137 @@
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const voiceService = {
+    parseVoice: async (text, language = 'en-US', history = []) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/voice/parse`, { text, language, history }, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    saveReminder: async (reminderData, saveTo) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/voice/save`, { reminderData, saveTo }, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    getReminders: async (page = 1, limit = 10, search = '') => {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/voice?page=${page}&limit=${limit}&search=${search}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response;
+    },
+
+    deleteReminder: async (id) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.delete(`${API_URL}/voice/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    updateReminder: async (id, data) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.put(`${API_URL}/voice/${id}`, data, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    getGoogleAuthUrl: async () => {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/voice/google/auth`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    getMemories: async (page = 1, limit = 10, search = '') => {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/voice/memories?page=${page}&limit=${limit}&search=${search}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response;
+    },
+
+    deleteMemory: async (id) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.delete(`${API_URL}/voice/memories/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    updateMemory: async (id, data) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.put(`${API_URL}/voice/memories/${id}`, data, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    uploadPrescription: async (file, language) => {
+        const token = localStorage.getItem('token');
+        const formData = new FormData();
+        formData.append('document', file);
+        formData.append('language', language);
+
+        const response = await axios.post(`${API_URL}/voice/upload-prescription`, formData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    confirmMedicalReminders: async (prescriptionId, confirmationData) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/voice/confirm-medical-reminders`, {
+            prescriptionId,
+            confirmationData
+        }, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    getPrescriptions: async (page = 1, limit = 10, search = '') => {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/voice/prescriptions?page=${page}&limit=${limit}&search=${search}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response;
+    },
+
+    getPrescriptionById: async (id) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/voice/prescriptions/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    updatePrescription: async (id, data) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.put(`${API_URL}/voice/prescriptions/${id}`, data, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    deletePrescription: async (id) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.delete(`${API_URL}/voice/prescriptions/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    }
+};
+
+export default voiceService;
