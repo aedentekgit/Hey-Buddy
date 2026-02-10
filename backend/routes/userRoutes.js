@@ -6,14 +6,16 @@ const userController = require('../controllers/userController');
 
 const { protect, authorize } = require('../middlewares/auth');
 
-router.get('/', protect, authorize('admin'), userController.getUsers);
-router.post('/', protect, authorize('admin'), userController.createUser);
-router.put('/:id', protect, authorize('admin'), userController.updateUser);
-router.delete('/:id', protect, authorize('admin'), userController.deleteUser);
-// Profile Routes (Any authenticated user)
+// Profile Routes (Any authenticated user) - MUST come before /:id routes
 router.put('/profile', protect, userController.updateProfile);
 router.delete('/profile', protect, userController.deleteMyAccount);
 router.post('/fcm-token', protect, userController.saveFcmToken);
 router.post('/unlink-calendar', protect, userController.unlinkCalendar);
+
+// Admin Routes with :id parameter
+router.get('/', protect, authorize('admin'), userController.getUsers);
+router.post('/', protect, authorize('admin'), userController.createUser);
+router.put('/:id', protect, authorize('admin'), userController.updateUser);
+router.delete('/:id', protect, authorize('admin'), userController.deleteUser);
 
 module.exports = router;

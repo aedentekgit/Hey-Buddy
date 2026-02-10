@@ -92,11 +92,13 @@ const DashboardLayout = ({ children }) => {
                     paddingRight: window.innerWidth >= 1024 ? '15px' : '0'
                 }}
             >
-                <Header
-                    onMenuClick={toggleSidebar}
-                    title={title}
-                    hideSearch={isBuddyPage}
-                />
+                {!isBuddyPage && (
+                    <Header
+                        onMenuClick={toggleSidebar}
+                        title={title}
+                        hideSearch={isBuddyPage}
+                    />
+                )}
                 <main
                     className={`content-container ${isBuddyPage ? 'buddy-content-override' : ''}`}
                 >
@@ -121,26 +123,20 @@ const DashboardLayout = ({ children }) => {
                     }
 
                     ${isBuddyPage ? `
-                    @media (max-width: 768px) {
-                        .app-header {
-                            display: none !important;
-                        }
-                        .main-content {
-                            padding-bottom: 80px !important; /* Adjust for buddy page specifcally */
-                        }
-                    }
-                    
                     /* Buddy Page Specific Styles injected dynamically */
                     .buddy-content-override {
                         padding: 20px 0 0 0 !important;
                         max-width: 100% !important;
                         overflow: hidden !important;
-                        height: calc(100vh - 120px) !important;
+                        height: calc(100vh - 20px) !important;
                     }
 
                     @media (max-width: 768px) {
                         .buddy-content-override {
                             height: calc(100vh - 80px) !important; /* Adjust height for navbar */
+                        }
+                        .main-content {
+                            padding-bottom: 80px !important; /* Adjust for buddy page specifically */
                         }
                     }
                     ` : ''}

@@ -206,19 +206,9 @@ const Memories = () => {
 
     return (
         <div className="memories-page-container">
-            {/* Tab Header */}
-            <div className="tabs-header">
-                <button onClick={() => setActiveTab('medical')} style={TabButtonStyle('medical')}>
-                    <FileText size={18} /> Document
-                </button>
-                <button onClick={() => setActiveTab('memories')} style={TabButtonStyle('memories')}>
-                    <Brain size={18} /> Buddy Memory
-                </button>
-            </div>
-
             <div style={TableContainerStyle} className="glass-card">
-                {/* Search Header */}
-                <div className="search-header-flex">
+                {/* Search Header with Tab Buttons */}
+                <div className="search-header-flex" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
                         <input
@@ -228,6 +218,16 @@ const Memories = () => {
                             onChange={(e) => activeTab === 'memories' ? setMemorySearch(e.target.value) : setRecordSearch(e.target.value)}
                             style={SearchInputStyle}
                         />
+                    </div>
+
+                    {/* Tab Buttons on Right Side */}
+                    <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+                        <button onClick={() => setActiveTab('medical')} style={TabButtonStyle('medical')}>
+                            <FileText size={18} /> Document
+                        </button>
+                        <button onClick={() => setActiveTab('memories')} style={TabButtonStyle('memories')}>
+                            <Brain size={18} /> Buddy Memory
+                        </button>
                     </div>
                 </div>
 

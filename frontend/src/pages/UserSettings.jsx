@@ -13,6 +13,7 @@ const UserSettings = () => {
     const [loading, setLoading] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -92,6 +93,7 @@ const UserSettings = () => {
         try {
             await api.post('/users/unlink-calendar');
             toast.success('Google Calendar unlinked successfully');
+            setShowUnlinkConfirm(false);
             // Refresh user data
             window.location.reload();
         } catch (error) {
@@ -340,7 +342,7 @@ const UserSettings = () => {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={handleUnlinkCalendar}
+                                    onClick={() => setShowUnlinkConfirm(true)}
                                     disabled={calendarUnlinking}
                                     style={{
                                         padding: '12px 24px',
@@ -499,6 +501,94 @@ const UserSettings = () => {
                                     }}
                                 >
                                     {deleteLoading ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Delete'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Unlink Calendar Confirmation Modal */}
+            <AnimatePresence>
+                {showUnlinkConfirm && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(0,0,0,0.8)',
+                            backdropFilter: 'blur(5px)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1000
+                        }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            style={{
+                                background: '#1e293b',
+                                padding: '2rem',
+                                borderRadius: '24px',
+                                maxWidth: '400px',
+                                width: '90%',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                            }}
+                        >
+                            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                                <div style={{
+                                    width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)',
+                                    color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem'
+                                }}>
+                                    <Unlink size={32} />
+                                </div>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Unlink Google Calendar?</h3>
+                                <p style={{ color: 'var(--text-sub)' }}>
+                                    This will disconnect your Google Calendar from Buddy AI. You can always reconnect it later.
+                                </p>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button
+                                    onClick={() => setShowUnlinkConfirm(false)}
+                                    disabled={calendarUnlinking}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '12px',
+                                        color: 'white',
+                                        fontWeight: '600',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleUnlinkCalendar}
+                                    disabled={calendarUnlinking}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        background: '#ef4444',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        color: 'white',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    {calendarUnlinking ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Unlink'}
                                 </button>
                             </div>
                         </motion.div>

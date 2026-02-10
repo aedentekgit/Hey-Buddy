@@ -118,14 +118,18 @@ const updateProfile = async (req, res) => {
         const userId = req.user._id; // Ensure authentication passes req.user
         const { name, phone, address } = req.body;
 
+        console.log('[UserController] Updating profile for user:', userId);
+        console.log('[UserController] Update data:', { name, phone, address });
+
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        user.name = name || user.name;
-        user.phone = phone || user.phone;
-        user.address = address || user.address;
+        // Update only if values are provided (allow empty strings to clear fields)
+        if (name !== undefined) user.name = name;
+        if (phone !== undefined) user.phone = phone;
+        if (address !== undefined) user.address = address;
 
         if (req.body.voicePreferences) {
             user.voicePreferences = {
@@ -138,8 +142,10 @@ const updateProfile = async (req, res) => {
         const userResponse = user.toObject();
         delete userResponse.password;
 
+        console.log('[UserController] Profile updated successfully');
         res.json({ success: true, message: 'Profile updated successfully', data: userResponse });
     } catch (error) {
+        console.error('[UserController] Update profile error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -147,12 +153,18 @@ const updateProfile = async (req, res) => {
 const deleteMyAccount = async (req, res) => {
     try {
         const userId = req.user._id;
+        console.log('[UserController] Deleting account for user:', userId);
+
         const user = await User.findByIdAndDelete(userId);
         if (!user) {
+            console.error('[UserController] User not found for deletion:', userId);
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+
+        console.log('[UserController] Account deleted successfully:', userId);
         res.json({ success: true, message: 'Account deleted successfully' });
     } catch (error) {
+        console.error('[UserController] Delete account error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
