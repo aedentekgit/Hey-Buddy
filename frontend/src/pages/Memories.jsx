@@ -64,7 +64,15 @@ const Memories = () => {
         toggleListening();
     };
 
-    // --- Data Fetching ---
+    // --- Effects for Search (Listen to Global Mobile Header) ---
+    useEffect(() => {
+        const handleGlobalSearch = (e) => {
+            setSearch(e.detail);
+        };
+        window.addEventListener('buddy-search', handleGlobalSearch);
+        return () => window.removeEventListener('buddy-search', handleGlobalSearch);
+    }, []);
+
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchAllItems(1);
@@ -162,9 +170,9 @@ const Memories = () => {
     return (
         <div className="memories-page-container">
             <div className="table-container">
-                {/* Search Header */}
+                {/* Search Header - Search Box Hidden on Mobile because global header has search */}
                 <div className="search-management-header" style={{ marginBottom: '20px' }}>
-                    <div className="buddy-search-box" style={{ width: '100%', maxWidth: '100%' }}>
+                    <div className="buddy-search-box hide-on-mobile" style={{ width: '100%', maxWidth: '100%' }}>
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />
                         <input
                             type="text"

@@ -3,37 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
     Users, BarChart2, ShoppingBag, Contact, Lightbulb,
     Presentation, Smartphone, Settings, HelpCircle,
-    GitBranch, ScanLine, Eye, Calendar, BookOpen, Cpu, ShieldCheck, User, MapPin
+    GitBranch, ScanLine, Eye, Calendar, BookOpen, Cpu, ShieldCheck, User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const MobileMoreMenu = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [userAddress, setUserAddress] = React.useState('');
 
-    React.useEffect(() => {
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    // Simple reverse geocoding or just coordinates for now if no API key
-                    // Ideally call backend wrapper, but for now we format nicely
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await res.json();
-                    const city = data.address.city || data.address.town || data.address.village;
-                    const state = data.address.state || data.address.country;
-                    setUserAddress(`${city}, ${state}`);
-                } catch (e) {
-                    setUserAddress("Unknown Location");
-                }
-            }, () => {
-                setUserAddress("Location Disabled");
-            });
-        } else {
-            setUserAddress("N/A");
-        }
-    }, []);
 
     // Actual Project Pages
     const allMenuItems = [
@@ -63,76 +40,12 @@ const MobileMoreMenu = () => {
 
     return (
         <div style={{
-            padding: '24px 20px',
+            padding: '10px 20px 100px 20px',
             background: 'var(--bg-color)',
             color: 'var(--text-main)',
             fontFamily: 'var(--font-family)',
             overflowX: 'hidden'
         }}>
-            {/* Header Section */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '24px',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    {/* Avatar Only */}
-                    <div style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '18px',
-                        background: 'linear-gradient(135deg, var(--primary-color), #000)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontWeight: '700',
-                        fontSize: '1.2rem',
-                        border: '2px solid var(--border-color)',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                    }}>
-                        {user?.name ? user.name.substring(0, 2).toUpperCase() : 'ME'}
-                    </div>
-
-                    {/* User Info */}
-                    <div>
-                        <div style={{
-                            fontSize: '1.1rem',
-                            fontWeight: '800',
-                            color: 'var(--text-main)',
-                            lineHeight: '1.2',
-                            letterSpacing: '0.01em'
-                        }}>
-                            {user?.name?.split(' ')[0].toUpperCase() || 'USER'}
-                        </div>
-                        <div style={{
-                            fontSize: '0.8rem',
-                            color: 'var(--text-sub)',
-                            fontWeight: '600',
-                            marginTop: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                        }}>
-                            <MapPin size={12} />
-                            {userAddress || 'Locating...'}
-                        </div>
-                    </div>
-                </div>
-
-
-            </div>
-
-            {/* Decorative Line */}
-            <div style={{
-                height: '2px',
-                background: 'linear-gradient(to right, var(--primary-color), transparent)',
-                marginBottom: '28px',
-                marginTop: '-12px',
-                opacity: 0.5,
-                borderRadius: '2px'
-            }}></div>
 
             {/* Grid Layout - Responsive */}
             <div style={{

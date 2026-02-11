@@ -101,20 +101,16 @@ const Login = () => {
                             <Bot size={40} className="logo-icon" />
                             <div className="logo-glow"></div>
                         </motion.div>
-                        <motion.h1
+                        {/* Auth Toggle */}
+                        <motion.div
+                            className="auth-toggle"
                             initial={{ y: 10, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.2 }}
                         >
-                            Buddy AI <span>Portal</span>
-                        </motion.h1>
-                        <motion.p
-                            initial={{ y: 10, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.3 }}
-                        >
-                            Experience the future of workspace automation
-                        </motion.p>
+                            <Link to="/login" className="toggle-item active">Sign In</Link>
+                            <Link to="/signup" className="toggle-item">Create Account</Link>
+                        </motion.div>
                     </div>
 
                     {/* Form */}
@@ -123,16 +119,15 @@ const Login = () => {
                             className="form-group"
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            transition={{ delay: 0.4 }}
+                            transition={{ delay: 0.3 }}
                         >
-                            <label>Professional Email</label>
                             <div className="input-field">
                                 <Mail size={18} className="field-icon" />
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="name@company.com"
+                                    placeholder="Professional Email"
                                     required
                                     autoComplete="email"
                                 />
@@ -143,31 +138,28 @@ const Login = () => {
                             className="form-group"
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            transition={{ delay: 0.5 }}
+                            transition={{ delay: 0.4 }}
                         >
-                            <div className="label-with-link">
-                                <label>Secure Password</label>
-                                <Link to="/forgot-password" title="Recover access">
-                                    Forgot?
-                                </Link>
-                            </div>
                             <div className="input-field">
                                 <Lock size={18} className="field-icon" />
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
+                                    placeholder="Secure Password"
                                     required
                                     autoComplete="current-password"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="visibility-toggle"
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
+                                <div className="field-actions">
+                                    <Link to="/forgot-password">Forgot?</Link>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="visibility-toggle"
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
 
@@ -219,22 +211,31 @@ const Login = () => {
                         >
                             <div className="divider">
                                 <div className="line"></div>
-                                <span>OR CONNECT WITH</span>
+                                <span>SOCIAL AUTH</span>
                                 <div className="line"></div>
                             </div>
-                            <div id="google-btn-wrapper"></div>
+
+                            <div className="social-grid">
+                                <button type="button" className="social-btn">
+                                    <svg viewBox="0 0 24 24" width="20" height="20">
+                                        <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.273 0 3.191 2.691 1.145 6.655L5.266 9.765z" />
+                                        <path fill="#34A853" d="M16.04 18.013c-1.09.696-2.415 1.132-4.04 1.132-2.909 0-5.385-1.936-6.266-4.527L1.614 17.73A11.907 11.907 0 0 0 12 24c3.12 0 6.012-1.026 8.324-2.775l-4.284-3.212z" />
+                                        <path fill="#4285F4" d="M23.955 12.136c0-.827-.066-1.636-.201-2.42H12v4.59h6.702a5.732 5.732 0 0 1-2.484 3.76l4.284 3.21c2.503-2.308 3.953-5.705 3.953-9.14z" />
+                                        <path fill="#FBBC05" d="M5.734 14.618A6.87 6.87 0 0 1 5.318 12c0-.918.155-1.801.432-2.618L1.614 6.638C.59 8.682 0 11 0 12c0 1 .59 3.318 1.614 5.362l4.12-3.144z" />
+                                    </svg>
+                                    <span>Google</span>
+                                </button>
+                                <button type="button" className="social-btn">
+                                    <svg viewBox="0 0 384 512" width="18" height="18" fill="currentColor">
+                                        <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+                                    </svg>
+                                    <span>Apple</span>
+                                </button>
+                            </div>
                         </motion.div>
                     )}
 
-                    {/* Switch Mode */}
-                    <motion.div
-                        className="mode-switch"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.8 }}
-                    >
-                        New to the system? <Link to="/signup">Request Access</Link>
-                    </motion.div>
+
                 </div>
 
                 {/* Footer Badges */}
@@ -251,28 +252,19 @@ const Login = () => {
             </motion.div>
 
             <style>{`
-                :root {
-                    --brand-primary: #764ba2;
-                    --brand-secondary: #667eea;
-                    --brand-glow: rgba(118, 75, 162, 0.5);
-                    --glass-bg: rgba(255, 255, 255, 0.03);
-                    --glass-border: rgba(255, 255, 255, 0.08);
-                    --text-primary: #ffffff;
-                    --text-secondary: rgba(255, 255, 255, 0.6);
-                    --input-bg: rgba(0, 0, 0, 0.2);
-                }
-
                 .login-container {
                     min-height: 100vh;
                     width: 100%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #060b28;
+                    background: var(--bg-color);
+                    background-image: var(--bg-image);
                     padding: 24px;
                     position: relative;
                     overflow: hidden;
-                    font-family: 'Plus Jakarta Sans', sans-serif;
+                    font-family: var(--font-family);
+                    transition: all 0.3s ease;
                 }
 
                 /* Animated Background */
@@ -286,14 +278,14 @@ const Login = () => {
                 .blob {
                     position: absolute;
                     border-radius: 50%;
-                    opacity: 0.4;
+                    opacity: 0.15;
                     animation: move 20s infinite alternate;
                 }
 
                 .blob-1 {
                     width: 400px;
                     height: 400px;
-                    background: var(--brand-primary);
+                    background: var(--primary-color);
                     top: -100px;
                     left: -100px;
                 }
@@ -301,7 +293,7 @@ const Login = () => {
                 .blob-2 {
                     width: 350px;
                     height: 350px;
-                    background: var(--brand-secondary);
+                    background: #6366F1;
                     bottom: -50px;
                     right: -50px;
                     animation-delay: -5s;
@@ -310,7 +302,7 @@ const Login = () => {
                 .blob-3 {
                     width: 300px;
                     height: 300px;
-                    background: #4a00e0;
+                    background: var(--primary-color);
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
@@ -326,24 +318,25 @@ const Login = () => {
                     position: absolute;
                     inset: 0;
                     z-index: 2;
-                    background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+                    background-image: radial-gradient(circle at 1px 1px, var(--border-color) 1px, transparent 0);
                     background-size: 32px 32px;
+                    opacity: 0.5;
                 }
 
                 .login-card {
                     width: 100%;
                     max-width: 440px;
                     z-index: 10;
-                    background: var(--glass-bg);
+                    background: var(--card-bg);
                     backdrop-filter: blur(25px);
                     -webkit-backdrop-filter: blur(25px);
-                    border: 1px solid var(--glass-border);
-                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 24px;
                     overflow: hidden;
-                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                    box-shadow: var(--card-shadow);
                     position: relative;
-                    /* Ensure it fits in viewport */
                     margin: auto;
+                    transition: all 0.3s ease;
                 }
 
                 .card-accent {
@@ -352,65 +345,100 @@ const Login = () => {
                     left: 0;
                     right: 0;
                     height: 4px;
-                    background: linear-gradient(90deg, var(--brand-secondary), var(--brand-primary));
+                    background: var(--primary-gradient);
                 }
 
                 .login-content {
-                    padding: 40px 40px 24px;
+                    padding: 24px 32px 20px;
                 }
 
                 /* Header */
                 .header-section {
                     text-align: center;
-                    margin-bottom: 24px;
+                    margin-bottom: 16px;
                 }
 
                 .logo-wrapper {
                     position: relative;
-                    width: 60px;
-                    height: 60px;
-                    margin: 0 auto 16px;
+                    width: 52px;
+                    height: 52px;
+                    margin: 0 auto 8px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                 }
 
                 .logo-icon {
-                    color: white;
+                    color: var(--primary-color);
                     z-index: 2;
                 }
 
                 .logo-glow {
                     position: absolute;
                     inset: 0;
-                    background: linear-gradient(135deg, var(--brand-secondary), var(--brand-primary));
+                    background: var(--primary-color);
                     border-radius: 16px;
-                    filter: blur(10px);
-                    opacity: 0.6;
+                    filter: blur(15px);
+                    opacity: 0.2;
                     animation: pulse-glow 3s infinite;
                 }
 
                 @keyframes pulse-glow {
-                    0%, 100% { transform: scale(1); opacity: 0.6; }
-                    50% { transform: scale(1.1); opacity: 0.8; }
+                    0%, 100% { transform: scale(1); opacity: 0.15; }
+                    50% { transform: scale(1.1); opacity: 0.25; }
                 }
 
                 .header-section h1 {
-                    font-size: 28px;
+                    font-size: 24px;
                     font-weight: 800;
-                    color: var(--text-primary);
-                    margin-bottom: 4px;
+                    color: var(--text-main);
+                    margin-bottom: 20px;
                     letter-spacing: -1px;
                 }
 
+                .auth-toggle {
+                    background: var(--bg-lite);
+                    padding: 4px;
+                    border-radius: 100px;
+                    display: flex;
+                    gap: 4px;
+                    max-width: 320px;
+                    margin: 8px auto 24px;
+                    border: 1px solid var(--border-color);
+                }
+
+                .toggle-item {
+                    flex: 1;
+                    padding: 10px 20px;
+                    border-radius: 100px;
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: var(--text-sub);
+                    text-decoration: none;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    text-align: center;
+                    white-space: nowrap;
+                }
+
+                .toggle-item.active {
+                    background: var(--card-bg);
+                    color: #1e293b;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                }
+
+                .toggle-item:not(.active):hover {
+                    color: var(--text-main);
+                    background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+                }
+
                 .header-section h1 span {
-                    background: linear-gradient(90deg, var(--brand-secondary), var(--brand-primary));
+                    background: var(--primary-gradient);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                 }
 
                 .header-section p {
-                    color: var(--text-secondary);
+                    color: var(--text-sub);
                     font-size: 14px;
                     font-weight: 500;
                     max-width: 250px;
@@ -422,19 +450,19 @@ const Login = () => {
                 .auth-form {
                     display: flex;
                     flex-direction: column;
-                    gap: 16px;
+                    gap: 12px;
                 }
 
                 .form-group {
                     display: flex;
                     flex-direction: column;
-                    gap: 6px;
+                    gap: 4px;
                 }
 
                 .form-group label {
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: var(--text-secondary);
+                    font-size: 11px;
+                    font-weight: 800;
+                    color: var(--text-sub);
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                     margin-left: 2px;
@@ -448,15 +476,15 @@ const Login = () => {
 
                 .label-with-link a {
                     font-size: 11px;
-                    font-weight: 600;
-                    color: var(--brand-secondary);
+                    font-weight: 700;
+                    color: var(--primary-color);
                     text-decoration: none;
                     transition: all 0.2s;
                 }
 
                 .label-with-link a:hover {
-                    color: white;
-                    text-shadow: 0 0 10px var(--brand-glow);
+                    opacity: 0.8;
+                    text-decoration: underline;
                 }
 
                 .input-field {
@@ -466,30 +494,10 @@ const Login = () => {
                     width: 100%;
                 }
 
-                .input-field::after {
-                    content: '';
-                    position: absolute;
-                    inset: -1px;
-                    border-radius: 12px;
-                    padding: 1px;
-                    background: linear-gradient(90deg, var(--brand-secondary), var(--brand-primary));
-                    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    -webkit-mask-composite: xor;
-                    mask-composite: exclude;
-                    opacity: 0;
-                    transition: opacity 0.3s;
-                    pointer-events: none;
-                }
-
-                .input-field:focus-within::after {
-                    opacity: 1;
-                }
-
                 .field-icon {
                     position: absolute;
                     left: 16px;
-                    color: var(--text-secondary);
+                    color: var(--text-sub);
                     pointer-events: none;
                     z-index: 10;
                     display: flex;
@@ -499,169 +507,194 @@ const Login = () => {
 
                 .auth-form .input-field input {
                     width: 100% !important;
-                    padding: 12px 16px 12px 48px !important;
-                    background: var(--input-bg) !important;
-                    border: 1px solid var(--glass-border) !important;
-                    border-radius: var(--radius-md) !important;
-                    color: white !important;
-                    font-size: 0.9rem !important;
+                    padding: 10px 16px 10px 44px !important;
+                    background: var(--bg-lite) !important;
+                    border: 1px solid var(--border-color) !important;
+                    border-radius: 12px !important;
+                    color: var(--text-main) !important;
+                    font-size: 0.95rem !important;
+                    font-weight: 500 !important;
                     outline: none !important;
                     transition: all 0.2s !important;
-                    height: 48px !important;
+                    height: 44px !important;
                 }
 
                 .auth-form .input-field input:focus {
-                    background: rgba(0, 0, 0, 0.4) !important;
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+                    background: var(--card-bg) !important;
+                    border-color: var(--primary-color) !important;
+                    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent) !important;
+                }
+
+                .field-actions {
+                    position: absolute;
+                    right: 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    z-index: 10;
+                }
+
+                .field-actions a {
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: var(--primary-color);
+                    text-decoration: none;
+                }
+
+                .field-actions a:hover {
+                    text-decoration: underline;
                 }
 
                 .visibility-toggle {
-                    position: absolute;
-                    right: 14px;
                     background: none;
                     border: none;
-                    color: var(--text-secondary);
+                    color: var(--text-sub);
                     cursor: pointer;
-                    z-index: 10;
                     display: flex;
                     align-items: center;
                     padding: 4px;
                 }
 
                 .visibility-toggle:hover {
-                    color: white;
+                    color: var(--text-main);
                 }
 
                 /* Button */
                 .btn-submit {
                     width: 100%;
-                    padding: 14px;
+                    padding: 12px;
                     background: var(--primary-color);
+                    background-image: var(--primary-gradient);
                     border: none;
-                    border-radius: var(--radius-md);
+                    border-radius: 12px;
                     color: white;
                     font-weight: 700;
                     font-size: 0.95rem;
                     cursor: pointer;
-                    margin-top: 4px;
-                    box-shadow: 0 8px 16px -4px var(--brand-glow);
-                    transition: all 0.3s;
+                    margin-top: 6px;
+                    box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--primary-color) 40%, transparent);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     position: relative;
                     overflow: hidden;
                 }
 
-                .btn-submit::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: -100%;
-                    width: 100%;
-                    height: 100%;
-                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-                    transition: 0.5s;
+                .btn-submit:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 12px 25px -8px color-mix(in srgb, var(--primary-color) 50%, transparent);
                 }
 
-                .btn-submit:hover::before {
-                    left: 100%;
+                .btn-submit:active {
+                    transform: translateY(0);
                 }
 
                 .btn-inner {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 10px;
+                    gap: 12px;
                 }
 
                 .btn-submit:disabled {
                     opacity: 0.7;
                     cursor: not-allowed;
+                    transform: none;
                 }
 
                 /* OAuth */
                 .oauth-section {
-                    margin-top: 24px;
+                    margin-top: 16px;
                 }
 
                 .divider {
                     display: flex;
                     align-items: center;
                     gap: 12px;
-                    margin-bottom: 20px;
+                    margin-bottom: 12px;
                 }
 
                 .divider .line {
                     flex: 1;
                     height: 1px;
-                    background: var(--glass-border);
+                    background: var(--border-color);
                 }
 
                 .divider span {
                     font-size: 10px;
                     font-weight: 800;
-                    color: var(--text-secondary);
+                    color: var(--text-sub);
                     letter-spacing: 0.1em;
                 }
 
-                #google-btn-wrapper {
-                    display: flex;
-                    justify-content: center;
-                    filter: grayscale(1) invert(1);
-                    opacity: 0.8;
-                    transition: 0.3s;
+                .social-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px;
                 }
 
-                #google-btn-wrapper:hover {
-                    filter: none;
-                    opacity: 1;
+                .social-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    padding: 10px;
+                    background: var(--card-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 12px;
+                    color: var(--text-main);
+                    font-size: 14px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .social-btn:hover {
+                    background: var(--bg-lite);
+                    border-color: var(--primary-color);
+                    transform: translateY(-1px);
+                }
+
+                .social-btn svg, .social-btn img {
+                    flex-shrink: 0;
                 }
 
                 /* Mode Switch */
                 .mode-switch {
                     text-align: center;
-                    margin-top: 24px;
-                    font-size: 13px;
-                    color: var(--text-secondary);
+                    margin-top: 16px;
+                    font-size: 14px;
+                    color: var(--text-sub);
+                    font-weight: 500;
                 }
 
                 .mode-switch a {
-                    color: var(--brand-secondary);
+                    color: var(--primary-color);
                     font-weight: 700;
                     text-decoration: none;
                 }
 
                 .mode-switch a:hover {
-                    color: white;
                     text-decoration: underline;
                 }
 
                 /* Footer Badges */
                 .card-footer {
-                    background: rgba(0, 0, 0, 0.2);
-                    padding: 12px 40px;
+                    background: color-mix(in srgb, var(--bg-color) 5%, transparent);
+                    padding: 12px 32px;
                     display: flex;
                     justify-content: center;
-                    gap: 20px;
-                    border-top: 1px solid var(--glass-border);
+                    gap: 24px;
+                    border-top: 1px solid var(--border-color);
                 }
 
                 .badge {
                     display: flex;
                     align-items: center;
-                    gap: 5px;
-                    font-size: 10px;
+                    gap: 6px;
+                    font-size: 11px;
                     font-weight: 700;
-                    color: var(--text-secondary);
+                    color: var(--text-sub);
                     text-transform: uppercase;
-                }
-
-                /* Animations */
-                .spin {
-                    animation: spin 1s linear infinite;
-                }
-
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
+                    letter-spacing: 0.02em;
                 }
 
                 /* Mobile Optimization */
@@ -669,85 +702,38 @@ const Login = () => {
                     .login-card {
                         border-radius: 20px;
                         max-width: 100%;
-                        margin: 0;
                     }
                     .login-content {
-                        padding: 24px 20px 16px;
-                    }
-                    .header-section {
-                        margin-bottom: 20px;
-                    }
-                    .logo-wrapper {
-                        width: 48px;
-                        height: 48px;
-                        margin-bottom: 12px;
-                    }
-                    .header-section h1 {
-                        font-size: 24px;
-                    }
-                    .header-section p {
-                        font-size: 13px;
-                    }
-                    .auth-form {
-                        gap: 12px;
-                    }
-                    .form-group {
-                        gap: 4px;
+                        padding: 24px 20px 20px;
                     }
                     .auth-form .input-field input {
-                        height: 46px !important;
-                        padding: 10px 14px 10px 42px !important;
-                        font-size: 14px !important;
+                        height: 44px !important;
                     }
-                    .btn-submit {
-                        padding: 14px;
-                    }
-                    .oauth-section {
-                        margin-top: 20px;
-                    }
-                    .divider {
-                        margin-bottom: 16px;
-                    }
-                    .mode-switch {
-                        margin-top: 16px;
-                    }
-                    .card-footer {
-                        padding: 10px 20px;
-                        flex-direction: row;
-                        justify-content: center;
-                        gap: 16px;
-                    }
-                }
-
-                /* Vertical Fit for short screens */
-                @media (max-height: 700px) and (max-width: 480px) {
-                    .login-content {
-                        padding-top: 16px;
-                    }
-                    .header-section {
-                        margin-bottom: 12px;
-                    }
-                    .logo-wrapper {
-                        width: 40px;
-                        height: 40px;
-                        margin-bottom: 8px;
-                    }
-                    .auth-form {
+                    .social-grid {
                         gap: 8px;
                     }
-                    .oauth-section {
-                        margin-top: 12px;
+                    .social-btn {
+                        font-size: 13px;
+                        padding: 8px;
+                        gap: 8px;
+                    }
+                    .card-footer {
+                        gap: 16px;
+                        padding: 12px 20px;
+                    }
+                    .badge {
+                        font-size: 10px;
                     }
                 }
 
-                /* Autofill Reset - Forced for Dark Theme */
+                /* Autofill Reset - Dynamic with Theme */
                 input:-webkit-autofill,
                 input:-webkit-autofill:hover,
                 input:-webkit-autofill:focus,
                 input:-webkit-autofill:active {
-                    -webkit-box-shadow: 0 0 0 1000px #060b28 inset !important;
-                    -webkit-text-fill-color: white !important;
-                    caret-color: white !important;
+                    -webkit-box-shadow: 0 0 0 1000px var(--bg-lite) inset !important;
+                    -webkit-text-fill-color: var(--text-main) !important;
+                    caret-color: var(--text-main) !important;
                     transition: background-color 5000s ease-in-out 0s;
                 }
             `}</style>

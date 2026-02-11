@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Calendar, Clock, MapPin, Search, Loader2, Eye, Edit2, Save, X, Plus, Share2, Users, BellRing } from 'lucide-react';
+import { Trash2, Calendar, Clock, MapPin, Search, Loader2, Eye, Edit2, Save, X, Plus, Share2, Users } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,6 +39,14 @@ const Reminders = () => {
         }, 500);
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
+
+    useEffect(() => {
+        const handleGlobalSearch = (e) => {
+            setSearchTerm(e.detail);
+        };
+        window.addEventListener('buddy-search', handleGlobalSearch);
+        return () => window.removeEventListener('buddy-search', handleGlobalSearch);
+    }, []);
 
     // Listen for background updates (e.g. from Voice Assistant)
     useEffect(() => {
@@ -214,7 +222,7 @@ const Reminders = () => {
 
             <div className="table-container">
                 <div className="search-management-header">
-                    <div className="buddy-search-box">
+                    <div className="buddy-search-box hide-on-mobile">
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />
                         <input
                             type="text"
@@ -225,21 +233,6 @@ const Reminders = () => {
                         />
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        <button
-                            className="btn btn-outline"
-                            onClick={async () => {
-                                try {
-                                    const res = await api.post('/notifications/test');
-                                    if (res.data.success) toast.success("Test notification sent!");
-                                } catch (err) {
-                                    toast.error(err.response?.data?.message || "Test failed");
-                                }
-                            }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary-color)', borderColor: 'var(--primary-color)', borderRadius: 'var(--radius-md)' }}
-                        >
-                            <BellRing size={16} />
-                            <span className="hide-mobile-text">Test Browser Alert</span>
-                        </button>
                         <button
                             className="btn btn-primary mobile-fab"
                             onClick={handleCreateClick}

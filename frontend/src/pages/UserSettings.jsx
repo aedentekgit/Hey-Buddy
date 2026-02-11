@@ -1,23 +1,117 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { toast, Toaster } from 'react-hot-toast';
 import {
     User, Phone, MapPin, Trash2, AlertTriangle, Save, Loader2, Mail, Calendar,
-    CheckCircle, XCircle, Link2, Unlink, Settings, Shield, Eye, EyeOff, LayoutGrid
+    CheckCircle, XCircle, Link2, Unlink, Settings, Shield, Eye, EyeOff, LayoutGrid, Camera, ImagePlus,
+    Bell, MessageSquare, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import voiceService from '../services/voiceService';
 import { useNavigate } from 'react-router-dom';
 
+const NotifSetting = ({ icon: Icon, title, description, enabled, delay, onToggle, onDelayChange }) => (
+    <div style={{
+        padding: '20px',
+        background: 'var(--bg-lite)',
+        borderRadius: '20px',
+        border: '1px solid var(--border-color)',
+        marginBottom: '1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
+    }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: 'var(--card-bg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid var(--border-color)'
+                }}>
+                    <Icon size={20} color="var(--primary-color)" />
+                </div>
+                <div>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700' }}>{title}</h4>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-sub)' }}>{description}</p>
+                </div>
+            </div>
+
+            <div
+                onClick={onToggle}
+                style={{
+                    width: '48px',
+                    height: '24px',
+                    borderRadius: '12px',
+                    background: enabled ? 'var(--primary-color)' : 'var(--border-color)',
+                    padding: '2px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative'
+                }}
+            >
+                <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    background: 'white',
+                    transform: `translateX(${enabled ? '24px' : '0'})`,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }} />
+            </div>
+        </div>
+
+        {enabled && (
+            <div style={{
+                paddingTop: '16px',
+                borderTop: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+            }}>
+                <Clock size={16} color="var(--text-sub)" />
+                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Escalation Delay:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                        type="number"
+                        min="0"
+                        value={delay}
+                        onChange={(e) => onDelayChange(parseInt(e.target.value) || 0)}
+                        style={{
+                            width: '60px',
+                            padding: '4px 8px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-color)',
+                            background: 'var(--card-bg)',
+                            color: 'var(--text-main)',
+                            fontSize: '0.85rem',
+                            outline: 'none'
+                        }}
+                    />
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>minutes</span>
+                </div>
+            </div>
+        )}
+    </div>
+);
+
 const UserSettings = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, refreshUser } = useAuth();
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
     const [activeTab, setActiveTab] = useState('general');
     const [loading, setLoading] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+    const [imageUploading, setImageUploading] = useState(false);
+    const [previewImage, setPreviewImage] = useState(null);
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -25,6 +119,14 @@ const UserSettings = () => {
         email: '',
         phone: '',
         address: ''
+    });
+
+    // State for notification preferences
+    const [notifPreferences, setNotifPreferences] = useState({
+        push: { enabled: true, delay: 0 },
+        sms: { enabled: false, delay: 5 },
+        email: { enabled: true, delay: 0 },
+        inApp: { enabled: true, delay: 0 }
     });
 
     useEffect(() => {
@@ -35,8 +137,27 @@ const UserSettings = () => {
                 phone: user.phone || '',
                 address: user.address || ''
             });
+            if (user.notificationPreferences) {
+                setNotifPreferences(user.notificationPreferences);
+            }
         }
     }, [user]);
+
+    const handleUpdateNotifications = async (e) => {
+        if (e) e.preventDefault();
+        setLoading(true);
+        try {
+            const res = await api.put('/users/profile', { notificationPreferences: notifPreferences });
+            if (res.data.success) {
+                toast.success('Notification preferences updated');
+                refreshUser();
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to update preferences');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Calendar State
     const [calendarLinking, setCalendarLinking] = useState(false);
@@ -107,12 +228,92 @@ const UserSettings = () => {
         }
     };
 
+    // Profile Picture Handlers
+    const handleFileSelect = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validation
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select an image file');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size should be less than 5MB');
+            return;
+        }
+
+        // Preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setPreviewImage(reader.result);
+        };
+        reader.readAsDataURL(file);
+
+        // Upload immediately
+        const formData = new FormData();
+        formData.append('profilePicture', file);
+
+        setImageUploading(true);
+        try {
+            const res = await api.post('/users/profile/avatar', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (res.data.success) {
+                toast.success('Profile picture updated');
+                await refreshUser(); // Refresh user data to get new image URL
+                setPreviewImage(null); // Clear preview as we now have real URL
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Failed to update profile picture');
+            setPreviewImage(null); // Clear preview on error
+        } finally {
+            setImageUploading(false);
+        }
+    };
+
+    const handleDeleteProfilePicture = async () => {
+        if (!confirm('Are you sure you want to remove your profile picture?')) return;
+
+        setImageUploading(true);
+        try {
+            await api.delete('/users/profile/avatar');
+            toast.success('Profile picture removed');
+            await refreshUser();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to remove picture');
+        } finally {
+            setImageUploading(false);
+        }
+    };
+
+    const getProfileImageUrl = () => {
+        if (previewImage) return previewImage;
+        if (user?.profilePicture) {
+            // Check if full URL or relative path
+            if (user.profilePicture.startsWith('http')) return user.profilePicture;
+
+            // Construct backend URL (assuming backend is on port 5000 for localhost, or use relative if proxy)
+            // Ideally use import.meta.env.VITE_API_URL but need to strip /api
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const rootUrl = baseUrl.replace('/api', '');
+
+            // Ensure proper slash handling
+            const cleanRoot = rootUrl.endsWith('/') ? rootUrl.slice(0, -1) : rootUrl;
+            const cleanPath = user.profilePicture.startsWith('/') ? user.profilePicture : `/${user.profilePicture}`;
+
+            return `${cleanRoot}${cleanPath}`;
+        }
+        return null;
+    };
+
     // Listen for Google Auth callback
     useEffect(() => {
         const handleMessage = (event) => {
             if (event.data === 'GOOGLE_AUTH_SUCCESS') {
                 toast.success('Google Calendar linked successfully!');
-                window.location.reload();
+                refreshUser();
             }
         };
         window.addEventListener('message', handleMessage);
@@ -121,6 +322,7 @@ const UserSettings = () => {
 
     const tabs = [
         { id: 'general', label: 'General', icon: Settings },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'integrations', label: 'Integrations', icon: LayoutGrid },
         { id: 'danger', label: 'Account Zone', icon: Shield }
     ];
@@ -165,6 +367,100 @@ const UserSettings = () => {
                             {activeTab === 'general' && (
                                 <section className="settings-card">
                                     <SectionTitle label="General Information" icon={User} color="var(--primary-color)" />
+
+                                    {/* Profile Picture Section */}
+                                    <div className="profile-upload-section" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                                        <div style={{ position: 'relative' }}>
+                                            <div style={{
+                                                width: '100px',
+                                                height: '100px',
+                                                borderRadius: '50%',
+                                                background: 'var(--bg-lite)',
+                                                border: '2px solid var(--border-color)',
+                                                overflow: 'hidden',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                position: 'relative'
+                                            }}>
+                                                {getProfileImageUrl() ? (
+                                                    <img
+                                                        src={getProfileImageUrl()}
+                                                        alt="Profile"
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    />
+                                                ) : (
+                                                    <User size={48} color="var(--text-sub)" />
+                                                )}
+
+                                                {imageUploading && (
+                                                    <div style={{
+                                                        position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}>
+                                                        <Loader2 className="animate-spin" color="white" size={24} />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={imageUploading}
+                                                style={{
+                                                    position: 'absolute', bottom: '0', right: '0',
+                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                    background: 'var(--primary-color)', border: '2px solid var(--card-bg)',
+                                                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                                                }}
+                                            >
+                                                <Camera size={16} />
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '700' }}>Profile Picture</h4>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-sub)' }}>
+                                                PNG, JPG or GIF up to 5MB
+                                            </p>
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    style={{
+                                                        background: 'var(--bg-lite)', border: '1px solid var(--border-color)',
+                                                        padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem',
+                                                        fontWeight: '600', color: 'var(--text-main)', cursor: 'pointer',
+                                                        display: 'flex', alignItems: 'center', gap: '6px'
+                                                    }}
+                                                >
+                                                    <ImagePlus size={14} /> Upload New
+                                                </button>
+                                                {user?.profilePicture && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDeleteProfilePicture}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                            padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem',
+                                                            fontWeight: '600', color: '#ef4444', cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', gap: '6px'
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} /> Remove
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={handleFileSelect}
+                                                style={{ display: 'none' }}
+                                                accept="image/*"
+                                            />
+                                        </div>
+                                    </div>
 
                                     <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '1.5rem', maxWidth: '600px' }}>
                                         <InputGroup
@@ -227,6 +523,106 @@ const UserSettings = () => {
                                             </button>
                                         </div>
                                     </form>
+                                </section>
+                            )}
+
+                            {activeTab === 'notifications' && (
+                                <section className="settings-card">
+                                    <SectionTitle label="Notification Preferences" icon={Bell} color="var(--primary-color)" />
+
+                                    <p style={{ color: 'var(--text-sub)', marginBottom: '2rem', maxWidth: '600px', lineHeight: '1.6', fontSize: '0.95rem' }}>
+                                        Configure how and when you want to receive reminders and alerts. Set delays for escalation to other channels.
+                                    </p>
+
+                                    <div style={{ maxWidth: '600px' }}>
+                                        <NotifSetting
+                                            icon={Bell}
+                                            title="Push Notifications"
+                                            description="Receive instant alerts on your mobile or desktop device."
+                                            enabled={notifPreferences.push.enabled}
+                                            delay={notifPreferences.push.delay}
+                                            onToggle={() => setNotifPreferences({
+                                                ...notifPreferences,
+                                                push: { ...notifPreferences.push, enabled: !notifPreferences.push.enabled }
+                                            })}
+                                            onDelayChange={(val) => setNotifPreferences({
+                                                ...notifPreferences,
+                                                push: { ...notifPreferences.push, delay: val }
+                                            })}
+                                        />
+
+                                        <NotifSetting
+                                            icon={MessageSquare}
+                                            title="SMS Notifications"
+                                            description="Get critical alerts delivered directly to your phone via SMS."
+                                            enabled={notifPreferences.sms.enabled}
+                                            delay={notifPreferences.sms.delay}
+                                            onToggle={() => setNotifPreferences({
+                                                ...notifPreferences,
+                                                sms: { ...notifPreferences.sms, enabled: !notifPreferences.sms.enabled }
+                                            })}
+                                            onDelayChange={(val) => setNotifPreferences({
+                                                ...notifPreferences,
+                                                sms: { ...notifPreferences.sms, delay: val }
+                                            })}
+                                        />
+
+                                        <NotifSetting
+                                            icon={Mail}
+                                            title="Email Notifications"
+                                            description="Receive detailed summaries and reminders in your inbox."
+                                            enabled={notifPreferences.email.enabled}
+                                            delay={notifPreferences.email.delay}
+                                            onToggle={() => setNotifPreferences({
+                                                ...notifPreferences,
+                                                email: { ...notifPreferences.email, enabled: !notifPreferences.email.enabled }
+                                            })}
+                                            onDelayChange={(val) => setNotifPreferences({
+                                                ...notifPreferences,
+                                                email: { ...notifPreferences.email, delay: val }
+                                            })}
+                                        />
+
+                                        <NotifSetting
+                                            icon={LayoutGrid}
+                                            title="In-App Notifications"
+                                            description="See alerts and updates within the Buddy Assistant interface."
+                                            enabled={notifPreferences.inApp.enabled}
+                                            delay={notifPreferences.inApp.delay}
+                                            onToggle={() => setNotifPreferences({
+                                                ...notifPreferences,
+                                                inApp: { ...notifPreferences.inApp, enabled: !notifPreferences.inApp.enabled }
+                                            })}
+                                            onDelayChange={(val) => setNotifPreferences({
+                                                ...notifPreferences,
+                                                inApp: { ...notifPreferences.inApp, delay: val }
+                                            })}
+                                        />
+
+                                        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
+                                            <button
+                                                onClick={handleUpdateNotifications}
+                                                disabled={loading}
+                                                style={{
+                                                    padding: '12px 24px',
+                                                    background: 'var(--primary-color)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '12px',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    opacity: loading ? 0.7 : 1,
+                                                    boxShadow: '0 4px 15px color-mix(in srgb, var(--primary-color) 30%, transparent)'
+                                                }}
+                                            >
+                                                {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                                                Save Notification Settings
+                                            </button>
+                                        </div>
+                                    </div>
                                 </section>
                             )}
 

@@ -464,7 +464,7 @@ const Dashboard = () => {
                 .empty-state h4 { color: var(--text-main); font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
                 .empty-state p { font-size: 0.85rem; }
                 
-                /* Responsive */
+                /* Responsive Enhancement */
                 @media (max-width: 1400px) {
                     .dashboard-stats-grid { grid-template-columns: repeat(2, 1fr); }
                     .charts-grid-row { grid-template-columns: repeat(2, 1fr); }
@@ -476,19 +476,38 @@ const Dashboard = () => {
                 }
                 
                 @media (max-width: 768px) {
+                    .premium-dashboard { margin: 0; padding-bottom: 80px; }
+                    .dashboard-scroll-container { padding: 12px; }
                     .dashboard-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-                    .stat-card { padding: 16px; border-radius: 12px; }
-                    .stat-info h3 { font-size: 1.35rem; }
-                    .stat-info label { font-size: 0.65rem; }
-                    .stat-icon-wrap { width: 32px; height: 32px; }
+                    .stat-card { padding: 14px; border-radius: 16px; }
+                    .stat-info h3 { font-size: 1.25rem; }
+                    .stat-info label { font-size: 0.6rem; }
+                    .stat-icon-wrap { width: 36px; height: 36px; border-radius: 10px; }
+                    .stat-icon-wrap svg { width: 18px; height: 18px; }
+                    
+                    /* Stack charts on mobile for readability */
+                    .charts-section { gap: 16px; }
+                    .charts-grid-row { grid-template-columns: 1fr; gap: 16px; }
+                    .chart-card { padding: 16px; border-radius: 20px; }
+                    .panel-header-small h4 { font-size: 0.85rem; }
+                    .fixed-height-200 { height: 240px; } /* Slightly taller for stacked legend/bars */
+                    
+                    .quick-actions-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 16px 16px; }
+                    .bottom-row-grid { gap: 16px; }
+                }
+
+                @media (max-width: 480px) {
+                    .dashboard-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+                    .stat-card { padding: 12px; }
+                    .stat-info h3 { font-size: 1.1rem; }
+                    .stat-info label { font-size: 0.55rem; }
+                    .stat-icon-wrap { width: 32px; height: 32px; border-radius: 8px; }
                     .stat-icon-wrap svg { width: 16px; height: 16px; }
-                    
-                    /* Double up small charts too */
-                    .charts-grid-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-                    .chart-card { padding: 12px; }
-                    .panel-header-small h4 { font-size: 0.75rem; }
-                    
-                    .quick-actions-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 16px 16px; }
+                    .main-chart { height: 260px; }
+                    .fixed-height-300 { height: 200px; }
+                    .fixed-height-200 { height: 220px; }
+                    .panel-header { padding: 16px 16px 0; }
+                    .dashboard-scroll-container { padding: 10px; }
                 }
             `}</style>
         </div>

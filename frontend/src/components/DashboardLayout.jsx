@@ -8,6 +8,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 
 import MobileNavbar from './MobileNavbar';
+import MobileHeader from './MobileHeader';
 
 const DashboardLayout = ({ children }) => {
     const { speak } = useVoiceAssistant();
@@ -95,6 +96,9 @@ const DashboardLayout = ({ children }) => {
                     paddingRight: window.innerWidth >= 1024 ? '15px' : '0'
                 }}
             >
+                {/* Mobile Header - Global */}
+                <MobileHeader />
+
                 {!isBuddyPage && !isMorePage && (
                     <Header
                         onMenuClick={toggleSidebar}
@@ -122,6 +126,10 @@ const DashboardLayout = ({ children }) => {
                     @media (max-width: 767px) {
                         .main-content {
                             padding-bottom: 90px !important; /* Space for MobileNavbar */
+                        }
+                        /* Hide Default Desktop Header on Mobile */
+                        .app-header {
+                            display: none !important;
                         }
                     }
 

@@ -91,8 +91,8 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
             </AnimatePresence>
 
             <aside
-                className={`sidebar-vision ${isOpen ? 'mobile-open' : ''}`}
-                style={{ width: isCollapsed ? '90px' : '260px' }}
+                className={`sidebar-vision ${isOpen ? 'mobile-open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
+                style={{ width: isCollapsed ? '80px' : '260px' }}
             >
                 {/* Logo Section */}
                 <div className="sidebar-logo-container">
@@ -166,12 +166,25 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                     padding: 24px 20px;
                     display: flex;
                     align-items: center;
+                    justify-content: flex-start;
+                    transition: all 0.3s ease;
+                }
+
+                .collapsed .sidebar-logo-container {
+                    padding: 24px 0;
+                    justify-content: center;
                 }
 
                 .logo-flex {
                     display: flex;
                     align-items: center;
                     gap: 12px;
+                    transition: all 0.3s ease;
+                }
+
+                .collapsed .logo-flex {
+                    gap: 0;
+                    justify-content: center;
                 }
 
                 .logo-icon-box {
@@ -189,18 +202,29 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                     font-weight: 700;
                     font-size: 1rem;
                     color: var(--text-main);
+                    white-space: nowrap;
                 }
 
                 .sidebar-separator {
                     height: 1px;
                     background: var(--border-color);
                     margin: 0 20px 20px;
+                    transition: all 0.3s ease;
+                }
+
+                .collapsed .sidebar-separator {
+                    margin: 0 15px 20px;
                 }
 
                 .sidebar-nav-scroll {
                     flex: 1;
                     padding: 0 12px;
                     overflow-y: auto;
+                    transition: all 0.3s ease;
+                }
+
+                .collapsed .sidebar-nav-scroll {
+                    padding: 0 8px;
                 }
 
                 .nav-group {
@@ -228,6 +252,13 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                     font-size: 0.875rem;
                     margin: 0 8px 4px;
                     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+
+                .collapsed .nav-link {
+                    justify-content: center;
+                    padding: 12px 0;
+                    margin: 0 8px 6px;
+                    gap: 0;
                 }
 
                 .nav-link:hover {
@@ -265,11 +296,17 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                 .nav-label {
                     font-size: 0.9rem;
                     letter-spacing: -0.01em;
+                    white-space: nowrap;
                 }
 
                 .sidebar-footer {
                     padding: 20px 12px;
                     border-top: 1px solid var(--border-color);
+                    transition: all 0.3s ease;
+                }
+
+                .collapsed .sidebar-footer {
+                    padding: 20px 8px;
                 }
 
                 .logout-button {
@@ -285,7 +322,13 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                     cursor: pointer;
                     font-weight: 600;
                     font-size: 0.875rem;
-                    transition: background 0.2s;
+                    transition: all 0.2s;
+                }
+
+                .collapsed .logout-button {
+                    justify-content: center;
+                    padding: 10px 0;
+                    gap: 0;
                 }
 
                 .logout-button:hover {
@@ -296,6 +339,9 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    width: 24px;
+                    height: 24px;
+                    flex-shrink: 0;
                 }
 
                 @media (max-width: 1023px) {

@@ -4,19 +4,19 @@ import api from '../services/api';
 const ThemeContext = createContext();
 
 const dayTheme = {
-    bg: '#F8FAFC',
+    bg: '#F1F5F9', // Slightly deeper grey for better card depth
     card: '#FFFFFF',
-    text: '#020617', // Sharper contrast for professional look
-    subText: '#475569', // More readable subtext
-    border: '#E2E8F0',
+    text: '#0F172A', // Deep navy for sharper text
+    subText: '#64748B', // Muted slate for subtext
+    border: '#CBD5E1', // Defined borders
     header: 'rgba(255, 255, 255, 0.8)',
     sidebar: '#FFFFFF',
     sidebarText: '#475569',
     sidebarActive: '#2563EB',
-    toastBg: '#0F172A',
+    toastBg: '#1E293B',
     toastText: '#FFFFFF',
-    shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-    bgImage: 'radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.05) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.03) 0px, transparent 50%)'
+    shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    bgImage: 'radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.08) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(94, 234, 212, 0.05) 0px, transparent 50%)'
 };
 
 const nightTheme = {

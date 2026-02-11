@@ -95,6 +95,14 @@ const AdminManagement = () => {
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
 
+    useEffect(() => {
+        const handleGlobalSearch = (e) => {
+            setSearchTerm(e.detail);
+        };
+        window.addEventListener('buddy-search', handleGlobalSearch);
+        return () => window.removeEventListener('buddy-search', handleGlobalSearch);
+    }, []);
+
     const handleOpenModal = (user = null, isView = false) => {
         setIsViewMode(isView);
         if (user) {
@@ -191,7 +199,7 @@ const AdminManagement = () => {
 
             <div className="table-container">
                 <div className="search-management-header">
-                    <div className="buddy-search-box">
+                    <div className="buddy-search-box hide-on-mobile">
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />
                         <input
                             type="text"

@@ -149,6 +149,16 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
         }
     };
 
+    const getProfileImageUrl = () => {
+        if (!user?.profilePicture) return null;
+        if (user.profilePicture.startsWith('http')) return user.profilePicture;
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const rootUrl = baseUrl.replace('/api', '');
+        const cleanRoot = rootUrl.endsWith('/') ? rootUrl.slice(0, -1) : rootUrl;
+        const cleanPath = user.profilePicture.startsWith('/') ? user.profilePicture : `/${user.profilePicture}`;
+        return `${cleanRoot}${cleanPath}`;
+    };
+
     return (
         <header className={`app-header ${scrolled ? 'scrolled' : ''}`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -292,9 +302,18 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 boxShadow: '0 0 12px rgba(var(--primary-rgb), 0.4)',
-                                transition: 'all 0.3s ease'
+                                transition: 'all 0.3s ease',
+                                overflow: 'hidden'
                             }}>
-                                <User size={14} color="white" />
+                                {getProfileImageUrl() ? (
+                                    <img
+                                        src={getProfileImageUrl()}
+                                        alt="User"
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                ) : (
+                                    <User size={14} color="white" />
+                                )}
                             </div>
                             <span className="user-name-text" style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-main)' }}>
                                 {user?.name || 'User'}

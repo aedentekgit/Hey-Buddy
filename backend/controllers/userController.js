@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const paginate = require('../utils/paginate');
+const fs = require('fs');
+const path = require('path');
 
 // Get all users
 const getUsers = async (req, res) => {
@@ -70,6 +72,13 @@ const updateUser = async (req, res) => {
             };
         }
 
+        if (req.body.notificationPreferences) {
+            user.notificationPreferences = {
+                ...user.notificationPreferences,
+                ...req.body.notificationPreferences
+            };
+        }
+
         await user.save();
         const userResponse = user.toObject();
         delete userResponse.password;
@@ -135,6 +144,13 @@ const updateProfile = async (req, res) => {
             user.voicePreferences = {
                 ...user.voicePreferences,
                 ...req.body.voicePreferences
+            };
+        }
+
+        if (req.body.notificationPreferences) {
+            user.notificationPreferences = {
+                ...user.notificationPreferences,
+                ...req.body.notificationPreferences
             };
         }
 
@@ -221,6 +237,69 @@ const updateLocation = async (req, res) => {
     }
 };
 
+// Upload Profile Picture
+const uploadProfilePicture = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+
+        const userId = req.user._id;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Delete old profile picture if exists
+        if (user.profilePicture) {
+            const oldPath = path.join(__dirname, '../', user.profilePicture);
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
+            }
+        }
+
+        // Save new path (relative to backend root, served via /uploads)
+        // Store as 'uploads/profiles/filename'
+        user.profilePicture = `uploads/profiles/${req.file.filename}`;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'Profile picture updated',
+            data: { profilePicture: user.profilePicture }
+        });
+    } catch (error) {
+        console.error('Profile upload error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Delete Profile Picture
+const deleteProfilePicture = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (user.profilePicture) {
+            const oldPath = path.join(__dirname, '../', user.profilePicture);
+            if (fs.existsSync(oldPath)) {
+                fs.unlinkSync(oldPath);
+            }
+            user.profilePicture = null;
+            await user.save();
+        }
+
+        res.json({ success: true, message: 'Profile picture removed' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getUsers,
     createUser,
@@ -230,5 +309,7 @@ module.exports = {
     updateProfile,
     deleteMyAccount,
     unlinkCalendar,
-    updateLocation
+    updateLocation,
+    uploadProfilePicture,
+    deleteProfilePicture
 };

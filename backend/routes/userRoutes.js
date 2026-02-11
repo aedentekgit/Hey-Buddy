@@ -6,8 +6,12 @@ const userController = require('../controllers/userController');
 
 const { protect, authorize } = require('../middlewares/auth');
 
+const upload = require('../middlewares/uploadMiddleware');
+
 // Profile Routes (Any authenticated user) - MUST come before /:id routes
 router.put('/profile', protect, userController.updateProfile);
+router.post('/profile/avatar', protect, upload.single('profilePicture'), userController.uploadProfilePicture);
+router.delete('/profile/avatar', protect, userController.deleteProfilePicture);
 router.delete('/profile', protect, userController.deleteMyAccount);
 router.post('/fcm-token', protect, userController.saveFcmToken);
 router.post('/unlink-calendar', protect, userController.unlinkCalendar);

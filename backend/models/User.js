@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    profilePicture: {
+        type: String,
+        default: null
+    },
     role: {
         type: String,
         default: 'user'
@@ -58,6 +62,24 @@ const userSchema = new mongoose.Schema({
         lat: Number,
         lng: Number,
         timestamp: Date
+    },
+    notificationPreferences: {
+        push: {
+            enabled: { type: Boolean, default: true },
+            delay: { type: Number, default: 0 }
+        },
+        sms: {
+            enabled: { type: Boolean, default: false },
+            delay: { type: Number, default: 5 }
+        },
+        email: {
+            enabled: { type: Boolean, default: true },
+            delay: { type: Number, default: 0 }
+        },
+        inApp: {
+            enabled: { type: Boolean, default: true },
+            delay: { type: Number, default: 0 }
+        }
     }
 }, { timestamps: true });
 
