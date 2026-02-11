@@ -48,6 +48,16 @@ const userSchema = new mongoose.Schema({
             enum: ['soft', 'normal', 'energetic'],
             default: 'soft'
         }
+    },
+    currentLocation: {
+        lat: Number,
+        lng: Number,
+        timestamp: Date
+    },
+    previousLocation: {
+        lat: Number,
+        lng: Number,
+        timestamp: Date
     }
 }, { timestamps: true });
 

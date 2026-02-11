@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     MapPin, Clock, AlertCircle, CheckCircle2, XCircle, Bell, MessageSquare, Mail,
     ChevronDown, ChevronUp, BellRing, Navigation, Activity, CalendarDays,
-    Users, Plus, Trash2, Smartphone, Zap, ShieldAlert, Car
+    Users, Plus, Trash2, Smartphone, Zap, ShieldAlert, Car, Share2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -119,6 +119,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="smart-reminder-details-panel"
             style={{
                 position: 'fixed',
                 top: 0,
@@ -133,7 +134,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                 boxShadow: '-10px 0 40px rgba(0,0,0,0.5)'
             }}
         >
-            <div style={{ padding: '24px' }}>
+            <div className="smart-reminder-details-container" style={{ padding: '24px' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}>
@@ -385,6 +386,87 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                     </div>
                 </DetailCard>
 
+                {/* Sharing & Collaboration Section */}
+                {reminder.sharedWith && reminder.sharedWith.length > 0 && (
+                    <DetailCard title={<><Share2 size={20} /> Sharing & Collaboration</>}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {reminder.sharedWith.map((share, idx) => (
+                                <div key={idx} style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '12px 16px',
+                                    background: 'var(--bg-lite)',
+                                    borderRadius: '16px',
+                                    border: '1px solid var(--border-color)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{
+                                            width: '36px',
+                                            height: '36px',
+                                            borderRadius: '12px',
+                                            background: 'var(--primary-glow)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontWeight: 'bold',
+                                            fontSize: '0.9rem',
+                                            boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)'
+                                        }}>
+                                            {share.user?.name ? share.user.name[0].toUpperCase() : 'U'}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)' }}>{share.user?.name || 'Unknown User'}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{share.user?.email}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{
+                                            padding: '4px 10px',
+                                            background: 'rgba(255, 255, 255, 0.05)',
+                                            borderRadius: '8px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: '700',
+                                            color: 'var(--primary-color)',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em'
+                                        }}>
+                                            {share.permissions || 'view'}
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    await api.delete(`/reminders/${reminder._id}/unshare/${share.user._id}`);
+                                                    toast.success('User removed from shared list');
+                                                    onUpdate();
+                                                } catch (err) {
+                                                    toast.error('Failed to remove user');
+                                                }
+                                            }}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#ef4444',
+                                                cursor: 'pointer',
+                                                padding: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </DetailCard>
+                )}
+
                 {/* Smart Features Section */}
                 <DetailCard title={<><Zap size={20} /> Smart Features</>}>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', marginBottom: '20px' }}>
@@ -593,6 +675,153 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
 
                 <div style={{ height: '100px' }}></div>
             </div>
+
+            {/* Mobile Responsive Styles */}
+            <style>{`
+                @media (max-width: 767px) {
+                    .smart-reminder-details-panel {
+                        max-width: 100% !important;
+                        border-left: none !important;
+                    }
+
+                    .smart-reminder-details-container {
+                        padding: 16px !important;
+                    }
+
+                    .smart-reminder-details-container h1 {
+                        font-size: 1.4rem !important;
+                        margin-bottom: 16px !important;
+                    }
+
+                    .detail-card {
+                        padding: 16px !important;
+                        border-radius: 16px !important;
+                        margin-bottom: 16px !important;
+                    }
+
+                    .detail-card h4 {
+                        font-size: 0.95rem !important;
+                        margin-bottom: 16px !important;
+                    }
+
+                    .detail-card p {
+                        font-size: 0.8rem !important;
+                    }
+
+                    /* Adjust grid layouts for mobile */
+                    div[style*="grid-template-columns: 1fr 1fr"] {
+                        grid-template-columns: 1fr !important;
+                    }
+
+                    /* Meta info sections */
+                    .smart-reminder-details-container > div[style*="display: flex"][style*="flex-direction: column"] {
+                        gap: 8px !important;
+                    }
+
+                    /* Reduce header margin */
+                    .smart-reminder-details-container > div[style*="display: flex"][style*="justify-content: space-between"]:first-of-type {
+                        margin-bottom: 20px !important;
+                    }
+
+                    /* Quick actions buttons */
+                    button[class*="btn"] {
+                        padding: 12px !important;
+                        font-size: 0.85rem !important;
+                    }
+
+                    /* Map preview height */
+                    div[style*="height: 180px"] {
+                        height: 140px !important;
+                    }
+                }
+
+                @media (max-width: 480px) {
+                    .smart-reminder-details-container {
+                        padding: 12px !important;
+                    }
+
+                    .smart-reminder-details-container h1 {
+                        font-size: 1.2rem !important;
+                        line-height: 1.3 !important;
+                    }
+
+                    .detail-card {
+                        padding: 12px !important;
+                        border-radius: 12px !important;
+                    }
+
+                    .detail-card h4 {
+                        font-size: 0.85rem !important;
+                        gap: 6px !important;
+                    }
+
+                    .detail-card h4 svg {
+                        width: 16px !important;
+                        height: 16px !important;
+                    }
+
+                    /* Smaller icon sizes on mobile */
+                    .detail-card svg {
+                        width: 16px !important;
+                        height: 16px !important;
+                    }
+
+                    /* Close button */
+                    button[style*="background: none"] svg {
+                        width: 24px !important;
+                        height: 24px !important;
+                    }
+
+                    /* Status badge */
+                    div[style*="padding: 6px 16px"] {
+                        padding: 4px 12px !important;
+                        font-size: 0.75rem !important;
+                    }
+
+                    /* Meta info icons */
+                    div[style*="padding: 8px"][style*="background: var(--bg-lite)"] {
+                        padding: 6px !important;
+                    }
+
+                    div[style*="padding: 8px"][style*="background: var(--bg-lite)"] svg {
+                        width: 14px !important;
+                        height: 14px !important;
+                    }
+
+                    /* Quick action buttons */
+                    button[class*="btn"] {
+                        padding: 10px !important;
+                        font-size: 0.75rem !important;
+                        gap: 6px !important;
+                    }
+
+                    button[class*="btn"] svg {
+                        width: 18px !important;
+                        height: 18px !important;
+                    }
+
+                    /* Save button */
+                    button[class*="btn-primary"] {
+                        padding: 14px !important;
+                        font-size: 0.9rem !important;
+                    }
+
+                    /* Map preview */
+                    div[style*="height: 180px"], div[style*="height: 140px"] {
+                        height: 120px !important;
+                    }
+
+                    /* Timeline section */
+                    div[style*="paddingLeft: 24px"] {
+                        padding-left: 12px !important;
+                    }
+
+                    div[style*="paddingLeft: 24px"] h4 {
+                        font-size: 0.9rem !important;
+                        margin-bottom: 16px !important;
+                    }
+                }
+            `}</style>
         </motion.div>
     );
 };

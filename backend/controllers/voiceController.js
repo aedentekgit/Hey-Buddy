@@ -2,6 +2,7 @@ const { OpenAI } = require('openai');
 const axios = require('axios');
 const Reminder = require('../models/Reminder');
 const Memory = require('../models/Memory');
+const Conversation = require('../models/Conversation');
 const paginate = require('../utils/paginate');
 const Prescription = require('../models/Prescription');
 const { google } = require('googleapis');
@@ -122,7 +123,7 @@ AI PERSONA RULES:
 // Multi-AI Ensembling Logic
 exports.parseVoice = async (req, res) => {
     try {
-        const { text, language = 'en-US', history = [] } = req.body;
+        const { text, language = 'en-US', history = [], conversationId } = req.body;
         const userId = req.user?._id;
         console.log(`[VoiceController] AI Processing: "${text}" | Language: ${language} | User: ${userId}`);
 
@@ -415,10 +416,36 @@ exports.parseVoice = async (req, res) => {
             consensus: successfulResults.length > 1 && JSON.stringify(successfulResults[0].content?.data) === JSON.stringify(successfulResults[1].content?.data)
         };
 
+        // Create or update conversation
+        let savedConversationId = conversationId;
+        if (userId) {
+            try {
+                const messageBatch = [
+                    { role: 'user', content: text },
+                    { role: 'assistant', content: finalData.reply }
+                ];
+
+                if (conversationId) {
+                    await Conversation.findByIdAndUpdate(conversationId, {
+                        $push: { messages: { $each: messageBatch } }
+                    });
+                } else {
+                    const newConversation = await Conversation.create({
+                        userId,
+                        messages: messageBatch,
+                        title: text.substring(0, 30) + (text.length > 30 ? '...' : '')
+                    });
+                    savedConversationId = newConversation._id;
+                }
+            } catch (convErr) {
+                console.error("Failed to save conversation history:", convErr);
+            }
+        }
+
         res.status(200).json({
             success: true,
             data: finalData,
-            meta: aiMetadata
+            meta: { ...aiMetadata, conversationId: savedConversationId }
         });
 
     } catch (error) {
@@ -515,7 +542,21 @@ exports.saveReminder = async (req, res) => {
 exports.getReminders = async (req, res) => {
     try {
         const userId = req.user._id;
-        const results = await paginate(Reminder, { userId }, req.query);
+        const query = {
+            $or: [
+                { userId: userId },
+                { 'sharedWith.user': userId },
+                { assignedTo: userId }
+            ]
+        };
+        const results = await paginate(Reminder, query, req.query);
+
+        // Populate creator and share details
+        results.data = await Reminder.populate(results.data, [
+            { path: 'userId', select: 'name email' },
+            { path: 'sharedWith.user', select: 'name email' }
+        ]);
+
         res.status(200).json({ success: true, ...results });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to fetch reminders" });

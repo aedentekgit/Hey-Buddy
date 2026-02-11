@@ -1,11 +1,29 @@
 const nodemailer = require('nodemailer');
+const Settings = require('../models/Settings');
+
+const getTransporter = async () => {
+    const settings = await Settings.findOne();
+    if (!settings || !settings.smtp || !settings.smtp.host) {
+        throw new Error("SMTP settings not configured");
+    }
+
+    const { smtp } = settings;
+    let secure = smtp.encryption === 'ssl';
+    if (Number(smtp.port) === 587) secure = false;
+    else if (Number(smtp.port) === 465) secure = true;
+
+    return nodemailer.createTransport({
+        host: smtp.host,
+        port: smtp.port,
+        secure: secure,
+        auth: {
+            user: smtp.username,
+            pass: smtp.password,
+        },
+    });
+};
 
 const sendTestEmail = async (smtpConfig, toEmail) => {
-    // Smart detection of security settings: 
-    // Port 465 -> Always SSL (secure: true)
-    // Port 587 -> Always STARTTLS (secure: false)
-    // Other ports -> Respect user's encryption toggle
-
     let secure = smtpConfig.encryption === 'ssl';
     if (Number(smtpConfig.port) === 587) secure = false;
     else if (Number(smtpConfig.port) === 465) secure = true;
@@ -35,6 +53,31 @@ const sendTestEmail = async (smtpConfig, toEmail) => {
     return info;
 };
 
+const sendEmail = async (to, subject, text, html) => {
+    try {
+        const settings = await Settings.findOne();
+        const transporter = await getTransporter();
+
+        const sender = settings.smtp.fromName
+            ? `"${settings.smtp.fromName}" <${settings.smtp.fromEmail}>`
+            : settings.smtp.fromEmail;
+
+        const info = await transporter.sendMail({
+            from: sender,
+            to,
+            subject,
+            text,
+            html: html || text,
+        });
+
+        return info;
+    } catch (error) {
+        console.error("Email Sending Error:", error);
+        throw error;
+    }
+};
+
 module.exports = {
-    sendTestEmail
+    sendTestEmail,
+    sendEmail
 };

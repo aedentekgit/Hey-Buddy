@@ -130,26 +130,9 @@ const UserSettings = () => {
             <Toaster position="top-right" />
 
             {/* Layout Grid */}
-            <div className="settings-container" style={{
-                display: 'grid',
-                gridTemplateColumns: '240px 1fr',
-                gap: '2rem'
-            }}>
+            <div className="settings-container">
                 {/* Sidebar Tabs */}
-                <div className="settings-tabs" style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.4rem',
-                    background: 'var(--card-bg)',
-                    padding: '12px',
-                    borderRadius: '24px',
-                    border: '1px solid var(--border-color)',
-                    height: 'fit-content',
-                    backdropFilter: 'blur(15px)',
-                    boxShadow: 'var(--card-shadow)',
-                    position: 'sticky',
-                    top: '20px'
-                }}>
+                <div className="settings-tabs">
                     <div className="tabs-header" style={{ padding: '8px 12px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px', opacity: 0.8 }}>
                         <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Menu</span>
                     </div>
@@ -159,25 +142,10 @@ const UserSettings = () => {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '1rem',
-                                    padding: '0.75rem 1rem',
-                                    borderRadius: '12px',
-                                    border: 'none',
-                                    background: activeTab === tab.id ? 'var(--primary-color)' : 'transparent',
-                                    color: activeTab === tab.id ? 'white' : 'var(--text-sub)',
-                                    fontWeight: '700',
-                                    fontSize: '0.8rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    textAlign: 'left',
-                                    boxShadow: activeTab === tab.id ? '0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent)' : 'none'
-                                }}
+                                className={activeTab === tab.id ? 'active' : ''}
                             >
                                 <Icon size={18} />
-                                {tab.label}
+                                <span className="tab-label-text">{tab.label}</span>
                             </button>
                         );
                     })}
@@ -195,13 +163,7 @@ const UserSettings = () => {
                         >
                             {/* General Tab */}
                             {activeTab === 'general' && (
-                                <section style={{
-                                    background: 'rgba(255, 255, 255, 0.02)',
-                                    padding: '2rem',
-                                    borderRadius: '24px',
-                                    border: '1px solid var(--border-color)',
-                                    backdropFilter: 'blur(10px)'
-                                }}>
+                                <section className="settings-card">
                                     <SectionTitle label="General Information" icon={User} color="var(--primary-color)" />
 
                                     <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '1.5rem', maxWidth: '600px' }}>
@@ -270,13 +232,7 @@ const UserSettings = () => {
 
                             {/* Integrations Tab */}
                             {activeTab === 'integrations' && (
-                                <section style={{
-                                    background: 'rgba(255, 255, 255, 0.02)',
-                                    padding: '2rem',
-                                    borderRadius: '24px',
-                                    border: '1px solid var(--border-color)',
-                                    backdropFilter: 'blur(10px)'
-                                }}>
+                                <section className="settings-card">
                                     <SectionTitle label="Google Calendar Integration" icon={Calendar} color="#4285F4" />
 
                                     <div style={{ maxWidth: '600px' }}>
@@ -369,12 +325,7 @@ const UserSettings = () => {
 
                             {/* Danger Zone Tab */}
                             {activeTab === 'danger' && (
-                                <section style={{
-                                    background: 'rgba(239, 68, 68, 0.05)',
-                                    padding: '2rem',
-                                    borderRadius: '24px',
-                                    border: '1px solid rgba(239, 68, 68, 0.2)'
-                                }}>
+                                <section className="settings-card" style={{ background: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
                                     <SectionTitle label="Danger Zone" icon={AlertTriangle} color="#ef4444" />
 
                                     <p style={{ color: 'var(--text-sub)', marginBottom: '2rem', maxWidth: '600px', lineHeight: '1.6' }}>
@@ -438,7 +389,65 @@ const UserSettings = () => {
                 )}
             </AnimatePresence>
 
+
             <style>{`
+                .settings-container {
+                    display: grid;
+                    grid-template-columns: 240px 1fr;
+                    gap: 2rem;
+                    align-items: start;
+                }
+
+                .settings-tabs {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    background: var(--card-bg);
+                    padding: 12px;
+                    border-radius: 24px;
+                    border: 1px solid var(--border-color);
+                    height: fit-content;
+                    backdrop-filter: blur(15px);
+                    box-shadow: var(--card-shadow);
+                    position: sticky;
+                    top: 20px;
+                }
+
+                .settings-tabs button {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    padding: 0.75rem 1rem;
+                    border-radius: 12px;
+                    border: none;
+                    background: transparent;
+                    color: var(--text-sub);
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    text-align: left;
+                }
+
+                .settings-tabs button:hover {
+                    background: rgba(255, 255, 255, 0.05);
+                    color: var(--text-main);
+                }
+
+                .settings-tabs button.active {
+                    background: var(--primary-color);
+                    color: white;
+                    box-shadow: 0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent);
+                }
+
+                .settings-card {
+                    background: var(--card-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 24px;
+                    padding: 2rem;
+                    backdrop-filter: blur(10px);
+                }
+
                 @media (max-width: 768px) {
                     .settings-container {
                         grid-template-columns: 1fr !important;
@@ -448,13 +457,32 @@ const UserSettings = () => {
                         flex-direction: row !important;
                         overflow-x: auto;
                         padding: 8px !important;
+                        scrollbar-width: none;
+                        -ms-overflow-style: none;
+                        position: relative;
+                        top: 0;
                     }
-                    .tabs-header {
+                    .settings-tabs::-webkit-scrollbar {
                         display: none;
                     }
+                    .tabs-header {
+                        display: none !important;
+                    }
+                    .tab-label-text {
+                        display: none !important;
+                    }
                     .settings-tabs button {
-                        padding: 8px 12px !important;
-                        white-space: nowrap;
+                        padding: 10px !important;
+                        gap: 0 !important;
+                        justify-content: center !important;
+                        min-width: 48px;
+                    }
+                    .settings-card {
+                        padding: 1.25rem !important;
+                        border-radius: 20px !important;
+                    }
+                    .section-title-container h3 {
+                        font-size: 1.1rem !important;
                     }
                 }
             `}</style>
@@ -464,7 +492,7 @@ const UserSettings = () => {
 
 // --- Sub-components & Styles ---
 const SectionTitle = ({ label, icon: Icon, color }) => (
-    <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }} className="section-title-container">
         <div style={{
             width: '42px',
             height: '42px',
@@ -475,12 +503,13 @@ const SectionTitle = ({ label, icon: Icon, color }) => (
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+            flexShrink: 0
         }}>
             <Icon size={20} />
         </div>
         <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>{label}</h3>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em', lineBreak: 'anywhere' }}>{label}</h3>
         </div>
     </div>
 );

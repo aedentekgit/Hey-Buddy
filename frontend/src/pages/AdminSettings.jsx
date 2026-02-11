@@ -100,6 +100,17 @@ const AdminSettings = () => {
     const [testEmail, setTestEmail] = useState('');
     const [testPhone, setTestPhone] = useState('');
 
+    // Local state for pending appearance changes - Moved up for correct initialization
+    const [appearance, setAppearance] = useState({
+        themeMode,
+        accentColor
+    });
+
+    // Sync local state if context changes elsewhere
+    useEffect(() => {
+        setAppearance({ themeMode, accentColor });
+    }, [themeMode, accentColor]);
+
     useEffect(() => {
         const loadSettings = async () => {
             try {
@@ -252,17 +263,6 @@ const AdminSettings = () => {
     };
 
 
-    // Local state for pending appearance changes
-    const [appearance, setAppearance] = useState({
-        themeMode,
-        accentColor
-    });
-
-    // Sync local state if context changes elsewhere (optional, but good for consistency)
-    useEffect(() => {
-        setAppearance({ themeMode, accentColor });
-    }, [themeMode, accentColor]);
-
     const tabs = [
         { id: 'general', label: 'General', icon: Settings, color: 'var(--primary-color)' },
         { id: 'smtp', label: 'SMTP', icon: Mail, color: 'var(--primary-color)' },
@@ -324,108 +324,9 @@ const AdminSettings = () => {
 
 
 
-            <style>{`
-                .settings-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 1.5rem;
-                }
-                @media (max-width: 991px) {
-                    .settings-container {
-                        grid-template-columns: 1fr !important;
-                    }
-                    .settings-tabs {
-                        flex-direction: row !important;
-                        overflow-x: auto;
-                        padding-bottom: 1rem;
-                    }
-                    .tabs-header {
-                        display: none !important;
-                    }
-                    .tab-label, .tab-chevron {
-                        display: none;
-                    }
-                    .settings-tabs button {
-                        padding: 0.75rem !important;
-                        justify-content: center !important;
-                    }
-                }
-                @media (max-width: 640px) {
-                    .settings-content-card {
-                        padding: 1rem !important;
-                    }
-                }
-                .premium-slider {
-                    -webkit-appearance: none;
-                    appearance: none;
-                    width: 100%;
-                    height: 8px;
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 4px;
-                    outline: none;
-                    margin: 0;
-                    cursor: pointer;
-                }
-                .premium-slider::-webkit-slider-thumb {
-                    -webkit-appearance: none;
-                    appearance: none;
-                    width: 22px;
-                    height: 22px;
-                    background: #ffffff;
-                    border: none;
-                    border-radius: 50%;
-                    cursor: pointer;
-                    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(var(--primary-rgb), 0.2);
-                    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                }
-                .premium-slider::-webkit-slider-thumb:hover {
-                    transform: scale(1.1);
-                    box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.4), 0 0 0 6px rgba(var(--primary-rgb), 0.2);
-                }
-                .premium-slider::-moz-range-thumb {
-                    width: 22px;
-                    height: 22px;
-                    background: #ffffff;
-                    border: none;
-                    border-radius: 50%;
-                    cursor: pointer;
-                    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
-                }
-                /* Distinct separate display button */
-                .value-display-box {
-                    min-width: 65px;
-                    height: 48px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: rgba(var(--primary-rgb), 0.1);
-                    border: 1px solid rgba(var(--primary-rgb), 0.2);
-                    border-radius: 14px;
-                    color: white;
-                    font-weight: 800;
-                    font-size: 1.1rem;
-                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-                    transition: all 0.3s;
-                    text-shadow: 0 0 10px rgba(var(--primary-rgb), 0.5);
-                }
-            `}</style>
-            <div className="settings-container" style={{
-                display: 'grid',
-                gridTemplateColumns: '240px 1fr',
-                gap: '2rem'
-            }}>
-                <div className="settings-tabs" style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.4rem',
-                    background: 'var(--card-bg)',
-                    padding: '12px',
-                    borderRadius: '24px',
-                    border: '1px solid var(--border-color)',
-                    height: 'fit-content',
-                    backdropFilter: 'blur(15px)',
-                    boxShadow: 'var(--card-shadow)'
-                }}>
+
+            <div className="settings-container">
+                <div className="settings-tabs">
                     <div className="tabs-header" style={{ padding: '8px 12px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px', opacity: 0.8 }}>
                         <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Configuration</span>
                     </div>
@@ -433,24 +334,9 @@ const AdminSettings = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '1rem',
-                                padding: '0.75rem 1rem',
-                                borderRadius: '12px',
-                                border: 'none',
-                                background: activeTab === tab.id ? 'var(--primary-color)' : 'transparent',
-                                color: activeTab === tab.id ? 'white' : 'var(--text-sub)',
-                                fontWeight: '700',
-                                fontSize: '0.8rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                textAlign: 'left',
-                                boxShadow: activeTab === tab.id ? '0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent)' : 'none'
-                            }}
+                            className={activeTab === tab.id ? 'active' : ''}
                         >
-                            <div style={{
+                            <div className="tab-icon-wrapper" style={{
                                 width: '30px',
                                 height: '30px',
                                 borderRadius: '10px',
@@ -467,7 +353,7 @@ const AdminSettings = () => {
                                     style={{ opacity: activeTab === tab.id ? 1 : 0.6 }}
                                 />
                             </div>
-                            <span className="tab-label">{tab.label}</span>
+                            <span className="tab-label-text">{tab.label}</span>
                             {activeTab === tab.id && <ChevronRight size={14} style={{ marginLeft: 'auto', opacity: 0.5 }} className="tab-chevron" />}
                         </button>
                     ))}
@@ -482,16 +368,8 @@ const AdminSettings = () => {
                             initial="hidden"
                             animate="visible"
                             exit="exit"
-                            className="settings-content-card"
-                            style={{
-                                background: 'var(--card-bg)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '30px',
-                                padding: window.innerWidth < 768 ? '20px' : '32px',
-                                boxShadow: 'var(--card-shadow)',
-                                minHeight: '500px',
-                                backdropFilter: 'blur(20px)'
-                            }}
+                            className="settings-card"
+                            style={{ minHeight: '500px' }}
                         >
                             {activeTab === 'general' && (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '2rem' }}>
@@ -1264,6 +1142,64 @@ const AdminSettings = () => {
             </div >
 
             <style>{`
+                .settings-container {
+                    display: grid;
+                    grid-template-columns: 240px 1fr;
+                    gap: 2rem;
+                    align-items: start;
+                }
+
+                .settings-tabs {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    background: var(--card-bg);
+                    padding: 12px;
+                    border-radius: 24px;
+                    border: 1px solid var(--border-color);
+                    height: fit-content;
+                    backdrop-filter: blur(15px);
+                    box-shadow: var(--card-shadow);
+                    position: sticky;
+                    top: 20px;
+                }
+
+                .settings-tabs button {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    padding: 0.75rem 1rem;
+                    border-radius: 14px;
+                    border: none;
+                    background: transparent;
+                    color: var(--text-sub);
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    text-align: left;
+                }
+
+                .settings-tabs button:hover {
+                    background: rgba(255, 255, 255, 0.05);
+                    color: var(--text-main);
+                }
+
+                .settings-tabs button.active {
+                    background: var(--primary-color);
+                    color: white;
+                    box-shadow: 0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent);
+                }
+
+                .settings-card {
+                    background: var(--card-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 30px;
+                    padding: 32px;
+                    box-shadow: var(--card-shadow);
+                    backdrop-filter: blur(20px);
+                }
+
                 @media (min-width: 768px) {
                     .save-btn {
                         width: auto !important;
@@ -1298,7 +1234,7 @@ const AdminSettings = () => {
                     border-color: var(--primary-color) !important;
                     transform: translateY(-1px);
                 }
-                @media (max-width: 767px) {
+                @media (max-width: 991px) {
                     .settings-container {
                         grid-template-columns: 1fr !important;
                         gap: 1.5rem !important;
@@ -1306,25 +1242,34 @@ const AdminSettings = () => {
                     .settings-tabs {
                         flex-direction: row !important;
                         overflow-x: auto;
-                        padding: 0.5rem !important;
-                        white-space: nowrap;
+                        padding: 8px !important;
+                        border-radius: 18px !important;
                         scrollbar-width: none;
                         -ms-overflow-style: none;
+                        position: relative;
+                        top: 0;
                     }
                     .settings-tabs::-webkit-scrollbar {
                         display: none;
                     }
-                    .tab-label, .tab-chevron {
+                    .tabs-header {
+                        display: none !important;
+                    }
+                    .tab-label-text, .tab-chevron {
                         display: none !important;
                     }
                     .settings-tabs button {
-                        padding: 0.75rem !important;
-                        justify-content: center;
+                        padding: 10px !important;
+                        gap: 0 !important;
+                        justify-content: center !important;
                         min-width: 50px;
                     }
-                    .settings-content-card {
+                    .tab-icon-wrapper {
+                        margin: 0 !important;
+                    }
+                    .settings-card {
                         padding: 16px !important;
-                        border-radius: 20px !important;
+                        border-radius: 24px !important;
                     }
                     .mode-toggle-container {
                         display: flex !important;
@@ -1346,8 +1291,13 @@ const AdminSettings = () => {
                     }
                 }
                 @media (max-width: 480px) {
+                    .settings-card {
+                        padding: 12px !important;
+                    }
+
                     .settings-tabs button {
-                        padding: 0.6rem !important;
+                        padding: 8px !important;
+                        min-width: 42px;
                     }
                 }
             `}</style>
@@ -1357,7 +1307,7 @@ const AdminSettings = () => {
 
 // --- Sub-components & Styles ---
 const SectionTitle = ({ label, icon: Icon, color }) => (
-    <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }} className="section-title-container">
         <div style={{
             width: '42px',
             height: '42px',
@@ -1368,12 +1318,13 @@ const SectionTitle = ({ label, icon: Icon, color }) => (
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+            flexShrink: 0
         }}>
             <Icon size={20} />
         </div>
         <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>{label}</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em', lineBreak: 'anywhere' }}>{label}</h3>
         </div>
     </div>
 );
@@ -1596,26 +1547,11 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '2rem', alignItems: 'start' }}>
-            <section style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                padding: '2rem',
-                borderRadius: '24px',
-                border: '1px solid var(--border-color)',
-                backdropFilter: 'blur(10px)'
-            }}>
+        <div className="sms-grid">
+            <section className="settings-section-card">
                 <SectionTitle label="SMS Gateway Configuration" icon={MessageSquare} color="var(--primary-color)" />
 
-                <div style={{
-                    display: 'inline-flex',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    padding: '4px',
-                    borderRadius: '14px',
-                    border: '1px solid var(--border-color)',
-                    marginBottom: '2.5rem',
-                    flexWrap: 'wrap',
-                    gap: '4px'
-                }}>
+                <div className="responsive-tabs-wrapper">
                     {mainTabs.map(tab => (
                         <button
                             key={tab.id}
@@ -1631,7 +1567,8 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
                                 fontWeight: '700',
                                 fontSize: '0.9rem',
                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: activeTab === tab.id ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
+                                boxShadow: activeTab === tab.id ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none',
+                                whiteSpace: 'nowrap'
                             }}
                         >
                             {tab.label}
@@ -1655,7 +1592,8 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
                                 alignItems: 'center',
                                 gap: '8px',
                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: moreGateways.some(g => g.id === activeTab) ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
+                                boxShadow: moreGateways.some(g => g.id === activeTab) ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none',
+                                whiteSpace: 'nowrap'
                             }}
                         >
                             {moreGateways.find(g => g.id === activeTab)?.label || 'Other Gateways'}
@@ -1712,43 +1650,35 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
 
                     {renderFields()}
 
-                    <div style={{
-                        marginTop: '2.5rem',
-                        paddingTop: '2rem',
-                        borderTop: '1px solid var(--border-color)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '1.5rem'
-                    }}>
+                    <div className="responsive-controls-bar">
                         <div>
                             <label style={LabelStyle}>GATEWAY STATUS</label>
                             <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: 0 }}>Enable to use {activeTab} as active provider.</p>
                         </div>
-                        <CustomSelect
-                            value={isActiveGateway ? 'enabled' : 'disabled'}
-                            onChange={(e) => {
-                                const isEnabled = e.target.value === 'enabled';
-                                handleUpdate('enabled', isEnabled);
-                                if (!isEnabled && isActiveGateway) {
-                                    setSettings(prev => ({
-                                        ...prev,
-                                        sms: { ...prev.sms, activeGateway: '' }
-                                    }));
-                                } else if (isEnabled) {
-                                    setSettings(prev => ({
-                                        ...prev,
-                                        sms: { ...prev.sms, activeGateway: activeTab }
-                                    }));
-                                }
-                            }}
-                            options={[
-                                { value: 'enabled', label: 'Enabled / Primary' },
-                                { value: 'disabled', label: 'Disabled' }
-                            ]}
-                            style={{ width: '220px' }}
-                        />
+                        <div style={{ flexGrow: 1, maxWidth: '220px' }} className="custom-select-container">
+                            <CustomSelect
+                                value={isActiveGateway ? 'enabled' : 'disabled'}
+                                onChange={(e) => {
+                                    const isEnabled = e.target.value === 'enabled';
+                                    handleUpdate('enabled', isEnabled);
+                                    if (!isEnabled && isActiveGateway) {
+                                        setSettings(prev => ({
+                                            ...prev,
+                                            sms: { ...prev.sms, activeGateway: '' }
+                                        }));
+                                    } else if (isEnabled) {
+                                        setSettings(prev => ({
+                                            ...prev,
+                                            sms: { ...prev.sms, activeGateway: activeTab }
+                                        }));
+                                    }
+                                }}
+                                options={[
+                                    { value: 'enabled', label: 'Enabled / Primary' },
+                                    { value: 'disabled', label: 'Disabled' }
+                                ]}
+                            />
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1778,6 +1708,8 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
         </div>
     );
 };
+
+
 
 const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
     const [subTab, setSubTab] = useState('accounts');
@@ -1814,23 +1746,11 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <section style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                padding: '2.5rem',
-                borderRadius: '24px',
-                border: '1px solid var(--border-color)',
-                backdropFilter: 'blur(10px)'
-            }}>
+            <section className="settings-section-card" style={{ padding: '2.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
                     <SectionTitle label="Google Calendar Setup" icon={Calendar} color="#4285F4" />
 
-                    <div style={{
-                        display: 'inline-flex',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        padding: '4px',
-                        borderRadius: '14px',
-                        border: '1px solid var(--border-color)'
-                    }}>
+                    <div className="responsive-tabs-wrapper">
                         {mainTabs.map(tab => (
                             <button
                                 key={tab.id}
@@ -1862,14 +1782,7 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
                             <div>
                                 <label style={{ ...LabelStyle, marginBottom: '1rem' }}>Select Account Type</label>
-                                <div style={{
-                                    display: 'inline-flex',
-                                    background: 'rgba(255, 255, 255, 0.03)',
-                                    padding: '4px',
-                                    borderRadius: '14px',
-                                    border: '1px solid var(--border-color)',
-                                    backdropFilter: 'blur(10px)'
-                                }}>
+                                <div className="responsive-tabs-wrapper" style={{ backdropFilter: 'blur(10px)' }}>
                                     {accountTabs.map(tab => (
                                         <button
                                             key={tab.id}
@@ -1967,7 +1880,7 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                                         { value: 'enabled', label: 'Active / Connected' },
                                         { value: 'disabled', label: 'Inactive / Disabled' }
                                     ]}
-                                    style={{ width: '220px' }}
+                                    style={{ width: '100%', maxWidth: '220px' }}
                                 />
                             </div>
                         </div>
@@ -2119,7 +2032,7 @@ const NotificationSettings = ({ settings, setSettings }) => {
     ];
 
     return (
-        <div>
+        <section className="settings-section-card">
             <SectionTitle label="Notification Configuration" icon={Bell} color="var(--primary-color)" />
             <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                 Configure Firebase Cloud Messaging for Web, Android, and iOS.
@@ -2238,82 +2151,81 @@ const NotificationSettings = ({ settings, setSettings }) => {
                 )}
             </div>
 
-            <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '1rem' }}>
-                    Testing & Tools
-                </h4>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                        type="button"
-                        onClick={async () => {
-                            const loadToast = toast.loading('Requesting permission...');
-                            const token = await requestNotificationPermission();
-                            if (token) {
-                                console.log("Token received:", token);
-                                navigator.clipboard.writeText(token);
-                                toast.success('Token copied to clipboard! Paste it below to test.', { id: loadToast });
-                            } else {
-                                toast.error('Permission denied or Firebase not configured.', { id: loadToast });
-                            }
-                        }}
-                        style={{
-                            padding: '0.6rem 1.25rem',
-                            borderRadius: '10px',
-                            border: '1px solid var(--border-color)',
-                            background: 'transparent',
-                            color: 'var(--text-main)',
-                            fontWeight: '600',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                        className="btn-outline"
-                    >
-                        <Zap size={16} color="#f59e0b" />
-                        Get My Token
-                    </button>
+            {/* <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}> */}
+            <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '1rem' }}>
+                Testing & Tools
+            </h4>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+                <button
+                    type="button"
+                    onClick={async () => {
+                        const loadToast = toast.loading('Requesting permission...');
+                        const token = await requestNotificationPermission();
+                        if (token) {
+                            console.log("Token received:", token);
+                            navigator.clipboard.writeText(token);
+                            toast.success('Token copied to clipboard! Paste it below to test.', { id: loadToast });
+                        } else {
+                            toast.error('Permission denied or Firebase not configured.', { id: loadToast });
+                        }
+                    }}
+                    style={{
+                        padding: '0.6rem 1.25rem',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
+                        background: 'transparent',
+                        color: 'var(--text-main)',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                    className="btn-outline"
+                >
+                    <Zap size={16} color="#f59e0b" />
+                    Get My Token
+                </button>
 
-                    <button
-                        type="button"
-                        onClick={async () => {
-                            const token = prompt("Please enter your Firebase Device Token to test:");
-                            if (!token) return;
+                <button
+                    type="button"
+                    onClick={async () => {
+                        const token = prompt("Please enter your Firebase Device Token to test:");
+                        if (!token) return;
 
-                            const loadToast = toast.loading('Sending test notification...');
-                            try {
-                                await api.post('/settings/test-notification', {
-                                    token,
-                                    title: 'Buddy Test',
-                                    body: 'Firebase Notification Working! 🚀'
-                                });
-                                toast.success('Test notification sent!', { id: loadToast });
-                            } catch (error) {
-                                toast.error(error.response?.data?.message || 'Notification test failed', { id: loadToast });
-                            }
-                        }}
-                        style={{
-                            padding: '0.6rem 1.25rem',
-                            borderRadius: '10px',
-                            border: '1px solid var(--border-color)',
-                            background: 'transparent',
-                            color: 'var(--text-main)',
-                            fontWeight: '600',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                        className="btn-outline"
-                    >
-                        <Send size={16} />
-                        Test Connectivity
-                    </button>
-                </div>
+                        const loadToast = toast.loading('Sending test notification...');
+                        try {
+                            await api.post('/settings/test-notification', {
+                                token,
+                                title: 'Buddy Test',
+                                body: 'Firebase Notification Working! 🚀'
+                            });
+                            toast.success('Test notification sent!', { id: loadToast });
+                        } catch (error) {
+                            toast.error(error.response?.data?.message || 'Notification test failed', { id: loadToast });
+                        }
+                    }}
+                    style={{
+                        padding: '0.6rem 1.25rem',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
+                        background: 'transparent',
+                        color: 'var(--text-main)',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                    className="btn-outline"
+                >
+                    <Send size={16} />
+                    Test Connectivity
+                </button>
             </div>
-        </div>
+        </section>
     );
 };
 
@@ -2329,7 +2241,7 @@ const StorageSettings = ({ settings, setSettings }) => {
     const isActive = (provider) => settings.storage.activeProvider === provider;
 
     return (
-        <div>
+        <section className="settings-section-card">
             <SectionTitle label="Storage Configuration" icon={Database} color="var(--primary-color)" />
             <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                 Choose where to store your uploaded files. Only one provider can be active.
@@ -2524,7 +2436,7 @@ const StorageSettings = ({ settings, setSettings }) => {
                 )}
 
             </div>
-        </div>
+        </section>
     );
 };
 
@@ -2536,7 +2448,7 @@ const PaymentSettings = ({ settings, setSettings }) => {
     const activeGateway = settings.paymentGateways[activeIndex] || settings.paymentGateways[0];
 
     return (
-        <div>
+        <section className="settings-section-card">
             <SectionTitle label="Payment Gateways" icon={CreditCard} color="var(--primary-color)" />
             <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                 Configure multiple payment options for your customers.
@@ -2668,7 +2580,7 @@ const PaymentSettings = ({ settings, setSettings }) => {
                 </div>
 
             </div>
-        </div>
+        </section>
     );
 };
 
@@ -2686,13 +2598,7 @@ const GoogleAuthSettings = ({ settings, setSettings }) => {
     };
 
     return (
-        <section style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            padding: '2rem',
-            borderRadius: '24px',
-            border: '1px solid var(--border-color)',
-            backdropFilter: 'blur(10px)'
-        }}>
+        <section className="settings-section-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
                 <SectionTitle label="Google Authentication" icon={ShieldCheck} color="var(--primary-color)" />
                 <button

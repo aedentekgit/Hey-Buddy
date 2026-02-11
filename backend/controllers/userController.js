@@ -187,6 +187,40 @@ const unlinkCalendar = async (req, res) => {
     }
 };
 
+// Update user location for smart reminder features
+const updateLocation = async (req, res) => {
+    try {
+        const { lat, lng } = req.body;
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Move current location to previous location
+        if (user.currentLocation) {
+            user.previousLocation = {
+                lat: user.currentLocation.lat,
+                lng: user.currentLocation.lng,
+                timestamp: user.currentLocation.timestamp
+            };
+        }
+
+        // Update current location
+        user.currentLocation = {
+            lat,
+            lng,
+            timestamp: new Date()
+        };
+
+        await user.save();
+
+        res.json({ success: true, message: 'Location updated successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getUsers,
     createUser,
@@ -195,5 +229,6 @@ module.exports = {
     saveFcmToken,
     updateProfile,
     deleteMyAccount,
-    unlinkCalendar
+    unlinkCalendar,
+    updateLocation
 };

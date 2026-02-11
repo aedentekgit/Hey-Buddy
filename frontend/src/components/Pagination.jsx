@@ -33,12 +33,12 @@ const Pagination = ({ pagination, onPageChange }) => {
     };
 
     return (
-        <div style={PaginationContainerStyle}>
-            <div style={PaginationInfoStyle}>
+        <div style={PaginationContainerStyle} className="pagination-container">
+            <div style={PaginationInfoStyle} className="pagination-info">
                 Showing <span style={{ color: 'var(--text-main)', fontWeight: '700' }}>{startRange}-{endRange}</span> of <span style={{ color: 'var(--text-main)', fontWeight: '700' }}>{total}</span> results
             </div>
 
-            <div style={PaginationGroupStyle}>
+            <div style={PaginationGroupStyle} className="pagination-buttons">
                 <button
                     onClick={() => onPageChange(currentPage - 1)}
                     disabled={currentPage === 1}

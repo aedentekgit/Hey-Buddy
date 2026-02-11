@@ -11,6 +11,7 @@ router.put('/profile', protect, userController.updateProfile);
 router.delete('/profile', protect, userController.deleteMyAccount);
 router.post('/fcm-token', protect, userController.saveFcmToken);
 router.post('/unlink-calendar', protect, userController.unlinkCalendar);
+router.post('/location', protect, userController.updateLocation);
 
 // Admin Routes with :id parameter
 router.get('/', protect, authorize('admin'), userController.getUsers);

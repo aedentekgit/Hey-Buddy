@@ -12,7 +12,12 @@ import {
     ListTodo,
     Brain,
     Home,
-    ChevronRight
+    ChevronRight,
+    Calendar,
+    Plus,
+    Eye,
+    Cpu,
+    BookOpen
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
@@ -28,14 +33,23 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
         {
             title: 'DASHBOARDS',
             items: [
-                { id: 'dashboard', name: 'Default', icon: Home, path: '/admin/dashboard' },
+                { id: 'dashboard', name: 'Dashboard', icon: Home, path: '/admin/dashboard' },
+            ].filter(item => user?.allowedPages?.includes(item.id))
+        },
+        {
+            title: 'AI POWERED',
+            items: [
+                { id: 'buddy', name: 'Buddy AI', icon: Mic, path: '/admin/buddy' },
+                { id: 'vision', name: 'Buddy Vision', icon: Eye, path: '/admin/vision' },
+                { id: 'knowledge', name: 'Knowledge Base', icon: BookOpen, path: '/admin/knowledge' },
+                { id: 'automations', name: 'Automations', icon: Cpu, path: '/admin/automations' },
+                { id: 'memories', name: 'Buddy Memory', icon: Brain, path: '/admin/memories' },
             ].filter(item => user?.allowedPages?.includes(item.id))
         },
         {
             title: 'APPLICATIONS',
             items: [
-                { id: 'buddy', name: 'Buddy AI', icon: Mic, path: '/admin/buddy' },
-                { id: 'memories', name: 'Buddy Memory', icon: Brain, path: '/admin/memories' },
+                { id: 'calendar', name: 'Calendar', icon: Calendar, path: '/admin/calendar' },
                 { id: 'reminders', name: 'My Reminders', icon: ListTodo, path: '/admin/reminders' },
             ].filter(item => user?.allowedPages?.includes(item.id))
         },
@@ -99,8 +113,9 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                             {!isCollapsed && <h6 className="nav-group-title">{group.title}</h6>}
                             {group.items.map((item) => (
                                 <NavLink
-                                    key={item.path}
-                                    to={item.path}
+                                    key={item.id}
+                                    to={item.action ? { pathname: item.path } : item.path}
+                                    state={item.action ? { action: item.action } : null}
                                     onClick={() => setIsOpen(false)}
                                     className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                                 >

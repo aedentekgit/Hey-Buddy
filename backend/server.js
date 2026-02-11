@@ -26,6 +26,13 @@ const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const voiceRoutes = require('./routes/voiceRoutes');
 const statsRoutes = require('./routes/statsRoutes');
+const reminderRoutes = require('./routes/reminderRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const conversationRoutes = require('./routes/conversationRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const visionRoutes = require('./routes/visionRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
+const ragRoutes = require('./routes/ragRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -33,6 +40,13 @@ app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/voice', voiceRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/reminders', reminderRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/vision', visionRoutes);
+app.use('/api/automations', webhookRoutes);
+app.use('/api/knowledge', ragRoutes);
 
 // Routes placeholders
 app.get('/', (req, res) => {
@@ -59,9 +73,11 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 const { startReminderWorker } = require('./services/reminderWorker');
+const { startSmartReminderScheduler } = require('./schedulers/smartReminderScheduler');
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Backend fully initialized at ${new Date().toISOString()}`);
     startReminderWorker();
+    startSmartReminderScheduler(); // Start AI-powered reminder features
 });

@@ -51,7 +51,7 @@ export const ActionButtonStyle = {
 
 export const TableContainerStyle = {
     background: 'var(--card-bg)',
-    borderRadius: '24px',
+    borderRadius: '30px',
     border: '1px solid var(--border-color)',
     padding: '32px',
     boxShadow: 'var(--card-shadow)',

@@ -13,23 +13,29 @@ const seedRoles = async () => {
                 name: 'admin',
                 description: 'Full system access',
                 permissions: ['dashboard', 'analytics', 'users', 'roles', 'settings'],
+                allowedPages: ['dashboard', 'analytics', 'users', 'management', 'roles', 'settings', 'buddy', 'memories', 'calendar', 'reminders'],
                 isSystem: true
             },
             {
                 name: 'user',
                 description: 'Standard user access',
-                permissions: ['dashboard'],
+                permissions: ['dashboard', 'analytics'],
+                allowedPages: ['dashboard', 'analytics', 'buddy', 'memories', 'calendar', 'reminders'],
                 isSystem: true
             }
         ];
 
         for (const roleData of rolesToSeed) {
-            const exists = await Role.findOne({ name: roleData.name });
-            if (!exists) {
-                await Role.create(roleData);
+            const result = await Role.updateOne(
+                { name: roleData.name },
+                { $set: roleData },
+                { upsert: true }
+            );
+
+            if (result.upsertedCount > 0) {
                 console.log(`Role created: ${roleData.name}`);
             } else {
-                console.log(`Role already exists: ${roleData.name}`);
+                console.log(`Role updated: ${roleData.name}`);
             }
         }
 

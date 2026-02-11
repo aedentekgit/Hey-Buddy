@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Pagination from '../components/Pagination';
 import {
-    ThStyle, TdStyle, TableElementStyle, SearchInputStyle, TableRowStyle
+    ThStyle, TdStyle, TableElementStyle, SearchInputStyle, SearchBoxStyle, TableRowStyle
 } from '../components/TableStyles';
 
 
@@ -184,7 +184,7 @@ const AdminManagement = () => {
     const filteredUsers = users;
 
     return (
-        <div style={{ color: 'var(--text-main)' }} className="users-page">
+        <div style={{ color: 'var(--text-main)' }} className="admin-management-page">
             <Toaster position="top-right" />
 
             <div className="table-container">
@@ -219,7 +219,7 @@ const AdminManagement = () => {
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
-                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }}>S.No</th>
+                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }} className="hide-mobile-th">S.No</th>
                                 <th style={{ ...ThStyle, textAlign: 'left', minWidth: '200px' }}>Admin Info</th>
                                 <th className="hide-on-tablet" style={ThStyle}>Contact Details</th>
                                 <th style={{ ...ThStyle, minWidth: '120px' }}>Work Role</th>
@@ -246,26 +246,27 @@ const AdminManagement = () => {
                                         key={user._id}
                                         whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }}
                                         style={TableRowStyle()}
+                                        className="mobile-stacked-row"
                                     >
-                                        <td style={{ ...TdStyle, textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', borderLeft: 'none', padding: '18px 10px' }}>{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }}>
+                                        <td style={{ ...TdStyle, textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', borderLeft: 'none', padding: '18px 10px' }} className="hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
+                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Admin">
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <div className="hide-on-mobile" style={{ width: '36px', height: '36px', background: 'var(--card-bg)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', flexShrink: 0 }}>
                                                     <UserIcon size={16} color="var(--primary-glow)" />
                                                 </div>
-                                                <div style={{ textAlign: 'left' }}>
-                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                <div style={{ textAlign: 'left', minWidth: 0 }}>
+                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem', wordBreak: 'break-word', lineHeight: '1.2' }}>
                                                         {user.name || (user.email === 'admin@example.com' ? 'Super Admin' : 'N/A')}
                                                     </div>
-                                                    <div className="show-on-tablet" style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '2px' }}>{user.email}</div>
+                                                    <div className="show-on-tablet" style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '4px', wordBreak: 'break-all' }}>{user.email}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="hide-on-tablet" style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }}>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', whiteSpace: 'nowrap' }}>{user.email}</div>
-                                            {user.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '2px', whiteSpace: 'nowrap' }}>{user.phone}</div>}
+                                        <td className="hide-on-tablet" style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Contact">
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', wordBreak: 'break-all' }}>{user.email}</div>
+                                            {user.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '2px', wordBreak: 'break-all' }}>{user.phone}</div>}
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }}>
+                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Role">
                                             <span style={{
                                                 padding: '4px 12px',
                                                 borderRadius: '8px',
@@ -279,12 +280,12 @@ const AdminManagement = () => {
                                                 minWidth: '60px'
                                             }}>{user.role}</span>
                                         </td>
-                                        <td className="hide-on-mobile" style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }}>
+                                        <td className="hide-on-mobile-custom" style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Joined">
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', whiteSpace: 'nowrap' }}>
                                                 {new Date(user.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </div>
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none' }}>
+                                        <td style={{ ...TdStyle, borderLeft: 'none' }} className="mobile-actions-cell">
                                             <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
                                                 <button
                                                     onClick={() => handleOpenModal(user, true)}
@@ -324,65 +325,32 @@ const AdminManagement = () => {
 
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="modal-backdrop">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="modal-backdrop-bg"
-                            onClick={handleCloseModal}
-                        />
+                    <div className="modal-backdrop" onClick={handleCloseModal}>
                         <motion.div
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                             className="modal"
-                            role="dialog"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="modal-header">
-                                <h3>{isViewMode ? 'View Admin' : (currentUser ? 'Edit Admin' : 'New Admin')}</h3>
-                                <button className="btn-close" onClick={handleCloseModal}>
+                                <h3 className="modal-title">
+                                    {isViewMode ? 'View Admin' : (currentUser ? 'Edit Admin' : 'New Admin')}
+                                </h3>
+                                <button onClick={handleCloseModal} className="modal-close">
                                     <X size={20} />
                                 </button>
                             </div>
-
                             <form onSubmit={handleSubmit}>
-                                <div className="modal-body">
+                                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <div className="form-group">
                                         <label className="form-label">FULL NAME</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <UserIcon size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
-                                            <input
-                                                className="input"
-                                                style={{ paddingLeft: '36px' }}
-                                                type="text"
-                                                required
-                                                disabled={isViewMode}
-                                                value={formData.name}
-                                                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                                placeholder="Enter full name"
-                                            />
-                                        </div>
+                                        <input className="input" required disabled={isViewMode} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                                     </div>
-
                                     <div className="form-group">
-                                        <label className="form-label">EMAIL ADDRESS</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
-                                            <input
-                                                className="input"
-                                                style={{ paddingLeft: '36px' }}
-                                                type="email"
-                                                required
-                                                disabled={isViewMode}
-                                                value={formData.email}
-                                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                                placeholder="name@company.com"
-                                            />
-                                        </div>
+                                        <label className="form-label">EMAIL</label>
+                                        <input className="input" type="email" required disabled={isViewMode} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                                     </div>
-
                                     {!isViewMode && (
                                         <div className="form-group">
                                             <label className="form-label">PASSWORD {currentUser && '(LEAVE BLANK TO UNCHANGED)'}</label>
@@ -390,71 +358,72 @@ const AdminManagement = () => {
                                                 <input
                                                     className="input"
                                                     type={showPassword ? "text" : "password"}
+                                                    style={{ paddingRight: '40px' }}
+                                                    placeholder="Enter password..."
                                                     required={!currentUser}
-                                                    minLength={6}
                                                     value={formData.password}
                                                     onChange={e => {
                                                         setFormData({ ...formData, password: e.target.value });
                                                         setPasswordError(validatePassword(e.target.value) || '');
                                                     }}
-                                                    placeholder={currentUser ? "••••••••" : "Enter password"}
                                                 />
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowPassword(!showPassword)}
-                                                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: '10px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        color: 'var(--text-sub)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: 0
+                                                    }}
                                                 >
                                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                                 </button>
                                             </div>
-                                            {passwordError && <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>{passwordError}</span>}
+                                            {passwordError && <span className="form-error">{passwordError}</span>}
                                         </div>
                                     )}
-
-                                    <div className="form-row">
-                                        <div className="form-group">
+                                    <div style={{ display: 'flex', gap: '16px' }}>
+                                        <div style={{ flex: 1 }}>
                                             <label className="form-label">PHONE</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <Phone size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
-                                                <input
-                                                    className="input"
-                                                    style={{ paddingLeft: '36px' }}
-                                                    type="tel"
-                                                    disabled={isViewMode}
-                                                    value={formData.phone}
-                                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                                    placeholder="Enter phone number"
-                                                />
-                                            </div>
+                                            <input className="input" disabled={isViewMode} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                                         </div>
-                                        <div className="form-group">
+                                        <div style={{ flex: 1 }}>
                                             <label className="form-label">ROLE</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <CustomSelect
-                                                    disabled={isViewMode}
-                                                    value={formData.role}
-                                                    onChange={e => setFormData({ ...formData, role: e.target.value })}
-                                                    options={roles.length > 0 ? roles.filter(role => role.name !== 'user').map(role => ({
-                                                        value: role.name,
-                                                        label: role.name
-                                                    })) : [
-                                                        { value: 'admin', label: 'Admin' },
-                                                        { value: 'manager', label: 'Manager' }
-                                                    ]}
-                                                    placeholder="Select Role"
-                                                    bgColor="var(--bg-secondary)"
-                                                    color="var(--text-main)"
-                                                />
-                                            </div>
+                                            <CustomSelect
+                                                disabled={isViewMode}
+                                                value={formData.role}
+                                                onChange={e => setFormData({ ...formData, role: e.target.value })}
+                                                options={roles.length > 0 ? roles.filter(role => role.name !== 'user').map(role => ({
+                                                    value: role.name,
+                                                    label: role.name
+                                                })) : [
+                                                    { value: 'admin', label: 'Admin' }
+                                                ]}
+                                            />
                                         </div>
                                     </div>
                                 </div>
                                 <div className="modal-footer">
-                                    <button type="button" onClick={handleCloseModal} className="btn btn-secondary">
+                                    <button
+                                        type="button"
+                                        onClick={handleCloseModal}
+                                        className="btn btn-secondary"
+                                    >
                                         {isViewMode ? 'Close' : 'Cancel'}
                                     </button>
                                     {!isViewMode && (
-                                        <button type="submit" className="btn btn-primary">
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary"
+                                        >
                                             {currentUser ? 'Save Admin' : 'Create Admin'}
                                         </button>
                                     )}
@@ -474,15 +443,12 @@ const AdminManagement = () => {
                 confirmText="Delete Admin"
             />
 
+
+
             <style>{`
                 .animate-spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 
-                .table-wrapper {
-                    overflow-x: auto;
-                    width: 100%;
-                }
-
                 .show-mobile-text { display: none; }
                 .show-on-tablet { display: none; }
 
@@ -491,20 +457,149 @@ const AdminManagement = () => {
                     .show-on-tablet { display: block; }
                 }
                 
+                @media (max-width: 640px) {
+                    .table-wrapper table, 
+                    .table-wrapper thead, 
+                    .table-wrapper tbody, 
+                    .table-wrapper th, 
+                    .table-wrapper td, 
+                    .table-wrapper tr {
+                        display: block;
+                    }
+
+                    .table-wrapper thead tr {
+                        position: absolute;
+                        top: -9999px;
+                        left: -9999px;
+                    }
+
+                    .mobile-stacked-row {
+                        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
+                        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        border-radius: 24px !important;
+                        padding: 20px !important;
+                        margin-bottom: 24px !important;
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+                        backdrop-filter: blur(10px);
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    /* Add a subtle highlight accent */
+                    .mobile-stacked-row::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 4px;
+                        height: 100%;
+                        background: var(--primary-color);
+                        opacity: 0.5;
+                    }
+
+                    .table-wrapper td {
+                        border: none !important;
+                        padding: 12px 0 !important;
+                        position: relative;
+                        text-align: left !important;
+                        width: 100% !important;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 16px;
+                        min-height: auto !important;
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+                    }
+
+                    .table-wrapper td:last-child {
+                        border-bottom: none !important;
+                    }
+
+                    .table-wrapper td::before {
+                        content: attr(data-label);
+                        font-size: 0.75rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--text-sub);
+                        min-width: 100px;
+                        opacity: 0.8;
+                    }
+
+                    /* Make the value text aligned to the right */
+                    .table-wrapper td > * {
+                        text-align: right;
+                        flex: 1;
+                        display: flex;
+                        justify-content: flex-end;
+                    }
+
+                    /* Specific adjustment for Admin Info to keep avatar and text together aligned right */
+                    .table-wrapper td[data-label="Admin"] > div {
+                        width: 100%;
+                    }
+
+                    .hide-mobile-th, .hide-mobile-td {
+                        display: none !important;
+                    }
+
+                    .hide-on-mobile-custom {
+                         display: none !important;
+                    }
+
+                    .mobile-actions-cell {
+                        margin-top: 8px;
+                        padding-top: 20px !important;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        justify-content: center !important;
+                        gap: 16px !important;
+                    }
+
+                    .mobile-actions-cell::before {
+                        display: none; /* Hide label for actions */
+                    }
+                    
+                    /* Custom Button Styles for Mobile Actions */
+                    .mobile-actions-cell .btn-icon {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 12px;
+                    }
+
+                    .hide-on-tablet {
+                        display: flex !important;
+                    }
+
+
+                    
+                    .table-wrapper {
+                        padding: 0 4px;
+                        overflow-x: visible !important;
+                    }
+
+                    /* Ensure text breaks properly */
+                    .table-wrapper td div {
+                        word-break: break-word;
+                    }
+                }
+
                 @media (max-width: 768px) {
-                    .hide-on-mobile { display: none !important; }
-                    th, td { padding: 12px 10px !important; }
+                    /* We override the .hide-on-mobile class for the avatar specifically inside the table on mobile */
+                    .table-wrapper .hide-on-mobile {
+                        display: flex !important;
+                    }
+
                     .hide-mobile-text { display: none; }
                     .show-mobile-text { display: inline-block; }
                 }
 
                 @media (max-width: 480px) {
                     td, th {
-                        padding: 12px 8px !important;
+                        padding: 12px 4px !important;
                     }
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 

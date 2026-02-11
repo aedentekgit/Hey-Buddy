@@ -183,7 +183,7 @@ const Roles = () => {
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
-                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }}>S.No</th>
+                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }} className="hide-mobile-th">S.No</th>
                                 <th style={{ ...ThStyle, textAlign: 'left', minWidth: '150px' }}>Role Name</th>
                                 <th style={{ ...ThStyle, minWidth: '200px' }}>Access Permissions</th>
                                 <th style={ThStyle} className="hide-on-tablet">Created Date</th>
@@ -209,15 +209,16 @@ const Roles = () => {
                                         key={role._id}
                                         whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }}
                                         style={TableRowStyle()}
+                                        className="mobile-stacked-row"
                                     >
-                                        <td style={{ ...TdStyle, borderLeft: 'none', textAlign: 'center', padding: '18px 10px' }}>{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
-                                        <td style={{ ...TdStyle, textAlign: 'left' }}>
+                                        <td style={{ ...TdStyle, borderLeft: 'none', textAlign: 'center', padding: '18px 10px' }} className="hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
+                                        <td style={{ ...TdStyle, textAlign: 'left' }} data-label="Role">
                                             <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem' }}>{role.name}</div>
                                             <div className="show-on-tablet" style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>
                                                 {new Date(role.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                                             </div>
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }}>
+                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Access">
                                             <span style={{
                                                 fontSize: '0.7rem',
                                                 fontWeight: '800',
@@ -233,12 +234,12 @@ const Roles = () => {
                                                 {role.permissions?.length || 0} {role.permissions?.length === 1 ? 'Page' : 'Pages'}
                                             </span>
                                         </td>
-                                        <td style={TdStyle} className="hide-on-tablet">
+                                        <td style={TdStyle} className="hide-on-tablet" data-label="Created">
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
                                                 {new Date(role.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </div>
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none' }}>
+                                        <td style={{ ...TdStyle, borderLeft: 'none' }} className="mobile-actions-cell">
                                             <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
                                                 <button
                                                     onClick={() => handleOpenModal(role, true)}
@@ -418,11 +419,138 @@ const Roles = () => {
                 .show-mobile-text { display: none; }
                 .show-on-tablet { display: none; }
 
+                @media (max-width: 640px) {
+                    .table-wrapper table, 
+                    .table-wrapper thead, 
+                    .table-wrapper tbody, 
+                    .table-wrapper th, 
+                    .table-wrapper td, 
+                    .table-wrapper tr {
+                        display: block;
+                    }
+
+                    .table-wrapper thead tr {
+                        position: absolute;
+                        top: -9999px;
+                        left: -9999px;
+                    }
+
+                    .mobile-stacked-row {
+                        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
+                        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        border-radius: 24px !important;
+                        padding: 20px !important;
+                        margin-bottom: 24px !important;
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+                        backdrop-filter: blur(10px);
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    /* Add a subtle highlight accent */
+                    .mobile-stacked-row::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 4px;
+                        height: 100%;
+                        background: var(--primary-color);
+                        opacity: 0.5;
+                    }
+
+                    .table-wrapper td {
+                        border: none !important;
+                        padding: 12px 0 !important;
+                        position: relative;
+                        text-align: left !important;
+                        width: 100% !important;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 16px;
+                        min-height: auto !important;
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+                    }
+
+                    .table-wrapper td:last-child {
+                        border-bottom: none !important;
+                    }
+
+                    .table-wrapper td::before {
+                        content: attr(data-label);
+                        font-size: 0.75rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--text-sub);
+                        min-width: 100px;
+                        opacity: 0.8;
+                    }
+
+                    /* Make the value text aligned to the right */
+                    .table-wrapper td > * {
+                        text-align: right;
+                        flex: 1;
+                        display: flex;
+                        justify-content: flex-end;
+                    }
+                    
+                    /* Specific adjustment for Role Name */
+                    .table-wrapper td[data-label="Role"] > div {
+                        width: 100%;
+                    }
+
+                    .hide-mobile-th, .hide-mobile-td {
+                        display: none !important;
+                    }
+
+                    .mobile-actions-cell {
+                        margin-top: 8px;
+                        padding-top: 20px !important;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        justify-content: center !important;
+                        gap: 16px !important;
+                    }
+
+                    .mobile-actions-cell::before {
+                        display: none; /* Hide label for actions */
+                    }
+                    
+                    /* Custom Button Styles for Mobile Actions */
+                    .mobile-actions-cell .btn-icon {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 12px;
+                    }
+
+                    .hide-on-tablet {
+                        display: flex !important;
+                    }
+
+                    .table-container {
+                        background: transparent !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                        padding: 0 16px !important;
+                    }
+                    
+                    .table-wrapper {
+                        padding: 0 4px;
+                        overflow-x: visible !important;
+                    }
+
+                    /* Ensure text breaks properly */
+                    .table-wrapper td div {
+                        word-break: break-word;
+                    }
+                }
+
                 @media (max-width: 768px) {
                     .hide-on-mobile { display: none !important; }
                     .hide-on-tablet { display: none !important; }
                     .show-on-tablet { display: block; }
-                    th, td { padding: 12px 10px !important; }
+                    /* th, td { padding: 12px 10px !important; } Remove this as it conflicts with the mobile styles */
                     .hide-mobile-text { display: none; }
                     .show-mobile-text { display: inline-block; }
                     .permissions-grid {
@@ -432,7 +560,7 @@ const Roles = () => {
 
                 @media (max-width: 480px) {
                     td, th {
-                        padding: 12px 8px !important;
+                        padding: 12px 4px !important;
                     }
                 }
             `}</style>

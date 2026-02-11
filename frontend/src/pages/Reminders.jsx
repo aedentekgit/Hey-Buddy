@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ListTodo, Trash2, Calendar, Clock, MapPin, Search, Loader2, Eye, Edit2, Save, X, Plus } from 'lucide-react';
+import { Trash2, Calendar, Clock, MapPin, Search, Loader2, Eye, Edit2, Save, X, Plus, Share2, Users } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import voiceService from '../services/voiceService';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SmartReminderDetails from '../components/SmartReminderDetails';
 import Pagination from '../components/Pagination';
 import {
-    ThStyle, TdStyle, ActionButtonStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle
+    ThStyle, TdStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, ActionButtonStyle
 } from '../components/TableStyles';
 
 const Reminders = () => {
+    const { user } = useAuth();
     const [reminders, setReminders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +26,7 @@ const Reminders = () => {
         total: 0,
         limit: 10
     });
+    const [shareModal, setShareModal] = useState({ isOpen: false, reminder: null, email: '', permissions: 'view', loading: false });
 
     // Unified effect for initial load and search
     useEffect(() => {
@@ -73,6 +76,8 @@ const Reminders = () => {
         }
     };
 
+
+
     const handleViewClick = (reminder) => {
         setSelectedReminder(reminder);
     };
@@ -90,6 +95,25 @@ const Reminders = () => {
     const handleCreateClick = () => {
         setEditForm({ title: '', date: '', time: '', location: '' });
         setEditModal({ isOpen: true, reminder: null, isCreate: true });
+    };
+
+    const handleShare = async () => {
+        if (!shareModal.email) {
+            toast.error("Email is required");
+            return;
+        }
+        setShareModal(prev => ({ ...prev, loading: true }));
+        try {
+            const res = await voiceService.shareReminder(shareModal.reminder._id, shareModal.email, shareModal.permissions);
+            if (res.success) {
+                toast.success("Reminder shared successfully");
+                setShareModal({ isOpen: false, reminder: null, email: '', permissions: 'view', loading: false });
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Failed to share reminder");
+        } finally {
+            setShareModal(prev => ({ ...prev, loading: false }));
+        }
     };
 
     const handleSubmit = async () => {
@@ -177,8 +201,10 @@ const Reminders = () => {
     const filteredReminders = reminders;
 
     return (
-        <div className="reminders-page">
-            <div style={TableContainerStyle} className="table-responsive-container">
+        <div style={{ color: 'var(--text-main)' }} className="reminders-page">
+            <Toaster position="top-right" />
+
+            <div className="table-container">
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -187,7 +213,7 @@ const Reminders = () => {
                     gap: '16px',
                     flexWrap: 'wrap'
                 }}>
-                    <div style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
+                    <div className="search-box" style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
                         <input
                             type="text"
@@ -198,11 +224,11 @@ const Reminders = () => {
                         />
                     </div>
                     <button
+                        className="btn btn-primary"
                         onClick={handleCreateClick}
-                        className="btn-primary"
-                        style={{ padding: '10px 20px', whiteSpace: 'nowrap' }}
                     >
-                        <Plus size={18} /> <span className="hide-mobile-text">New Reminder</span><span className="show-mobile-text">New</span>
+                        <Plus size={20} />
+                        <span className="hide-mobile-text">New Reminder</span><span className="show-mobile-text">New</span>
                     </button>
                 </div>
 
@@ -210,11 +236,11 @@ const Reminders = () => {
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
-                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }}>S.No</th>
-                                <th style={{ ...ThStyle, textAlign: 'left', minWidth: '180px' }}>Reminder Info</th>
-                                <th style={{ ...ThStyle, minWidth: '120px' }}>Date & Time</th>
-                                <th style={ThStyle} className="hide-on-compact">Category</th>
-                                <th style={{ ...ThStyle, width: '100px', borderRadius: '0 12px 12px 0' }}>Actions</th>
+                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }} className="hide-mobile-th">S.No</th>
+                                <th style={{ ...ThStyle, textAlign: 'left', minWidth: '200px' }}>Reminder Info</th>
+                                <th style={{ ...ThStyle, minWidth: '150px' }}>Schedule</th>
+                                <th style={ThStyle} className="hide-on-mobile">Category</th>
+                                <th style={{ ...ThStyle, width: '120px', borderRadius: '0 12px 12px 0' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -234,54 +260,45 @@ const Reminders = () => {
                                 filteredReminders.map((reminder, index) => (
                                     <motion.tr
                                         key={reminder._id}
-                                        whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
-                                        style={{ transition: 'background-color 0.2s ease' }}
+                                        whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }}
+                                        style={{ borderBottom: '1px solid var(--border-color)' }}
+                                        className="mobile-stacked-row"
                                     >
-                                        <td style={{ ...TdStyle, textAlign: 'center', color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.8rem', borderRadius: '12px 0 0 12px', padding: '18px 10px' }}>{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
-                                        <td style={TdStyle}>
+                                        <td style={{ ...TdStyle, textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', borderLeft: 'none', padding: '18px 10px' }} className="hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
+                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Reminder">
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <div style={{ width: '36px', height: '36px', background: 'var(--card-bg)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', flexShrink: 0 }} className="hide-mobile-col">
-                                                    <ListTodo size={16} color="var(--primary-glow)" />
-                                                </div>
-                                                <div style={{ textAlign: 'left' }}>
-                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem' }}>{reminder.title}</div>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
-                                                        {reminder.location && (
-                                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                <MapPin size={10} /> {reminder.location}
-                                                            </div>
-                                                        )}
-                                                        <div style={{ fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            <Calendar size={10} /> {formatDate(reminder.date)} • {formatTime(reminder.time)}
+
+                                                <div style={{ textAlign: 'left', minWidth: 0 }}>
+                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem', wordBreak: 'break-word', lineHeight: '1.2' }}>{reminder.title}</div>
+
+                                                    {/* Show "Shared by" if it's not the user's own reminder */}
+                                                    {reminder.userId && (typeof reminder.userId === 'object' ? reminder.userId._id : reminder.userId) !== user?._id && (
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--primary-color)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '500' }}>
+                                                            <Users size={12} /> Shared by {typeof reminder.userId === 'object' ? reminder.userId.name : 'someone'}
                                                         </div>
-                                                        <div style={{ fontSize: '0.6rem', color: 'rgba(255, 255, 255, 0.2)' }}>
-                                                            Set on: {new Date(reminder.createdAt).toLocaleDateString('en-IN')} {new Date(reminder.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                    )}
+
+                                                    {reminder.location && (
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <MapPin size={12} /> {reminder.location}
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td style={TdStyle}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                <div style={{
-                                                    fontSize: '0.75rem',
-                                                    color: 'white',
-                                                    fontWeight: '600',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px',
-                                                    background: 'rgba(255, 255, 255, 0.05)',
-                                                    padding: '2px 8px',
-                                                    borderRadius: '6px'
-                                                }}>
+                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Schedule">
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Calendar size={12} color="var(--primary-color)" />
                                                     {formatDate(reminder.date)}
                                                 </div>
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--primary-glow)', fontWeight: 'bold' }}>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Clock size={12} />
                                                     {formatTime(reminder.time)}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td style={TdStyle} className="hide-on-compact">
+                                        <td className="hide-on-mobile" style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Category">
                                             <span style={{
                                                 padding: '4px 12px',
                                                 borderRadius: '8px',
@@ -294,28 +311,39 @@ const Reminders = () => {
                                                 display: 'inline-block'
                                             }}>{reminder.intent || 'General'}</span>
                                         </td>
-                                        <td style={{ ...TdStyle, borderRadius: '0 12px 12px 0' }}>
+                                        <td style={{ ...TdStyle, borderLeft: 'none' }} className="mobile-actions-cell">
                                             <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
                                                 <button
                                                     onClick={() => handleViewClick(reminder)}
                                                     title="Smart Details"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: 'var(--primary-color)', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--primary-color)', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}
                                                 >
-                                                    <Eye size={12} />
+                                                    <Eye size={16} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleEditClick(reminder)}
                                                     title="Edit"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--info-color)', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
                                                 >
-                                                    <Edit2 size={12} />
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setShareModal({ isOpen: true, reminder, email: '', permissions: 'view', loading: false })}
+                                                    title="Share"
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--warning-color)', background: 'rgba(var(--primary-rgb), 0.1)', borderColor: 'rgba(var(--primary-rgb), 0.2)' }}
+                                                >
+                                                    <Share2 size={16} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteClick(reminder._id)}
                                                     title="Delete"
-                                                    style={{ ...ActionButtonStyle, width: '30px', height: '30px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--danger-color)', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
                                                 >
-                                                    <Trash2 size={12} />
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>
@@ -350,163 +378,341 @@ const Reminders = () => {
                 )}
             </AnimatePresence>
 
-            {editModal.isOpen && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000
-                }} onClick={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })}>
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="responsive-modal"
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                {editModal.isCreate ? <Plus size={20} color="var(--primary-color)" /> : <Edit2 size={20} color="var(--primary-color)" />}
-                                {editModal.isCreate ? 'New Reminder' : 'Edit Reminder'}
-                            </h3>
-                            <button onClick={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })} style={{ background: 'transparent', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}>
-                                <X size={24} />
-                            </button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
-                                <label className="modal-label">Title</label>
-                                <input
-                                    type="text"
-                                    value={editForm.title}
-                                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                                    className="modal-input"
-                                />
-                            </div>
-                            <div className="modal-row">
-                                <div style={{ flex: 1 }}>
-                                    <label className="modal-label">Date</label>
-                                    <input
-                                        type="date"
-                                        value={editForm.date}
-                                        onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                                        className="modal-input"
-                                    />
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <label className="modal-label">Time</label>
-                                    <input
-                                        type="time"
-                                        value={editForm.time}
-                                        onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                                        className="modal-input"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="modal-label">Location (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={editForm.location}
-                                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                                    className="modal-input"
-                                />
-                            </div>
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexDirection: window.innerWidth < 480 ? 'column' : 'row' }}>
-                                <button
-                                    onClick={handleSubmit}
-                                    className="btn-primary"
-                                    style={{ flex: 1 }}
-                                >
-                                    <Save size={16} /> {editModal.isCreate ? 'Create' : 'Save'}
+            <AnimatePresence>
+                {shareModal.isOpen && (
+                    <div className="modal-backdrop" onClick={() => setShareModal({ isOpen: false, reminder: null, email: '', permissions: 'view', loading: false })}>
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="modal"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="modal-header">
+                                <h3 className="modal-title">
+                                    <Users size={20} color="var(--primary-color)" style={{ marginRight: '8px' }} />
+                                    Share Reminder
+                                </h3>
+                                <button onClick={() => setShareModal({ isOpen: false, reminder: null, email: '', permissions: 'view', loading: false })} className="modal-close">
+                                    <X size={20} />
                                 </button>
+                            </div>
+                            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', margin: 0 }}>
+                                    Share "{shareModal.reminder?.title}" with someone to collaborate.
+                                </p>
+                                <div className="form-group">
+                                    <label className="form-label">User Email</label>
+                                    <input
+                                        type="email"
+                                        placeholder="Enter collaborator email..."
+                                        value={shareModal.email}
+                                        onChange={(e) => setShareModal({ ...shareModal, email: e.target.value })}
+                                        className="input"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Permissions</label>
+                                    <div className="custom-select-wrapper">
+                                        <select
+                                            className="input"
+                                            value={shareModal.permissions}
+                                            onChange={(e) => setShareModal({ ...shareModal, permissions: e.target.value })}
+                                        >
+                                            <option value="view">View Only</option>
+                                            <option value="edit">Can Edit</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
                                 <button
-                                    onClick={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })}
-                                    className="btn-outline"
-                                    style={{ padding: '12px 24px', borderRadius: '12px', background: 'transparent', color: 'var(--text-sub)', border: '1px solid var(--border-color)', fontWeight: '700' }}
+                                    onClick={() => setShareModal({ isOpen: false, reminder: null, email: '', permissions: 'view', loading: false })}
+                                    className="btn btn-secondary"
                                 >
                                     Cancel
                                 </button>
+                                <button
+                                    onClick={handleShare}
+                                    className="btn btn-primary"
+                                    disabled={shareModal.loading}
+                                >
+                                    {shareModal.loading ? <Loader2 className="animate-spin" size={16} /> : <Share2 size={16} />}
+                                    Share Invitation
+                                </button>
                             </div>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {editModal.isOpen && (
+                    <div className="modal-backdrop" onClick={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })}>
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="modal"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="modal-header">
+                                <h3 className="modal-title">
+                                    {editModal.isCreate ? 'New Reminder' : 'Edit Reminder'}
+                                </h3>
+                                <button onClick={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })} className="modal-close">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div className="form-group">
+                                    <label className="form-label">Title</label>
+                                    <input
+                                        type="text"
+                                        value={editForm.title}
+                                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                        className="input"
+                                        placeholder="Reminder title..."
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: '16px' }}>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label className="form-label">Date</label>
+                                        <input
+                                            type="date"
+                                            value={editForm.date}
+                                            onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                            className="input"
+                                        />
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label className="form-label">Time</label>
+                                        <input
+                                            type="time"
+                                            value={editForm.time}
+                                            onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                                            className="input"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Location (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={editForm.location}
+                                        onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                                        className="input"
+                                        placeholder="Add location..."
+                                    />
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button
+                                    onClick={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })}
+                                    className="btn btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSubmit}
+                                    className="btn btn-primary"
+                                >
+                                    <Save size={16} /> {editModal.isCreate ? 'Create' : 'Save'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             <style>{`
-                .animate-spin { animation: spin 1s linear infinite; } 
+                .animate-spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-                .table-wrapper {
-                    overflow-x: auto;
-                    width: 100%;
-                }
-
-                .modal-label {
-                    font-size: 0.75rem; 
-                    color: var(--text-sub); 
-                    text-transform: uppercase; 
-                    font-weight: 700; 
-                    letter-spacing: 0.05em; 
-                    display: block; 
-                    margin-bottom: 8px;
-                }
-
-                .modal-input {
-                    width: 100%; 
-                    padding: 12px 16px; 
-                    border-radius: 12px;
-                    background: var(--bg-lite); 
-                    border: 1px solid var(--border-color);
-                    color: var(--text-main); 
-                    font-size: 14px; 
-                    outline: none;
-                }
-
-                .modal-row {
-                    display: flex;
-                    gap: 16px;
-                }
-
-                .responsive-modal {
-                    background: var(--card-bg); 
-                    border-radius: 24px; 
-                    padding: 32px;
-                    max-width: 500px; 
-                    width: 90%; 
-                    border: 1px solid var(--border-color);
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-                }
-
+                
                 .show-mobile-text { display: none; }
+                .show-on-tablet { display: none; }
 
-                @media (max-width: 768px) {
-                    .table-responsive-container {
-                        padding: 16px !important;
+                @media (max-width: 1024px) {
+                    .hide-on-tablet { display: none !important; }
+                    .show-on-tablet { display: block; }
+                }
+                
+                @media (max-width: 640px) {
+                    .table-wrapper table, 
+                    .table-wrapper thead, 
+                    .table-wrapper tbody, 
+                    .table-wrapper th, 
+                    .table-wrapper td, 
+                    .table-wrapper tr {
+                        display: block;
                     }
-                    .hide-on-compact {
+
+                    .table-wrapper thead tr {
+                        position: absolute;
+                        top: -9999px;
+                        left: -9999px;
+                    }
+
+                    .mobile-stacked-row {
+                        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
+                        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        border-radius: 24px !important;
+                        padding: 20px !important;
+                        margin-bottom: 24px !important;
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+                        backdrop-filter: blur(10px);
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    /* Add a subtle highlight accent */
+                    .mobile-stacked-row::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 4px;
+                        height: 100%;
+                        background: var(--primary-color);
+                        opacity: 0.5;
+                    }
+
+                    .table-wrapper td {
+                        border: none !important;
+                        padding: 12px 0 !important;
+                        position: relative;
+                        text-align: left !important;
+                        width: 100% !important;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 16px;
+                        min-height: auto !important;
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+                    }
+
+                    .table-wrapper td:last-child {
+                        border-bottom: none !important;
+                    }
+
+                    .table-wrapper td::before {
+                        content: attr(data-label);
+                        font-size: 0.75rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--text-sub);
+                        min-width: 100px;
+                        opacity: 0.8;
+                    }
+
+                    /* Make the value text aligned to the right */
+                    .table-wrapper td > * {
+                        text-align: right;
+                        flex: 1;
+                        display: flex;
+                        justify-content: flex-end;
+                    }
+                    
+                    /* Specific adjustment for Reminder Info */
+                    .table-wrapper td[data-label="Reminder"] > div {
+                        width: 100%;
+                    }
+
+                    .hide-mobile-th, .hide-mobile-td {
                         display: none !important;
                     }
-                    th, td { padding: 12px 10px !important; }
-                    .responsive-modal {
-                        padding: 24px;
-                        width: 95%;
+
+                    .hide-on-mobile-custom {
+                         display: none !important;
                     }
-                    .modal-row {
-                        flex-direction: column;
-                        gap: 12px;
+
+                    .mobile-actions-cell {
+                        margin-top: 8px;
+                        padding-top: 20px !important;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        justify-content: center !important;
+                        gap: 16px !important;
                     }
+
+                    .mobile-actions-cell::before {
+                        display: none; /* Hide label for actions */
+                    }
+                    
+                    /* Custom Button Styles for Mobile Actions */
+                    .mobile-actions-cell .btn-icon {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 12px;
+                    }
+
+                    .hide-on-tablet {
+                        display: flex !important;
+                    }
+
+
+                    
+                    .table-wrapper {
+                        padding: 0 4px;
+                        overflow-x: visible !important;
+                    }
+
+                    /* Ensure text breaks properly */
+                    .table-wrapper td div {
+                        word-break: break-word;
+                    }
+                }
+
+                @media (max-width: 768px) {
+                    /* We override the .hide-on-mobile class for the icon specifically inside the table on mobile */
+                    .table-wrapper .hide-on-mobile {
+                        display: flex !important;
+                    }
+                    
                     .hide-mobile-text { display: none; }
                     .show-mobile-text { display: inline-block; }
+                    
+                    /* Fix table-container padding to prevent rounded corner clipping */
+                    .table-container {
+                        padding: 24px 16px !important;
+                    }
+                    
+                    /* Keep search and button in same row, prevent wrapping */
+                    .table-container > div:first-child {
+                        flex-wrap: nowrap !important;
+                        gap: 12px !important;
+                    }
+                    
+                    /* Adjust search box for mobile */
+                    .search-box {
+                        min-width: 0 !important;
+                        flex: 1 !important;
+                    }
+                    
+                    /* Ensure button doesn't shrink */
+                    .btn-primary {
+                        flex-shrink: 0 !important;
+                        white-space: nowrap !important;
+                    }
                 }
 
                 @media (max-width: 480px) {
-                    .table-responsive-container {
-                        border-radius: 16px !important;
-                    }
                     td, th {
-                        padding: 12px 8px !important;
+                        padding: 12px 4px !important;
+                    }
+                    
+                    /* Further reduce padding on very small screens */
+                    .table-container {
+                        padding: 16px 12px !important;
+                    }
+                    
+                    /* Tighter spacing between search and button */
+                    .table-container > div:first-child {
+                        gap: 8px !important;
                     }
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 

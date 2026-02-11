@@ -206,9 +206,9 @@ const Memories = () => {
 
     return (
         <div className="memories-page-container">
-            <div style={TableContainerStyle} className="table-responsive-container">
+            <div className="table-container">
                 {/* Search Header with Tab Buttons */}
-                <div className="search-header-flex" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <div className="search-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
                         <input
@@ -236,7 +236,7 @@ const Memories = () => {
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
-                                <th style={{ ...ThStyle, width: '60px', borderRadius: '12px 0 0 12px' }}>S.No</th>
+                                <th style={{ ...ThStyle, width: '60px', borderRadius: '12px 0 0 12px' }} className="hide-mobile-th">S.No</th>
                                 {activeTab === 'memories' ? (
                                     <>
                                         <th style={{ ...ThStyle, textAlign: 'left', minWidth: '180px' }}>Memory Insight</th>
@@ -260,18 +260,18 @@ const Memories = () => {
                                     <tr><td colSpan="4" style={{ textAlign: 'center', padding: '100px 0', color: 'var(--text-sub)' }}>Buddy hasn't learned those things yet.</td></tr>
                                 ) : (
                                     memories.map((memo, idx) => (
-                                        <motion.tr key={memo._id} whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                            <td style={TdStyle}>{(memoriesPagination.currentPage - 1) * memoriesPagination.limit + idx + 1}</td>
-                                            <td style={TdStyle}>
+                                        <motion.tr key={memo._id} whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }} style={{ borderBottom: '1px solid var(--border-color)' }} className="mobile-stacked-row">
+                                            <td style={TdStyle} className="hide-mobile-td">{(memoriesPagination.currentPage - 1) * memoriesPagination.limit + idx + 1}</td>
+                                            <td style={TdStyle} data-label="Insight">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                                     <div className="icon-badge"><Brain size={18} color="var(--primary-color)" /></div>
                                                     <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.95rem' }}>{memo.content}</div>
                                                 </div>
                                             </td>
-                                            <td style={TdStyle} className="hide-on-mobile">
+                                            <td style={TdStyle} className="hide-on-mobile-custom" data-label="Date">
                                                 <div style={{ color: 'var(--text-sub)', fontSize: '0.85rem' }}><Clock size={12} style={{ marginRight: '6px' }} />{formatDate(memo.createdAt)}</div>
                                             </td>
-                                            <td style={TdStyle}>
+                                            <td style={TdStyle} className="mobile-actions-cell">
                                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                                     <button onClick={() => setMemoryViewModal({ isOpen: true, memory: memo })} style={{ ...ActionButtonStyle, color: 'var(--primary-color)', background: 'rgba(59, 130, 246, 0.1)' }}><Eye size={14} /></button>
                                                     <button onClick={() => { setMemoryEditContent(memo.content); setMemoryEditModal({ isOpen: true, memory: memo }); }} style={{ ...ActionButtonStyle, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)' }}><Edit2 size={14} /></button>
@@ -288,22 +288,22 @@ const Memories = () => {
                                     <tr><td colSpan="5" style={{ textAlign: 'center', padding: '100px 0', color: 'var(--text-sub)' }}>No medical records discovered.</td></tr>
                                 ) : (
                                     records.map((record, idx) => (
-                                        <motion.tr key={record._id} whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                            <td style={TdStyle}>{(recordsPagination.currentPage - 1) * recordsPagination.limit + idx + 1}</td>
-                                            <td style={TdStyle}>
+                                        <motion.tr key={record._id} whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }} style={{ borderBottom: '1px solid var(--border-color)' }} className="mobile-stacked-row">
+                                            <td style={TdStyle} className="hide-mobile-td">{(recordsPagination.currentPage - 1) * recordsPagination.limit + idx + 1}</td>
+                                            <td style={TdStyle} data-label="Document">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                                     <div className="icon-badge"><FileText size={18} color="var(--primary-color)" /></div>
                                                     <div>
-                                                        <div style={{ fontWeight: '700', color: 'white' }}>{record.fileName || 'Lab Report'}</div>
-                                                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Uploaded {formatDate(record.createdAt)}</div>
+                                                        <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{record.fileName || 'Lab Report'}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>Uploaded {formatDate(record.createdAt)}</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td style={TdStyle}>
-                                                <div style={{ fontSize: '0.8rem', fontWeight: '600' }}><User size={12} color="var(--primary-glow)" /> {record.extractedData?.patientName || 'Anon'}</div>
+                                            <td style={TdStyle} data-label="Patient">
+                                                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)' }}><User size={12} color="var(--primary-glow)" /> {record.extractedData?.patientName || 'Anon'}</div>
                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)' }}>Dr. {record.extractedData?.doctorName || 'General'}</div>
                                             </td>
-                                            <td style={TdStyle} className="hide-on-mobile">
+                                            <td style={TdStyle} className="hide-on-mobile-custom" data-label="Details">
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '180px' }}>
                                                     {record.extractedData?.medicines?.slice(0, 2).map((m, i) => (
                                                         <span key={i} className="med-pill">{m.name}</span>
@@ -311,7 +311,7 @@ const Memories = () => {
                                                     {record.extractedData?.medicines?.length > 2 && <span style={{ fontSize: '0.6rem', color: 'var(--primary-glow)' }}>+{record.extractedData.medicines.length - 2}</span>}
                                                 </div>
                                             </td>
-                                            <td style={TdStyle}>
+                                            <td style={TdStyle} className="mobile-actions-cell">
                                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                                     <button onClick={() => setRecordViewModal({ isOpen: true, record })} style={{ ...ActionButtonStyle, color: 'var(--primary-color)', background: 'rgba(59, 130, 246, 0.1)' }}><Eye size={14} /></button>
                                                     <button onClick={() => { setRecordEditForm({ patientName: record.extractedData?.patientName || '', doctorName: record.extractedData?.doctorName || '', notes: record.extractedData?.notes || '' }); setRecordEditModal({ isOpen: true, record }); }} style={{ ...ActionButtonStyle, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)' }}><Edit2 size={14} /></button>
@@ -573,6 +573,145 @@ const Memories = () => {
                     font-weight: 600;
                 }
 
+                @media (max-width: 640px) {
+                    .table-wrapper table, 
+                    .table-wrapper thead, 
+                    .table-wrapper tbody, 
+                    .table-wrapper th, 
+                    .table-wrapper td, 
+                    .table-wrapper tr {
+                        display: block;
+                    }
+
+                    .table-wrapper thead tr {
+                        position: absolute;
+                        top: -9999px;
+                        left: -9999px;
+                    }
+
+                    .mobile-stacked-row {
+                        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
+                        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        border-radius: 24px !important;
+                        padding: 20px !important;
+                        margin-bottom: 24px !important;
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+                        backdrop-filter: blur(10px);
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    /* Add a subtle highlight accent */
+                    .mobile-stacked-row::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 4px;
+                        height: 100%;
+                        background: var(--primary-color);
+                        opacity: 0.5;
+                    }
+
+                    .table-wrapper td {
+                        border: none !important;
+                        padding: 12px 0 !important;
+                        position: relative;
+                        text-align: left !important;
+                        width: 100% !important;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 16px;
+                        min-height: auto !important;
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+                    }
+
+                    .table-wrapper td:last-child {
+                        border-bottom: none !important;
+                    }
+
+                    .table-wrapper td::before {
+                        content: attr(data-label);
+                        font-size: 0.75rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        color: var(--text-sub);
+                        min-width: 100px;
+                        opacity: 0.8;
+                    }
+
+                    /* Make the value text aligned to the right */
+                    .table-wrapper td > * {
+                        text-align: right;
+                        flex: 1;
+                        display: flex;
+                        justify-content: flex-end;
+                    }
+                    
+                    /* Specific adjustment for Insight/Document */
+                    .table-wrapper td[data-label="Insight"] > div,
+                    .table-wrapper td[data-label="Document"] > div {
+                        width: 100%;
+                    }
+
+                    .hide-mobile-th, .hide-mobile-td {
+                        display: none !important;
+                    }
+
+                    .hide-on-mobile-custom {
+                        display: none !important;
+                    }
+
+                    .mobile-actions-cell {
+                        margin-top: 8px;
+                        padding-top: 20px !important;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+                        justify-content: center !important;
+                        gap: 16px !important;
+                    }
+
+                    .mobile-actions-cell::before {
+                        display: none; /* Hide label for actions */
+                    }
+
+                    /* Custom Button Styles for Mobile Actions */
+                    .mobile-actions-cell button {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 12px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .hide-on-compact {
+                        display: flex !important;
+                    }
+
+                    .table-responsive-container {
+                        background: transparent !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                        padding: 0 16px !important;
+                    }
+                    
+                    .table-wrapper {
+                        padding: 0 4px;
+                        overflow-x: visible !important;
+                    }
+
+                    .search-header-flex {
+                        padding: 0 4px !important;
+                    }
+
+                    /* Ensure text breaks properly */
+                    .table-wrapper td div {
+                        word-break: break-word;
+                    }
+                }
+
                 @media (max-width: 768px) {
                     .table-responsive-container {
                         padding: 16px !important;
@@ -580,7 +719,7 @@ const Memories = () => {
                     .hide-on-compact, .hide-on-mobile {
                         display: none !important;
                     }
-                    th, td { padding: 12px 10px !important; }
+                    /* th, td { padding: 12px 10px !important; } Remove conflict */
                     .responsive-modal {
                         padding: 24px;
                         width: 95%;
@@ -589,6 +728,18 @@ const Memories = () => {
                         flex-direction: column;
                         gap: 12px;
                     }
+                    
+                    /* Align header properly on mobile */
+                    .search-header-flex {
+                        flex-wrap: nowrap !important;
+                        gap: 12px !important;
+                    }
+                    
+                    /* Ensure buttons don't shrink */
+                    .search-header-flex button {
+                        flex-shrink: 0 !important;
+                        white-space: nowrap !important;
+                    }
                 }
 
                 @media (max-width: 480px) {
@@ -596,7 +747,7 @@ const Memories = () => {
                         border-radius: 16px !important;
                     }
                     td, th {
-                        padding: 12px 8px !important;
+                        padding: 12px 4px !important;
                     }
                 }
 

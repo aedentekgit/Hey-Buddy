@@ -105,6 +105,19 @@ const reminderSchema = new mongoose.Schema({
     notified: {
         type: Boolean,
         default: false
+    },
+    sharedWith: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        permissions: { type: String, enum: ['view', 'edit'], default: 'view' }
+    }],
+    assignedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
+    isPublic: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 

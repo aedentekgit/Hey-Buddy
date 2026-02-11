@@ -1,0 +1,92 @@
+import { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
+import api from '../services/api';
+import { useAuth } from './AuthContext';
+
+const NotificationContext = createContext();
+
+export const NotificationProvider = ({ children }) => {
+    const { user } = useAuth();
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            fetchNotifications();
+            // In a real app, we would setup a Socket.io connection here
+            const interval = setInterval(fetchNotifications, 30000); // Poll every 30s as fallback
+            return () => clearInterval(interval);
+        } else {
+            setNotifications([]);
+            setUnreadCount(0);
+        }
+    }, [user]);
+
+    const fetchNotifications = async () => {
+        try {
+            const response = await api.get('/notifications');
+            if (response.data.success) {
+                setNotifications(response.data.data);
+                setUnreadCount(response.data.data.filter(n => !n.read).length);
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        }
+    };
+
+    const markAsRead = async (id) => {
+        try {
+            await api.put(`/notifications/${id}/read`);
+            setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            await api.put('/notifications/mark-all-read');
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            setUnreadCount(0);
+        } catch (error) {
+            console.error('Error marking all notifications as read:', error);
+        }
+    };
+
+    const deleteNotification = async (id) => {
+        try {
+            await api.delete(`/notifications/${id}`);
+            const deleted = notifications.find(n => n._id === id);
+            setNotifications(prev => prev.filter(n => n._id !== id));
+            if (deleted && !deleted.read) {
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            }
+        } catch (error) {
+            console.error('Error deleting notification:', error);
+        }
+    };
+
+    return (
+        <NotificationContext.Provider value={{
+            notifications,
+            unreadCount,
+            loading,
+            markAsRead,
+            markAllAsRead,
+            deleteNotification,
+            refreshNotifications: fetchNotifications
+        }}>
+            {children}
+        </NotificationContext.Provider>
+    );
+};
+
+export const useNotifications = () => {
+    const context = useContext(NotificationContext);
+    if (!context) {
+        throw new Error('useNotifications must be used within a NotificationProvider');
+    }
+    return context;
+};

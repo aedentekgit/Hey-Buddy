@@ -3,9 +3,9 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const voiceService = {
-    parseVoice: async (text, language = 'en-US', history = []) => {
+    parseVoice: async (text, language = 'en-US', history = [], conversationId = null) => {
         const token = localStorage.getItem('token');
-        const response = await axios.post(`${API_URL}/voice/parse`, { text, language, history }, {
+        const response = await axios.post(`${API_URL}/voice/parse`, { text, language, history, conversationId }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
@@ -30,6 +30,14 @@ const voiceService = {
     deleteReminder: async (id) => {
         const token = localStorage.getItem('token');
         const response = await axios.delete(`${API_URL}/voice/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    batchDeleteReminders: async (ids) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/reminders/batch-delete`, { ids }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
@@ -128,6 +136,14 @@ const voiceService = {
     deletePrescription: async (id) => {
         const token = localStorage.getItem('token');
         const response = await axios.delete(`${API_URL}/voice/prescriptions/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    },
+
+    shareReminder: async (id, email, permissions) => {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/reminders/${id}/share`, { email, permissions }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
