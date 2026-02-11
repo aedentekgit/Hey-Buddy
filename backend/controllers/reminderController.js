@@ -5,6 +5,12 @@ const User = require('../models/User');
 const { sendPushNotification } = require('../services/notificationService');
 const { sendEmail } = require('../services/emailService');
 
+const {
+    createGoogleCalendarEvent,
+    updateGoogleCalendarEvent,
+    deleteGoogleCalendarEvent
+} = require('../services/googleCalendarService');
+
 exports.getReminders = async (req, res) => {
     try {
         const reminders = await Reminder.find({
@@ -22,27 +28,42 @@ exports.getReminders = async (req, res) => {
 
 exports.createReminder = async (req, res) => {
     try {
-        const { title, description, date, time, location, syncToGoogle } = req.body;
+        const {
+            title, description, date, time, location, intent, priority,
+            bufferTime, alerts, smartFeatures, syncToGoogle
+        } = req.body;
+
+        const userId = req.user._id;
+        let googleEventId = null;
+
+        // Sync to Google if requested
+        if (syncToGoogle && req.user.googleRefreshToken) {
+            try {
+                googleEventId = await createGoogleCalendarEvent(userId, { title, date, time, location, description });
+            } catch (calError) {
+                console.error("Google Sync Failed during Create:", calError.message);
+            }
+        }
 
         const reminder = await Reminder.create({
-            userId: req.user._id,
+            userId,
             title,
             description,
             date,
             time,
             location,
-            source: 'buddy'
+            intent: intent || 'generic',
+            priority: priority || 'medium',
+            bufferTime: bufferTime || 15,
+            alerts: alerts || { push: true, sms: false, email: false },
+            smartFeatures: smartFeatures || { earlyWarning: false, trafficAware: false, itemExitGuards: false },
+            googleEventId,
+            source: googleEventId ? 'google' : 'buddy'
         });
-
-        // Sync to Google if requested
-        if (syncToGoogle && req.user.googleRefreshToken) {
-            reminder.googleEventId = 'pending_sync';
-            await reminder.save();
-        }
 
         // Create notification
         await Notification.create({
-            userId: req.user._id,
+            userId,
             title: 'New Reminder Created',
             message: `Reminder "${title}" set for ${new Date(date).toLocaleDateString()} at ${time}`,
             type: 'reminder',
@@ -58,17 +79,35 @@ exports.createReminder = async (req, res) => {
 
 exports.updateReminder = async (req, res) => {
     try {
-        const reminder = await Reminder.findOneAndUpdate(
-            { _id: req.params.id, userId: req.user._id },
-            req.body,
-            { new: true }
-        );
+        const userId = req.user._id;
+        const { id } = req.params;
+        const updateData = req.body;
 
+        const reminder = await Reminder.findOne({ _id: id, userId });
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Reminder not found' });
         }
 
-        res.status(200).json({ success: true, data: reminder });
+        // Sync to Google
+        let googleEventId = reminder.googleEventId;
+        if (updateData.syncToGoogle || googleEventId) {
+            try {
+                const mergedData = { ...reminder.toObject(), ...updateData };
+                if (googleEventId) {
+                    await updateGoogleCalendarEvent(userId, googleEventId, mergedData);
+                } else if (updateData.syncToGoogle && req.user.googleRefreshToken) {
+                    googleEventId = await createGoogleCalendarEvent(userId, mergedData);
+                    updateData.googleEventId = googleEventId;
+                    updateData.source = 'google';
+                }
+            } catch (calError) {
+                console.error("Google Sync Failed during Update:", calError.message);
+            }
+        }
+
+        const updatedReminder = await Reminder.findByIdAndUpdate(id, updateData, { new: true });
+
+        res.status(200).json({ success: true, data: updatedReminder });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -76,14 +115,24 @@ exports.updateReminder = async (req, res) => {
 
 exports.deleteReminder = async (req, res) => {
     try {
-        const reminder = await Reminder.findOneAndDelete({
-            _id: req.params.id,
-            userId: req.user._id
-        });
+        const userId = req.user._id;
+        const { id } = req.params;
 
+        const reminder = await Reminder.findOne({ _id: id, userId });
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Reminder not found' });
         }
+
+        // Sync to Google
+        if (reminder.googleEventId) {
+            try {
+                await deleteGoogleCalendarEvent(userId, reminder.googleEventId);
+            } catch (calError) {
+                console.error("Google Sync Failed during Delete:", calError.message);
+            }
+        }
+
+        await Reminder.findByIdAndDelete(id);
 
         res.status(200).json({ success: true, message: 'Reminder deleted' });
     } catch (error) {
@@ -93,14 +142,26 @@ exports.deleteReminder = async (req, res) => {
 
 exports.batchDeleteReminders = async (req, res) => {
     try {
+        const userId = req.user._id;
         const { ids } = req.body;
         if (!ids || !Array.isArray(ids)) {
             return res.status(400).json({ success: false, message: 'Invalid IDs' });
         }
 
+        // Fetch reminders to check for Google events before deleting
+        const reminders = await Reminder.find({ _id: { $in: ids }, userId });
+
+        // Delete from Google Calendar in parallel
+        await Promise.allSettled(reminders.map(r => {
+            if (r.googleEventId) {
+                return deleteGoogleCalendarEvent(userId, r.googleEventId);
+            }
+            return Promise.resolve();
+        }));
+
         await Reminder.deleteMany({
             _id: { $in: ids },
-            userId: req.user._id
+            userId
         });
 
         res.status(200).json({ success: true, message: 'Reminders deleted successfully' });

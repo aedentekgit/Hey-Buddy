@@ -152,22 +152,15 @@ const Roles = () => {
             <Toaster position="top-right" />
 
             <div className="table-container">
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '24px',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
-                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
+                <div className="search-management-header">
+                    <div className="buddy-search-box">
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />
                         <input
                             type="text"
                             placeholder="Search roles..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            style={SearchInputStyle}
+                            className="buddy-search-input"
                         />
                     </div>
                     <button
@@ -183,11 +176,11 @@ const Roles = () => {
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
-                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }} className="hide-mobile-th">S.No</th>
-                                <th style={{ ...ThStyle, textAlign: 'left', minWidth: '150px' }}>Role Name</th>
-                                <th style={{ ...ThStyle, minWidth: '200px' }}>Access Permissions</th>
-                                <th style={ThStyle} className="hide-on-tablet">Created Date</th>
-                                <th style={{ ...ThStyle, width: '100px', borderRadius: '0 12px 12px 0' }}>Actions</th>
+                                <th style={{ width: '50px' }} className="buddy-th hide-mobile-th">S.No</th>
+                                <th style={{ textAlign: 'center', minWidth: '150px' }} className="buddy-th">Role Name</th>
+                                <th style={{ minWidth: '200px' }} className="buddy-th">Access Permissions</th>
+                                <th className="buddy-th hide-on-tablet">Created Date</th>
+                                <th style={{ width: '100px' }} className="buddy-th">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -207,45 +200,44 @@ const Roles = () => {
                                 filteredRoles.map((role, index) => (
                                     <motion.tr
                                         key={role._id}
-                                        whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }}
-                                        style={TableRowStyle()}
+                                        whileHover={{ backgroundColor: 'var(--row-hover)' }}
                                         className="mobile-stacked-row"
                                     >
-                                        <td style={{ ...TdStyle, borderLeft: 'none', textAlign: 'center', padding: '18px 10px' }} className="hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
-                                        <td style={{ ...TdStyle, textAlign: 'left' }} data-label="Role">
+                                        <td style={{ borderLeft: 'none', textAlign: 'center', padding: '18px 10px' }} className="buddy-td hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
+                                        <td style={{ textAlign: 'center' }} data-label="Role" className="buddy-td">
                                             <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem' }}>{role.name}</div>
                                             <div className="show-on-tablet" style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>
                                                 {new Date(role.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                                             </div>
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Access">
+                                        <td style={{ borderLeft: 'none', borderRight: 'none' }} data-label="Access" className="buddy-td">
                                             <span style={{
-                                                fontSize: '0.7rem',
+                                                fontSize: '0.65rem',
                                                 fontWeight: '800',
-                                                color: role.permissions?.length > 0 ? 'var(--primary-glow)' : 'var(--text-sub)',
-                                                background: role.permissions?.length > 0 ? 'color-mix(in srgb, var(--primary-color) 15%, transparent)' : 'var(--bg-lite)',
+                                                color: role.permissions?.length > 0 ? '#1E40AF' : 'var(--text-sub)',
+                                                background: role.permissions?.length > 0 ? '#EFF6FF' : 'var(--bg-lite)',
                                                 padding: '4px 12px',
-                                                borderRadius: '20px',
+                                                borderRadius: '4px',
                                                 border: '1px solid',
-                                                borderColor: role.permissions?.length > 0 ? 'color-mix(in srgb, var(--primary-color) 30%, transparent)' : 'var(--border-color)',
+                                                borderColor: role.permissions?.length > 0 ? '#DBEAFE' : 'var(--border-color)',
                                                 display: 'inline-block',
                                                 textTransform: 'uppercase'
                                             }}>
                                                 {role.permissions?.length || 0} {role.permissions?.length === 1 ? 'Page' : 'Pages'}
                                             </span>
                                         </td>
-                                        <td style={TdStyle} className="hide-on-tablet" data-label="Created">
+                                        <td className="buddy-td hide-on-tablet" data-label="Created">
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
                                                 {new Date(role.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </div>
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none' }} className="mobile-actions-cell">
+                                        <td style={{ borderLeft: 'none' }} className="buddy-td mobile-actions-cell">
                                             <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
                                                 <button
                                                     onClick={() => handleOpenModal(role, true)}
                                                     title="View"
                                                     className="btn btn-icon btn-sm"
-                                                    style={{ color: 'var(--success-color)', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
+                                                    style={{ color: 'var(--success-color)', background: 'color-mix(in srgb, var(--success-color) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--success-color) 15%, transparent)' }}
                                                 >
                                                     <Eye size={16} />
                                                 </button>
@@ -253,7 +245,7 @@ const Roles = () => {
                                                     onClick={() => handleOpenModal(role)}
                                                     title="Edit"
                                                     className="btn btn-icon btn-sm"
-                                                    style={{ color: 'var(--info-color)', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}
+                                                    style={{ color: 'var(--info-color)', background: 'color-mix(in srgb, var(--info-color) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--info-color) 15%, transparent)' }}
                                                 >
                                                     <Edit2 size={16} />
                                                 </button>
@@ -262,7 +254,7 @@ const Roles = () => {
                                                         onClick={() => handleDeleteClick(role._id)}
                                                         title="Delete"
                                                         className="btn btn-icon btn-sm"
-                                                        style={{ color: 'var(--danger-color)', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                        style={{ color: 'var(--danger-color)', background: 'color-mix(in srgb, var(--danger-color) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--danger-color) 15%, transparent)' }}
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
@@ -373,197 +365,6 @@ const Roles = () => {
                 confirmText="Delete Role"
             />
 
-            <style>{`
-                .animate-spin { animation: spin 1s linear infinite; }
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                
-                .permissions-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 10px;
-                }
-
-                .permission-item {
-                    padding: 12px;
-                    border-radius: 12px;
-                    border: 1px solid var(--border-color);
-                    background: var(--bg-color);
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    transition: all 0.2s;
-                }
-
-                .permission-item.active {
-                    border-color: var(--primary-color);
-                    background: color-mix(in srgb, var(--primary-color) 5%, transparent);
-                }
-
-                .checkbox {
-                    width: 18px;
-                    height: 18px;
-                    border-radius: 4px;
-                    border: 2px solid var(--text-sub);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: all 0.2s;
-                    flex-shrink: 0;
-                }
-
-                .checkbox.active {
-                    border-color: var(--primary-color);
-                    background: var(--primary-color);
-                }
-
-                .show-mobile-text { display: none; }
-                .show-on-tablet { display: none; }
-
-                @media (max-width: 640px) {
-                    .table-wrapper table, 
-                    .table-wrapper thead, 
-                    .table-wrapper tbody, 
-                    .table-wrapper th, 
-                    .table-wrapper td, 
-                    .table-wrapper tr {
-                        display: block;
-                    }
-
-                    .table-wrapper thead tr {
-                        position: absolute;
-                        top: -9999px;
-                        left: -9999px;
-                    }
-
-                    .mobile-stacked-row {
-                        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
-                        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-                        border-radius: 24px !important;
-                        padding: 20px !important;
-                        margin-bottom: 24px !important;
-                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
-                        backdrop-filter: blur(10px);
-                        position: relative;
-                        overflow: hidden;
-                    }
-
-                    /* Add a subtle highlight accent */
-                    .mobile-stacked-row::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 4px;
-                        height: 100%;
-                        background: var(--primary-color);
-                        opacity: 0.5;
-                    }
-
-                    .table-wrapper td {
-                        border: none !important;
-                        padding: 12px 0 !important;
-                        position: relative;
-                        text-align: left !important;
-                        width: 100% !important;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        gap: 16px;
-                        min-height: auto !important;
-                        border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
-                    }
-
-                    .table-wrapper td:last-child {
-                        border-bottom: none !important;
-                    }
-
-                    .table-wrapper td::before {
-                        content: attr(data-label);
-                        font-size: 0.75rem;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                        color: var(--text-sub);
-                        min-width: 100px;
-                        opacity: 0.8;
-                    }
-
-                    /* Make the value text aligned to the right */
-                    .table-wrapper td > * {
-                        text-align: right;
-                        flex: 1;
-                        display: flex;
-                        justify-content: flex-end;
-                    }
-                    
-                    /* Specific adjustment for Role Name */
-                    .table-wrapper td[data-label="Role"] > div {
-                        width: 100%;
-                    }
-
-                    .hide-mobile-th, .hide-mobile-td {
-                        display: none !important;
-                    }
-
-                    .mobile-actions-cell {
-                        margin-top: 8px;
-                        padding-top: 20px !important;
-                        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
-                        justify-content: center !important;
-                        gap: 16px !important;
-                    }
-
-                    .mobile-actions-cell::before {
-                        display: none; /* Hide label for actions */
-                    }
-                    
-                    /* Custom Button Styles for Mobile Actions */
-                    .mobile-actions-cell .btn-icon {
-                        width: 42px;
-                        height: 42px;
-                        border-radius: 12px;
-                    }
-
-                    .hide-on-tablet {
-                        display: flex !important;
-                    }
-
-                    .table-container {
-                        background: transparent !important;
-                        border: none !important;
-                        box-shadow: none !important;
-                        padding: 0 16px !important;
-                    }
-                    
-                    .table-wrapper {
-                        padding: 0 4px;
-                        overflow-x: visible !important;
-                    }
-
-                    /* Ensure text breaks properly */
-                    .table-wrapper td div {
-                        word-break: break-word;
-                    }
-                }
-
-                @media (max-width: 768px) {
-                    .hide-on-mobile { display: none !important; }
-                    .hide-on-tablet { display: none !important; }
-                    .show-on-tablet { display: block; }
-                    /* th, td { padding: 12px 10px !important; } Remove this as it conflicts with the mobile styles */
-                    .hide-mobile-text { display: none; }
-                    .show-mobile-text { display: inline-block; }
-                    .permissions-grid {
-                        grid-template-columns: 1fr;
-                    }
-                }
-
-                @media (max-width: 480px) {
-                    td, th {
-                        padding: 12px 4px !important;
-                    }
-                }
-            `}</style>
         </div>
     );
 };

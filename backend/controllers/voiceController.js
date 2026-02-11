@@ -8,6 +8,11 @@ const Prescription = require('../models/Prescription');
 const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
+const {
+    createGoogleCalendarEvent,
+    updateGoogleCalendarEvent,
+    deleteGoogleCalendarEvent
+} = require('../services/googleCalendarService');
 
 const logToDisk = (msg) => {
     try {
@@ -57,6 +62,13 @@ INTENT INHERITANCE:
    - "reply": Text to DISPLAY (STRICTLY in "${languageCode}").
    - "voice_reply": Text to SPEAK (STRICTLY in "${languageCode}").
      * For "voice_reply", use natural speech patterns. Be shorter and punchier than the display text.
+
+--------------------------------------------------------------------------------
+*** FORMATTING RULES ***
+--------------------------------------------------------------------------------
+- **NEVER** use Markdown formatting like **bold** (double asterisks) or *italics* in your "reply" or "voice_reply".
+- Always represent times as simple text (e.g., "3:00 PM" instead of "**3:00 PM**").
+- Use simple, clean text only.
 
 --------------------------------------------------------------------------------
 Current Date: ${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })}
@@ -115,6 +127,7 @@ Return ONLY valid JSON:
 
 AI PERSONA RULES:
 - Be enthusiastic but concise.
+- **Brevity Priority**: If the user asks "when", "what time", or for "timing", respond ONLY with the time and task (e.g., "3:00 PM - Pickup daughter"). No extra chatter or busy-afternoon comments.
 - Never say "Is there anything else?".
 - If the user is casual, be casual. If serious, be polite.
 - Use emojis in "reply" field to seem friendly 🌟.
@@ -184,6 +197,10 @@ exports.parseVoice = async (req, res) => {
                 { id: "anthropic/claude-3.5-sonnet", role: "Expert" },
                 { id: "openai/gpt-4o-mini", role: "Fast Logic" }
             ];
+            // Also include active model if it's not one of the above
+            if (aiConfig.activeModel && !modelsToCall.some(m => m.id === aiConfig.activeModel)) {
+                modelsToCall.push({ id: aiConfig.activeModel, role: "Primary" });
+            }
         } else {
             modelsToCall = [{ id: aiConfig.activeModel || "openai/gpt-4o-mini", role: "Selected Model" }];
         }
@@ -197,7 +214,15 @@ exports.parseVoice = async (req, res) => {
 
             if (useDirectGemini) {
                 let directModelId = model.id.split('/').pop().replace(':free', '');
-                if (directModelId.includes('gemini-2.0')) directModelId = 'gemini-1.5-flash';
+
+                // Normalizing for Google Direct API
+                if (directModelId.includes('gemini-2.0')) {
+                    directModelId = 'gemini-2.0-flash-exp';
+                } else if (directModelId.includes('gemini-flash-1.5-8b')) {
+                    directModelId = 'gemini-1.5-flash-8b';
+                } else if (directModelId.includes('gemini-1.5-flash')) {
+                    directModelId = 'gemini-1.5-flash';
+                }
 
                 logToDisk(`Direct Gemini (Axios) Call: ${directModelId}`);
 
@@ -340,7 +365,9 @@ exports.parseVoice = async (req, res) => {
         }
 
         if (successfulResults.length === 0) {
-            console.warn("[VoiceController] CRITICAL: All AI models failed/malformed. Using safe fallback.");
+            const errLog = `CRITICAL: All AI models failed for text: "${text}"`;
+            console.warn(`[VoiceController] ${errLog}`);
+            logToDisk(errLog);
             // Instead of throwing, return a friendly fallback response
             return res.status(200).json({
                 success: true,
@@ -360,13 +387,17 @@ exports.parseVoice = async (req, res) => {
 
         let finalData = expertResult ? expertResult.content : fallbackResult.content;
 
+        logToDisk(`AI Final Decision: Type=${finalData.type} | Reply=${finalData.reply?.substring(0, 30)}...`);
+
         // --- HANDLE MEMORY ACTIONS ---
         if (finalData.type === 'action_save_memory') {
             if (userId && finalData.data?.content) {
                 try {
-                    await Memory.create({ userId, content: finalData.data.content });
+                    const newMem = await Memory.create({ userId, content: finalData.data.content });
+                    logToDisk(`Memory Created: ID=${newMem._id} | Content="${finalData.data.content}"`);
                     console.log(`[VoiceController] Memory Saved: ${finalData.data.content}`);
                 } catch (saveError) {
+                    logToDisk(`Memory Save FAILED: ${saveError.message}`);
                     console.error("Failed to save memory:", saveError);
                     finalData.reply += " (Database error)";
                 }
@@ -381,9 +412,11 @@ exports.parseVoice = async (req, res) => {
                     } else {
                         query.content = { $regex: finalData.data.target_keyword, $options: 'i' };
                     }
-                    await Memory.findOneAndDelete(query);
+                    const delMem = await Memory.findOneAndDelete(query);
+                    logToDisk(`Memory Deleted: Success=${!!delMem} | Keyword=${finalData.data.target_keyword}`);
                     console.log(`[VoiceController] Memory Deleted: ${finalData.data.target_keyword || finalData.data.memory_id}`);
                 } catch (err) {
+                    logToDisk(`Memory Delete FAILED: ${err.message}`);
                     console.error("Delete memory error:", err);
                 }
             }
@@ -397,9 +430,11 @@ exports.parseVoice = async (req, res) => {
                     } else {
                         query.content = { $regex: finalData.data.target_keyword, $options: 'i' };
                     }
-                    await Memory.findOneAndUpdate(query, { content: finalData.data.content });
+                    const upMem = await Memory.findOneAndUpdate(query, { content: finalData.data.content });
+                    logToDisk(`Memory Updated: Success=${!!upMem} | NewContent="${finalData.data.content}"`);
                     console.log(`[VoiceController] Memory Updated to: ${finalData.data.content}`);
                 } catch (err) {
+                    logToDisk(`Memory Update FAILED: ${err.message}`);
                     console.error("Update memory error:", err);
                 }
             }
@@ -449,6 +484,7 @@ exports.parseVoice = async (req, res) => {
         });
 
     } catch (error) {
+        logToDisk(`ParseVoice FATAL ERROR: ${error.message}`);
         console.error("AI Parse Error:", error);
         res.status(500).json({ success: false, message: error.message || "Failed to parse voice input." });
     }
@@ -457,13 +493,15 @@ exports.parseVoice = async (req, res) => {
 exports.saveReminder = async (req, res) => {
     try {
         const { reminderData, saveTo } = req.body;
+        logToDisk(`SaveReminder Request: User=${req.user?._id} | SaveTo=${saveTo} | Title="${reminderData?.title}"`);
+
         console.log("[saveReminder] START processing. Method:", req.method);
         console.log("[saveReminder] Received Body:", JSON.stringify(req.body, null, 2));
 
         const userId = req.user?._id || req.body.userId;
-        console.log("[saveReminder] User ID:", userId);
 
         if (!userId) {
+            logToDisk(`SaveReminder FAILED: User ID missing`);
             console.error("[saveReminder] User ID missing. Headers:", req.headers);
             return res.status(401).json({ success: false, message: "User not authenticated" });
         }
@@ -477,8 +515,9 @@ exports.saveReminder = async (req, res) => {
                 try {
                     console.log("[saveReminder] Attempting Google Calendar save...");
                     googleEventId = await createGoogleCalendarEvent(userId, reminderData);
-                    console.log("[saveReminder] Google Event Created ID:", googleEventId);
+                    logToDisk(`Google Calendar SUCCESS: EventID=${googleEventId}`);
                 } catch (calError) {
+                    logToDisk(`Google Calendar FAILED: ${calError.message}`);
                     console.error("[saveReminder] Google Calendar failed:", calError.message);
                 }
             } else {
@@ -486,54 +525,50 @@ exports.saveReminder = async (req, res) => {
             }
         }
 
-        // Save to Local DB (Buddy)
-        if (saveTo === 'buddy' || saveTo === 'both') {
-            try {
-                // Sanitize condition to ensure it matches Enum
-                const validConditions = ['distance_check', 'time_only', 'none'];
-                let sanitizedCondition = reminderData.condition;
-                if (!validConditions.includes(sanitizedCondition)) {
-                    sanitizedCondition = 'none';
-                }
-
-                console.log("[saveReminder] Creating local reminder with data:", {
-                    userId,
-                    title: reminderData.title,
-                    intent: reminderData.intent || 'generic',
-                    condition: sanitizedCondition
-                });
-
-                savedReminder = await Reminder.create({
-                    userId,
-                    title: reminderData.title,
-                    intent: reminderData.intent || 'generic',
-                    time: reminderData.time || null,
-                    date: reminderData.date || null,
-                    location: reminderData.location || null,
-                    condition: sanitizedCondition,
-                    priority: reminderData.priority || 'medium',
-                    bufferTime: reminderData.bufferTime || 15,
-                    geofenceRadius: reminderData.geofenceRadius || 500,
-                    repeat: reminderData.repeat || false,
-                    googleEventId: googleEventId,
-                    escalationTime: reminderData.escalationTime || 0,
-                    smartFeatures: reminderData.smartFeatures || {
-                        earlyWarning: false,
-                        trafficAware: false,
-                        itemExitGuards: false
-                    },
-                    backupContacts: reminderData.backupContacts || []
-                });
-                console.log("[saveReminder] Local Reminder Created Successfully:", savedReminder._id);
-            } catch (dbError) {
-                console.error("[saveReminder] Database Create Error:", dbError);
-                throw dbError; // Re-throw to be caught by outer catch
+        // Create local record (Always do this so Buddy can track it)
+        try {
+            // Sanitize condition to ensure it matches Enum
+            const validConditions = ['distance_check', 'time_only', 'none'];
+            let sanitizedCondition = reminderData.condition;
+            if (!validConditions.includes(sanitizedCondition)) {
+                sanitizedCondition = 'none';
             }
+
+            savedReminder = await Reminder.create({
+                userId,
+                title: reminderData.title,
+                intent: reminderData.intent || 'generic',
+                time: reminderData.time || null,
+                date: reminderData.date || null,
+                location: reminderData.location || null,
+                condition: sanitizedCondition,
+                priority: reminderData.priority || 'medium',
+                bufferTime: reminderData.bufferTime || 15,
+                geofenceRadius: reminderData.geofenceRadius || 500,
+                repeat: reminderData.repeat || false,
+                googleEventId: googleEventId,
+                escalationTime: reminderData.escalationTime || 0,
+                alerts: reminderData.alerts || { push: true, sms: false, email: false },
+                smartFeatures: reminderData.smartFeatures || {
+                    earlyWarning: false,
+                    trafficAware: false,
+                    itemExitGuards: false
+                },
+                backupContacts: reminderData.backupContacts || [],
+                source: (saveTo === 'google' || googleEventId) ? 'google' : 'buddy'
+            });
+            logToDisk(`Local Reminder SUCCESS: ID=${savedReminder._id}`);
+            console.log("[saveReminder] Local Reminder Created Successfully:", savedReminder._id);
+        } catch (dbError) {
+            logToDisk(`Local Reminder FAILED: ${dbError.message}`);
+            console.error("[saveReminder] Database Create Error:", dbError);
+            throw dbError; // Re-throw to be caught by outer catch
         }
 
         res.status(201).json({ success: true, message: "Reminder saved successfully", data: savedReminder });
 
     } catch (error) {
+        logToDisk(`SaveReminder FATAL ERROR: ${error.message}`);
         console.error("[saveReminder] CRITICAL ERROR:", error);
         res.status(500).json({ success: false, message: error.message || "Failed to save reminder", error: error.toString() });
     }
@@ -600,6 +635,7 @@ exports.updateReminder = async (req, res) => {
         const userId = req.user._id;
         const { id } = req.params;
         const updateData = req.body;
+        const { saveTo } = updateData;
 
         // Find the reminder
         const reminder = await Reminder.findOne({ _id: id, userId });
@@ -608,21 +644,32 @@ exports.updateReminder = async (req, res) => {
             return res.status(404).json({ success: false, message: "Reminder not found" });
         }
 
-        // Update in database
-        const updatedReminder = await Reminder.findByIdAndUpdate(id, updateData, { new: true });
+        // Handle Google Calendar Synchronization
+        let googleEventId = reminder.googleEventId;
 
-        // If synced with Google Calendar, update there too
-        if (reminder.googleEventId) {
+        if (saveTo === 'google' || saveTo === 'both' || googleEventId) {
             try {
                 // Merge old data with new data for complete calendar update
                 const mergedData = { ...reminder.toObject(), ...updateData };
                 if (mergedData.date && mergedData.time) {
-                    await updateGoogleCalendarEvent(userId, reminder.googleEventId, mergedData);
+                    if (googleEventId) {
+                        // Update existing event
+                        await updateGoogleCalendarEvent(userId, googleEventId, mergedData);
+                    } else {
+                        // Create new event
+                        googleEventId = await createGoogleCalendarEvent(userId, mergedData);
+                        updateData.googleEventId = googleEventId; // Ensure it's saved to DB below
+                        updateData.source = 'google';
+                    }
                 }
             } catch (calError) {
-                console.error("Failed to update Google Calendar:", calError.message);
+                console.error("Failed to sync with Google Calendar:", calError.message);
+                // We continue with local update even if Google fails
             }
         }
+
+        // Update in database
+        const updatedReminder = await Reminder.findByIdAndUpdate(id, updateData, { new: true });
 
         res.status(200).json({ success: true, message: "Reminder updated successfully", data: updatedReminder });
     } catch (error) {
@@ -729,104 +776,7 @@ exports.googleCallback = async (req, res) => {
     }
 };
 
-async function getGoogleCredentials() {
-    const Settings = require('../models/Settings');
-    const settings = await Settings.findOne();
-
-    const googleConfig = settings?.googleCalendar;
-    const activeAccount = googleConfig?.activeAccount || 'personal';
-    const accountConfig = googleConfig?.accounts?.[activeAccount];
-
-    return {
-        clientId: accountConfig?.clientId || process.env.GOOGLE_CLIENT_ID,
-        clientSecret: accountConfig?.clientSecret || process.env.GOOGLE_CLIENT_SECRET,
-        redirectUri: accountConfig?.redirectUri || process.env.GOOGLE_REDIRECT_URI
-    };
-}
-
-async function createGoogleCalendarEvent(userId, reminderData) {
-    const User = require('../models/User');
-    const user = await User.findById(userId);
-
-    if (!user || !user.googleRefreshToken) throw new Error("Google Calendar not linked.");
-
-    const { clientId, clientSecret, redirectUri } = await getGoogleCredentials();
-
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
-
-    oauth2Client.setCredentials({ refresh_token: user.googleRefreshToken });
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-    const [year, month, day] = reminderData.date.split('-');
-    const [hour, minute] = reminderData.time.split(':');
-    const startDateTime = new Date(year, month - 1, day, hour, minute);
-    const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
-
-    const event = {
-        summary: reminderData.title,
-        location: reminderData.location,
-        description: `Created via Buddy Voice Assistant.`,
-        start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-        end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-    };
-
-    const response = await calendar.events.insert({ calendarId: 'primary', resource: event });
-    return response.data.id;
-}
-
-async function deleteGoogleCalendarEvent(userId, eventId) {
-    const User = require('../models/User');
-    const user = await User.findById(userId);
-
-    if (!user || !user.googleRefreshToken) {
-        throw new Error("Google Calendar not linked.");
-    }
-
-    const { clientId, clientSecret, redirectUri } = await getGoogleCredentials();
-
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
-
-    oauth2Client.setCredentials({ refresh_token: user.googleRefreshToken });
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-    await calendar.events.delete({
-        calendarId: 'primary',
-        eventId: eventId
-    });
-}
-
-async function updateGoogleCalendarEvent(userId, eventId, reminderData) {
-    const User = require('../models/User');
-    const user = await User.findById(userId);
-
-    if (!user || !user.googleRefreshToken) throw new Error("Google Calendar not linked.");
-
-    const { clientId, clientSecret, redirectUri } = await getGoogleCredentials();
-
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
-
-    oauth2Client.setCredentials({ refresh_token: user.googleRefreshToken });
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-    const [year, month, day] = reminderData.date.split('-');
-    const [hour, minute] = reminderData.time.split(':');
-    const startDateTime = new Date(year, month - 1, day, hour, minute);
-    const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
-
-    const event = {
-        summary: reminderData.title,
-        location: reminderData.location,
-        description: `Created/Updated via Buddy Voice Assistant.`,
-        start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-        end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-    };
-
-    await calendar.events.patch({
-        calendarId: 'primary',
-        eventId: eventId,
-        resource: event
-    });
-}
+// Google helper functions removed - now using googleCalendarService.js
 
 exports.getMemories = async (req, res) => {
     try {
@@ -857,64 +807,102 @@ exports.uploadPrescription = async (req, res) => {
 
         const userId = req.user._id;
         const language = req.body.language || 'en-US';
-        const filePath = req.file.path;
         const mimeType = req.file.mimetype;
-        console.log("Analysis start - File:", req.file.path);
+        const filePath = path.resolve(req.file.path);
+
+        logToDisk(`Prescription Analysis Start: File=${req.file.filename} | Lang=${language}`);
+        console.log(`[VoiceController] Analyzing prescription: ${req.file.path}`);
 
         // Convert image to base64 for AI analysis
-        const base64Image = fs.readFileSync(path.resolve(req.file.path), { encoding: 'base64' });
+        const base64Image = fs.readFileSync(filePath, { encoding: 'base64' });
         const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
-        const medicalPrompt = `Extract prescription data into JSON: {patientName, doctorName, medicines:[{name, dosage, frequency:{morning, afternoon, night}, timing, duration, startDate, instructions}], notes, warnings, summary}. Language: ${language}`;
-
-        const response = await openai.chat.completions.create({
-            model: "meta-llama/llama-3.2-11b-vision-instruct",
-            messages: [
+        const medicalPrompt = `Extract as much information as possible from this medical prescription into a valid JSON object. 
+        Language: ${language}.
+        JSON structure: {
+            "patientName": "string",
+            "doctorName": "string",
+            "medicines": [
                 {
-                    role: "user",
-                    content: [
-                        { type: "text", text: medicalPrompt },
-                        { type: "image_url", image_url: { url: dataUrl } }
-                    ]
+                    "name": "string",
+                    "dosage": "string",
+                    "frequency": { "morning": boolean, "afternoon": boolean, "night": boolean },
+                    "timing": "string (e.g., Before food)",
+                    "duration": "string",
+                    "instructions": "string"
                 }
             ],
-            max_tokens: 500
-        });
+            "notes": "string",
+            "warnings": "string",
+            "summary": "Short friendly summary of the prescription"
+        }`;
 
-        if (!response.choices || response.choices.length === 0) {
-            throw new Error("AI returned no results.");
+        let response;
+        let finalContent;
+        const models = ["openai/gpt-4o-mini", "meta-llama/llama-3.2-11b-vision-instruct", "google/gemini-flash-1.5"];
+
+        let lastError;
+        for (const modelId of models) {
+            try {
+                console.log(`[VoiceController] Attempting analysis with model: ${modelId}`);
+                response = await openai.chat.completions.create({
+                    model: modelId,
+                    messages: [
+                        {
+                            role: "user",
+                            content: [
+                                { type: "text", text: medicalPrompt },
+                                { type: "image_url", image_url: { url: dataUrl } }
+                            ]
+                        }
+                    ],
+                    max_tokens: 800,
+                    response_format: { type: "json_object" }
+                });
+
+                if (response.choices && response.choices[0].message.content) {
+                    finalContent = response.choices[0].message.content;
+                    console.log(`[VoiceController] Success with model: ${modelId}`);
+                    break;
+                }
+            } catch (err) {
+                console.warn(`[VoiceController] Model ${modelId} failed:`, err.message);
+                lastError = err;
+                if (err.status === 402) continue; // Try next model if credits low on this one
+            }
         }
 
-        let content = response.choices[0].message.content;
-        console.log("AI Response received safely");
-
-        // Clean markdown code blocks if present
-        if (content.includes('```')) {
-            content = content.replace(/```json\n?|```/g, '').trim();
+        if (!finalContent) {
+            throw lastError || new Error("All AI models failed to analyze the document.");
         }
 
+        // Clean and parse
         let extractedInfo;
         try {
-            extractedInfo = JSON.parse(content);
+            // Remove potential markdown wrappers
+            let cleanJson = finalContent;
+            if (cleanJson.includes('```')) {
+                cleanJson = cleanJson.replace(/```json\n?|```/g, '').trim();
+            }
+            extractedInfo = JSON.parse(cleanJson);
         } catch (parseErr) {
-            console.error("Parse Error. Content:", content);
-            throw new Error("AI output was not valid JSON");
+            console.error("[VoiceController] JSON Parse Error. Content:", finalContent);
+            // Fallback to minimal object if parsing fails but we have a response
+            extractedInfo = { summary: "We processed your prescription, but couldn't extract all details perfectly.", medicines: [] };
         }
 
-        console.log("Successfully parsed extracted info");
-
         // Save to Database
-        const prescription = new Prescription({
+        const prescription = await Prescription.create({
             userId,
             fileName: req.file.filename,
             fileUrl: `/uploads/${req.file.filename}`,
             mimeType,
             extractedData: extractedInfo,
-            summary: extractedInfo.summary || "Medical document processed.",
+            summary: extractedInfo.summary || "Medical document processed and saved.",
             status: 'processed'
         });
 
-        await prescription.save();
+        logToDisk(`Prescription SUCCESS: ID=${prescription._id}`);
 
         res.status(200).json({
             success: true,
@@ -923,14 +911,18 @@ exports.uploadPrescription = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Prescription analysis error:", error);
+        logToDisk(`Prescription FATAL ERROR: ${error.message}`);
+        console.error("[VoiceController] Prescription Error:", error);
 
-        let message = error.message || "Failed to analyze document";
+        let statusCode = 500;
+        let message = "Failed to analyze document";
+
         if (error.status === 402 || error.message?.includes('402')) {
-            message = "Insufficient OpenRouter credits. Please add balance to your account.";
+            statusCode = 402;
+            message = "AI service quota exceeded. Please check credits.";
         }
 
-        res.status(500).json({
+        res.status(statusCode).json({
             success: false,
             message,
             error: error.message

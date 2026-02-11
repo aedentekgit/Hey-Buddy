@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Trash2, Search, Clock, Loader2, Eye, Edit2, Save, X, Mic, MicOff, FileText, User, ExternalLink, Info } from 'lucide-react';
+import { Brain, Trash2, Search, Clock, Loader2, Eye, Edit2, Save, X, Mic, MicOff, FileText, User, ExternalLink, Info, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
@@ -9,6 +9,7 @@ import Pagination from '../components/Pagination';
 import {
     ThStyle, TdStyle, ActionButtonStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle
 } from '../components/TableStyles';
+import SidePanelWrapper from '../components/SidePanelWrapper';
 
 const Memories = () => {
     // --- State for Tabs ---
@@ -189,44 +190,45 @@ const Memories = () => {
     };
 
     const TabButtonStyle = (id) => ({
-        padding: '12px 24px',
-        borderRadius: '14px',
-        border: 'none',
-        background: activeTab === id ? 'var(--primary-color)' : 'rgba(255, 255, 255, 0.05)',
-        color: activeTab === id ? 'white' : 'rgba(255, 255, 255, 0.5)',
+        padding: '10px 20px',
+        borderRadius: 'var(--radius-md)',
+        border: activeTab === id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+        background: activeTab === id ? 'var(--primary-color)' : 'var(--bg-lite)',
+        color: activeTab === id ? 'white' : 'var(--text-sub)',
         cursor: 'pointer',
         fontWeight: '700',
-        fontSize: '0.85rem',
+        fontSize: '0.8rem',
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: activeTab === id ? '0 10px 20px -10px var(--primary-color)' : 'none'
+        gap: '8px',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: activeTab === id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 15%, transparent)' : 'none'
     });
 
     return (
         <div className="memories-page-container">
             <div className="table-container">
                 {/* Search Header with Tab Buttons */}
-                <div className="search-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                    <div style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
-                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
+                {/* Search Header with Tab Buttons */}
+                <div className="search-management-header">
+                    <div className="buddy-search-box">
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />
                         <input
                             type="text"
-                            placeholder={activeTab === 'memories' ? "What should Buddy find?" : "Search prescriptions / test reports..."}
+                            placeholder={activeTab === 'memories' ? "Search memories..." : "Search documents..."}
                             value={activeTab === 'memories' ? memorySearch : recordSearch}
                             onChange={(e) => activeTab === 'memories' ? setMemorySearch(e.target.value) : setRecordSearch(e.target.value)}
-                            style={SearchInputStyle}
+                            className="buddy-search-input"
                         />
                     </div>
 
                     {/* Tab Buttons on Right Side */}
                     <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
                         <button onClick={() => setActiveTab('medical')} style={TabButtonStyle('medical')}>
-                            <FileText size={18} /> Document
+                            <FileText size={18} /> <span className="hide-mobile-text">Document</span>
                         </button>
                         <button onClick={() => setActiveTab('memories')} style={TabButtonStyle('memories')}>
-                            <Brain size={18} /> Buddy Memory
+                            <Brain size={18} /> <span className="hide-mobile-text">Buddy Memory</span>
                         </button>
                     </div>
                 </div>
@@ -236,20 +238,20 @@ const Memories = () => {
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
-                                <th style={{ ...ThStyle, width: '60px', borderRadius: '12px 0 0 12px' }} className="hide-mobile-th">S.No</th>
+                                <th style={{ width: '64px', textAlign: 'center' }} className="buddy-th hide-mobile-th">S.NO</th>
                                 {activeTab === 'memories' ? (
                                     <>
-                                        <th style={{ ...ThStyle, textAlign: 'left', minWidth: '180px' }}>Memory Insight</th>
-                                        <th style={{ ...ThStyle, minWidth: '100px' }} className="hide-on-mobile">Timestamp</th>
+                                        <th style={{ textAlign: 'center', minWidth: '180px' }} className="buddy-th">Memory Detail</th>
+                                        <th style={{ minWidth: '100px', textAlign: 'center' }} className="buddy-th hide-on-mobile">Timestamp</th>
                                     </>
                                 ) : (
                                     <>
-                                        <th style={{ ...ThStyle, textAlign: 'left', minWidth: '200px' }}>Document Details</th>
-                                        <th style={{ ...ThStyle, minWidth: '130px' }}>Patient Info</th>
-                                        <th style={{ ...ThStyle, minWidth: '150px' }} className="hide-on-mobile">Medicines</th>
+                                        <th style={{ textAlign: 'center', minWidth: '200px' }} className="buddy-th">Document Identity</th>
+                                        <th style={{ minWidth: '130px', textAlign: 'center' }} className="buddy-th">Assigned To</th>
+                                        <th style={{ minWidth: '150px', textAlign: 'center' }} className="buddy-th hide-on-mobile">Extracted Points</th>
                                     </>
                                 )}
-                                <th style={{ ...ThStyle, width: '120px', borderRadius: '0 12px 12px 0' }}>Actions</th>
+                                <th style={{ width: '120px', textAlign: 'center' }} className="buddy-th">Management</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -261,21 +263,72 @@ const Memories = () => {
                                 ) : (
                                     memories.map((memo, idx) => (
                                         <motion.tr key={memo._id} whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }} style={{ borderBottom: '1px solid var(--border-color)' }} className="mobile-stacked-row">
-                                            <td style={TdStyle} className="hide-mobile-td">{(memoriesPagination.currentPage - 1) * memoriesPagination.limit + idx + 1}</td>
-                                            <td style={TdStyle} data-label="Insight">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                                    <div className="icon-badge"><Brain size={18} color="var(--primary-color)" /></div>
-                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.95rem' }}>{memo.content}</div>
+                                            <td className="buddy-td hide-mobile-td" style={{ textAlign: 'center' }}>{(memoriesPagination.currentPage - 1) * memoriesPagination.limit + idx + 1}</td>
+                                            <td className="buddy-td" data-label="Insight">
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                                    <div style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'var(--bg-lite)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: 'var(--primary-color)',
+                                                        border: '1px solid var(--border-color)'
+                                                    }}>
+                                                        <Brain size={16} />
+                                                    </div>
+                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.875rem', textAlign: 'center' }}>{memo.content}</div>
                                                 </div>
                                             </td>
-                                            <td style={TdStyle} className="hide-on-mobile-custom" data-label="Date">
+                                            <td className="buddy-td hide-on-mobile-custom" data-label="Date">
                                                 <div style={{ color: 'var(--text-sub)', fontSize: '0.85rem' }}><Clock size={12} style={{ marginRight: '6px' }} />{formatDate(memo.createdAt)}</div>
                                             </td>
-                                            <td style={TdStyle} className="mobile-actions-cell">
+                                            <td className="buddy-td mobile-actions-cell">
                                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                                                    <button onClick={() => setMemoryViewModal({ isOpen: true, memory: memo })} style={{ ...ActionButtonStyle, color: 'var(--primary-color)', background: 'rgba(59, 130, 246, 0.1)' }}><Eye size={14} /></button>
-                                                    <button onClick={() => { setMemoryEditContent(memo.content); setMemoryEditModal({ isOpen: true, memory: memo }); }} style={{ ...ActionButtonStyle, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)' }}><Edit2 size={14} /></button>
-                                                    <button onClick={() => setMemoryDeleteModal({ isOpen: true, id: memo._id })} style={{ ...ActionButtonStyle, color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}><Trash2 size={14} /></button>
+                                                    <button
+                                                        onClick={() => setMemoryViewModal({ isOpen: true, memory: memo })}
+                                                        className="btn btn-icon btn-sm"
+                                                        style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            color: 'var(--primary-color)',
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                    >
+                                                        <Eye size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setMemoryEditContent(memo.content); setMemoryEditModal({ isOpen: true, memory: memo }); }}
+                                                        className="btn btn-icon btn-sm"
+                                                        style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            color: 'var(--secondary-color)',
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setMemoryDeleteModal({ isOpen: true, id: memo._id })}
+                                                        className="btn btn-icon btn-sm"
+                                                        style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            color: 'var(--danger-color)',
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </motion.tr>
@@ -289,33 +342,85 @@ const Memories = () => {
                                 ) : (
                                     records.map((record, idx) => (
                                         <motion.tr key={record._id} whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }} style={{ borderBottom: '1px solid var(--border-color)' }} className="mobile-stacked-row">
-                                            <td style={TdStyle} className="hide-mobile-td">{(recordsPagination.currentPage - 1) * recordsPagination.limit + idx + 1}</td>
-                                            <td style={TdStyle} data-label="Document">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                                    <div className="icon-badge"><FileText size={18} color="var(--primary-color)" /></div>
-                                                    <div>
-                                                        <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{record.fileName || 'Lab Report'}</div>
-                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>Uploaded {formatDate(record.createdAt)}</div>
+                                            <td className="buddy-td hide-mobile-td" style={{ textAlign: 'center' }}>{(recordsPagination.currentPage - 1) * recordsPagination.limit + idx + 1}</td>
+                                            <td className="buddy-td" data-label="Document">
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                                    <div style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        background: 'var(--bg-lite)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: 'var(--primary-color)',
+                                                        border: '1px solid var(--border-color)'
+                                                    }}>
+                                                        <FileText size={16} />
+                                                    </div>
+                                                    <div style={{ textAlign: 'center' }}>
+                                                        <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.875rem' }}>{record.fileName || 'Lab Report'}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>ID: {record._id?.slice(-8).toUpperCase()}</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td style={TdStyle} data-label="Patient">
-                                                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)' }}><User size={12} color="var(--primary-glow)" /> {record.extractedData?.patientName || 'Anon'}</div>
-                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)' }}>Dr. {record.extractedData?.doctorName || 'General'}</div>
+                                            <td className="buddy-td" data-label="Prescribed by">
+                                                <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)', textAlign: 'center' }}>
+                                                    Dr. {record.extractedData?.doctorName?.replace(/^Dr\.\s+/i, '') || 'General'}
+                                                </div>
                                             </td>
-                                            <td style={TdStyle} className="hide-on-mobile-custom" data-label="Details">
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '180px' }}>
+                                            <td className="buddy-td hide-on-mobile-custom" data-label="Details">
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '4px', maxWidth: '180px', margin: '0 auto' }}>
                                                     {record.extractedData?.medicines?.slice(0, 2).map((m, i) => (
                                                         <span key={i} className="med-pill">{m.name}</span>
                                                     ))}
                                                     {record.extractedData?.medicines?.length > 2 && <span style={{ fontSize: '0.6rem', color: 'var(--primary-glow)' }}>+{record.extractedData.medicines.length - 2}</span>}
                                                 </div>
                                             </td>
-                                            <td style={TdStyle} className="mobile-actions-cell">
+                                            <td className="buddy-td mobile-actions-cell">
                                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                                                    <button onClick={() => setRecordViewModal({ isOpen: true, record })} style={{ ...ActionButtonStyle, color: 'var(--primary-color)', background: 'rgba(59, 130, 246, 0.1)' }}><Eye size={14} /></button>
-                                                    <button onClick={() => { setRecordEditForm({ patientName: record.extractedData?.patientName || '', doctorName: record.extractedData?.doctorName || '', notes: record.extractedData?.notes || '' }); setRecordEditModal({ isOpen: true, record }); }} style={{ ...ActionButtonStyle, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)' }}><Edit2 size={14} /></button>
-                                                    <button onClick={() => setRecordDeleteModal({ isOpen: true, id: record._id })} style={{ ...ActionButtonStyle, color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}><Trash2 size={14} /></button>
+                                                    <button
+                                                        onClick={() => setRecordViewModal({ isOpen: true, record })}
+                                                        className="btn btn-icon btn-sm"
+                                                        style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            color: 'var(--primary-color)',
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                    >
+                                                        <Eye size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setRecordEditForm({ patientName: record.extractedData?.patientName || '', doctorName: record.extractedData?.doctorName || '', notes: record.extractedData?.notes || '' }); setRecordEditModal({ isOpen: true, record }); }}
+                                                        className="btn btn-icon btn-sm"
+                                                        style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            color: 'var(--secondary-color)',
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setRecordDeleteModal({ isOpen: true, id: record._id })}
+                                                        className="btn btn-icon btn-sm"
+                                                        style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            color: 'var(--danger-color)',
+                                                            background: 'transparent',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </motion.tr>
@@ -345,131 +450,128 @@ const Memories = () => {
 
             <AnimatePresence>
                 {memoryViewModal.isOpen && (
-                    <ModalWrapper onClose={() => setMemoryViewModal({ isOpen: false, memory: null })}>
-                        <ModalHeader title="Memory Details" icon={<Brain color="var(--primary-color)" />} onClose={() => setMemoryViewModal({ isOpen: false, memory: null })} />
-                        <div>
-                            <label className="modal-label">Content</label>
-                            <p style={{ fontSize: '1.2rem', color: 'white', lineHeight: '1.6', background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px' }}>{memoryViewModal.memory?.content}</p>
-                            <div style={{ marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-sub)' }}><Clock size={14} /> Recorded on {new Date(memoryViewModal.memory?.createdAt).toLocaleString()}</div>
-                        </div>
-                    </ModalWrapper>
+                    <SidePanelWrapper
+                        onClose={() => setMemoryViewModal({ isOpen: false, memory: null })}
+                        title="Memory Details"
+                    >
+                        <DetailCard title={<><Brain size={20} color="var(--primary-color)" /> Insight</>}>
+                            <p style={{ fontSize: '1.1rem', color: 'var(--text-main)', lineHeight: '1.6' }}>{memoryViewModal.memory?.content}</p>
+                            <div style={{ marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Clock size={14} /> Recorded on {new Date(memoryViewModal.memory?.createdAt).toLocaleString()}
+                            </div>
+                        </DetailCard>
+                    </SidePanelWrapper>
                 )}
 
                 {memoryEditModal.isOpen && (
-                    <ModalWrapper onClose={() => setMemoryEditModal({ isOpen: false, memory: null })}>
-                        <ModalHeader title="Edit Memory" icon={<Edit2 color="var(--primary-color)" />} onClose={() => setMemoryEditModal({ isOpen: false, memory: null })} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                    <label className="modal-label">Content</label>
-                                    <button onClick={handleToggleMic} className={`mic-btn ${isListening ? 'listening' : ''}`}>{isListening ? <MicOff size={14} /> : <Mic size={14} />}</button>
-                                </div>
-                                <textarea className="modal-input" rows="5" value={memoryEditContent} onChange={(e) => { setMemoryEditContent(e.target.value); if (!isListening) setBaseContent(e.target.value); }} />
+                    <SidePanelWrapper
+                        onClose={() => setMemoryEditModal({ isOpen: false, memory: null })}
+                        title="Edit Memory"
+                    >
+                        <DetailCard title="Content">
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                                <button onClick={handleToggleMic} className={`mic-btn ${isListening ? 'listening' : ''}`}>{isListening ? <MicOff size={14} /> : <Mic size={14} />}</button>
                             </div>
-                            <button onClick={handleMemoryUpdate} className="btn-primary" style={{ height: '48px' }}><Save size={18} /> Update Memory</button>
-                        </div>
-                    </ModalWrapper>
+                            <textarea
+                                className="modal-input"
+                                rows="8"
+                                value={memoryEditContent}
+                                onChange={(e) => { setMemoryEditContent(e.target.value); if (!isListening) setBaseContent(e.target.value); }}
+                                style={{ width: '100%', minHeight: '150px', background: 'var(--bg-lite)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '16px', borderRadius: '12px' }}
+                            />
+                        </DetailCard>
+                        <button onClick={handleMemoryUpdate} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '16px', borderRadius: 'var(--radius-lg)', fontSize: '1rem' }}>
+                            <Save size={18} /> Update Memory
+                        </button>
+                    </SidePanelWrapper>
                 )}
 
-                {/* --- Modals: Medical Record Delete / View / Edit --- */}
                 {recordViewModal.isOpen && (
-                    <ModalWrapper onClose={() => setRecordViewModal({ isOpen: false, record: null })} width="800px">
-                        <ModalHeader title="Document Analysis" icon={<FileText color="var(--primary-color)" />} onClose={() => setRecordViewModal({ isOpen: false, record: null })} />
-                        <div className="medical-grid">
-                            <div className="medical-info-pane">
-                                <div className="info-block">
-                                    <h4 className="block-title">Extracted Details</h4>
-                                    <InfoRow label="Patient" value={recordViewModal.record.extractedData?.patientName || 'Unknown'} />
-                                    <InfoRow label="Prescribed by" value={`Dr. ${recordViewModal.record.extractedData?.doctorName || 'Unspecified'}`} />
-                                    <InfoRow label="Uploaded" value={formatDate(recordViewModal.record.createdAt)} />
-                                    {recordViewModal.record.extractedData?.notes && (
-                                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <label className="modal-label" style={{ fontSize: '0.65rem' }}>Buddy Notes</label>
-                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', marginTop: '4px' }}>{recordViewModal.record.extractedData.notes}</p>
-                                        </div>
-                                    )}
+                    <SidePanelWrapper
+                        onClose={() => setRecordViewModal({ isOpen: false, record: null })}
+                        title="Document Details"
+                    >
+                        <DetailCard title={<><FileText size={20} color="var(--primary-color)" /> Information</>}>
+                            <InfoRow label="Patient" value={recordViewModal.record.extractedData?.patientName || 'Unknown'} />
+                            <InfoRow label="Prescribed by" value={`Dr. ${recordViewModal.record.extractedData?.doctorName || 'Unspecified'}`} />
+                            <InfoRow label="Uploaded" value={formatDate(recordViewModal.record.createdAt)} />
+                            {recordViewModal.record.extractedData?.notes && (
+                                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Buddy Notes</label>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginTop: '8px' }}>{recordViewModal.record.extractedData.notes}</p>
                                 </div>
+                            )}
+                        </DetailCard>
 
-                                <div className="info-block" style={{ marginTop: '20px' }}>
-                                    <h4 className="block-title">Medicines</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {recordViewModal.record.extractedData?.medicines?.map((med, i) => (
-                                            <div key={i} className="med-item">
-                                                <div style={{ fontWeight: '700', color: 'white' }}>{med.name}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{med.dosage} • {med.timing}</div>
-                                            </div>
-                                        )) || <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.2)' }}>No medicines detected</div>}
+                        <DetailCard title="Medicines">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {recordViewModal.record.extractedData?.medicines?.map((med, i) => (
+                                    <div key={i} className="med-item" style={{ padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
+                                        <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>{med.name}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{med.dosage} • {med.timing}</div>
                                     </div>
-                                </div>
+                                )) || <div style={{ fontSize: '0.85rem', color: 'var(--text-sub)', opacity: 0.5 }}>No medicines detected</div>}
                             </div>
+                        </DetailCard>
 
-                            <div className="medical-image-pane">
-                                <div className="img-container">
-                                    <img src={getFileUrl(recordViewModal.record.fileUrl)} alt="Medical Record" onError={(e) => e.target.src = 'https://via.placeholder.com/400x600?text=Scan+Not+Found'} />
-                                    <a href={getFileUrl(recordViewModal.record.fileUrl)} target="_blank" rel="noreferrer" className="view-link"><ExternalLink size={14} /> Full View</a>
-                                </div>
-                                {recordViewModal.record.summary && (
-                                    <div className="summary-bubble"><Info size={14} /> <p>{recordViewModal.record.summary}</p></div>
-                                )}
+                        <DetailCard title="Document Preview">
+                            <div className="img-container" style={{ maxHeight: '300px' }}>
+                                <img src={getFileUrl(recordViewModal.record.fileUrl)} alt="Medical Record" onError={(e) => e.target.src = 'https://via.placeholder.com/400x600?text=Scan+Not+Found'} style={{ maxHeight: '300px', width: 'auto' }} />
+                                <a href={getFileUrl(recordViewModal.record.fileUrl)} target="_blank" rel="noreferrer" className="view-link"><ExternalLink size={14} /> Full View</a>
                             </div>
-                        </div>
-                    </ModalWrapper>
+                            {recordViewModal.record.summary && (
+                                <div className="summary-bubble" style={{ marginTop: '16px' }}><Info size={14} /> <p>{recordViewModal.record.summary}</p></div>
+                            )}
+                        </DetailCard>
+                    </SidePanelWrapper>
                 )}
 
                 {recordEditModal.isOpen && (
-                    <ModalWrapper onClose={() => setRecordEditModal({ isOpen: false, record: null })} width="800px">
-                        <ModalHeader title="Edit Document Info" icon={<Edit2 color="var(--primary-color)" />} onClose={() => setRecordEditModal({ isOpen: false, record: null })} />
-                        <div className="medical-grid">
-                            <div className="medical-info-pane" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <div className="info-block">
-                                    <h4 className="block-title">Verify Information</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                        <div>
-                                            <label className="modal-label">Patient Name</label>
-                                            <input className="modal-input" value={recordEditForm.patientName} onChange={(e) => setRecordEditForm({ ...recordEditForm, patientName: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <label className="modal-label">Doctor Name</label>
-                                            <input className="modal-input" value={recordEditForm.doctorName} onChange={(e) => setRecordEditForm({ ...recordEditForm, doctorName: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <label className="modal-label">Buddy Notes</label>
-                                            <textarea className="modal-input" rows="4" value={recordEditForm.notes} onChange={(e) => setRecordEditForm({ ...recordEditForm, notes: e.target.value })} placeholder="Add your notes here..." />
-                                        </div>
-                                    </div>
+                    <SidePanelWrapper
+                        onClose={() => setRecordEditModal({ isOpen: false, record: null })}
+                        title="Edit Info"
+                    >
+                        <DetailCard title={<><Edit2 size={20} color="var(--primary-color)" /> Verify Details</>}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div>
+                                    <label className="modal-label">Patient Name</label>
+                                    <input className="modal-input" value={recordEditForm.patientName} onChange={(e) => setRecordEditForm({ ...recordEditForm, patientName: e.target.value })} />
                                 </div>
-
-                                <div className="info-block">
-                                    <h4 className="block-title">Medicines (Read-Only)</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {recordEditModal.record.extractedData?.medicines?.map((med, i) => (
-                                            <div key={i} style={{ fontSize: '0.85rem', color: 'var(--text-sub)' }}>
-                                                • <b>{med.name}</b> ({med.dosage})
-                                            </div>
-                                        ))}
-                                    </div>
+                                <div>
+                                    <label className="modal-label">Doctor Name</label>
+                                    <input className="modal-input" value={recordEditForm.doctorName} onChange={(e) => setRecordEditForm({ ...recordEditForm, doctorName: e.target.value })} />
                                 </div>
-
-                                <button onClick={handleRecordUpdate} className="btn-primary" style={{ height: '54px', marginTop: 'auto' }}>
-                                    <Save size={18} /> Save All Changes
-                                </button>
+                                <div>
+                                    <label className="modal-label">Buddy Notes</label>
+                                    <textarea className="modal-input" rows="4" value={recordEditForm.notes} onChange={(e) => setRecordEditForm({ ...recordEditForm, notes: e.target.value })} placeholder="Add your notes here..." />
+                                </div>
                             </div>
+                        </DetailCard>
 
-                            <div className="medical-image-pane">
-                                <div className="img-container">
-                                    <img src={getFileUrl(recordEditModal.record.fileUrl)} alt="Reference" onError={(e) => e.target.src = 'https://via.placeholder.com/400x600?text=Scan+Not+Found'} />
-                                    <a href={getFileUrl(recordEditModal.record.fileUrl)} target="_blank" rel="noreferrer" className="view-link" style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', color: 'white' }}>
-                                        <ExternalLink size={14} /> Full View
-                                    </a>
-                                </div>
-                                <div style={{ marginTop: '15px', padding: '15px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
-                                    <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
-                                        Use the document scan on the left to verify the extracted details.
-                                    </p>
-                                </div>
+                        <DetailCard title="Medicines (Read-Only)">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {recordEditModal.record.extractedData?.medicines?.map((med, i) => (
+                                    <div key={i} style={{ fontSize: '0.85rem', color: 'var(--text-sub)' }}>
+                                        • <b>{med.name}</b> ({med.dosage})
+                                    </div>
+                                ))}
+                            </div>
+                        </DetailCard>
+
+                        <button onClick={handleRecordUpdate} className="btn-primary" style={{ height: '54px', width: '100%', justifyContent: 'center', marginTop: '12px', borderRadius: '16px' }}>
+                            <Save size={18} /> Save All Changes
+                        </button>
+
+                        <div style={{ marginTop: '30px' }}>
+                            <h4 style={{ fontSize: '0.9rem', color: 'var(--text-sub)', marginBottom: '10px' }}>Reference Document</h4>
+                            <div className="img-container" style={{ maxHeight: '200px' }}>
+                                <img src={getFileUrl(recordEditModal.record.fileUrl)} alt="Reference" onError={(e) => e.target.src = 'https://via.placeholder.com/400x600?text=Scan+Not+Found'} style={{ maxHeight: '200px' }} />
+                                <a href={getFileUrl(recordEditModal.record.fileUrl)} target="_blank" rel="noreferrer" className="view-link" style={{ background: 'var(--bg-lite)', backdropFilter: 'blur(10px)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}>
+                                    <ExternalLink size={14} /> Full View
+                                </a>
                             </div>
                         </div>
-                    </ModalWrapper>
+                    </SidePanelWrapper>
                 )}
             </AnimatePresence>
 
@@ -482,316 +584,49 @@ const Memories = () => {
                 confirmText="Delete"
             />
 
-            <style>{`
-                .glass-card { background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: 24px; padding: 24px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
-                .icon-badge { width: 38px; height: 38px; background: rgba(0, 117, 255, 0.08); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: inset 0 0 10px rgba(0, 117, 255, 0.1); }
-                .med-pill { padding: 4px 10px; background: rgba(0, 117, 255, 0.1); border: 1px solid rgba(0, 117, 255, 0.2); border-radius: 8px; color: var(--primary-glow); font-size: 0.65rem; font-weight: 700; height: fit-content; }
-                .modal-label { font-size: 0.75rem; color: var(--text-sub); text-transform: uppercase; font-weight: 800; letter-spacing: 0.1em; }
-                .modal-input { width: 100%; padding: 14px 18px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 14px; color: white; display: block; margin-top: 8px; font-size: 0.95rem; outline: none; transition: border 0.3s; }
-                .modal-input:focus { border-color: var(--primary-color); }
-                .mic-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(0, 117, 255, 0.1); color: var(--primary-color); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-                .mic-btn.listening { background: #ef4444; color: white; animation: pulse 1.5s infinite; }
-                .medical-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 30px; }
-                .info-block { background: rgba(255,255,255,0.02); padding: 20px; border-radius: 20px; border: 1px solid var(--border-color); }
-                .block-title { font-size: 0.75rem; color: var(--primary-glow); text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.05em; }
-                .img-container { background: #000; border-radius: 20px; border: 1px solid var(--border-color); overflow: hidden; position: relative; min-height: 400px; display: flex; align-items: center; justify-content: center; }
-                .img-container img { max-width: 100%; max-height: 600px; }
-                .view-link { position: absolute; bottom: 15px; right: 15px; background: var(--primary-color); color: white; padding: 10px 20px; border-radius: 10px; font-weight: 700; font-size: 0.8rem; text-decoration: none; display: flex; alignItems: center; gap: 8px; box-shadow: 0 10px 20px rgba(0, 117, 255, 0.3); }
-                .med-item { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-                .med-item:last-child { border: none; }
-                .summary-bubble { margin-top: 15px; background: rgba(16, 185, 129, 0.05); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2); display: flex; gap: 10px; color: #10b981; font-size: 0.85rem; }
-                .summary-bubble p { margin: 0; line-height: 1.5; }
-                @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                .animate-spin { animation: spin 1s linear infinite; }
-                .hide-scrollbar::-webkit-scrollbar { display: none; }
-                .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-                .memories-page-container {
-                    color: var(--text-main);
-                }
-
-                .table-wrapper {
-                    overflow-x: auto;
-                    width: 100%;
-                }
-
-                .modal-label {
-                    font-size: 0.75rem; 
-                    color: var(--text-sub); 
-                    text-transform: uppercase; 
-                    font-weight: 700; 
-                    letter-spacing: 0.05em; 
-                    display: block; 
-                    margin-bottom: 8px;
-                }
-
-                .modal-input {
-                    width: 100%; 
-                    padding: 12px 16px; 
-                    border-radius: 12px;
-                    background: var(--bg-lite); 
-                    border: 1px solid var(--border-color);
-                    color: var(--text-main); 
-                    font-size: 14px; 
-                    outline: none;
-                }
-
-                .modal-row {
-                    display: flex;
-                    gap: 16px;
-                }
-
-                .responsive-modal {
-                    background: var(--card-bg); 
-                    border-radius: 24px; 
-                    padding: 32px;
-                    max-width: 500px; 
-                    width: 90%; 
-                    border: 1px solid var(--border-color);
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-                }
-
-                .icon-badge {
-                    width: 40px;
-                    height: 40px;
-                    background: rgba(59, 130, 246, 0.1);
-                    border: 1px solid rgba(59, 130, 246, 0.2);
-                    border-radius: 12px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                .med-pill {
-                    padding: 3px 8px;
-                    background: rgba(59, 130, 246, 0.1);
-                    border: 1px solid rgba(59, 130, 246, 0.2);
-                    border-radius: 6px;
-                    font-size: 0.65rem;
-                    color: var(--primary-glow);
-                    font-weight: 600;
-                }
-
-                @media (max-width: 640px) {
-                    .table-wrapper table, 
-                    .table-wrapper thead, 
-                    .table-wrapper tbody, 
-                    .table-wrapper th, 
-                    .table-wrapper td, 
-                    .table-wrapper tr {
-                        display: block;
-                    }
-
-                    .table-wrapper thead tr {
-                        position: absolute;
-                        top: -9999px;
-                        left: -9999px;
-                    }
-
-                    .mobile-stacked-row {
-                        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
-                        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-                        border-radius: 24px !important;
-                        padding: 20px !important;
-                        margin-bottom: 24px !important;
-                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
-                        backdrop-filter: blur(10px);
-                        position: relative;
-                        overflow: hidden;
-                    }
-
-                    /* Add a subtle highlight accent */
-                    .mobile-stacked-row::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 4px;
-                        height: 100%;
-                        background: var(--primary-color);
-                        opacity: 0.5;
-                    }
-
-                    .table-wrapper td {
-                        border: none !important;
-                        padding: 12px 0 !important;
-                        position: relative;
-                        text-align: left !important;
-                        width: 100% !important;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        gap: 16px;
-                        min-height: auto !important;
-                        border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
-                    }
-
-                    .table-wrapper td:last-child {
-                        border-bottom: none !important;
-                    }
-
-                    .table-wrapper td::before {
-                        content: attr(data-label);
-                        font-size: 0.75rem;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                        color: var(--text-sub);
-                        min-width: 100px;
-                        opacity: 0.8;
-                    }
-
-                    /* Make the value text aligned to the right */
-                    .table-wrapper td > * {
-                        text-align: right;
-                        flex: 1;
-                        display: flex;
-                        justify-content: flex-end;
-                    }
-                    
-                    /* Specific adjustment for Insight/Document */
-                    .table-wrapper td[data-label="Insight"] > div,
-                    .table-wrapper td[data-label="Document"] > div {
-                        width: 100%;
-                    }
-
-                    .hide-mobile-th, .hide-mobile-td {
-                        display: none !important;
-                    }
-
-                    .hide-on-mobile-custom {
-                        display: none !important;
-                    }
-
-                    .mobile-actions-cell {
-                        margin-top: 8px;
-                        padding-top: 20px !important;
-                        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
-                        justify-content: center !important;
-                        gap: 16px !important;
-                    }
-
-                    .mobile-actions-cell::before {
-                        display: none; /* Hide label for actions */
-                    }
-
-                    /* Custom Button Styles for Mobile Actions */
-                    .mobile-actions-cell button {
-                        width: 42px;
-                        height: 42px;
-                        border-radius: 12px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    }
-
-                    .hide-on-compact {
-                        display: flex !important;
-                    }
-
-                    .table-responsive-container {
-                        background: transparent !important;
-                        border: none !important;
-                        box-shadow: none !important;
-                        padding: 0 16px !important;
-                    }
-                    
-                    .table-wrapper {
-                        padding: 0 4px;
-                        overflow-x: visible !important;
-                    }
-
-                    .search-header-flex {
-                        padding: 0 4px !important;
-                    }
-
-                    /* Ensure text breaks properly */
-                    .table-wrapper td div {
-                        word-break: break-word;
-                    }
-                }
-
-                @media (max-width: 768px) {
-                    .table-responsive-container {
-                        padding: 16px !important;
-                    }
-                    .hide-on-compact, .hide-on-mobile {
-                        display: none !important;
-                    }
-                    /* th, td { padding: 12px 10px !important; } Remove conflict */
-                    .responsive-modal {
-                        padding: 24px;
-                        width: 95%;
-                    }
-                    .modal-row {
-                        flex-direction: column;
-                        gap: 12px;
-                    }
-                    
-                    /* Align header properly on mobile */
-                    .search-header-flex {
-                        flex-wrap: nowrap !important;
-                        gap: 12px !important;
-                    }
-                    
-                    /* Ensure buttons don't shrink */
-                    .search-header-flex button {
-                        flex-shrink: 0 !important;
-                        white-space: nowrap !important;
-                    }
-                }
-
-                @media (max-width: 480px) {
-                    .table-responsive-container {
-                        border-radius: 16px !important;
-                    }
-                    td, th {
-                        padding: 12px 4px !important;
-                    }
-                }
-
-            `}</style>
         </div>
     );
 };
 
-const ModalWrapper = ({ children, onClose, width = '550px' }) => (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }} onClick={onClose}>
-        <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            onClick={e => e.stopPropagation()}
-            className="hide-scrollbar"
-            style={{
-                background: 'var(--card-bg)',
-                borderRadius: '32px',
-                padding: '35px',
-                maxWidth: width,
-                width: '95%',
-                border: '1px solid var(--border-color)',
-                boxShadow: '0 30px 60px rgba(0,0,0,0.5)',
-                maxHeight: '95vh',
-                overflowY: 'auto'
-            }}
-        >
-            {children}
-        </motion.div>
-    </div>
-);
 
-const ModalHeader = ({ title, icon, onClose }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h3 style={{ fontSize: '1.6rem', fontWeight: '800', color: 'white', display: 'flex', alignItems: 'center', gap: '15px' }}>{icon} {title}</h3>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}><X size={20} /></button>
+
+const DetailCard = ({ title, children, className = '' }) => (
+    <div className={`detail-card ${className}`} style={{
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '24px',
+        marginBottom: '20px',
+        backdropFilter: 'blur(12px)'
+    }}>
+        {title && (
+            <h4 style={{
+                margin: '0 0 20px 0',
+                fontSize: '1.1rem',
+                fontWeight: '700',
+                color: 'var(--text-main)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+            }}>
+                {title}
+            </h4>
+        )}
+        {children}
     </div>
 );
 
 const InfoRow = ({ label, value }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>{label}</span>
-        <span style={{ fontSize: '0.9rem', color: 'white', fontWeight: '700' }}>{value}</span>
+    <div style={{
+        display: 'grid',
+        gridTemplateColumns: '110px 1fr',
+        alignItems: 'baseline',
+        padding: '12px 0',
+        borderBottom: '1px solid var(--border-color)',
+        gap: '16px'
+    }}>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', opacity: 0.8, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+        <span style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: '600', textAlign: 'left' }}>{value}</span>
     </div>
 );
 

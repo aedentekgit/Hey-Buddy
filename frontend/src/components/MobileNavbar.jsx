@@ -130,16 +130,16 @@ const MobileNavbar = () => {
                     left: 0;
                     width: 100%;
                     height: 80px;
-                    background: rgba(15, 23, 42, 0.9);
+                    background: var(--glass-bg);
                     backdrop-filter: blur(20px);
                     -webkit-backdrop-filter: blur(20px);
-                    border-top: 1px solid rgba(255, 255, 255, 0.1);
+                    border-top: 1px solid var(--border-color);
                     display: flex;
                     justify-content: space-around;
                     align-items: center;
                     padding: 0 10px 10px 10px;
                     z-index: 1000;
-                    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.3);
+                    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.1);
                     display: none;
                 }
 
@@ -156,7 +156,7 @@ const MobileNavbar = () => {
                     justify-content: center;
                     gap: 4px;
                     text-decoration: none;
-                    color: rgba(255, 255, 255, 0.5);
+                    color: var(--text-sub);
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     width: 60px;
                     height: 100%;
@@ -169,22 +169,24 @@ const MobileNavbar = () => {
                 .nav-icon {
                     opacity: 0.7;
                     transition: all 0.3s ease;
+                    color: inherit;
                 }
 
                 .nav-label {
                     font-size: 0.65rem;
                     font-weight: 600;
                     opacity: 0.7;
+                    color: inherit;
                 }
 
                 .mobile-nav-item.active {
-                    color: #0075ff;
+                    color: var(--primary-color);
                 }
 
                 .mobile-nav-item.active .nav-icon {
                     opacity: 1;
                     transform: translateY(-2px);
-                    filter: drop-shadow(0 0 8px rgba(0, 117, 255, 0.5));
+                    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary-color) 40%, transparent));
                 }
 
                 .mobile-nav-item.active .nav-label {
@@ -194,12 +196,12 @@ const MobileNavbar = () => {
 
                 .buddy-center-btn {
                     transform: translateY(-20px);
-                    background: linear-gradient(135deg, #0075ff 0%, #00f2ad 100%);
+                    background: var(--button-gradient);
                     border-radius: 50%;
                     width: 56px !important;
                     height: 56px !important;
-                    box-shadow: 0 4px 15px rgba(0, 117, 255, 0.5);
-                    border: 4px solid #0f172a;
+                    box-shadow: 0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent);
+                    border: 4px solid var(--bg-color);
                     justify-content: center;
                     align-items: center;
                     overflow: visible;
@@ -218,16 +220,16 @@ const MobileNavbar = () => {
                 .buddy-center-btn .nav-label {
                     position: absolute;
                     bottom: -22px;
-                    color: white;
+                    color: var(--text-main);
                     width: max-content;
-                    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+                    font-weight: 700;
                 }
 
                 /* More Menu Styling */
                 .more-menu-overlay {
                     position: fixed;
                     inset: 0;
-                    background: rgba(0, 0, 0, 0.7);
+                    background: rgba(0, 0, 0, 0.4);
                     backdrop-filter: blur(4px);
                     z-index: 1100;
                 }
@@ -237,15 +239,15 @@ const MobileNavbar = () => {
                     bottom: 0;
                     left: 0;
                     right: 0;
-                    background: #0f172a;
-                    background: linear-gradient(to bottom, #111a2e, #060b28);
+                    background: var(--card-bg);
+                    backdrop-filter: blur(20px);
                     border-radius: 24px 24px 0 0;
                     padding: 24px;
                     z-index: 1200;
                     max-height: 80vh;
                     overflow-y: auto;
-                    border-top: 1px solid rgba(255, 255, 255, 0.08);
-                    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+                    border-top: 1px solid var(--border-color);
+                    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
                 }
 
                 .menu-header {
@@ -259,14 +261,14 @@ const MobileNavbar = () => {
                     margin: 0;
                     font-size: 1.1rem;
                     font-weight: 700;
-                    color: white;
+                    color: var(--text-main);
                     letter-spacing: 0.02em;
                 }
 
                 .close-btn {
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--bg-lite);
                     border: none;
-                    color: white;
+                    color: var(--text-main);
                     width: 36px;
                     height: 36px;
                     border-radius: 50%;
@@ -274,6 +276,7 @@ const MobileNavbar = () => {
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
+                    border: 1px solid var(--border-color);
                 }
 
                 .menu-grid {
@@ -291,38 +294,39 @@ const MobileNavbar = () => {
                     padding: 16px 8px;
                     border-radius: 16px;
                     text-decoration: none;
-                    color: rgba(255, 255, 255, 0.6);
-                    background: rgba(255, 255, 255, 0.02);
+                    color: var(--text-sub);
+                    background: var(--bg-lite);
                     transition: all 0.2s ease;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border-color);
                 }
 
                 .menu-grid-item.active {
-                    background: rgba(0, 117, 255, 0.1);
-                    border-color: rgba(0, 117, 255, 0.3);
-                    color: white;
+                    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+                    border-color: var(--primary-color);
+                    color: var(--primary-color);
                 }
 
                 .menu-icon-box {
                     width: 44px;
                     height: 44px;
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--bg-lite);
                     border-radius: 12px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     transition: all 0.2s ease;
+                    border: 1px solid var(--border-color);
                 }
 
                 .menu-grid-item.active .menu-icon-box {
-                    background: #0075ff;
+                    background: var(--primary-color);
                     color: white;
-                    box-shadow: 0 4px 12px rgba(0, 117, 255, 0.4);
+                    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 40%, transparent);
                 }
 
                 .menu-label {
                     font-size: 0.7rem;
-                    font-weight: 600;
+                    font-weight: 700;
                     text-align: center;
                 }
             `}</style>

@@ -37,47 +37,62 @@ export const VoiceAssistantProvider = ({ children }) => {
     const inactivePromptCountRef = useRef(0);
     const lastInteractionTimeRef = useRef(Date.now());
     const isConversationModeRef = useRef(false);
-
-    const [listeningDuration, setListeningDuration] = useState(1500); // 1.5s silence gap
+    const lastStartAttemptRef = useRef(0);
+    const isActuallyRunningRef = useRef(false);
+    const isStartingRef = useRef(false);
+    const [listeningDuration, setListeningDuration] = useState(1000); // 1.0s silence gap for balanced responsiveness
+    const [currentConversationId, setCurrentConversationId] = useState(null);
     const silenceTimerRef = useRef(null);
+    const lastErrorRef = useRef(null);
+    const isProcessingRef = useRef(false);
 
     // Sync with global settings
     useEffect(() => {
-        if (settings?.general?.language) {
+        if (settings?.general?.language && settings.general.language !== language) {
             setLanguage(settings.general.language);
         }
-    }, [settings]);
+        if (settings?.ai?.listeningDuration) {
+            const newDuration = settings.ai.listeningDuration * 1000;
+            if (newDuration !== listeningDuration) {
+                setListeningDuration(newDuration);
+            }
+        }
+    }, [settings, language, listeningDuration]);
+
+    // Unified diagnostic logger
+    const logStatus = (action) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`🎤 [${timestamp}] [${action}] | Running: ${isActuallyRunningRef.current} | Starting: ${isStartingRef.current} | Speaking: ${isSpeakingRef.current}`);
+    };
 
     // Helper to start recognition safely with retry logic
-    const ensureRecognition = (retryCount = 0) => {
-        if (!recognitionRef.current) return;
-        if (!wakeWordMode) return;
-        if (isSpeakingRef.current) return;
-        if (isListeningRef.current) return; // Don't interrupt active listening
+    const ensureRecognition = () => {
+        // WAKE WORD MODE check is the only requirement now. 
+        // We don't wait for 'isUnlocked' anymore because we WANT the browser's permission prompt to show up.
+        if (!recognitionRef.current || !wakeWordMode) return;
+        if (isActuallyRunningRef.current || isStartingRef.current || isSpeakingRef.current) return;
 
-        // COOLDOWN CHECK
         const now = Date.now();
-        if (now - lastErrorTimeRef.current < 1000 || isRestartingFlagRef.current) {
+        // Reduced cooldowns: 0.8s between any attempt, 3s if we just had an error
+        const cooldown = now - lastErrorTimeRef.current < 10000 ? 3000 : 800;
+
+        if (now - lastStartAttemptRef.current < cooldown) {
             return;
         }
+
+        logStatus("Attempting Start");
+        isStartingRef.current = true;
+        lastStartAttemptRef.current = now;
 
         try {
             recognitionRef.current.start();
         } catch (e) {
-            // If already started, we are good. Don't retry.
-            if (e.name === 'InvalidStateError' || e.message?.includes('InvalidStateError')) {
-                console.log("🎤 Mic already running (InvalidStateError). Skipping start.");
+            isStartingRef.current = false;
+            if (e.name === 'InvalidStateError') {
+                isActuallyRunningRef.current = true;
                 return;
             }
-
-            if (retryCount < 5) {
-                const delay = 300 + (retryCount * 200);
-                console.log(`🎤 Mic start pending (${e.name}), retry ${retryCount + 1}...`);
-                setTimeout(() => ensureRecognition(retryCount + 1), delay);
-            } else {
-                console.warn("🎤 Mic failed to start. Hard reset.");
-                try { recognitionRef.current.abort(); } catch (err) { }
-            }
+            console.warn("🎤 Mic Start Exception:", e.message);
         }
     };
 
@@ -97,15 +112,18 @@ export const VoiceAssistantProvider = ({ children }) => {
         };
 
         const handleInteraction = () => {
+            console.log("🖱️ User interaction detected, unlocking capabilities...");
             unlock();
             document.removeEventListener('click', handleInteraction);
-            document.removeEventListener('touchstart', handleInteraction);
+            document.removeEventListener('touchstart', handleInteraction, { passive: true });
             document.removeEventListener('keydown', handleInteraction);
         };
 
-        document.addEventListener('click', handleInteraction);
-        document.addEventListener('touchstart', handleInteraction);
-        document.addEventListener('keydown', handleInteraction);
+        // Do NOT call unlock() immediately here, it will fail and show error on console.
+        // Wait for actual user gesture.
+        document.addEventListener('click', handleInteraction, { once: true });
+        document.addEventListener('touchstart', handleInteraction, { once: true, passive: true });
+        document.addEventListener('keydown', handleInteraction, { once: true });
 
         return () => {
             document.removeEventListener('click', handleInteraction);
@@ -122,11 +140,6 @@ export const VoiceAssistantProvider = ({ children }) => {
         isConversationModeRef.current = isConversationMode;
         if (!isConversationMode) {
             setConversationHistory([]);
-            // When conversation mode ends, FORCE restart ambient logic
-            if (!isListeningRef.current) {
-                console.log("🔄 Conversation ended, force restarting ambient listener...");
-                setTimeout(ensureRecognition, 500);
-            }
         }
     }, [isConversationMode]);
 
@@ -137,41 +150,51 @@ export const VoiceAssistantProvider = ({ children }) => {
             if (isSpeakingRef.current && !window.speechSynthesis.speaking) {
                 isSpeakingRef.current = false;
             }
-            // If supposed to be ambient but stopped
-            if (recognitionRef.current && !isSpeakingRef.current && !isListeningRef.current && !isAmbient) {
-                // Try to restart ambient if it fell asleep
+
+            // v2.5 fix: Restart if we are supposed to be active (ambient OR listening) but the mic is dead
+            const shouldBeRunning = wakeWordMode && !isSpeakingRef.current;
+            const isActuallyOff = !isActuallyRunningRef.current && !isStartingRef.current;
+
+            if (shouldBeRunning && isActuallyOff) {
                 micStuckCounterRef.current += 1;
-                if (micStuckCounterRef.current > 5) {
-                    console.log("⏰ Watchdog restarting ambient mic...");
+                // If it's been off for 2 consecutive checks (6 seconds), force a restart
+                if (micStuckCounterRef.current >= 2) {
+                    console.log("⏰ Watchdog: Mic is stuck. Forcing restart...");
                     ensureRecognition();
                     micStuckCounterRef.current = 0;
                 }
+            } else {
+                micStuckCounterRef.current = 0;
             }
         }, 3000);
         return () => clearInterval(watchdog);
     }, [isUnlocked, wakeWordMode, isListening, isAmbient]);
 
-    // Route Change Logic
+    // Route Change Logic - Simplified to just clear transcript
     useEffect(() => {
-        console.log("📍 Route changed to:", location.pathname);
-        setIsListening(false);
-        isListeningRef.current = false;
-        setIsAmbient(false);
         setTranscript('');
-
-        // Force a fresh restart on route change
-        if (recognitionRef.current) {
-            try { recognitionRef.current.abort(); } catch (e) { }
-            setTimeout(ensureRecognition, 500);
-        }
+        // We don't force a restart here anymore; onend handles it if the mic was naturally closed
     }, [location.pathname]);
 
     // Initialize Speech Recognition
+    // We use a ref to track the last used language to avoid double initialization
+    const lastInitializedLangRef = useRef(null);
+    const lastInitializedModeRef = useRef(null);
+
     useEffect(() => {
+        // Only initialize if something actually changed and we are in dev/unlocked mode
+        console.log(`🛠️ [v2.5] Configuring Speech Recognition | Lang: ${language} | WakeMode: ${wakeWordMode}`);
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return;
+        if (!SpeechRecognition) {
+            console.warn("❌ [v2.5] Speech Recognition not supported in this browser.");
+            return;
+        }
+
+        lastInitializedLangRef.current = language;
+        lastInitializedModeRef.current = wakeWordMode;
 
         if (recognitionRef.current) {
+            console.log("🛠️ [v2.5] Cleaning up old Speech Recognition object...");
             recognitionRef.current.onend = null;
             recognitionRef.current.onresult = null;
             recognitionRef.current.onerror = null;
@@ -179,45 +202,65 @@ export const VoiceAssistantProvider = ({ children }) => {
         }
 
         const recognition = new SpeechRecognition();
-        recognition.continuous = true;
+        recognition.continuous = true; // Continuous mode for better wake-word reliability
         recognition.interimResults = true;
         recognition.lang = language;
+        recognition.maxAlternatives = 1;
 
         recognition.onresult = (event) => {
             // Wake Word Detection - SUPER SENSITIVE
             // Any interim result containing "buddy" triggers it.
             const results = Array.from(event.results);
-            const lastResult = results[results.length - 1];
-            const transcriptRaw = lastResult[0].transcript.toLowerCase();
+            const transcriptRaw = results.map(r => r[0].transcript.toLowerCase()).join(' ');
 
-            // Exit Word Check
-            const exitWords = ['stop', 'bye', 'goodbye', 'exit', 'cancel'];
-            if (isConversationModeRef.current && exitWords.some(w => transcriptRaw.includes(w))) {
-                console.log("👋 Exit word detected");
-                setIsConversationMode(false);
-                setIsListening(false);
-                speak(language.startsWith('hi') ? "ठीक है" : "Okay, bye!");
-                recognition.stop();
-                return;
+            if (transcriptRaw.trim()) {
+                console.log("🎤 Hearing:", transcriptRaw);
+            } else {
+                // Log even empty/silent results to confirm engine is alive
+                console.log("🎤 Audio captured (but silent/unclear)");
             }
 
-            // Check if we are already listening
+            // 1. Check for Exit Words (Only if already waked/in conversation)
+            if (isConversationModeRef.current) {
+                const exitWords = [
+                    'stop', 'bye', 'goodbye', 'exit', 'cancel', 'close', 'dismiss', 'end session', 'close it',
+                    'शुक्रिया', 'नमस्ते', 'बन्द करो', 'போயிட்டு வர்றேன்', 'சென்று வருகிறேன்'
+                ];
+                // Clean the text first to avoid false positives (like "stopping by")
+                const cleanForExit = transcriptRaw.replace(/hey|buddy|bodi|body/gi, '').trim().toLowerCase();
+
+                if (exitWords.some(w => cleanForExit === w || cleanForExit === w + '.')) {
+                    console.log("👋 Exit word detected and confirmed:", cleanForExit);
+                    setIsConversationMode(false);
+                    setIsListening(false);
+                    isListeningRef.current = false;
+                    isConversationModeRef.current = false;
+                    speak(language.startsWith('hi') ? "ठीक है, फिर मिलते हैं!" : "Okay, catch you later!");
+                    if (recognitionRef.current) recognitionRef.current.abort();
+                    return;
+                }
+            }
+
+            // 2. Wake Word Detection (If not already waked)
             let waked = isListeningRef.current || isConversationModeRef.current;
 
             if (!waked) {
-                // SENSITIVE WAKE WORD LOGIC
-                // Matches "buddy" anywhere, or "hey" + anything
-                if (transcriptRaw.includes('buddy') ||
-                    transcriptRaw.includes('bodi') ||
-                    transcriptRaw.includes('birdie') ||
-                    transcriptRaw.includes('hey body') ||
-                    (transcriptRaw.includes('hey') && transcriptRaw.length < 15)) { // "Hey..." short phrase
+                const wakeWords = [
+                    'buddy', 'bodi', 'birdie', 'body', 'bud', 'bub', 'बडी', 'बड्डी', 'படி', 'பட்டி', 'பட்யை', 'பட்ய', 'బడ్డీ', 'బడ్డి', 'ಬಡ್ಡಿ',
+                    'hey buddy', 'hello buddy', 'hi buddy', 'hey bud', 'hey bub',
+                    'हे बडी', 'हाय बडी', 'नमस्ते बडी',
+                    'ஹே படி', 'ஹே பட்டி', 'வணக்கம் பட்டி',
+                    'హే బడ్డీ', 'హలో బడ్డీ', 'హే బడ్డి',
+                    'ಹೇ ಬಡ್ಡಿ'
+                ];
 
-                    console.log("🔔 Wake Word Detected:", transcriptRaw);
+                const matchesWakeWord = wakeWords.some(w => transcriptRaw.includes(w));
+
+                if (matchesWakeWord) {
+                    console.log("🔔 Wake Word Triggered:", transcriptRaw);
                     waked = true;
                     setIsConversationMode(true);
-                    inactivePromptCountRef.current = 0;
-                    lastInteractionTimeRef.current = Date.now();
+                    isConversationModeRef.current = true;
 
                     if (isUnlockedRef.current) {
                         playWakeSound();
@@ -225,86 +268,104 @@ export const VoiceAssistantProvider = ({ children }) => {
                     }
 
                     setIsListening(true);
-                    isListeningRef.current = true; // Urgent update
+                    isListeningRef.current = true;
                     setIsAmbient(false);
 
-                    // Restart safety timer
+                    // Reset all timers
                     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
                     silenceTimerRef.current = setTimeout(() => {
-                        console.log("⏳ No command followed wake word");
-                        recognition.stop();
-                    }, 4000); // Give 4s to speak command
+                        console.log("⏳ 4s Silence: No command after wake word");
+                        if (recognitionRef.current) recognitionRef.current.stop();
+                    }, 4000);
                 }
             }
 
-            // Capture Command
+            // 3. Command Capture (If waked)
             if (waked) {
-                // Strip wake words loosely
-                let cleanText = transcriptRaw
-                    .replace(/hey|hello|hi|ok|okay|buddy|bodi|birdie/gi, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
+                const cleanRegex = /hey|hello|hi|ok|okay|buddy|bodi|birdie|body|bud|bub|बडी|बड्डी|हे|हाय|नमस्ते|படி|பட்டி|வணக்கம்|బడ్డీ|బడ్డి|హే|హలో|ಬడ్ಡಿ|ಹೇ/gi;
+                let cleanText = transcriptRaw.replace(cleanRegex, '').replace(/\s+/g, ' ').trim();
 
                 if (cleanText.length > 0) {
-                    lastInteractionTimeRef.current = Date.now();
+                    // Update state to listening if we hear actual command words
+                    if (!isListeningRef.current) {
+                        setIsListening(true);
+                        isListeningRef.current = true;
+                    }
+
                     setTranscript(cleanText);
+                    lastInteractionTimeRef.current = Date.now();
 
                     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-                    // Debounce silence for end of speech
                     silenceTimerRef.current = setTimeout(() => {
-                        console.log("⏳ Silence timeout (end of speech)");
-                        recognition.stop();
+                        console.log("⏳ Command Finished:", cleanText);
+                        if (recognitionRef.current) recognitionRef.current.stop();
                     }, listeningDuration);
                 }
             }
         };
 
         recognition.onstart = () => {
-            console.log("🎤 Mic Started");
-            if (!isListeningRef.current) {
-                setIsAmbient(true);
-            }
+            isActuallyRunningRef.current = true;
+            isStartingRef.current = false;
+            logStatus("Mic Active & Listening");
+            setIsAmbient(true);
         };
 
         recognition.onend = () => {
-            console.log("🎤 Mic Ended");
-            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            isActuallyRunningRef.current = false;
+            isStartingRef.current = false;
             setIsAmbient(false);
 
-            // Only turn off UI 'listening' if we are truly stopping (e.g. to process)
-            // But usually we want to keep it false so onstart can decide.
-            if (isListening) setIsListening(false);
+            logStatus("Mic session ended");
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-            // AGGRESSIVE RESTART
-            const isReallySpeaking = isSpeakingRef.current || window.speechSynthesis.speaking;
+            // ONLY reset isListening if we are NOT in conversation mode
+            // This ensures the UI remains in "Listening" state during multi-turn chats
+            if (!isConversationModeRef.current) {
+                setIsListening(false);
+                isListeningRef.current = false;
+            }
 
-            if (wakeWordMode && !isReallySpeaking && !isRestartingFlagRef.current) {
-                isRestartingFlagRef.current = true;
-                setTimeout(() => {
-                    isRestartingFlagRef.current = false;
-                    // Always try to restart. check refs inside ensures no double-start.
-                    if (isConversationModeRef.current) {
-                        // If in conversation, maybe we want to listen again immediately?
-                        // Usually yes, for multi-turn.
-                        try { recognition.start(); setIsListening(true); } catch (e) { ensureRecognition(); }
-                    } else {
-                        ensureRecognition(); // Go back to ambient
-                    }
-                }, 500);
+            // AUTO-RECOVERY with deliberate pause
+            if (wakeWordMode && !isSpeakingRef.current) {
+                // If it was just a housekeeping abort, restart very quickly
+                const isHousekeeping = (Date.now() - lastErrorTimeRef.current < 200) && lastErrorRef.current === 'aborted';
+                const pause = isHousekeeping ? 300 : (Date.now() - lastErrorTimeRef.current < 10000 ? 2500 : 500);
+
+                logStatus(`Scheduling recovery in ${pause}ms (Housekeeping: ${isHousekeeping})`);
+                setTimeout(ensureRecognition, pause);
             }
         };
 
         recognition.onerror = (e) => {
-            if (e.error !== 'no-speech' && e.error !== 'aborted') console.error("Mic Error:", e.error);
-            if (e.error === 'not-allowed') {
+            isStartingRef.current = false;
+            isActuallyRunningRef.current = false;
+            lastErrorTimeRef.current = Date.now();
+            lastErrorRef.current = e.error;
+
+            if (e.error === 'aborted') {
+                logStatus("Info: Aborted (Chrome housekeeping)");
+                return;
+            }
+
+            if (e.error === 'no-speech') {
+                // Silent end, perfectly normal for non-continuous mode
+                return;
+            }
+
+            console.warn(`🎤 Mic Error [${e.error}]`);
+            if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
                 setWakeWordMode(false);
-                toast.error("Microphone Access Denied");
+                toast.error("Microphone Access Issue - Please check permissions or try again");
             }
         };
 
         recognitionRef.current = recognition;
-        if (wakeWordMode && isUnlockedRef.current) {
-            ensureRecognition();
+
+        // v2.5 FIX: Always try to start immediately if wakeWordMode is on.
+        if (wakeWordMode) {
+            console.log("🚀 [v2.5] Initializing auto-start...");
+            setTimeout(ensureRecognition, 1200);
         }
 
         return () => {
@@ -313,24 +374,53 @@ export const VoiceAssistantProvider = ({ children }) => {
     }, [language, wakeWordMode]);
 
     const handleVoiceCommand = async (text) => {
+        if (isProcessingRef.current) return;
+        isProcessingRef.current = true;
         try {
-            const result = await voiceService.parseVoice(text, language, conversationHistory);
+            const result = await voiceService.parseVoice(text, language, conversationHistory, currentConversationId);
             if (result.success) {
                 const { type, data, reply, voice_reply } = result.data;
                 const speechText = voice_reply || reply;
+
+                if (result.meta?.conversationId) {
+                    setCurrentConversationId(result.meta.conversationId);
+                }
 
                 setConversationHistory(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: reply }]);
 
                 if (type === 'chat') {
                     speak(speechText);
                 } else if (type === 'reminder') {
+                    // Auto-save to Buddy DB to ensure it's not lost, then navigate
+                    let autoSavedId = null;
+                    try {
+                        const saveRes = await voiceService.saveReminder(data, 'buddy');
+                        if (saveRes.success && saveRes.data?._id) {
+                            autoSavedId = saveRes.data._id;
+                            console.log("✅ Voice reminder auto-saved to Buddy DB:", autoSavedId);
+                        }
+                        toast.success("Reminder auto-saved!");
+                        window.dispatchEvent(new CustomEvent('buddy-data-updated'));
+                    } catch (e) {
+                        console.warn("Failed to auto-save voice reminder:", e);
+                    }
                     speak(speechText);
-                    navigate('/admin/buddy', { state: { parsedReminder: data, reply, voice_reply: speechText } });
+                    navigate('/admin/buddy', {
+                        state: {
+                            parsedReminder: data,
+                            reply,
+                            voice_reply: speechText,
+                            autoSaved: true,
+                            autoSavedId: autoSavedId
+                        }
+                    });
                 }
             }
         } catch (error) {
             console.error("Voice command error:", error);
             toast.error("Processing failed");
+        } finally {
+            isProcessingRef.current = false;
         }
     };
 
@@ -338,127 +428,174 @@ export const VoiceAssistantProvider = ({ children }) => {
     useEffect(() => {
         const isBuddyPage = window.location.pathname === '/admin/buddy';
         // If transcript exists and we are NOT currently listening (meaning silence timeout hit), process it.
-        if (transcript.trim().length > 1 && !isListening && !isBuddyPage && !preventProcessing) {
-            console.log("🚀 Processing:", transcript);
+        // Also ensure no other process is running
+        if (transcript.trim().length > 1 && !isListening && !isBuddyPage && !preventProcessing && !isProcessingRef.current) {
+            console.log("🚀 [Global] Auto-processing:", transcript);
             handleVoiceCommand(transcript);
             setTranscript('');
         }
-    }, [transcript, isListening]);
+    }, [transcript, isListening, preventProcessing]);
 
-    const speak = async (text) => {
-        if (!window.speechSynthesis || !text) return;
+    const speak = async (text, onComplete = null) => {
+        if (!window.speechSynthesis || !text) {
+            if (onComplete) onComplete();
+            return;
+        }
 
-        isSpeakingRef.current = true;
-        if (recognitionRef.current) recognitionRef.current.abort(); // Stop mic while speaking
+        // v2.6 FIX: Strip emojis so they aren't spoken as "Smiling face with hearts"
+        // Uses Unicode property escapes (\p{...}) to catch emojis and pictographs
+        const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').replace(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu, '').trim();
+
+        if (!cleanText) {
+            if (onComplete) onComplete();
+            return; // Don't speak if it was only emojis
+        }
+
+        // Chrome/Browser Fix: Always resume if stuck
+        if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+        }
+
+        // Ensure any pending speech is cleared to prevent deadlocks
         window.speechSynthesis.cancel();
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = language;
+        isSpeakingRef.current = true;
 
-        // Apply Voice Personalization Settings
-        const prefs = user?.voicePreferences || { gender: 'female', tone: 'soft' };
+        // Stop recognition while speaking to prevent Buddy from hearing himself
+        if (recognitionRef.current && isActuallyRunningRef.current) {
+            try { recognitionRef.current.stop(); } catch (e) { }
+        }
 
-        // Asynchronously get voices (Chrome fix)
+        // Wait for voices if empty, with timeout
         let voices = window.speechSynthesis.getVoices();
         if (voices.length === 0) {
             await new Promise(resolve => {
+                const timer = setTimeout(resolve, 1000);
                 window.speechSynthesis.onvoiceschanged = () => {
+                    clearTimeout(timer);
                     voices = window.speechSynthesis.getVoices();
                     resolve();
                 };
             });
         }
 
-        // 1. Filter by language
-        const langCode = language.split('-')[0];
-        let filteredVoices = voices.filter(v => v.lang.includes(langCode));
+        const utterance = new SpeechSynthesisUtterance(cleanText);
 
-        if (filteredVoices.length === 0) filteredVoices = voices;
-
-        // 2. Filter by Gender preference
-        let selectedVoice = null;
-        const targetGender = prefs.gender || 'female';
-
-        // Keywords for gender detection in voice names
-        const femaleKeywords = ['female', 'zira', 'samantha', 'victoria', 'google female', 'natural female'];
-        const maleKeywords = ['male', 'david', 'alex', 'google male', 'natural male'];
-
-        if (targetGender === 'female') {
-            selectedVoice = filteredVoices.find(v =>
-                femaleKeywords.some(keyword => v.name.toLowerCase().includes(keyword))
-            );
-        } else {
-            selectedVoice = filteredVoices.find(v =>
-                maleKeywords.some(keyword => v.name.toLowerCase().includes(keyword))
-            );
+        // Ensure language is set (fallback to en-US if invalid)
+        try {
+            utterance.lang = language || 'en-US';
+        } catch (e) {
+            utterance.lang = 'en-US';
         }
 
-        // Fallback to first voice of language if gender-specific not found
-        if (!selectedVoice) selectedVoice = filteredVoices[0];
+        // Apply Voice Personalization
+        const prefs = user?.voicePreferences || { gender: 'female', tone: 'soft' };
+        const langCode = (language || 'en').split('-')[0].toLowerCase();
+
+        // Filter voices by language match
+        let filteredVoices = voices.filter(v => v.lang.toLowerCase().includes(langCode));
+        if (filteredVoices.length === 0) filteredVoices = voices;
+
+        // Try to find matching gender
+        const targetGender = prefs.gender || 'female';
+        const femaleKeywords = ['female', 'zira', 'samantha', 'victoria', 'google female', 'natural female', 'en-in-x-ife-local'];
+        const maleKeywords = ['male', 'david', 'alex', 'google male', 'natural male', 'en-in-x-ime-local'];
+
+        let selectedVoice = null;
+        if (targetGender === 'female') {
+            selectedVoice = filteredVoices.find(v => femaleKeywords.some(k => v.name.toLowerCase().includes(k)));
+        } else {
+            selectedVoice = filteredVoices.find(v => maleKeywords.some(k => v.name.toLowerCase().includes(k)));
+        }
+
+        // Fallback
+        if (!selectedVoice) selectedVoice = filteredVoices.find(v => v.default) || filteredVoices[0];
 
         if (selectedVoice) {
             utterance.voice = selectedVoice;
-            console.log(`🔊 Speaking with voice: ${selectedVoice.name} (${targetGender})`);
+            console.log(`🔊 Speaking [${langCode}]: ${selectedVoice.name}`);
         }
 
-        // 3. Apply Tone (Pitch/Rate) Settings
-        switch (prefs.tone) {
-            case 'soft':
-                utterance.rate = 0.9;
-                utterance.pitch = 1.0;
-                break;
-            case 'energetic':
-                utterance.rate = 1.15;
-                utterance.pitch = 1.1;
-                break;
-            case 'normal':
-            default:
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-                break;
-        }
+        // Tone adjustments
+        const toneSettings = {
+            soft: { rate: 0.9, pitch: 1.05 },
+            energetic: { rate: 1.15, pitch: 1.1 },
+            normal: { rate: 1.0, pitch: 1.0 }
+        };
+        const tone = toneSettings[prefs.tone] || toneSettings.normal;
+        utterance.rate = tone.rate;
+        utterance.pitch = tone.pitch;
+
+        const safetyTimeout = setTimeout(() => {
+            if (isSpeakingRef.current) {
+                console.warn("🔊 TTS safety timeout hit. Forcing mic recovery...");
+                isSpeakingRef.current = false;
+                ensureRecognition();
+            }
+        }, 20000); // 20s max for any turn
 
         utterance.onend = () => {
+            clearTimeout(safetyTimeout);
             isSpeakingRef.current = false;
-            console.log("🔊 TTS Done. Restarting Mic...");
-            // Force restart mic after speaking
+            console.log("🔊 Finished speaking");
+            if (onComplete) onComplete();
+
+            // Critical fix for multi-turn: Push isListening back to TRUE immediately
+            if (isConversationModeRef.current) {
+                setIsListening(true);
+                isListeningRef.current = true;
+            }
+
+            // Small delay to let speech cleanup happen, then RE-ENGAGE mic
             setTimeout(() => {
-                if (isConversationModeRef.current) {
-                    setIsListening(true);
-                    isListeningRef.current = true;
-                    try { recognitionRef.current.start(); } catch (e) { ensureRecognition(); }
-                } else {
-                    ensureRecognition();
+                if (isConversationModeRef.current || wakeWordMode) {
+                    logStatus("Speech finished, restarting mic for turn continuation");
+                    try {
+                        recognitionRef.current.start();
+                    } catch (e) {
+                        console.log("Mic restart via start() failed, using ensureRecognition fallback");
+                        ensureRecognition();
+                    }
                 }
             }, 300);
         };
 
         utterance.onerror = (err) => {
-            console.error("TTS Error:", err);
+            clearTimeout(safetyTimeout);
+            console.error("🔊 TTS Error:", err);
             isSpeakingRef.current = false;
+            setIsListening(false); // Reset on error
             ensureRecognition();
         };
 
-        window.speechSynthesis.speak(utterance);
+        // Final Chrome fix attempt: speak in small timeout
+        setTimeout(() => {
+            window.speechSynthesis.speak(utterance);
+        }, 50);
     };
 
     const toggleListening = () => {
-        // Manual toggle
+        // Manual toggle - also ensures audio is unlocked if this is the first interaction
+        if (!isUnlockedRef.current) {
+            initAudio().then(() => {
+                setIsUnlocked(true);
+                isUnlockedRef.current = true;
+            });
+        }
+
         if (isListening) {
-            if (recognitionRef.current) recognitionRef.current.stop();
+            if (recognitionRef.current) {
+                try { recognitionRef.current.stop(); } catch (e) { }
+            }
             setIsListening(false);
             isListeningRef.current = false;
         } else {
-            try {
-                isListeningRef.current = true;
-                isConversationModeRef.current = true;
-                setIsConversationMode(true);
-                setIsListening(true);
-                setIsAmbient(false);
-                recognitionRef.current.start();
-            } catch (e) {
-                console.warn("Manual start fail", e);
-            }
+            isListeningRef.current = true;
+            isConversationModeRef.current = true;
+            setIsConversationMode(true);
+            setIsListening(true);
+            setIsAmbient(false);
+            ensureRecognition();
         }
     };
 
@@ -477,7 +614,9 @@ export const VoiceAssistantProvider = ({ children }) => {
         preventProcessing,
         setPreventProcessing,
         conversationHistory,
-        setConversationHistory
+        setConversationHistory,
+        currentConversationId,
+        setCurrentConversationId
     };
 
     return (

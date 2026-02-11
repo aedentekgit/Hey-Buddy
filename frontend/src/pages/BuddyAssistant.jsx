@@ -23,7 +23,8 @@ const BuddyAssistant = () => {
         language, speak, isListening, isAmbient,
         transcript: globalTranscript, setTranscript, toggleListening,
         isConversationMode, setIsConversationMode,
-        conversationHistory, setConversationHistory
+        conversationHistory, setConversationHistory,
+        currentConversationId, setCurrentConversationId
     } = useVoiceAssistant();
 
     const [parsedReminder, setParsedReminder] = useState(null);
@@ -36,12 +37,13 @@ const BuddyAssistant = () => {
     const [manualInput, setManualInput] = useState('');
     const [analyzedPrescription, setAnalyzedPrescription] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [currentConversationId, setCurrentConversationId] = useState(null);
     const [historyList, setHistoryList] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
     const fileInputRef = useRef(null);
     const chatEndRef = useRef(null);
+    const [autoSavedId, setAutoSavedId] = useState(null);
+    const isProcessingRef = useRef(false);
 
     // Auto-scroll to bottom when response changes
     useEffect(() => {
@@ -74,21 +76,28 @@ const BuddyAssistant = () => {
     // Use global transcript or local one
     const transcript = globalTranscript || localTranscript;
 
-    // Check if we received reminder data from navigation
+    // Check if we received reminder data from navigation (with autoSave support)
     useEffect(() => {
         if (location.state?.parsedReminder) {
             setParsedReminder(location.state.parsedReminder);
+            if (location.state?.conversationId && !currentConversationId) {
+                setCurrentConversationId(location.state.conversationId);
+            }
+            if (location.state.autoSaved) {
+                setIsSaving(false);
+            }
+            if (location.state.autoSavedId) {
+                setAutoSavedId(location.state.autoSavedId);
+            }
             if (location.state.reply) {
                 toast.success(location.state.reply);
-                // Also add to history if entering from navigation
                 setConversationHistory(prev => [...prev,
                 { role: 'assistant', content: location.state.reply }
                 ]);
             }
-            // Clear the navigation state
             navigate(location.pathname, { replace: true, state: {} });
         }
-    }, [location.state, navigate, setConversationHistory]);
+    }, [location.state, navigate, setConversationHistory, currentConversationId]);
 
     useEffect(() => {
         const setupNotifications = async () => {
@@ -161,18 +170,40 @@ const BuddyAssistant = () => {
     }, [showHistory]);
 
     const handleParse = async (manualText = null) => {
-        // Expanded wake word regex for cleanup
-        const wakeWordRegex = /^(hey\s+buddy|hello\s+buddy|hi\s+buddy|हे\s+बडी|हाय\s+बडी|नमस्ते\s+बडी|ஹே\s+படி|ஹே\s+பட்டி|வணக்கம்\s+பட்டி|హే\s+బడ్డీ|హలో\s+బడ్డీ|హే\s+బడ్డి|ಹೇ\s+ಬಡ್ಡಿ)[,\s.]*/gi;
-        const textToParse = (manualText || transcript).replace(wakeWordRegex, '').trim();
+        if (isProcessingRef.current) return;
 
-        if (!textToParse || textToParse.trim() === '') return;
-        if (textToParse.length < 3) return;
+        // Multi-pass wake word cleanup to catch combinations like "Hey Buddy... Buddy"
+        const wakeWordRegex = /(hey\s+buddy|hello\s+buddy|hi\s+buddy|hey\s+bud|hey\s+bub|buddy|bud|bub|bodi|birdie|body|हे\s+बडी|हाय\s+बडी|नमस्ते\s+बडी|ஹே\s+படி|ஹே\s+பட்டி|வணக்கம்\s+பட்டி|హే\s+బడ్డీ|హలో\s+బడ్డీ|హే\s+బడ్డి|ಹೇ\s+ಬಡ್ಡಿ)/gi;
 
+        let textToParse = (manualText || transcript).replace(wakeWordRegex, '').trim();
+
+        // Remove trailing/leading punctuation often added by STT
+        textToParse = textToParse.replace(/^[,\s.*]+|[,\s.*]+$/g, '');
+
+        if (!textToParse || textToParse.length < 3) {
+            console.log("🚫 Blocking empty/short command:", textToParse || "(empty)");
+            return;
+        }
+
+        isProcessingRef.current = true;
         setIsParsing(true);
-        // Don't clear immediately to allow user to see what they said
-        // setParsedReminder(null);
-        // setChatResponse(null);
-        setTranscript(''); // Clear global transcript once we start parsing
+        setTranscript(''); // Clear global transcript IMMEDIATELY to stop other triggers
+        setLocalTranscript(''); // Clear local too
+
+        // 🚀 Intercept System Commands (Close/Exit/Stop) to make Buddy feel like a real agent
+        const exitPhrases = ['close', 'exit', 'stop', 'quit', 'end session', 'close everything', 'dismiss'];
+        const isExitCommand = exitPhrases.some(p => textToParse.toLowerCase().includes(p)) && textToParse.split(' ').length < 5;
+
+        if (isExitCommand) {
+            console.log("👋 Intercepted Exit Command:", textToParse);
+            setChatResponse(null);
+            setParsedReminder(null);
+            setIsConversationMode(false);
+            speak(language.startsWith('hi') ? "ठीक है, बंद कर रहा हूँ।" : "Sure, closing everything for you.");
+            setIsParsing(false);
+            isProcessingRef.current = false;
+            return;
+        }
 
         try {
             // Pass history AND conversationId for context!
@@ -198,13 +229,38 @@ const BuddyAssistant = () => {
                 if (type === 'chat') {
                     setChatResponse(reply);
                     setChatVoiceResponse(speechText);
-                    speak(speechText);
+                    speak(speechText, () => {
+                        // Auto-close after 3 seconds of silence following the speech
+                        setTimeout(() => {
+                            setChatResponse(null);
+                        }, 3000);
+                    });
                     setParsedReminder(null); // Clear reminder if it's just chat
                 } else if (type === 'reminder') {
                     setParsedReminder(data);
                     setChatResponse(reply); // Show the reply text too
                     setChatVoiceResponse(speechText);
-                    if (reply) speak(speechText);
+
+                    // AUTO-SAVE to Buddy DB immediately to prevent loss
+                    try {
+                        const saveRes = await voiceService.saveReminder(data, 'buddy');
+                        if (saveRes.success && saveRes.data?._id) {
+                            setAutoSavedId(saveRes.data._id);
+                            console.log("✅ Auto-saved reminder from Buddy page [ID:", saveRes.data._id, "]");
+                        }
+                        window.dispatchEvent(new CustomEvent('buddy-data-updated'));
+                    } catch (e) {
+                        console.error("Auto-save failed:", e);
+                    }
+
+                    if (reply) {
+                        speak(speechText, () => {
+                            // Auto-close after 3 seconds of silence following the speech
+                            setTimeout(() => {
+                                setChatResponse(null);
+                            }, 3000);
+                        });
+                    }
                 }
 
                 if (result.isDemo) {
@@ -216,12 +272,13 @@ const BuddyAssistant = () => {
         } finally {
             setIsParsing(false);
             setManualInput(''); // Clear input after processing
+            setTimeout(() => { isProcessingRef.current = false; }, 800); // Cooldown to prevent bounce
         }
     };
 
     useEffect(() => {
         // Determine if we should parse automatically (only for voice)
-        const shouldParse = transcript.length > 3 && !isParsing;
+        const shouldParse = transcript.length > 1 && !isParsing;
 
         if (isListening) {
             // User is still potentially speaking, wait for pause
@@ -229,7 +286,7 @@ const BuddyAssistant = () => {
                 if (shouldParse) {
                     handleParse();
                 }
-            }, 1500); // 1.5s silence to trigger processing
+            }, 500); // 0.5s silence to trigger processing for snappy response
             return () => clearTimeout(timeout);
         } else {
             // Mic stopped. If we have a pending transcript so parse it.
@@ -243,10 +300,21 @@ const BuddyAssistant = () => {
         if (!parsedReminder) return;
         setIsSaving(true);
         try {
-            const result = await voiceService.saveReminder(parsedReminder, saveDestination);
+            let result;
+            if (autoSavedId) {
+                // If we already auto-saved, update it with full details (including Google sync)
+                result = await voiceService.updateReminder(autoSavedId, {
+                    ...parsedReminder,
+                    saveTo: saveDestination // Backend updateReminder needs to handle this or we handle it here
+                });
+            } else {
+                result = await voiceService.saveReminder(parsedReminder, saveDestination);
+            }
+
             if (result.success) {
                 toast.success("Reminder saved successfully!");
                 setParsedReminder(null);
+                setAutoSavedId(null);
                 setLocalTranscript('');
                 setTimeout(() => navigate('/admin/reminders'), 1500);
             }
@@ -433,7 +501,7 @@ const BuddyAssistant = () => {
                 )}
             </AnimatePresence>
 
-            <div className="assistant-container" style={{ color: 'var(--text-main)', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div className="assistant-container">
                 <button
                     className="history-toggle-btn"
                     onClick={() => setShowHistory(true)}
@@ -536,29 +604,47 @@ const BuddyAssistant = () => {
                                 style={{ position: 'relative', zIndex: 10 }}
                             >
                                 <div className="confirmation-header">
-                                    <CheckCircle2 size={32} color="var(--primary-color)" />
-                                    <div>
+                                    <div className="icon-badge">
+                                        <CheckCircle2 size={24} />
+                                    </div>
+                                    <div className="header-text">
                                         <h3>Review Reminder</h3>
-                                        <p>Ready to save {parsedReminder.intent}</p>
+                                        <span className="intent-badge">{parsedReminder.intent || 'General'}</span>
                                     </div>
                                     <button className="cancel-corner-btn" onClick={handleCancel}>
-                                        <Plus size={18} style={{ transform: 'rotate(45deg)' }} />
+                                        <X size={20} />
                                     </button>
                                 </div>
 
                                 <div className="reminder-details">
                                     <div className="detail-item">
-                                        <span className="detail-label">Title</span>
-                                        <span className="detail-value">{parsedReminder.title}</span>
+                                        <div className="detail-icon">
+                                            <Zap size={16} />
+                                        </div>
+                                        <div className="detail-content">
+                                            <span className="detail-label">Task Details</span>
+                                            <span className="detail-value">{parsedReminder.title}</span>
+                                        </div>
                                     </div>
-                                    <div className="detail-row">
+
+                                    <div className="detail-grid">
                                         <div className="detail-item">
-                                            <span className="detail-label">Date</span>
-                                            <span className="detail-value">{parsedReminder.date || 'Today'}</span>
+                                            <div className="detail-icon secondary">
+                                                <Calendar size={16} />
+                                            </div>
+                                            <div className="detail-content">
+                                                <span className="detail-label">Schedule Date</span>
+                                                <span className="detail-value">{parsedReminder.date || 'Today'}</span>
+                                            </div>
                                         </div>
                                         <div className="detail-item">
-                                            <span className="detail-label">Time</span>
-                                            <span className="detail-value">{formatTime(parsedReminder.time)}</span>
+                                            <div className="detail-icon secondary">
+                                                <Clock size={16} />
+                                            </div>
+                                            <div className="detail-content">
+                                                <span className="detail-label">Exact Time</span>
+                                                <span className="detail-value">{formatTime(parsedReminder.time)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -569,13 +655,15 @@ const BuddyAssistant = () => {
                                             className={saveDestination === 'buddy' ? 'active' : ''}
                                             onClick={() => setSaveDestination('buddy')}
                                         >
-                                            Buddy Only
+                                            <Shield size={14} />
+                                            <span>Buddy Only</span>
                                         </button>
                                         <button
                                             className={saveDestination === 'both' ? 'active' : ''}
                                             onClick={() => setSaveDestination('both')}
                                         >
-                                            Buddy + Google
+                                            <Sparkles size={14} />
+                                            <span>Buddy + Google</span>
                                         </button>
                                     </div>
                                     <button
@@ -583,8 +671,14 @@ const BuddyAssistant = () => {
                                         onClick={handleSave}
                                         disabled={isSaving}
                                     >
-                                        {isSaving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
-                                        Confirm and Save
+                                        {isSaving ? (
+                                            <Loader2 className="animate-spin" size={20} />
+                                        ) : (
+                                            <>
+                                                <CheckCircle2 size={20} />
+                                                Confirm and Save
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </motion.div>
@@ -631,7 +725,9 @@ const BuddyAssistant = () => {
                                             </button>
                                         </div>
                                     </div>
-                                    <p className="chat-buddy-text">{chatResponse}</p>
+                                    <p className="chat-buddy-text">
+                                        {chatResponse?.replace(/\*/g, '').replace(/_/g, '')}
+                                    </p>
                                 </div>
                             </motion.div>
                         ) : (isParsing || isSaving || isUploading) ? (
@@ -657,18 +753,10 @@ const BuddyAssistant = () => {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                style={{
-                                    width: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: '1rem',
-                                    position: 'relative',
-                                    zIndex: (isListening || isConversationMode) ? 950 : 1
-                                }}
+                                className="default-view-container"
                             >
                                 <div className="mic-wrapper">
-                                    <button className={`main-mic-btn ${isListening ? 'listening' : ''} ${isParsing ? 'parsing' : ''}`} onClick={toggleMic}>
+                                    <button className={`main-mic-btn ${isListening ? 'listening' : ''} ${isParsing ? 'parsing' : ''} ${isAmbient ? 'ambient' : ''}`} onClick={toggleMic}>
                                         <div className="ai-orb-container">
                                             <div className="ai-orb-glow"></div>
                                             <div className="ai-orb-ring ai-orb-ring-1"></div>
@@ -687,15 +775,24 @@ const BuddyAssistant = () => {
                                             {isListening ? "I'm Listening..." : "Conversation Active..."}
                                         </h2>
                                         {isListening && <p className="listening-subtext">Go ahead, I'm listening.</p>}
+                                        {isListening && transcript && (
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                className="live-transcript-preview"
+                                            >
+                                                "{transcript}"
+                                            </motion.div>
+                                        )}
                                         {isConversationMode && !isListening && (
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                                 <p className="listening-subtext ambient">Session is active, no wake word needed</p>
                                                 <button
                                                     onClick={() => setIsConversationMode(false)}
                                                     style={{
-                                                        background: 'rgba(239, 68, 68, 0.1)',
-                                                        color: '#ef4444',
-                                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                        background: 'color-mix(in srgb, var(--danger-color) 10%, transparent)',
+                                                        color: 'var(--danger-color)',
+                                                        border: '1px solid color-mix(in srgb, var(--danger-color) 20%, transparent)',
                                                         padding: '4px 12px',
                                                         borderRadius: '20px',
                                                         fontSize: '0.7rem',
@@ -745,8 +842,8 @@ const BuddyAssistant = () => {
                             type="submit"
                             className="send-btn-round"
                             style={{
-                                background: manualInput.trim() ? 'var(--primary-color)' : 'rgba(255,255,255,0.05)',
-                                color: manualInput.trim() ? 'white' : 'rgba(255,255,255,0.35)',
+                                background: manualInput.trim() ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                color: manualInput.trim() ? 'white' : 'var(--text-sub)',
                             }}
                             disabled={isParsing}
                             onClick={(e) => {
@@ -798,8 +895,8 @@ const BuddyAssistant = () => {
                     align-items: center;
                     gap: 8px;
                     padding: 8px 16px;
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: var(--bg-lite);
+                    border: 1px solid var(--border-color);
                     border-radius: 12px;
                     color: var(--text-main);
                     font-size: 0.9rem;
@@ -807,11 +904,13 @@ const BuddyAssistant = () => {
                     cursor: pointer;
                     backdrop-filter: blur(10px);
                     transition: all 0.3s;
+                    box-shadow: var(--card-shadow);
                 }
 
                 .history-toggle-btn:hover {
-                    background: rgba(255, 255, 255, 0.1);
+                    background: var(--card-bg);
                     border-color: var(--primary-color);
+                    transform: translateY(-2px);
                 }
 
                 .history-overlay {
@@ -828,12 +927,12 @@ const BuddyAssistant = () => {
                     left: 0;
                     bottom: 0;
                     width: 320px;
-                    background: var(--bg-lite);
+                    background: var(--bg-color);
                     border-right: 1px solid var(--border-color);
                     z-index: 1001;
                     display: flex;
                     flex-direction: column;
-                    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.3);
+                    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.2);
                 }
 
                 .history-sidebar-header {
@@ -884,11 +983,12 @@ const BuddyAssistant = () => {
                     font-weight: 700;
                     cursor: pointer;
                     transition: all 0.2s;
+                    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
                 }
 
                 .new-chat-btn:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.4);
+                    box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.4);
                 }
 
                 .history-list-scroll {
@@ -911,13 +1011,13 @@ const BuddyAssistant = () => {
                 }
 
                 .history-item:hover {
-                    background: rgba(255, 255, 255, 0.03);
-                    border-color: rgba(255, 255, 255, 0.05);
+                    background: var(--bg-lite);
+                    border-color: var(--border-color);
                 }
 
                 .history-item.active {
                     background: rgba(var(--primary-rgb), 0.1);
-                    border-color: rgba(var(--primary-rgb), 0.2);
+                    border-color: rgba(var(--primary-rgb), 0.3);
                 }
 
                 .history-item-content {
@@ -956,7 +1056,7 @@ const BuddyAssistant = () => {
                 }
 
                 .delete-history-btn:hover {
-                    color: #ef4444;
+                    color: var(--danger-color);
                 }
 
                 .history-empty, .history-loading {
@@ -968,6 +1068,23 @@ const BuddyAssistant = () => {
                     color: var(--text-sub);
                     text-align: center;
                     gap: 12px;
+                }
+
+                @media (max-width: 768px) {
+                    .assistant-page-wrapper {
+                        height: 100%;
+                        width: 100%;
+                    }
+                    .history-toggle-btn {
+                        top: 12px;
+                        left: 12px;
+                        padding: 6px 12px;
+                        font-size: 0.8rem;
+                    }
+                    .history-sidebar {
+                        width: 85%;
+                        box-shadow: 10px 0 30px rgba(0,0,0,0.4);
+                    }
                 }
             `}</style>
             </div>

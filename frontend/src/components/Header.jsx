@@ -175,17 +175,17 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        background: 'rgba(255, 255, 255, 0.03)',
+                        background: 'var(--bg-lite)',
                         padding: '4px 10px',
                         borderRadius: '8px',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        border: '1px solid var(--border-color)',
                         marginLeft: '8px',
                         height: '24px'
                     }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--primary-color)', letterSpacing: '0.02em' }}>
                             {formatTime(currentTime)}
                         </span>
-                        <span style={{ width: '1px', height: '10px', background: 'rgba(255, 255, 255, 0.1)' }} />
+                        <span style={{ width: '1px', height: '10px', background: 'var(--border-color)' }} />
                         <span style={{ fontSize: '0.7rem', fontWeight: '600', color: 'var(--text-sub)' }}>
                             {formatDate(currentTime)}
                         </span>
@@ -275,10 +275,10 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                background: 'rgba(255, 255, 255, 0.03)',
+                                background: 'var(--bg-lite)',
                                 padding: '4px 10px',
                                 borderRadius: '10px',
-                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                border: '1px solid var(--border-color)',
                                 cursor: 'pointer',
                                 transition: 'all 0.3s ease'
                             }}
@@ -471,7 +471,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                     border: 1px solid var(--border-color);
                     border-radius: 16px;
                     margin-top: 12px;
-                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                    box-shadow: var(--card-shadow);
                     z-index: 1001;
                     overflow: hidden;
                     max-height: 500px;
@@ -620,10 +620,10 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    background: rgba(255, 255, 255, 0.03);
+                    background: var(--bg-lite);
                     padding: 4px 12px;
                     border-radius: 8px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border-color);
                     cursor: pointer;
                     transition: all 0.2s ease;
                     color: var(--text-sub);
@@ -645,10 +645,10 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    background: rgba(255, 255, 255, 0.03);
+                    background: var(--bg-lite);
                     padding: 4px 10px;
                     border-radius: 8px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border-color);
                     cursor: pointer;
                 }
 
@@ -672,7 +672,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                     border-radius: 16px;
                     width: 90%;
                     max-width: 600px;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+                    box-shadow: var(--card-shadow);
                     display: flex;
                     flex-direction: column;
                     max-height: 80vh;
@@ -809,12 +809,12 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                     top: calc(100% + 12px);
                     right: 0;
                     width: 220px;
-                    background: rgba(15, 23, 42, 0.95);
+                    background: var(--card-bg);
                     backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    border: 1px solid var(--border-color);
                     border-radius: 16px;
                     padding: 8px;
-                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+                    box-shadow: var(--card-shadow);
                     z-index: 1001;
                 }
 
@@ -828,19 +828,19 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                 .info-name {
                     font-size: 0.85rem;
                     font-weight: 700;
-                    color: white;
+                    color: var(--text-main);
                 }
 
                 .info-role {
                     font-size: 0.7rem;
                     font-weight: 600;
-                    color: rgba(255, 255, 255, 0.4);
+                    color: var(--text-sub);
                     text-transform: capitalize;
                 }
 
                 .dropdown-divider {
                     height: 1px;
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--border-color);
                     margin: 4px 8px;
                 }
 
@@ -853,7 +853,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                     background: transparent;
                     border: none;
                     border-radius: 10px;
-                    color: rgba(255, 255, 255, 0.7);
+                    color: var(--text-sub);
                     font-size: 0.82rem;
                     font-weight: 600;
                     cursor: pointer;
@@ -861,8 +861,8 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                 }
 
                 .dropdown-item:hover {
-                    background: rgba(255, 255, 255, 0.05);
-                    color: white;
+                    background: var(--row-hover);
+                    color: var(--text-main);
                 }
 
                 .dropdown-item.logout-item {

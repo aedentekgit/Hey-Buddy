@@ -33,8 +33,9 @@ router.get('/', protect, voiceController.getReminders);
 router.delete('/:id', protect, voiceController.deleteReminder);
 router.put('/:id', protect, voiceController.updateReminder);
 
-// Medical / Prescription routes
+// Medical / Prescription routes (Supports both hyphen and underscore aliases for robustness)
 router.post('/upload-prescription', protect, upload.single('document'), voiceController.uploadPrescription);
+router.post('/upload_prescription', protect, upload.single('document'), voiceController.uploadPrescription);
 router.post('/confirm-medical-reminders', protect, voiceController.confirmMedicalReminders);
 router.get('/prescriptions', protect, voiceController.getPrescriptions);
 router.get('/prescriptions/:id', protect, voiceController.getPrescriptionById);

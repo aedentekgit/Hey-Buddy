@@ -3,94 +3,117 @@ import api from '../services/api';
 
 const ThemeContext = createContext();
 
-export const ThemeProvider = ({ children }) => {
-    const [themeMode, setThemeMode] = useState(localStorage.getItem('themeMode') || 'night'); // Default to night for Vision UI
-    const [accentColor, setAccentColor] = useState(localStorage.getItem('accentColor') || '#0075ff');
+const dayTheme = {
+    bg: '#F8FAFC',
+    card: '#FFFFFF',
+    text: '#020617', // Sharper contrast for professional look
+    subText: '#475569', // More readable subtext
+    border: '#E2E8F0',
+    header: 'rgba(255, 255, 255, 0.8)',
+    sidebar: '#FFFFFF',
+    sidebarText: '#475569',
+    sidebarActive: '#2563EB',
+    toastBg: '#0F172A',
+    toastText: '#FFFFFF',
+    shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+    bgImage: 'radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.05) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.03) 0px, transparent 50%)'
+};
 
-    const colors = {
-        primary: accentColor,
-        day: {
-            bg: '#F8F9FA', // Cleaner, brighter background
-            card: '#ffffff', // Pure white cards for clarity
-            text: '#1B2559', // Premuim Deep Navy instead of flat grey
-            subText: '#8F9BBA', // Modern cool-grey
-            border: '#E2E8F0', // Defined borders
-            header: 'rgba(255, 255, 255, 0.85)', // Glassy but clear header
-            bgImage: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)', // Subtle premium gradient
-            globeOpacity: '0.1',
-            shadow: '0 20px 27px 0 rgba(0, 0, 0, 0.05)' // Soft, premium Vision UI shadow
-        },
-        night: {
-            bg: '#060B28',
-            card: 'rgba(6, 11, 40, 0.85)',
-            text: '#FFFFFF',
-            subText: '#A0AEC0',
-            border: 'rgba(255, 255, 255, 0.1)',
-            header: 'rgba(6, 11, 40, 0.8)',
-            bgImage: 'radial-gradient(at 0% 0%, rgba(0, 117, 255, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%)',
-            globeOpacity: '0.4',
-            shadow: '0 10px 40px rgba(0, 0, 0, 0.3)'
-        }
+const nightTheme = {
+    bg: '#020617', // Deeper, more premium navy black
+    card: '#0F172A',
+    text: '#F8FAFC',
+    subText: '#94A3B8',
+    border: 'rgba(255, 255, 255, 0.08)',
+    header: 'rgba(2, 6, 23, 0.8)',
+    sidebar: '#0F172A',
+    sidebarText: '#94A3B8',
+    sidebarActive: '#3B82F6',
+    toastBg: '#F8FAFC',
+    toastText: '#020617',
+    shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
+    bgImage: 'radial-gradient(at 0% 0%, rgba(0, 117, 255, 0.1) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.05) 0px, transparent 50%)'
+};
+
+export const ThemeProvider = ({ children }) => {
+    const [themeMode, setThemeMode] = useState(() => localStorage.getItem('themeMode') || 'auto');
+    const [accentColor, setAccentColor] = useState(() => localStorage.getItem('accentColor') || '#2563EB');
+
+    const hexToRgb = (hex) => {
+        const bigint = parseInt(hex.replace('#', ''), 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return `${r}, ${g}, ${b}`;
     };
 
-    const applyTheme = () => {
+    const applyTheme = (mode, color) => {
         const root = document.documentElement;
-        let mode = themeMode;
+        const currentTheme = mode === 'night' ? nightTheme : dayTheme;
 
-        if (themeMode === 'auto') {
-            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day';
-        }
-
-        const currentTheme = colors[mode];
-
-        // Helper to convert hex to rgb for rgba() usage
-        const hexToRgb = (hex) => {
-            const bigint = parseInt(hex.replace('#', ''), 16);
-            const r = (bigint >> 16) & 255;
-            const g = (bigint >> 8) & 255;
-            const b = bigint & 255;
-            return `${r}, ${g}, ${b}`;
-        };
-
-        root.style.setProperty('--primary-color', accentColor);
-        root.style.setProperty('--primary-rgb', hexToRgb(accentColor));
+        root.style.setProperty('--primary-color', color);
+        root.style.setProperty('--primary-rgb', hexToRgb(color));
         root.style.setProperty('--bg-color', currentTheme.bg);
+        root.style.setProperty('--bg-rgb', mode === 'night' ? '15, 23, 42' : '248, 250, 252');
         root.style.setProperty('--card-bg', currentTheme.card);
         root.style.setProperty('--text-main', currentTheme.text);
         root.style.setProperty('--text-sub', currentTheme.subText);
         root.style.setProperty('--border-color', currentTheme.border);
+        root.style.setProperty('--border-hover', mode === 'night' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)');
         root.style.setProperty('--header-bg', currentTheme.header);
-        root.style.setProperty('--bg-image', currentTheme.bgImage);
-        root.style.setProperty('--globe-opacity', currentTheme.globeOpacity);
+        root.style.setProperty('--sidebar-bg', currentTheme.sidebar);
+        root.style.setProperty('--sidebar-text', currentTheme.sidebarText);
+        root.style.setProperty('--sidebar-active', color);
+        root.style.setProperty('--toast-bg', currentTheme.toastBg);
+        root.style.setProperty('--toast-text', currentTheme.toastText);
         root.style.setProperty('--card-shadow', currentTheme.shadow);
-        root.style.setProperty('--bg-lite', mode === 'night' ? '#0a0f2d' : '#FFFFFF');
+        root.style.setProperty('--bg-image', currentTheme.bgImage);
+        root.style.setProperty('--bg-lite', mode === 'night' ? 'rgba(255, 255, 255, 0.03)' : '#F1F5F9');
+        root.style.setProperty('--bg-secondary', mode === 'night' ? '#1E293B' : '#E2E8F0');
+        root.style.setProperty('--bg-tertiary', mode === 'night' ? '#334155' : '#CBD5E1');
+        root.style.setProperty('--glass-bg', mode === 'night' ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.8)');
 
-        // Dynamic Table Header Styles - Professional Polish
-        root.style.setProperty('--th-bg', mode === 'night' ? 'transparent' : 'color-mix(in srgb, var(--primary-color) 6%, #F8F9FA)');
-        root.style.setProperty('--th-text', mode === 'night' ? '#A0AEC0' : '#8F9BBA'); // Muted Cool Grey for professional labels
-        root.style.setProperty('--th-border', mode === 'night' ? '2px solid var(--border-color)' : 'none'); // Floating capsule look for Day mode
+        // Refined High-End Gradients
+        root.style.setProperty('--primary-gradient', `linear-gradient(135deg, var(--primary-color) 0%, color-mix(in srgb, var(--primary-color), ${mode === 'night' ? '#FFF 15%' : '#000 15%'}) 100%)`);
+        root.style.setProperty('--button-gradient', 'linear-gradient(135deg, var(--primary-color) 0%, color-mix(in srgb, var(--primary-color), #000 20%) 100%)');
+
+        // Semantic Colors - Enterprise Palette
+        root.style.setProperty('--success-color', '#10B981');
+        root.style.setProperty('--warning-color', '#F59E0B');
+        root.style.setProperty('--danger-color', '#EF4444');
+        root.style.setProperty('--secondary-color', '#6366F1');
+
+        // Precision Layout - Industrial Grade
+        root.style.setProperty('--radius-sm', '6px');
+        root.style.setProperty('--radius-md', '8px');
+        root.style.setProperty('--radius-lg', '12px');
+
+        // Professional Tabular Styles - Dynamic with Theme
+        root.style.setProperty('--th-bg', 'var(--primary-color)');
+        root.style.setProperty('--th-text', '#FFFFFF');
+        root.style.setProperty('--td-border', mode === 'night' ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0');
+        root.style.setProperty('--row-hover', mode === 'night' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(var(--primary-rgb), 0.02)');
     };
 
     useEffect(() => {
-        applyTheme();
+        let mode = themeMode;
+        if (themeMode === 'auto') {
+            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day';
+        }
+        applyTheme(mode, accentColor);
         localStorage.setItem('themeMode', themeMode);
         localStorage.setItem('accentColor', accentColor);
     }, [themeMode, accentColor]);
 
-    // Fetch and apply system settings (Font & Appearance) globally
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
                 const res = await api.get('/settings');
                 if (res.data?.data) {
                     const { general, appearance } = res.data.data;
-
-                    // Apply Font
                     if (general?.fontFamily) {
                         document.documentElement.style.setProperty('--font-family', general.fontFamily);
                     }
-
-                    // Apply Appearance if exists in DB
                     if (appearance) {
                         if (appearance.themeMode) setThemeMode(appearance.themeMode);
                         if (appearance.accentColor) setAccentColor(appearance.accentColor);
@@ -103,21 +126,23 @@ export const ThemeProvider = ({ children }) => {
         fetchSystemSettings();
     }, []);
 
-    // Handle system theme changes if 'auto' is selected
     useEffect(() => {
         if (themeMode === 'auto') {
             const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-            const handleChange = () => applyTheme();
+            const handleChange = () => {
+                const mode = mediaQuery.matches ? 'night' : 'day';
+                applyTheme(mode, accentColor);
+            };
             mediaQuery.addEventListener('change', handleChange);
             return () => mediaQuery.removeEventListener('change', handleChange);
         }
-    }, [themeMode]);
+    }, [themeMode, accentColor]);
 
     return (
         <ThemeContext.Provider value={{
             themeMode, setThemeMode,
             accentColor, setAccentColor,
-            colors
+            dayTheme, nightTheme
         }}>
             {children}
         </ThemeContext.Provider>

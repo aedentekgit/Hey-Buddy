@@ -15,9 +15,9 @@ const ConfirmationModal = ({
 
     const colors = {
         danger: {
-            primary: '#ef4444',
-            bg: 'rgba(239, 68, 68, 0.1)',
-            shadow: 'rgba(239, 68, 68, 0.2)'
+            primary: 'var(--danger-color)',
+            bg: 'color-mix(in srgb, var(--danger-color) 10%, transparent)',
+            shadow: 'color-mix(in srgb, var(--danger-color) 20%, transparent)'
         },
         primary: {
             primary: 'var(--primary-color)',
@@ -25,9 +25,9 @@ const ConfirmationModal = ({
             shadow: 'color-mix(in srgb, var(--primary-color) 20%, transparent)'
         },
         warning: {
-            primary: '#f59e0b',
-            bg: 'rgba(245, 158, 11, 0.1)',
-            shadow: 'rgba(245, 158, 11, 0.2)'
+            primary: 'var(--warning-color)',
+            bg: 'color-mix(in srgb, var(--warning-color) 10%, transparent)',
+            shadow: 'color-mix(in srgb, var(--warning-color) 20%, transparent)'
         }
     };
 

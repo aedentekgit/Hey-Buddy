@@ -5,28 +5,42 @@ let sharedAudioContext = null;
  * MUST be called during a user gesture (click/tap) to satisfy browser autoplay policies.
  */
 export const initAudio = async () => {
-    if (!sharedAudioContext) {
-        sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+        if (!sharedAudioContext) {
+            sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        if (sharedAudioContext.state === 'suspended') {
+            await sharedAudioContext.resume();
+        }
+
+        // Test beep (silent)
+        const osc = sharedAudioContext.createOscillator();
+        const gain = sharedAudioContext.createGain();
+        gain.gain.value = 0;
+        osc.connect(gain);
+        gain.connect(sharedAudioContext.destination);
+        osc.start(0);
+        osc.stop(0.1);
+
+        // EXTRA: Unlock SpeechSynthesis as well with a silent utterance
+        if (window.speechSynthesis) {
+            const silent = new SpeechSynthesisUtterance(" ");
+            silent.volume = 0;
+            window.speechSynthesis.speak(silent);
+        }
+
+        console.log("🔊 Audio and Voice capabilities unlocked successfully.");
+        return sharedAudioContext;
+    } catch (e) {
+        // Only log warning, as this is expected to fail until user gesture
+        if (e.name !== 'NotAllowedError') {
+            console.warn("🔇 Audio unlock failed:", e.message);
+        }
+        return null;
     }
-
-    if (sharedAudioContext.state === 'suspended') {
-        await sharedAudioContext.resume();
-    }
-
-    // Test beep (silent) to fully unlock on some mobile browsers
-    const osc = sharedAudioContext.createOscillator();
-    const gain = sharedAudioContext.createGain();
-    gain.gain.value = 0;
-    osc.connect(gain);
-    gain.connect(sharedAudioContext.destination);
-    osc.start(0);
-    osc.stop(0.1);
-
-    return sharedAudioContext;
 };
 
-// Wake sound generator - creates a pleasant chime similar to voice assistants
-// Wake sound generator - simple single tone
 export const playWakeSound = () => {
     try {
         if (!sharedAudioContext) {

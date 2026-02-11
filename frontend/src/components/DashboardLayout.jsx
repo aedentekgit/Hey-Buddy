@@ -25,6 +25,7 @@ const DashboardLayout = ({ children }) => {
         if (path.includes('/admin/buddy')) return 'Buddy AI';
         if (path.includes('/admin/reminders')) return 'My Reminders';
         if (path.includes('/admin/memories')) return 'Buddy Memory';
+        if (path.includes('/admin/management')) return 'Admin Management';
         if (path.includes('/admin/users')) return 'Users';
         if (path.includes('/admin/roles')) return 'Roles';
         if (path.includes('/admin/settings')) return 'System Configuration';
@@ -71,10 +72,10 @@ const DashboardLayout = ({ children }) => {
                 toastOptions={{
                     duration: 4000,
                     style: {
-                        background: 'rgba(6, 11, 40, 0.9)',
+                        background: 'var(--toast-bg)',
                         backdropFilter: 'blur(10px)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        color: '#fff',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--toast-text)',
                         borderRadius: '15px'
                     }
                 }}

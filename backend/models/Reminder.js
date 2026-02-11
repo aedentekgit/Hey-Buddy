@@ -118,6 +118,11 @@ const reminderSchema = new mongoose.Schema({
     isPublic: {
         type: Boolean,
         default: false
+    },
+    source: {
+        type: String,
+        enum: ['buddy', 'google'],
+        default: 'buddy'
     }
 }, { timestamps: true });
 

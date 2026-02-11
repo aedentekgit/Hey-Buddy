@@ -185,22 +185,15 @@ const Users = () => {
             <Toaster position="top-right" />
 
             <div className="table-container">
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '24px',
-                    gap: '16px',
-                    flexWrap: 'wrap'
-                }}>
-                    <div className="search-box" style={{ ...SearchBoxStyle, marginBottom: 0, flex: 1, minWidth: '200px' }}>
-                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }} />
+                <div className="search-management-header">
+                    <div className="buddy-search-box">
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />
                         <input
                             type="text"
                             placeholder="Search users..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            style={SearchInputStyle}
+                            className="buddy-search-input"
                         />
                     </div>
                     <button
@@ -216,12 +209,12 @@ const Users = () => {
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
-                                <th style={{ ...ThStyle, width: '50px', borderRadius: '12px 0 0 12px' }} className="hide-mobile-th">S.No</th>
-                                <th style={{ ...ThStyle, textAlign: 'left', minWidth: '200px' }}>User Info</th>
-                                <th className="hide-on-tablet" style={ThStyle}>Contact Details</th>
-                                <th style={{ ...ThStyle, minWidth: '120px' }}>Work Role</th>
-                                <th className="hide-on-mobile" style={ThStyle}>Join Date</th>
-                                <th style={{ ...ThStyle, width: '120px', borderRadius: '0 12px 12px 0' }}>Actions</th>
+                                <th style={{ width: '64px', textAlign: 'center' }} className="buddy-th hide-mobile-th">S.NO</th>
+                                <th style={{ textAlign: 'center', minWidth: '220px' }} className="buddy-th">Admin Identity</th>
+                                <th style={{ textAlign: 'center' }} className="buddy-th hide-on-tablet">Contact & Communications</th>
+                                <th style={{ minWidth: '130px', textAlign: 'center' }} className="buddy-th">Access Level</th>
+                                <th style={{ textAlign: 'center' }} className="buddy-th hide-on-mobile">Provisioned On</th>
+                                <th style={{ width: '140px', textAlign: 'center' }} className="buddy-th">Management</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -241,72 +234,107 @@ const Users = () => {
                                 filteredUsers.map((user, index) => (
                                     <motion.tr
                                         key={user._id}
-                                        whileHover={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 4%, transparent)' }}
-                                        style={TableRowStyle()}
+                                        whileHover={{ backgroundColor: 'var(--row-hover)' }}
                                         className="mobile-stacked-row"
                                     >
-                                        <td style={{ ...TdStyle, textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', borderLeft: 'none', padding: '18px 10px' }} className="hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="User">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <div className="hide-on-mobile" style={{ width: '36px', height: '36px', background: 'var(--card-bg)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', flexShrink: 0 }}>
-                                                    <UserIcon size={16} color="var(--primary-glow)" />
+                                        <td style={{ textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', fontWeight: '800', padding: '16px 10px' }} className="buddy-td hide-mobile-td">
+                                            {(pagination.currentPage - 1) * pagination.limit + index + 1}
+                                        </td>
+                                        <td data-label="User" className="buddy-td">
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                                <div className="hide-on-mobile" style={{
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    background: 'var(--bg-lite)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    border: '1px solid var(--border-color)',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <UserIcon size={14} color="var(--primary-color)" />
                                                 </div>
-                                                <div style={{ textAlign: 'left', minWidth: 0 }}>
-                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem', wordBreak: 'break-word', lineHeight: '1.2' }}>
-                                                        {user.name || (user.email === 'admin@example.com' ? 'Super Admin' : 'N/A')}
+                                                <div style={{ textAlign: 'center', minWidth: 0 }}>
+                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.875rem', lineHeight: '1.2' }}>
+                                                        {user.name || (user.email === 'admin@example.com' ? 'System Administrator' : 'Pending Name')}
                                                     </div>
-                                                    <div className="show-on-tablet" style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '4px', wordBreak: 'break-all' }}>{user.email}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px', letterSpacing: '0.01em' }}>
+                                                        ID: {user._id?.slice(-8).toUpperCase()}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="hide-on-tablet" style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Contact">
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', wordBreak: 'break-all' }}>{user.email}</div>
-                                            {user.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '2px', wordBreak: 'break-all' }}>{user.phone}</div>}
+                                        <td className="buddy-td hide-on-tablet" data-label="Contact">
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500' }}>{user.email}</div>
+                                            {user.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '1px' }}>{user.phone}</div>}
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Role">
+                                        <td style={{ textAlign: 'center' }} data-label="Role" className="buddy-td">
                                             <span style={{
-                                                padding: '4px 12px',
-                                                borderRadius: '8px',
-                                                fontSize: '0.7rem',
-                                                fontWeight: 'bold',
+                                                padding: '4px 10px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.65rem',
+                                                fontWeight: '800',
                                                 textTransform: 'uppercase',
+                                                letterSpacing: '0.05em',
                                                 background: user.role === 'admin' ? 'color-mix(in srgb, var(--primary-color) 10%, transparent)' : 'var(--bg-lite)',
-                                                color: user.role === 'admin' ? 'var(--primary-glow)' : 'var(--text-sub)',
-                                                border: `1px solid ${user.role === 'admin' ? 'color-mix(in srgb, var(--primary-color) 30%, transparent)' : 'var(--border-color)'}`,
+                                                color: user.role === 'admin' ? 'var(--primary-color)' : 'var(--text-sub)',
+                                                border: `1px solid ${user.role === 'admin' ? 'color-mix(in srgb, var(--primary-color) 20%, transparent)' : 'var(--border-color)'}`,
                                                 display: 'inline-block',
-                                                minWidth: '60px'
+                                                minWidth: '64px'
                                             }}>{user.role}</span>
                                         </td>
-                                        <td className="hide-on-mobile-custom" style={{ ...TdStyle, borderLeft: 'none', borderRight: 'none' }} data-label="Joined">
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', whiteSpace: 'nowrap' }}>
-                                                {new Date(user.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        <td className="buddy-td hide-on-mobile" data-label="Joined">
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-sub)', fontWeight: '500' }}>
+                                                {new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </div>
                                         </td>
-                                        <td style={{ ...TdStyle, borderLeft: 'none' }} className="mobile-actions-cell">
-                                            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                                        <td className="buddy-td mobile-actions-cell">
+                                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                                 <button
                                                     onClick={() => handleOpenModal(user, true)}
-                                                    title="View"
+                                                    title="Quick View"
                                                     className="btn btn-icon btn-sm"
-                                                    style={{ color: 'var(--success-color)', background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        color: 'var(--primary-color)',
+                                                        background: 'transparent',
+                                                        border: '1px solid var(--border-color)'
+                                                    }}
                                                 >
-                                                    <Eye size={16} />
+                                                    <Eye size={14} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleOpenModal(user)}
-                                                    title="Edit"
+                                                    title="Modify"
                                                     className="btn btn-icon btn-sm"
-                                                    style={{ color: 'var(--info-color)', background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        color: 'var(--secondary-color)',
+                                                        background: 'transparent',
+                                                        border: '1px solid var(--border-color)'
+                                                    }}
                                                 >
-                                                    <Edit2 size={16} />
+                                                    <Edit2 size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDeleteClick(user._id)}
-                                                    title="Delete"
+                                                    onClick={() => setDeleteConfirm({ isOpen: true, userId: user._id })}
+                                                    title="Terminate"
                                                     className="btn btn-icon btn-sm"
-                                                    style={{ color: 'var(--danger-color)', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        color: 'var(--danger-color)',
+                                                        background: 'transparent',
+                                                        border: '1px solid var(--border-color)'
+                                                    }}
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={14} />
                                                 </button>
                                             </div>
                                         </td>
@@ -441,160 +469,6 @@ const Users = () => {
                 confirmText="Delete User"
             />
 
-            <style>{`
-                .animate-spin { animation: spin 1s linear infinite; }
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                
-                .show-mobile-text { display: none; }
-                .show-on-tablet { display: none; }
-
-                @media (max-width: 1024px) {
-                    .hide-on-tablet { display: none !important; }
-                    .show-on-tablet { display: block; }
-                }
-                
-                @media (max-width: 640px) {
-                    .table-wrapper table, 
-                    .table-wrapper thead, 
-                    .table-wrapper tbody, 
-                    .table-wrapper th, 
-                    .table-wrapper td, 
-                    .table-wrapper tr {
-                        display: block;
-                    }
-
-                    .table-wrapper thead tr {
-                        position: absolute;
-                        top: -9999px;
-                        left: -9999px;
-                    }
-
-                    .mobile-stacked-row {
-                        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
-                        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-                        border-radius: 24px !important;
-                        padding: 20px !important;
-                        margin-bottom: 24px !important;
-                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
-                        backdrop-filter: blur(10px);
-                        position: relative;
-                        overflow: hidden;
-                    }
-
-                    /* Add a subtle highlight accent */
-                    .mobile-stacked-row::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 4px;
-                        height: 100%;
-                        background: var(--primary-color);
-                        opacity: 0.5;
-                    }
-
-                    .table-wrapper td {
-                        border: none !important;
-                        padding: 12px 0 !important;
-                        position: relative;
-                        text-align: left !important;
-                        width: 100% !important;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        gap: 16px;
-                        min-height: auto !important;
-                        border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
-                    }
-
-                    .table-wrapper td:last-child {
-                        border-bottom: none !important;
-                    }
-
-                    .table-wrapper td::before {
-                        content: attr(data-label);
-                        font-size: 0.75rem;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                        color: var(--text-sub);
-                        min-width: 100px;
-                        opacity: 0.8;
-                    }
-
-                    /* Make the value text aligned to the right */
-                    .table-wrapper td > * {
-                        text-align: right;
-                        flex: 1;
-                        display: flex;
-                        justify-content: flex-end;
-                    }
-
-                    /* Specific adjustment for User Info to keep avatar and text together aligned right */
-                    .table-wrapper td[data-label="User"] > div {
-                        width: 100%;
-                    }
-
-                    .hide-mobile-th, .hide-mobile-td {
-                        display: none !important;
-                    }
-
-                    .hide-on-mobile-custom {
-                         display: none !important;
-                    }
-
-                    .mobile-actions-cell {
-                        margin-top: 8px;
-                        padding-top: 20px !important;
-                        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
-                        justify-content: center !important;
-                        gap: 16px !important;
-                    }
-
-                    .mobile-actions-cell::before {
-                        display: none; /* Hide label for actions */
-                    }
-
-                    /* Custom Button Styles for Mobile Actions */
-                    .mobile-actions-cell .btn-icon {
-                        width: 42px;
-                        height: 42px;
-                        border-radius: 12px;
-                    }
-
-                    .hide-on-tablet {
-                        display: flex !important;
-                    }
-
-
-                    
-                    .table-wrapper {
-                        padding: 0 4px;
-                        overflow-x: visible !important;
-                    }
-
-                    /* Ensure text breaks properly */
-                    .table-wrapper td div {
-                        word-break: break-word;
-                    }
-                }
-
-                @media (max-width: 768px) {
-                    /* We override the .hide-on-mobile class for the avatar specifically inside the table on mobile */
-                    .table-wrapper .hide-on-mobile {
-                        display: flex !important;
-                    }
-
-                    .hide-mobile-text { display: none; }
-                    .show-mobile-text { display: inline-block; }
-                }
-
-                @media (max-width: 480px) {
-                    td, th {
-                        padding: 12px 4px !important;
-                    }
-                }
-            `}</style>
         </div>
     );
 };

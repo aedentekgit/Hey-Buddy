@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from './AuthContext';
+import { onMessageListener } from '../services/notificationService';
 
 const NotificationContext = createContext();
 
@@ -10,6 +11,40 @@ export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
+
+    // Setup FCM Foreground Listener
+    useEffect(() => {
+        const unsubscribe = onMessageListener((payload) => {
+            console.log("FCM Foreground Message:", payload);
+            const { title, body } = payload.notification;
+
+            // 1. Show Toast
+            toast(body, {
+                icon: '🔔',
+                duration: 6000,
+                style: {
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-main)',
+                    border: '1px solid var(--primary-color)'
+                }
+            });
+
+            // 2. Show native browser notification if allowed
+            if (Notification.permission === "granted") {
+                new Notification(title, {
+                    body: body,
+                    icon: '/vite.svg'
+                });
+            }
+
+            // 3. Refresh count
+            fetchNotifications();
+        });
+
+        return () => {
+            if (unsubscribe && typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, [user]);
 
     useEffect(() => {
         if (user) {

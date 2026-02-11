@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     MapPin, Clock, AlertCircle, CheckCircle2, XCircle, Bell, MessageSquare, Mail,
     ChevronDown, ChevronUp, BellRing, Navigation, Activity, CalendarDays,
-    Users, Plus, Trash2, Smartphone, Zap, ShieldAlert, Car, Share2
+    Users, Plus, Trash2, Smartphone, Zap, ShieldAlert, Car, Share2, Edit2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -12,20 +12,21 @@ const DetailCard = ({ title, children, className = '' }) => (
     <div className={`detail-card ${className}`} style={{
         background: 'var(--card-bg)',
         border: '1px solid var(--border-color)',
-        borderRadius: '24px',
+        borderRadius: 'var(--radius-lg)',
         padding: '24px',
         marginBottom: '20px',
-        backdropFilter: 'blur(12px)'
     }}>
         {title && (
             <h4 style={{
                 margin: '0 0 20px 0',
-                fontSize: '1.1rem',
+                fontSize: '0.9rem',
                 fontWeight: '700',
                 color: 'var(--text-main)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px'
+                gap: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
             }}>
                 {title}
             </h4>
@@ -38,30 +39,37 @@ const ToggleSwitch = ({ checked, onChange }) => (
     <div
         onClick={() => onChange(!checked)}
         style={{
-            width: '50px',
-            height: '28px',
-            background: checked ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)',
-            borderRadius: '100px',
+            width: '44px',
+            height: '24px',
+            background: checked ? 'var(--primary-color)' : 'var(--bg-lite)',
+            borderRadius: 'var(--radius-lg)',
             position: 'relative',
             cursor: 'pointer',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.1s ease',
+            border: `1px solid ${checked ? 'var(--primary-color)' : 'var(--border-color)'}`
         }}
     >
         <div style={{
-            width: '24px',
-            height: '24px',
+            width: '18px',
+            height: '18px',
             background: 'white',
             borderRadius: '50%',
             position: 'absolute',
             top: '2px',
-            left: checked ? '24px' : '2px',
-            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            left: checked ? '22px' : '2px',
+            transition: 'all 0.1s ease'
         }} />
     </div>
 );
 
-const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
+const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = false }) => {
+    const [isEditing, setIsEditing] = useState(initialEditMode);
     // Local state for interactive elements
+    const [title, setTitle] = useState(reminder?.title || '');
+    const [date, setDate] = useState(reminder?.date ? new Date(reminder?.date).toISOString().split('T')[0] : '');
+    const [time, setTime] = useState(reminder?.time || '');
+    const [location, setLocation] = useState(reminder?.location || '');
+
     const [bufferTime, setBufferTime] = useState(reminder?.bufferTime || 15);
     const [geofenceRadius, setGeofenceRadius] = useState(reminder?.geofenceRadius || 500);
     const [alerts, setAlerts] = useState(reminder?.alerts || { push: true, sms: false, email: false });
@@ -79,6 +87,10 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
     const handleSave = async () => {
         try {
             const updatedData = {
+                title,
+                date,
+                time,
+                location,
                 bufferTime,
                 geofenceRadius,
                 alerts,
@@ -135,15 +147,39 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
             }}
         >
             <div className="smart-reminder-details-container" style={{ padding: '24px' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}>
-                        <XCircle size={32} />
-                    </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer', display: 'flex' }}>
+                            <XCircle size={32} />
+                        </button>
+                        <button
+                            onClick={() => setIsEditing(!isEditing)}
+                            style={{
+                                background: isEditing ? 'color-mix(in srgb, var(--danger-color) 10%, transparent)' : 'color-mix(in srgb, var(--primary-color) 10%, transparent)',
+                                border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--danger-color) 20%, transparent)' : 'color-mix(in srgb, var(--primary-color) 20%, transparent)'}`,
+                                color: isEditing ? 'var(--danger-color)' : 'var(--primary-color)',
+                                padding: '8px 16px',
+                                borderRadius: '12px',
+                                fontSize: '0.85rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {isEditing ? (
+                                <>Cancel</>
+                            ) : (
+                                <><Edit2 size={16} /> Edit Settings</>
+                            )}
+                        </button>
+                    </div>
                     <div style={{
                         padding: '6px 16px',
-                        background: 'rgba(16, 185, 129, 0.1)',
-                        color: '#10b981',
+                        background: 'color-mix(in srgb, var(--success-color) 10%, transparent)',
+                        color: 'var(--success-color)',
                         borderRadius: '20px',
                         fontSize: '0.85rem',
                         fontWeight: '700'
@@ -152,24 +188,94 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                     </div>
                 </div>
 
-                <h1 style={{ fontSize: '1.8rem', fontWeight: '800', lineHeight: '1.2', marginBottom: '8px', background: 'linear-gradient(to right, #fff, #a5b4fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    {reminder.title}
-                </h1>
+                {isEditing ? (
+                    <input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        style={{
+                            width: '100%',
+                            fontSize: '1.8rem',
+                            fontWeight: '800',
+                            background: 'var(--bg-lite)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '12px',
+                            color: 'var(--text-main)',
+                            padding: '12px',
+                            marginBottom: '16px',
+                            outline: 'none'
+                        }}
+                    />
+                ) : (
+                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', lineHeight: '1.2', marginBottom: '8px', color: 'var(--text-main)' }}>
+                        {title}
+                    </h1>
+                )}
 
                 {/* Meta Info */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px', color: 'var(--text-sub)', fontSize: '0.9rem' }}>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <div style={{ padding: '8px', background: 'var(--bg-lite)', borderRadius: '10px' }}><MapPin size={18} color="var(--primary-color)" /></div>
-                        <div>
+                        <div style={{ flex: 1 }}>
                             <span style={{ display: 'block', fontWeight: '700', color: 'var(--text-main)' }}>Location</span>
-                            {reminder.location || 'No location set'}
+                            {isEditing ? (
+                                <input
+                                    value={location}
+                                    onChange={(e) => setLocation(e.target.value)}
+                                    placeholder="Add location..."
+                                    style={{
+                                        width: '100%',
+                                        background: 'var(--bg-lite)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px',
+                                        color: 'var(--text-main)',
+                                        padding: '8px',
+                                        marginTop: '4px',
+                                        fontSize: '0.9rem'
+                                    }}
+                                />
+                            ) : (
+                                location || 'No location set'
+                            )}
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <div style={{ padding: '8px', background: 'var(--bg-lite)', borderRadius: '10px' }}><Clock size={18} color="var(--primary-color)" /></div>
-                        <div>
-                            <span style={{ display: 'block', fontWeight: '700', color: 'var(--text-main)' }}>Time: {reminder.time || '--:--'}</span>
-                            Distance: 2.3 miles • ETA 12 mins
+                        <div style={{ flex: 1 }}>
+                            <span style={{ display: 'block', fontWeight: '700', color: 'var(--text-main)' }}>Schedule</span>
+                            {isEditing ? (
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                    <input
+                                        type="date"
+                                        value={date}
+                                        onChange={(e) => setDate(e.target.value)}
+                                        style={{
+                                            flex: 1,
+                                            background: 'var(--bg-lite)',
+                                            border: '1px solid var(--border-color)',
+                                            borderRadius: '8px',
+                                            color: 'var(--text-main)',
+                                            padding: '8px',
+                                            fontSize: '0.9rem'
+                                        }}
+                                    />
+                                    <input
+                                        type="time"
+                                        value={time}
+                                        onChange={(e) => setTime(e.target.value)}
+                                        style={{
+                                            flex: 1,
+                                            background: 'var(--bg-lite)',
+                                            border: '1px solid var(--border-color)',
+                                            borderRadius: '8px',
+                                            color: 'var(--text-main)',
+                                            padding: '8px',
+                                            fontSize: '0.9rem'
+                                        }}
+                                    />
+                                </div>
+                            ) : (
+                                <>Time: {time || '--:--'} • {date || 'No date set'}</>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -187,8 +293,14 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                             max="120"
                             step="5"
                             value={bufferTime}
+                            disabled={!isEditing}
                             onChange={(e) => setBufferTime(parseInt(e.target.value))}
-                            style={{ width: '100%', accentColor: 'var(--primary-color)' }}
+                            style={{
+                                width: '100%',
+                                accentColor: 'var(--primary-color)',
+                                opacity: !isEditing ? 0.5 : 1,
+                                cursor: !isEditing ? 'not-allowed' : 'pointer'
+                            }}
                         />
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginTop: '8px' }}>
                             Add extra time before your reminder to ensure you're never late.
@@ -250,8 +362,14 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                             max="2000"
                             step="100"
                             value={geofenceRadius}
+                            disabled={!isEditing}
                             onChange={(e) => setGeofenceRadius(parseInt(e.target.value))}
-                            style={{ width: '100%', accentColor: 'var(--primary-color)' }}
+                            style={{
+                                width: '100%',
+                                accentColor: 'var(--primary-color)',
+                                opacity: !isEditing ? 0.5 : 1,
+                                cursor: !isEditing ? 'not-allowed' : 'pointer'
+                            }}
                         />
                     </div>
                 </DetailCard>
@@ -266,7 +384,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                         {backupContacts.length === 0 ? (
                             <div style={{
                                 padding: '32px',
-                                background: 'rgba(255,255,255,0.02)',
+                                background: 'var(--bg-lite)',
                                 border: '1px dashed var(--border-color)',
                                 borderRadius: '16px',
                                 textAlign: 'center',
@@ -299,39 +417,43 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                                             <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{contact.phone}</div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => setBackupContacts(backupContacts.filter((_, i) => i !== idx))}
-                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    {isEditing && (
+                                        <button
+                                            onClick={() => setBackupContacts(backupContacts.filter((_, i) => i !== idx))}
+                                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                 </div>
                             ))
                         )}
 
-                        <button
-                            onClick={() => {
-                                const name = prompt("Enter contact name:");
-                                const phone = prompt("Enter contact phone:");
-                                if (name && phone) {
-                                    setBackupContacts([...backupContacts, { name, phone }]);
-                                }
-                            }}
-                            className="btn-outline"
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px',
-                                padding: '12px',
-                                background: 'rgba(255,255,255,0.03)',
-                                fontSize: '0.9rem',
-                                color: 'var(--text-main)',
-                                borderStyle: 'solid'
-                            }}
-                        >
-                            <Plus size={16} /> Add Backup Contact
-                        </button>
+                        {isEditing && (
+                            <button
+                                onClick={() => {
+                                    const name = prompt("Enter contact name:");
+                                    const phone = prompt("Enter contact phone:");
+                                    if (name && phone) {
+                                        setBackupContacts([...backupContacts, { name, phone }]);
+                                    }
+                                }}
+                                className="btn-outline"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    padding: '12px',
+                                    background: 'var(--bg-lite)',
+                                    fontSize: '0.9rem',
+                                    color: 'var(--text-main)',
+                                    borderStyle: 'solid'
+                                }}
+                            >
+                                <Plus size={16} /> Add Backup Contact
+                            </button>
+                        )}
                     </div>
 
                     <div style={{ marginTop: '24px' }}>
@@ -350,24 +472,25 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                             ].map((opt) => (
                                 <div
                                     key={opt.val}
-                                    onClick={() => setEscalationTime(opt.val)}
+                                    onClick={() => isEditing && setEscalationTime(opt.val)}
                                     style={{
                                         padding: '16px',
                                         borderRadius: '16px',
-                                        background: escalationTime === opt.val ? 'rgba(0, 117, 255, 0.08)' : 'var(--bg-lite)',
+                                        background: escalationTime === opt.val ? 'color-mix(in srgb, var(--primary-color) 10%, transparent)' : 'var(--bg-lite)',
                                         border: `1px solid ${escalationTime === opt.val ? 'var(--primary-color)' : 'var(--border-color)'}`,
-                                        cursor: 'pointer',
+                                        cursor: isEditing ? 'pointer' : 'default',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '12px',
-                                        transition: 'all 0.2s ease'
+                                        transition: 'all 0.2s ease',
+                                        opacity: !isEditing && escalationTime !== opt.val ? 0.4 : 1
                                     }}
                                 >
                                     <div style={{
                                         width: '20px',
                                         height: '20px',
                                         borderRadius: '50%',
-                                        border: `2px solid ${escalationTime === opt.val ? 'var(--primary-color)' : 'rgba(255,255,255,0.2)'}`,
+                                        border: `2px solid ${escalationTime === opt.val ? 'var(--primary-color)' : 'var(--border-color)'}`,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
@@ -447,7 +570,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                                             style={{
                                                 background: 'none',
                                                 border: 'none',
-                                                color: '#ef4444',
+                                                color: 'var(--danger-color)',
                                                 cursor: 'pointer',
                                                 padding: '4px',
                                                 display: 'flex',
@@ -476,7 +599,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {/* Early Warning System */}
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                            <div style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', color: '#ef4444' }}>
+                            <div style={{ padding: '10px', background: 'color-mix(in srgb, var(--danger-color) 10%, transparent)', borderRadius: '12px', color: 'var(--danger-color)' }}>
                                 <ShieldAlert size={20} />
                             </div>
                             <div style={{ flex: 1 }}>
@@ -487,7 +610,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                                     </span>
                                     <ToggleSwitch
                                         checked={smartFeatures.earlyWarning}
-                                        onChange={(v) => setSmartFeatures({ ...smartFeatures, earlyWarning: v })}
+                                        onChange={(v) => isEditing && setSmartFeatures({ ...smartFeatures, earlyWarning: v })}
                                     />
                                 </div>
                                 <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', lineHeight: '1.4' }}>
@@ -507,11 +630,11 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                     <span style={{ fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         Traffic-Aware ETA
-                                        <span style={{ background: '#10b981', color: 'white', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '6px', fontWeight: '800' }}>LIVE</span>
+                                        <span style={{ background: 'var(--success-color)', color: 'white', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '6px', fontWeight: '800' }}>LIVE</span>
                                     </span>
                                     <ToggleSwitch
                                         checked={smartFeatures.trafficAware}
-                                        onChange={(v) => setSmartFeatures({ ...smartFeatures, trafficAware: v })}
+                                        onChange={(v) => isEditing && setSmartFeatures({ ...smartFeatures, trafficAware: v })}
                                     />
                                 </div>
                                 <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', lineHeight: '1.4' }}>
@@ -535,7 +658,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                                     </span>
                                     <ToggleSwitch
                                         checked={smartFeatures.itemExitGuards}
-                                        onChange={(v) => setSmartFeatures({ ...smartFeatures, itemExitGuards: v })}
+                                        onChange={(v) => isEditing && setSmartFeatures({ ...smartFeatures, itemExitGuards: v })}
                                     />
                                 </div>
                                 <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', lineHeight: '1.4' }}>
@@ -549,66 +672,73 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                 {/* Quick Actions */}
                 <h4 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '700' }}>Quick Actions</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '30px' }}>
-                    <button onClick={() => { handleAction('complete'); handleSave(); }} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', borderColor: '#10b981', color: '#10b981', background: 'rgba(16, 185, 129, 0.05)' }}>
+                    <button onClick={() => { handleAction('complete'); handleSave(); }} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', borderColor: 'var(--success-color)', color: 'var(--success-color)', background: 'color-mix(in srgb, var(--success-color) 5%, transparent)' }}>
                         <CheckCircle2 size={24} />
                         Complete
                     </button>
-                    <button onClick={() => { handleAction('snooze'); handleSave(); }} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', borderColor: '#f59e0b', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.05)' }}>
+                    <button onClick={() => { handleAction('snooze'); handleSave(); }} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', borderColor: 'var(--warning-color)', color: 'var(--warning-color)', background: 'color-mix(in srgb, var(--warning-color) 5%, transparent)' }}>
                         <Clock size={24} />
                         Snooze
                     </button>
-                    <button className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', background: 'rgba(255, 255, 255, 0.03)', borderColor: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-main)' }}>
+                    <button className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', background: 'var(--bg-lite)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
                         <CalendarDays size={24} color="var(--primary-color)" />
                         Reschedule
                     </button>
                     <button
                         onClick={() => {
+                            if (!isEditing) return;
                             const priorities = ['low', 'medium', 'high'];
                             const next = priorities[(priorities.indexOf(priority) + 1) % 3];
                             setPriority(next);
-                            handleSave(); // Auto save priority
+                            // Only auto-save if in editing mode
                         }}
                         className="btn-outline"
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', background: 'rgba(255, 255, 255, 0.03)', borderColor: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-main)' }}
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '16px',
+                            background: 'var(--bg-lite)',
+                            borderColor: 'var(--border-color)',
+                            color: 'var(--text-main)',
+                            cursor: isEditing ? 'pointer' : 'default',
+                            opacity: isEditing ? 1 : 0.8
+                        }}
                     >
-                        <AlertCircle size={24} color={priority === 'high' ? '#ef4444' : priority === 'medium' ? '#f59e0b' : 'var(--text-sub)'} />
+                        <AlertCircle size={24} color={priority === 'high' ? 'var(--danger-color)' : priority === 'medium' ? 'var(--warning-color)' : 'var(--text-sub)'} />
                         Priority: {priority.toUpperCase()}
                     </button>
                 </div>
 
-                {/* Smart Insights */}
-                <DetailCard title={<><Activity size={20} /> Smart Insights</>}>
-                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
-                        <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>95%</div>
-                        <div>
-                            <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>Success Rate</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>You complete similar reminders on time.</div>
-                        </div>
-                    </div>
-                </DetailCard>
 
                 {/* Save Button */}
-                <div style={{ position: 'sticky', bottom: '24px', zIndex: 10, padding: '0 4px', marginBottom: '32px' }}>
-                    <button
-                        onClick={handleSave}
-                        className="btn-primary"
-                        style={{
-                            width: '100%',
-                            padding: '16px',
-                            borderRadius: '16px',
-                            fontSize: '1rem',
-                            fontWeight: '800',
-                            color: '#ffffff',
-                            border: 'none',
-                            cursor: 'pointer',
-                            boxShadow: '0 10px 30px rgba(0, 117, 255, 0.4)',
-                            background: 'linear-gradient(to right, var(--primary-color), #8b5cf6)',
-                            transition: 'all 0.3s ease'
-                        }}
-                    >
-                        Save Settings
-                    </button>
-                </div>
+                {isEditing && (
+                    <div style={{ position: 'sticky', bottom: '24px', zIndex: 10, padding: '0 4px', marginBottom: '32px' }}>
+                        <button
+                            onClick={async () => {
+                                await handleSave();
+                                setIsEditing(false);
+                            }}
+                            className="btn-primary"
+                            style={{
+                                width: '100%',
+                                padding: '16px',
+                                borderRadius: '16px',
+                                fontSize: '1rem',
+                                fontWeight: '800',
+                                color: '#ffffff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                boxShadow: '0 10px 30px rgba(165, 180, 252, 0.4)',
+                                background: 'var(--button-gradient)',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            Save Settings
+                        </button>
+                    </div>
+                )}
 
                 {/* Alert Preferences */}
                 <DetailCard title={<><BellRing size={20} /> Alert Preferences</>}>
@@ -621,7 +751,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Receive alerts on your device</div>
                                 </div>
                             </div>
-                            <ToggleSwitch checked={alerts.push} onChange={(v) => setAlerts({ ...alerts, push: v })} />
+                            <ToggleSwitch checked={alerts.push} onChange={(v) => isEditing && setAlerts({ ...alerts, push: v })} />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -631,7 +761,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate }) => {
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Text message for critical alerts</div>
                                 </div>
                             </div>
-                            <ToggleSwitch checked={alerts.sms} onChange={(v) => setAlerts({ ...alerts, sms: v })} />
+                            <ToggleSwitch checked={alerts.sms} onChange={(v) => isEditing && setAlerts({ ...alerts, sms: v })} />
                         </div>
                     </div>
                 </DetailCard>

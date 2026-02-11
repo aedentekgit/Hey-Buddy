@@ -293,7 +293,7 @@ const AdminSettings = () => {
     ];
 
     const accentColors = [
-        '#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4', '#22c55e', '#facc15', '#f97316', '#d946ef', '#1e293b'
+        '#0075ff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#6d28d9', '#6b0e9b', '#6366f1', '#0ea5e9', '#06b6d4', '#22c55e', '#facc15'
     ];
 
     const smtpPresets = [
@@ -803,7 +803,7 @@ const AdminSettings = () => {
                                         {/* Main Theme Controls */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                             <div>
-                                                <label style={AppearanceLabelStyle}>Theme Mode</label>
+                                                <label style={AppearanceLabelStyle}>Mode</label>
                                                 <div className="mode-toggle-container" style={ModeToggleContainer}>
                                                     {[
                                                         { id: 'day', label: 'Day', icon: Sun },
@@ -823,7 +823,17 @@ const AdminSettings = () => {
                                                 </div>
                                             </div>
 
-
+                                            <div>
+                                                <label style={AppearanceLabelStyle}>Themes</label>
+                                                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
+                                                    <label style={RadioOptionStyle}>
+                                                        <div style={RadioOuter(true)}>
+                                                            <div style={RadioInner(true)} />
+                                                        </div>
+                                                        <span style={{ fontWeight: '600' }}>Lite</span>
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* Brand Colors */}
@@ -837,7 +847,8 @@ const AdminSettings = () => {
                                                 padding: '1.5rem',
                                                 background: 'var(--bg-lite)',
                                                 borderRadius: '24px',
-                                                border: '1px solid var(--border-color)'
+                                                border: '1px solid var(--border-color)',
+                                                alignItems: 'center'
                                             }}>
                                                 {accentColors.map(color => (
                                                     <button
@@ -857,6 +868,102 @@ const AdminSettings = () => {
                                                         )}
                                                     </button>
                                                 ))}
+
+                                                {/* Custom Hex Input Widget */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px',
+                                                    background: 'var(--card-bg)',
+                                                    padding: '8px 16px 8px 10px',
+                                                    borderRadius: '16px',
+                                                    border: '1px solid var(--border-color)',
+                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                                                    transition: 'all 0.2s ease',
+                                                    cursor: 'text'
+                                                }}
+                                                    onClick={() => document.getElementById('hexInput').focus()}
+                                                >
+                                                    {/* Color Indicator trigger */}
+                                                    <div style={{ position: 'relative' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                document.getElementById('customColorPicker').click();
+                                                            }}
+                                                            style={{
+                                                                width: '38px',
+                                                                height: '38px',
+                                                                borderRadius: '50%',
+                                                                background: appearance.accentColor,
+                                                                border: '2px solid rgba(255,255,255,0.2)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                color: '#fff',
+                                                                cursor: 'pointer',
+                                                                transition: 'transform 0.2s',
+                                                                padding: 0,
+                                                                boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                                                            }}
+                                                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                        >
+                                                            <Palette size={18} style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
+                                                        </button>
+                                                        {/* Hidden Native Picker */}
+                                                        <input
+                                                            id="customColorPicker"
+                                                            type="color"
+                                                            value={appearance.accentColor}
+                                                            onChange={(e) => setAppearance(prev => ({ ...prev, accentColor: e.target.value }))}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                opacity: 0,
+                                                                width: 0,
+                                                                height: 0,
+                                                                pointerEvents: 'none'
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    {/* Text Input Area */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                        <label htmlFor="hexInput" style={{
+                                                            fontSize: '0.65rem',
+                                                            color: 'var(--text-sub)',
+                                                            fontWeight: '800',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.05em',
+                                                            cursor: 'pointer'
+                                                        }}>
+                                                            Hex Code
+                                                        </label>
+                                                        <input
+                                                            id="hexInput"
+                                                            type="text"
+                                                            value={appearance.accentColor}
+                                                            onChange={(e) => setAppearance(prev => ({ ...prev, accentColor: e.target.value }))}
+                                                            style={{
+                                                                width: '80px',
+                                                                padding: '0',
+                                                                borderRadius: '0',
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                color: 'var(--text-main)',
+                                                                fontSize: '0.95rem',
+                                                                fontFamily: "'Courier New', monospace",
+                                                                fontWeight: '700',
+                                                                outline: 'none',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.5px'
+                                                            }}
+                                                            placeholder="#000000"
+                                                            maxLength={7}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1401,53 +1508,73 @@ const TestSection = ({ title, description, value, onChange, placeholder, onTest,
 const LabelStyle = {
     display: 'block',
     color: 'var(--text-sub)',
-    fontSize: '0.75rem',
-    fontWeight: '800',
+    fontSize: '0.8rem',
+    fontWeight: '700',
     marginBottom: '0.6rem',
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    opacity: 0.8
+    letterSpacing: '0.02em',
 };
 const InputStyle = {
     width: '100%',
-    padding: '12px 16px',
-    borderRadius: '12px',
+    padding: '8px 12px',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--border-color)',
     background: 'var(--bg-lite)',
     color: 'var(--text-main)',
-    fontSize: '0.875rem',
+    fontSize: '0.85rem',
     fontWeight: '500',
     outline: 'none',
-    transition: 'all 0.2s ease',
-    backdropFilter: 'blur(10px)',
+    transition: 'border-color 0.1s ease',
     fontFamily: 'inherit'
 };
-const UploadButtonStyle = { padding: '0.4rem 0.8rem', background: 'var(--card-bg)', color: 'var(--primary-color)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', border: '1px solid var(--border-color)' };
-const AddButtonStyle = { padding: '0.5rem', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s', fontSize: '0.8rem' };
-const RemoveButtonStyle = { padding: '0 0.6rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: 'none', cursor: 'pointer' };
-const PaymentCardStyle = (enabled) => ({ padding: '1.25rem', borderRadius: '16px', marginBottom: '1rem', background: enabled ? 'color-mix(in srgb, var(--primary-color) 10%, transparent)' : 'var(--card-bg)', border: '1px solid', borderColor: enabled ? 'var(--primary-color)' : 'var(--border-color)', transition: 'all 0.2s' });
+const UploadButtonStyle = { padding: '4px 10px', background: 'var(--card-bg)', color: 'var(--primary-color)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', border: '1px solid var(--border-color)' };
+const AddButtonStyle = { padding: '8px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: '600', transition: 'all 0.1s', fontSize: '0.8rem' };
+const RemoveButtonStyle = { padding: '8px 12px', color: 'var(--danger-color)', background: 'color-mix(in srgb, var(--danger-color) 8%, transparent)', borderRadius: 'var(--radius-sm)', border: '1px solid color-mix(in srgb, var(--danger-color) 15%, transparent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.1s' };
+const PaymentCardStyle = (enabled) => ({ padding: '1rem', borderRadius: 'var(--radius-lg)', marginBottom: '1rem', background: enabled ? 'color-mix(in srgb, var(--primary-color) 4%, transparent)' : 'var(--card-bg)', border: '1px solid', borderColor: enabled ? 'var(--primary-color)' : 'var(--border-color)', transition: 'all 0.1s' });
 
 // Appearance Styles
-const AppearanceLabelStyle = { fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '1rem', display: 'block' };
-const ModeToggleContainer = { display: 'inline-flex', background: 'var(--bg-lite)', padding: '4px', borderRadius: '14px', border: '1px solid var(--border-color)', gap: '4px' };
+const AppearanceLabelStyle = { fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '0.5rem', display: 'block', letterSpacing: '-0.02em' };
+const ModeToggleContainer = {
+    display: 'inline-flex',
+    background: 'var(--bg-lite)',
+    padding: '4px',
+    borderRadius: 'var(--radius-lg)',
+    border: '1px solid var(--border-color)',
+    gap: '4px',
+};
 const ModeButtonStyle = (active) => ({
-    display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', borderRadius: '10px',
-    background: active ? 'var(--card-bg)' : 'transparent',
-    color: active ? 'var(--primary-glow)' : 'var(--text-sub)',
-    fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.23s ease',
-    boxShadow: active ? '0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)' : 'none',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '10px 24px',
+    borderRadius: '14px',
+    background: active ? 'var(--primary-color)' : 'rgba(255, 255, 255, 0.03)',
+    color: active ? 'white' : 'var(--text-sub)',
+    fontWeight: '700',
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     border: '1px solid',
-    borderColor: active ? 'var(--border-color)' : 'transparent'
+    borderColor: active ? 'var(--primary-color)' : 'var(--border-color)',
+    boxShadow: active ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
 });
 const RadioOptionStyle = { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-main)' };
 const RadioOuter = (active) => ({ width: '22px', height: '22px', borderRadius: '50%', border: `2px solid ${active ? 'var(--primary-color)' : 'var(--border-color)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' });
 const RadioInner = (active) => ({ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary-color)', transform: `scale(${active ? 1 : 0})`, transition: 'transform 0.2s' });
 const SwatchStyle = (color, active) => ({
-    width: '36px', height: '36px', borderRadius: '50%', background: color, border: active ? '2px solid white' : 'none',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    boxShadow: active ? `0 0 0 2px ${color}, 0 4px 6px rgba(0,0,0,0.1)` : 'none',
-    transition: 'transform 0.2s',
-    transform: active ? 'scale(1.15)' : 'scale(1)',
+    width: '42px',
+    height: '42px',
+    borderRadius: '50%',
+    background: color,
+    border: active ? '3px solid var(--bg-color)' : 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: active ? `0 0 0 2px ${color}, 0 8px 16px rgba(0,0,0,0.2)` : 'none',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transform: active ? 'scale(1.1) translateY(-2px)' : 'scale(1)',
+    position: 'relative',
+    outline: 'none'
 });
 const CheckmarkStyle = { color: 'white', fontSize: '14px', fontWeight: 'bold' };
 

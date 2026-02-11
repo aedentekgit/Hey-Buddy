@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const { sendPushNotification } = require('../services/notificationService');
 
 exports.getNotifications = async (req, res) => {
     try {
@@ -11,6 +12,35 @@ exports.getNotifications = async (req, res) => {
             data: notifications
         });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.sendTestNotification = async (req, res) => {
+    try {
+        const user = req.user;
+        if (!user.fcmTokens || user.fcmTokens.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No device tokens registered. Please enable notifications in your browser."
+            });
+        }
+
+        console.log(`[Test] Sending notification to ${user.name}`);
+        const promises = user.fcmTokens.map(token =>
+            sendPushNotification(
+                token,
+                "Buddy AI: Test Alert 🔔",
+                "This is a successfull result! Your browser notifications are working perfectly.",
+                { type: 'test' }
+            ).catch(e => console.error(`[Test] Failed for token: ${token}`, e.message))
+        );
+
+        await Promise.all(promises);
+
+        res.status(200).json({ success: true, message: "Test notification sent to your device!" });
+    } catch (error) {
+        console.error("Test Notification Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
