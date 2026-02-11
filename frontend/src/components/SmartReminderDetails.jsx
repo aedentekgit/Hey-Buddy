@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     MapPin, Clock, AlertCircle, CheckCircle2, XCircle, Bell, MessageSquare, Mail,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
+import GlobalSlideOver from './GlobalSlideOver';
 
 const DetailCard = ({ title, children, className = '' }) => (
     <div className={`detail-card ${className}`} style={{
@@ -62,27 +63,55 @@ const ToggleSwitch = ({ checked, onChange }) => (
     </div>
 );
 
-const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = false }) => {
+const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = false, isOpen = true }) => {
     const [isEditing, setIsEditing] = useState(initialEditMode);
-    // Local state for interactive elements
-    const [title, setTitle] = useState(reminder?.title || '');
-    const [date, setDate] = useState(reminder?.date ? new Date(reminder?.date).toISOString().split('T')[0] : '');
-    const [time, setTime] = useState(reminder?.time || '');
-    const [location, setLocation] = useState(reminder?.location || '');
 
-    const [bufferTime, setBufferTime] = useState(reminder?.bufferTime || 15);
-    const [geofenceRadius, setGeofenceRadius] = useState(reminder?.geofenceRadius || 500);
-    const [alerts, setAlerts] = useState(reminder?.alerts || { push: true, sms: false, email: false });
-    const [priority, setPriority] = useState(reminder?.priority || 'medium');
-    const [backupContacts, setBackupContacts] = useState(reminder?.backupContacts || []);
-    const [escalationTime, setEscalationTime] = useState(reminder?.escalationTime || 0);
-    const [smartFeatures, setSmartFeatures] = useState(reminder?.smartFeatures || {
+    // Cached reminder for exit animation
+    const [cachedReminder, setCachedReminder] = useState(reminder);
+
+    // Local state for interactive elements
+    const [title, setTitle] = useState('');
+    const [date, setDate] = useState('');
+    const [time, setTime] = useState('');
+    const [location, setLocation] = useState('');
+
+    const [bufferTime, setBufferTime] = useState(15);
+    const [geofenceRadius, setGeofenceRadius] = useState(500);
+    const [alerts, setAlerts] = useState({ push: true, sms: false, email: false });
+    const [priority, setPriority] = useState('medium');
+    const [backupContacts, setBackupContacts] = useState([]);
+    const [escalationTime, setEscalationTime] = useState(0);
+    const [smartFeatures, setSmartFeatures] = useState({
         earlyWarning: false,
         trafficAware: false,
         itemExitGuards: false
     });
 
-    if (!reminder) return null;
+    useEffect(() => {
+        if (reminder) {
+            setCachedReminder(reminder);
+            setTitle(reminder.title || '');
+            setDate(reminder.date ? new Date(reminder.date).toISOString().split('T')[0] : '');
+            setTime(reminder.time || '');
+            setLocation(reminder.location || '');
+            setBufferTime(reminder.bufferTime || 15);
+            setGeofenceRadius(reminder.geofenceRadius || 500);
+            setAlerts(reminder.alerts || { push: true, sms: false, email: false });
+            setPriority(reminder.priority || 'medium');
+            setBackupContacts(reminder.backupContacts || []);
+            setEscalationTime(reminder.escalationTime || 0);
+            setSmartFeatures(reminder.smartFeatures || {
+                earlyWarning: false,
+                trafficAware: false,
+                itemExitGuards: false
+            });
+            setIsEditing(initialEditMode);
+        }
+    }, [reminder, initialEditMode]);
+
+    const activeReminder = reminder || cachedReminder;
+
+    if (!activeReminder) return null;
 
     const handleSave = async () => {
         try {
@@ -99,7 +128,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                 escalationTime,
                 smartFeatures
             };
-            await api.put(`/voice/${reminder._id}`, updatedData);
+            await api.put(`/voice/${activeReminder._id}`, updatedData);
             toast.success("Settings updated");
             onUpdate();
         } catch (err) {
@@ -117,7 +146,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                 return;
             }
 
-            await api.put(`/voice/${reminder._id}`, { status });
+            await api.put(`/voice/${activeReminder._id}`, { status });
             toast.success(`Reminder ${status}`);
             onUpdate();
         } catch (err) {
@@ -126,67 +155,24 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
     };
 
     return (
-        <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="smart-reminder-details-panel"
-            style={{
-                position: 'fixed',
-                top: 0,
-                right: 0,
-                width: '100%',
-                maxWidth: '480px',
-                height: '100vh',
-                background: 'var(--bg-color)',
-                borderLeft: '1px solid var(--border-color)',
-                zIndex: 2000,
-                overflowY: 'auto',
-                boxShadow: '-10px 0 40px rgba(0,0,0,0.5)'
+        <GlobalSlideOver
+            isOpen={isOpen}
+            onClose={onClose}
+            zIndex={2000}
+            statusBadge={{
+                label: 'On Track',
+                bg: 'color-mix(in srgb, var(--success-color) 10%, transparent)',
+                color: 'var(--success-color)'
+            }}
+            actionButton={{
+                label: isEditing ? 'Cancel' : 'Edit Settings',
+                icon: isEditing ? null : <Edit2 size={16} />,
+                onClick: () => setIsEditing(!isEditing),
+                variant: isEditing ? 'danger' : 'primary'
             }}
         >
-            <div className="smart-reminder-details-container" style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer', display: 'flex' }}>
-                            <XCircle size={32} />
-                        </button>
-                        <button
-                            onClick={() => setIsEditing(!isEditing)}
-                            style={{
-                                background: isEditing ? 'color-mix(in srgb, var(--danger-color) 10%, transparent)' : 'color-mix(in srgb, var(--primary-color) 10%, transparent)',
-                                border: `1px solid ${isEditing ? 'color-mix(in srgb, var(--danger-color) 20%, transparent)' : 'color-mix(in srgb, var(--primary-color) 20%, transparent)'}`,
-                                color: isEditing ? 'var(--danger-color)' : 'var(--primary-color)',
-                                padding: '8px 16px',
-                                borderRadius: '12px',
-                                fontSize: '0.85rem',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            {isEditing ? (
-                                <>Cancel</>
-                            ) : (
-                                <><Edit2 size={16} /> Edit Settings</>
-                            )}
-                        </button>
-                    </div>
-                    <div style={{
-                        padding: '6px 16px',
-                        background: 'color-mix(in srgb, var(--success-color) 10%, transparent)',
-                        color: 'var(--success-color)',
-                        borderRadius: '20px',
-                        fontSize: '0.85rem',
-                        fontWeight: '700'
-                    }}>
-                        On Track
-                    </div>
-                </div>
+            <div className="smart-reminder-details-container" style={{ paddingBottom: '24px' }}>
+
 
                 {isEditing ? (
                     <input
@@ -952,7 +938,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                     }
                 }
             `}</style>
-        </motion.div>
+        </GlobalSlideOver>
     );
 };
 

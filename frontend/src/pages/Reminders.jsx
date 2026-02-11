@@ -7,11 +7,12 @@ import voiceService from '../services/voiceService';
 import toast, { Toaster } from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SmartReminderDetails from '../components/SmartReminderDetails';
-import SidePanelWrapper from '../components/SidePanelWrapper';
 import Pagination from '../components/Pagination';
 import {
     ThStyle, TdStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, ActionButtonStyle
 } from '../components/TableStyles';
+import MobileTaskCard from '../components/MobileTaskCard';
+import GlobalSlideOver from '../components/GlobalSlideOver';
 
 const Reminders = () => {
     const { user } = useAuth();
@@ -240,7 +241,7 @@ const Reminders = () => {
                             <span className="hide-mobile-text">Test Browser Alert</span>
                         </button>
                         <button
-                            className="btn btn-primary"
+                            className="btn btn-primary mobile-fab"
                             onClick={handleCreateClick}
                             style={{ borderRadius: 'var(--radius-md)' }}
                         >
@@ -250,7 +251,7 @@ const Reminders = () => {
                     </div>
                 </div>
 
-                <div className="table-wrapper">
+                <div className="table-wrapper desktop-table-view">
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
@@ -364,6 +365,68 @@ const Reminders = () => {
                     </table>
                 </div>
 
+                <div className="mobile-card-view" style={{ marginTop: '16px' }}>
+                    {loading ? (
+                        <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center' }}>
+                            <Loader2 className="animate-spin" color="#10b981" size={32} />
+                        </div>
+                    ) : filteredReminders.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
+                            No reminders found. Create one to get started!
+                        </div>
+                    ) : (
+                        filteredReminders.map((reminder) => {
+                            const { isOverdue, timeDiff } = (() => {
+                                if (!reminder.date) return { isOverdue: false, timeDiff: '' };
+                                const reminderDate = new Date(reminder.date);
+                                if (reminder.time && reminder.time.includes(':')) {
+                                    const [h, m] = reminder.time.split(':');
+                                    reminderDate.setHours(parseInt(h), parseInt(m));
+                                } else {
+                                    reminderDate.setHours(23, 59); // End of day if no time
+                                }
+                                const now = new Date();
+                                const diffMs = now - reminderDate;
+                                const isOver = diffMs > 0;
+
+                                let diffStr = '';
+                                if (isOver) {
+                                    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                    if (diffHrs > 24) diffStr = `${Math.floor(diffHrs / 24)} days overdue`;
+                                    else if (diffHrs > 0) diffStr = `${diffHrs} hours overdue`;
+                                    else diffStr = `${diffMins} mins overdue`;
+                                }
+                                return { isOverdue: isOver, timeDiff: diffStr };
+                            })();
+
+                            const isTask = reminder.intent === 'task';
+                            const variant = isOverdue ? 'danger' : (isTask ? 'orange' : 'green');
+                            const status = isOverdue ? 'Risk Alert' : (isTask ? 'PENDING' : 'ON TRACK');
+                            const timeLabel = isOverdue
+                                ? `Due ${formatDate(reminder.date)} (${timeDiff})`
+                                : formatTime(reminder.time);
+
+                            return (
+                                <MobileTaskCard
+                                    key={reminder._id}
+                                    title={reminder.title}
+                                    status={status}
+                                    variant={variant}
+                                    time={timeLabel}
+                                    location={reminder.location || 'No Location Set'}
+                                    distance={reminder.distance}
+                                    eta={reminder.eta}
+                                    onDelete={() => handleDeleteClick(reminder._id)}
+                                    onEdit={() => handleEditClick(reminder)}
+                                    onView={() => handleViewClick(reminder)}
+                                    onShare={() => setShareModal({ isOpen: true, reminder, email: '', permissions: 'view', loading: false })}
+                                />
+                            );
+                        })
+                    )}
+                </div>
+
                 {!loading && <Pagination pagination={pagination} onPageChange={handlePageChange} />}
             </div>
 
@@ -376,21 +439,20 @@ const Reminders = () => {
                 confirmText="Delete"
             />
 
-            <AnimatePresence>
-                {selectedReminder && (
-                    <SmartReminderDetails
-                        reminder={selectedReminder}
-                        initialEditMode={isDetailsEditing}
-                        onClose={() => {
-                            setSelectedReminder(null);
-                            setIsDetailsEditing(false);
-                        }}
-                        onUpdate={() => {
-                            fetchReminders();
-                        }}
-                    />
-                )}
-            </AnimatePresence>
+            <SmartReminderDetails
+                reminder={selectedReminder}
+                initialEditMode={isDetailsEditing}
+                isOpen={!!selectedReminder}
+                onClose={() => {
+                    setSelectedReminder(null);
+                    setIsDetailsEditing(false);
+                }}
+                onUpdate={() => {
+                    fetchReminders();
+                    // Keep the panel open, just refresh data
+                    // If we want to close: setSelectedReminder(null);
+                }}
+            />
 
             <AnimatePresence>
                 {shareModal.isOpen && (
@@ -460,167 +522,151 @@ const Reminders = () => {
                 )}
             </AnimatePresence>
 
-            <AnimatePresence>
-                {editModal.isOpen && editModal.isCreate && (
-                    <SidePanelWrapper
-                        onClose={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })}
-                        title="New Reminder"
-                    >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div className="detail-card" style={{
-                                background: 'var(--card-bg)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: '24px',
-                            }}>
-                                <div className="form-group" style={{ marginBottom: '20px' }}>
-                                    <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Title</label>
-                                    <input
-                                        type="text"
-                                        value={editForm.title}
-                                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                                        className="input"
-                                        placeholder="What should I remind you about?"
-                                        style={{
-                                            width: '100%',
-                                            background: 'var(--bg-lite)',
-                                            border: '1px solid var(--border-color)',
-                                            borderRadius: 'var(--radius-md)',
-                                            color: 'var(--text-main)',
-                                            padding: '12px',
-                                            fontSize: '0.9rem',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                </div>
-                                <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Date</label>
-                                        <input
-                                            type="date"
-                                            value={editForm.date}
-                                            onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                                            className="input"
-                                            style={{
-                                                width: '100%',
-                                                background: 'var(--bg-lite)',
-                                                border: '1px solid var(--border-color)',
-                                                borderRadius: '12px',
-                                                color: 'var(--text-main)',
-                                                padding: '12px',
-                                                fontSize: '1rem',
-                                                outline: 'none'
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Time</label>
-                                        <input
-                                            type="time"
-                                            value={editForm.time}
-                                            onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                                            className="input"
-                                            style={{
-                                                width: '100%',
-                                                background: 'var(--bg-lite)',
-                                                border: '1px solid var(--border-color)',
-                                                borderRadius: '12px',
-                                                color: 'var(--text-main)',
-                                                padding: '12px',
-                                                fontSize: '1rem',
-                                                outline: 'none'
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="form-group" style={{ marginBottom: '20px' }}>
-                                    <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Location (Optional)</label>
-                                    <input
-                                        type="text"
-                                        value={editForm.location}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                                        className="input"
-                                        placeholder="Add a location..."
-                                        style={{
-                                            width: '100%',
-                                            background: 'var(--bg-lite)',
-                                            border: '1px solid var(--border-color)',
-                                            borderRadius: 'var(--radius-md)',
-                                            color: 'var(--text-main)',
-                                            padding: '12px',
-                                            fontSize: '0.9rem',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                </div>
-                                <div className="form-group" style={{ marginTop: '12px' }}>
-                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>
-                                        <span>Enable Browser Push Notification?</span>
-                                        <div
-                                            onClick={() => setEditForm(prev => ({ ...prev, alerts: { ...prev.alerts, push: !prev.alerts?.push } }))}
-                                            style={{
-                                                width: '40px',
-                                                height: '20px',
-                                                background: editForm.alerts?.push ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                                borderRadius: '20px',
-                                                position: 'relative',
-                                                cursor: 'pointer',
-                                                transition: '0.2s'
-                                            }}
-                                        >
-                                            <div style={{
-                                                width: '16px',
-                                                height: '16px',
-                                                background: 'white',
-                                                borderRadius: '50%',
-                                                position: 'absolute',
-                                                top: '2px',
-                                                left: editForm.alerts?.push ? '22px' : '2px',
-                                                transition: '0.2s'
-                                            }} />
-                                        </div>
-                                    </label>
-                                </div>
-                                {user?.googleRefreshToken && (
-                                    <div className="form-group" style={{ marginTop: '12px' }}>
-                                        <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>
-                                            <span>Sync to Google Calendar?</span>
-                                            <div
-                                                onClick={() => setEditForm(prev => ({ ...prev, syncToGoogle: !prev.syncToGoogle }))}
-                                                className={`buddy-switch ${editForm.syncToGoogle ? 'buddy-switch-active' : ''}`}
-                                                style={{ background: !editForm.syncToGoogle ? 'var(--bg-lite)' : '' }}
-                                            >
-                                                <div
-                                                    className="buddy-switch-knob"
-                                                    style={{ left: editForm.syncToGoogle ? '22px' : '2px' }}
-                                                />
-                                            </div>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
-
-                            <button
-                                onClick={handleSubmit}
-                                className="btn btn-primary"
+            <GlobalSlideOver
+                isOpen={editModal.isOpen && editModal.isCreate}
+                onClose={() => setEditModal({ isOpen: false, reminder: null, isCreate: false })}
+                title="New Reminder"
+                actionButton={{
+                    label: 'Create Reminder',
+                    icon: <Save size={18} />,
+                    onClick: handleSubmit
+                }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="detail-card" style={{
+                        background: 'var(--card-bg)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '24px',
+                    }}>
+                        <div className="form-group" style={{ marginBottom: '20px' }}>
+                            <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Title</label>
+                            <input
+                                type="text"
+                                value={editForm.title}
+                                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                className="input"
+                                placeholder="What should I remind you about?"
                                 style={{
                                     width: '100%',
-                                    padding: '14px',
+                                    background: 'var(--bg-lite)',
+                                    border: '1px solid var(--border-color)',
                                     borderRadius: 'var(--radius-md)',
-                                    fontSize: '0.95rem',
-                                    fontWeight: '700',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '10px'
+                                    color: 'var(--text-main)',
+                                    padding: '12px',
+                                    fontSize: '0.9rem',
+                                    outline: 'none'
                                 }}
-                            >
-                                <Save size={18} /> Create Reminder
-                            </button>
+                            />
                         </div>
-                    </SidePanelWrapper>
-                )}
-            </AnimatePresence>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                            <div className="form-group" style={{ width: '100%' }}>
+                                <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Date</label>
+                                <input
+                                    type="date"
+                                    value={editForm.date}
+                                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                    className="input"
+                                    style={{
+                                        width: '100%',
+                                        background: 'var(--bg-lite)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '12px',
+                                        color: 'var(--text-main)',
+                                        padding: '12px',
+                                        fontSize: '1rem',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+                            <div className="form-group" style={{ width: '100%' }}>
+                                <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Time</label>
+                                <input
+                                    type="time"
+                                    value={editForm.time}
+                                    onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                                    className="input"
+                                    style={{
+                                        width: '100%',
+                                        background: 'var(--bg-lite)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '12px',
+                                        color: 'var(--text-main)',
+                                        padding: '12px',
+                                        fontSize: '1rem',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className="form-group" style={{ marginBottom: '20px' }}>
+                            <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Location (Optional)</label>
+                            <input
+                                type="text"
+                                value={editForm.location}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                                className="input"
+                                placeholder="Add a location..."
+                                style={{
+                                    width: '100%',
+                                    background: 'var(--bg-lite)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: 'var(--radius-md)',
+                                    color: 'var(--text-main)',
+                                    padding: '12px',
+                                    fontSize: '0.9rem',
+                                    outline: 'none'
+                                }}
+                            />
+                        </div>
+                        <div className="form-group" style={{ marginTop: '12px' }}>
+                            <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>
+                                <span>Enable Browser Push Notification?</span>
+                                <div
+                                    onClick={() => setEditForm(prev => ({ ...prev, alerts: { ...prev.alerts, push: !prev.alerts?.push } }))}
+                                    style={{
+                                        width: '40px',
+                                        height: '20px',
+                                        background: editForm.alerts?.push ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                        borderRadius: '20px',
+                                        position: 'relative',
+                                        cursor: 'pointer',
+                                        transition: '0.2s'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        background: 'white',
+                                        borderRadius: '50%',
+                                        position: 'absolute',
+                                        top: '2px',
+                                        left: editForm.alerts?.push ? '22px' : '2px',
+                                        transition: '0.2s'
+                                    }} />
+                                </div>
+                            </label>
+                        </div>
+                        {user?.googleRefreshToken && (
+                            <div className="form-group" style={{ marginTop: '12px' }}>
+                                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>
+                                    <span>Sync to Google Calendar?</span>
+                                    <div
+                                        onClick={() => setEditForm(prev => ({ ...prev, syncToGoogle: !prev.syncToGoogle }))}
+                                        className={`buddy-switch ${editForm.syncToGoogle ? 'buddy-switch-active' : ''}`}
+                                        style={{ background: !editForm.syncToGoogle ? 'var(--bg-lite)' : '' }}
+                                    >
+                                        <div
+                                            className="buddy-switch-knob"
+                                            style={{ left: editForm.syncToGoogle ? '22px' : '2px' }}
+                                        />
+                                    </div>
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </GlobalSlideOver>
 
         </div>
     );

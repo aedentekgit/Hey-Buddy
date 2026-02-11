@@ -44,6 +44,8 @@ router.delete('/prescriptions/:id', protect, voiceController.deletePrescription)
 
 // Memory routes
 router.get('/memories', protect, voiceController.getMemories);
+router.get('/memories/mix', protect, voiceController.getAllMemoriesAndRecords);
+router.put('/memories/:id', protect, voiceController.updateMemory);
 router.delete('/memories/:id', protect, voiceController.deleteMemory);
 
 // Google Calendar OAuth

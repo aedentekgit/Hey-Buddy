@@ -776,7 +776,17 @@ exports.googleCallback = async (req, res) => {
     }
 };
 
-// Google helper functions removed - now using googleCalendarService.js
+// Prescription CRUD
+exports.getPrescriptions = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const results = await paginate(Prescription, { userId }, req.query);
+        res.status(200).json({ success: true, ...results });
+    } catch (error) {
+        console.error("Fetch Prescriptions Error:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch prescriptions", error: error.message });
+    }
+};
 
 exports.getMemories = async (req, res) => {
     try {
@@ -785,6 +795,62 @@ exports.getMemories = async (req, res) => {
         res.status(200).json({ success: true, ...results });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to fetch memories" });
+    }
+};
+
+exports.getAllMemoriesAndRecords = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || '';
+
+        // Unified Search Logic (simplified for brevity)
+        const memQuery = { userId };
+        const presQuery = { userId };
+
+        if (search) {
+            memQuery.content = { $regex: search, $options: 'i' };
+            presQuery['$or'] = [
+                { 'extractedData.patientName': { $regex: search, $options: 'i' } },
+                { fileName: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // Fetch All Matches (not efficient for HUGE datasets, but fine for personal assistant scope per user request)
+        const [memories, prescriptions] = await Promise.all([
+            Memory.find(memQuery).lean(),
+            Prescription.find(presQuery).lean()
+        ]);
+
+        const combined = [
+            ...memories.map(m => ({ ...m, type: 'memory' })),
+            ...prescriptions.map(p => ({ ...p, type: 'record' }))
+        ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // Manual Pagination
+        const total = combined.length;
+        const totalPages = Math.ceil(total / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedData = combined.slice(startIndex, endIndex);
+
+        res.status(200).json({
+            success: true,
+            data: paginatedData,
+            pagination: {
+                total,
+                totalPages,
+                currentPage: page,
+                limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            }
+        });
+
+    } catch (error) {
+        console.error("Fetch All Memories Error:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch combined list" });
     }
 };
 
@@ -978,18 +1044,6 @@ exports.confirmMedicalReminders = async (req, res) => {
     }
 };
 
-// Prescription CRUD
-exports.getPrescriptions = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const results = await paginate(Prescription, { userId }, req.query);
-        res.status(200).json({ success: true, ...results });
-    } catch (error) {
-        console.error("Fetch Prescriptions Error:", error);
-        res.status(500).json({ success: false, message: "Failed to fetch prescriptions", error: error.message });
-    }
-};
-
 exports.getPrescriptionById = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -1047,5 +1101,27 @@ exports.deletePrescription = async (req, res) => {
         res.status(200).json({ success: true, message: "Prescription and linked reminders deleted successfully" });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to delete prescription" });
+    }
+};
+
+exports.updateMemory = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { id } = req.params;
+        const { content } = req.body;
+
+        const memory = await Memory.findOneAndUpdate(
+            { _id: id, userId },
+            { content },
+            { new: true }
+        );
+
+        if (!memory) {
+            return res.status(404).json({ success: false, message: "Memory not found" });
+        }
+
+        res.status(200).json({ success: true, data: memory, message: "Memory updated successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update memory" });
     }
 };

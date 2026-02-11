@@ -1,17 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
-    Home, Users, Mic, ListTodo, Settings, Brain, ShieldCheck,
-    MoreHorizontal, Eye, BookOpen, Cpu, Calendar, User, X
+    Home, Mic, ListTodo, Brain, MoreHorizontal
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const MobileNavbar = () => {
     const { user } = useAuth();
-    const location = useLocation();
-    const [isMoreOpen, setIsMoreOpen] = useState(false);
-    const menuRef = useRef(null);
 
     // Primary items always visible in the footer
     const primaryNavItems = [
@@ -21,83 +15,8 @@ const MobileNavbar = () => {
         { id: 'memories', icon: Brain, path: '/admin/memories', label: 'Memory' },
     ].filter(item => user?.allowedPages?.includes(item.id));
 
-    // Secondary items shown in the "More" menu
-    const overflowItems = [
-        { id: 'users', icon: Users, path: '/admin/users', label: 'Users' },
-        { id: 'vision', icon: Eye, path: '/admin/vision', label: 'Buddy Vision' },
-        { id: 'knowledge', icon: BookOpen, path: '/admin/knowledge', label: 'Knowledge Base' },
-        { id: 'automations', icon: Cpu, path: '/admin/automations', label: 'Automations' },
-        { id: 'calendar', icon: Calendar, path: '/admin/calendar', label: 'Calendar' },
-        { id: 'management', icon: ShieldCheck, path: '/admin/management', label: 'Management' },
-        { id: 'roles', icon: ShieldCheck, path: '/admin/roles', label: 'Roles' },
-        { id: 'settings', icon: Settings, path: '/admin/settings', label: 'System Settings' },
-        { id: 'profile', icon: User, path: '/user/settings', label: 'My Settings' }
-    ].filter(item => {
-        if (item.id === 'profile') return true;
-        if (user?.role === 'user' && ['settings', 'roles', 'management', 'users'].includes(item.id)) return false;
-        return user?.allowedPages?.includes(item.id);
-    });
-
-    // Close menu when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setIsMoreOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    // Check if any overflow item is active
-    const isAnyOverflowActive = overflowItems.some(item => location.pathname === item.path);
-
     return (
         <div className="mobile-navbar-container">
-            <AnimatePresence>
-                {isMoreOpen && (
-                    <>
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="more-menu-overlay"
-                            onClick={() => setIsMoreOpen(false)}
-                        />
-                        <motion.div
-                            ref={menuRef}
-                            initial={{ y: '100%' }}
-                            animate={{ y: 0 }}
-                            exit={{ y: '100%' }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="more-menu-sheet"
-                        >
-                            <div className="menu-header">
-                                <h3>More Pages</h3>
-                                <button className="close-btn" onClick={() => setIsMoreOpen(false)}>
-                                    <X size={20} />
-                                </button>
-                            </div>
-                            <div className="menu-grid">
-                                {overflowItems.map((item) => (
-                                    <NavLink
-                                        key={item.id}
-                                        to={item.path}
-                                        onClick={() => setIsMoreOpen(false)}
-                                        className={({ isActive }) => `menu-grid-item ${isActive ? 'active' : ''}`}
-                                    >
-                                        <div className="menu-icon-box">
-                                            <item.icon size={20} />
-                                        </div>
-                                        <span className="menu-label">{item.label}</span>
-                                    </NavLink>
-                                ))}
-                            </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
-
             <div className="mobile-navbar">
                 {primaryNavItems.map((item) => (
                     <NavLink
@@ -110,13 +29,13 @@ const MobileNavbar = () => {
                     </NavLink>
                 ))}
 
-                <button
-                    className={`mobile-nav-item more-toggle ${isMoreOpen || isAnyOverflowActive ? 'active' : ''}`}
-                    onClick={() => setIsMoreOpen(!isMoreOpen)}
+                <NavLink
+                    to="/admin/more"
+                    className={({ isActive }) => `mobile-nav-item more-toggle ${isActive ? 'active' : ''}`}
                 >
                     <MoreHorizontal size={20} className="nav-icon" />
                     <span className="nav-label">More</span>
-                </button>
+                </NavLink>
             </div>
 
             <style>{`

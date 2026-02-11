@@ -19,6 +19,7 @@ const DashboardLayout = ({ children }) => {
     const location = useLocation();
 
     const isBuddyPage = location.pathname === '/admin/buddy';
+    const isMorePage = location.pathname === '/admin/more';
 
     const getPageTitle = (path) => {
         if (path.includes('/admin/dashboard')) return 'Overview';
@@ -29,6 +30,7 @@ const DashboardLayout = ({ children }) => {
         if (path.includes('/admin/users')) return 'Users';
         if (path.includes('/admin/roles')) return 'Roles';
         if (path.includes('/admin/settings')) return 'System Configuration';
+        if (path.includes('/admin/more')) return 'More';
         if (path.includes('/user/settings')) return 'Account Settings';
         return 'Dashboard';
     };
@@ -93,7 +95,7 @@ const DashboardLayout = ({ children }) => {
                     paddingRight: window.innerWidth >= 1024 ? '15px' : '0'
                 }}
             >
-                {!isBuddyPage && (
+                {!isBuddyPage && !isMorePage && (
                     <Header
                         onMenuClick={toggleSidebar}
                         title={title}
@@ -139,6 +141,16 @@ const DashboardLayout = ({ children }) => {
                         .main-content {
                             padding-bottom: 80px !important; /* Adjust for buddy page specifically */
                         }
+                    }
+                    ` : ''}
+
+                    ${isMorePage ? `
+                    .content-container {
+                        padding: 0 !important;
+                        max-width: 100% !important;
+                    }
+                    .main-content {
+                        padding-right: 0 !important;
                     }
                     ` : ''}
                 `}</style>

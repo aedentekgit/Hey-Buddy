@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Mic, MicOff, Send, Calendar, CheckCircle2, Clock, MapPin, Repeat, Loader2,
     Zap, Volume2, Sparkles, Plus, List, CalendarDays, Brain, FilePlus, Heart,
-    ShieldPlus, Shield, X, Trash2
+    ShieldPlus, Shield, X, Trash2, Camera
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
@@ -509,6 +509,12 @@ const BuddyAssistant = () => {
                     <Clock size={20} />
                     <span>History</span>
                 </button>
+                <button
+                    className="camera-toggle-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    <Camera size={20} />
+                </button>
                 <div className="center-interaction" style={{ flex: 1 }}>
                     <input
                         type="file"
@@ -908,6 +914,33 @@ const BuddyAssistant = () => {
                 }
 
                 .history-toggle-btn:hover {
+                    background: var(--card-bg);
+                    border-color: var(--primary-color);
+                    transform: translateY(-2px);
+                }
+
+                .camera-toggle-btn {
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 100;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px 16px;
+                    background: var(--bg-lite);
+                    border: 1px solid var(--border-color);
+                    border-radius: 12px;
+                    color: var(--text-main);
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s;
+                    box-shadow: var(--card-shadow);
+                }
+
+                .camera-toggle-btn:hover {
                     background: var(--card-bg);
                     border-color: var(--primary-color);
                     transform: translateY(-2px);

@@ -23,6 +23,7 @@ import Calendar from './pages/Calendar';
 import BuddyVision from './pages/BuddyVision';
 import KnowledgeBase from './pages/KnowledgeBase';
 import Automations from './pages/Automations';
+import MobileMoreMenu from './pages/MobileMoreMenu';
 import DashboardLayout from './components/DashboardLayout';
 import { startLocationTracking, stopLocationTracking } from './services/locationService';
 
@@ -209,6 +210,14 @@ function App() {
                                         element={
                                             <ProtectedRoute pageId="automations">
                                                 <Automations />
+                                            </ProtectedRoute>
+                                        }
+                                    />
+                                    <Route
+                                        path="/admin/more"
+                                        element={
+                                            <ProtectedRoute>
+                                                <MobileMoreMenu />
                                             </ProtectedRoute>
                                         }
                                     />

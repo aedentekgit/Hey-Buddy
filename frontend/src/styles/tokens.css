@@ -123,8 +123,8 @@
     --z-dropdown: 100;
     --z-sticky: 200;
     --z-fixed: 300;
-    --z-modal-backdrop: 1000;
-    --z-modal: 1001;
+    --z-modal-backdrop: 2000;
+    --z-modal: 2001;
     --z-popover: 1500;
     --z-tooltip: 2000;
     --z-notification: 3000;

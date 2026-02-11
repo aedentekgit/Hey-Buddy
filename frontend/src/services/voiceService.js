@@ -59,6 +59,14 @@ const voiceService = {
         return response.data;
     },
 
+    getAllMemoriesAndRecords: async (page = 1, limit = 10, search = '') => {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/voice/memories/mix?page=${page}&limit=${limit}&search=${search}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response;
+    },
+
     getMemories: async (page = 1, limit = 10, search = '') => {
         const token = localStorage.getItem('token');
         const response = await axios.get(`${API_URL}/voice/memories?page=${page}&limit=${limit}&search=${search}`, {

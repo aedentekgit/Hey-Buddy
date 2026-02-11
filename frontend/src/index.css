@@ -258,6 +258,27 @@ label {
 }
 
 /* Common Search Header Layout - Enterprise Grid */
+
+.desktop-table-view {
+  display: block;
+}
+
+.mobile-card-view {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .desktop-table-view {
+    display: none;
+  }
+
+  .mobile-card-view {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
 .search-management-header {
   display: flex;
   justify-content: space-between;
@@ -681,6 +702,41 @@ label {
 .buddy-switch-active {
   background: var(--primary-color) !important;
   box-shadow: 0 0 10px color-mix(in srgb, var(--primary-color) 30%, transparent);
+}
+
+@media (max-width: 768px) {
+  .mobile-fab {
+    position: fixed !important;
+    bottom: 90px !important;
+    /* Above bottom nav */
+    right: 24px !important;
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+    z-index: 1001 !important;
+    transform: scale(1) !important;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  .mobile-fab svg {
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0 !important;
+  }
+
+  .mobile-fab .hide-mobile-text,
+  .mobile-fab .show-mobile-text {
+    display: none !important;
+  }
+
+  .mobile-fab:active {
+    transform: scale(0.9) !important;
+  }
 }
 
 .buddy-switch-knob {

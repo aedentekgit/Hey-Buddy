@@ -284,14 +284,6 @@ const Calendar = () => {
             <div className="calendar-header">
                 <div className="calendar-controls-row">
                     <div className="header-actions">
-                        <button className="btn btn-primary" onClick={() => handleAddClick()}>
-                            <Plus size={18} />
-                            <span className="hide-mobile-text">Add Reminder</span>
-                        </button>
-                        <button className="btn btn-outline" onClick={handleToday} style={{ padding: '8px 16px' }}>
-                            <Clock size={16} />
-                            Today
-                        </button>
                         <div className="month-nav">
                             <button className="nav-btn" onClick={handlePrevMonth}>
                                 <ChevronLeft size={20} />
@@ -914,8 +906,320 @@ const Calendar = () => {
                 }
 
                 @media (max-width: 768px) {
-                    .calendar-controls-row { flex-direction: column; align-items: flex-start; }
-                    .header-actions { width: 100%; justify-content: space-between; }
+                    /* --- Premium App Header Layout --- */
+                    .calendar-header {
+                        margin-bottom: 24px;
+                    }
+
+                    .calendar-controls-row {
+                        flex-direction: column;
+                        gap: 16px;
+                    }
+
+                    /* Row 1: Navigation & Actions combined */
+                    /* Row 1: Navigation Only */
+                    .header-actions {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        width: 100%;
+                    }
+
+                    /* Month Nav (Center) */
+                    .month-nav {
+                        background: transparent;
+                        border: none;
+                        padding: 0;
+                        justify-content: space-between;
+                        gap: 16px;
+                        width: 100%;
+                        max-width: 300px;
+                    }
+
+                    .current-month {
+                        font-size: 1.1rem;
+                        font-weight: 800;
+                        color: var(--text-main);
+                        order: 2; /* Text in middle */
+                    }
+
+                    .month-nav .nav-btn {
+                        background: var(--bg-lite);
+                        color: var(--text-main);
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        justify-content: center;
+                        border: 1px solid var(--border-color);
+                    }
+                    
+                    .month-nav .nav-btn:first-child { order: 1; } /* Left Arrow */
+                    .month-nav .nav-btn:last-child { order: 3; } /* Right Arrow */
+
+                    /* Filter Row (Row 2) */
+                    .calendar-filters {
+                        width: 100%;
+                        overflow-x: auto;
+                        padding-bottom: 4px; /* Scrollbar space */
+                        -webkit-overflow-scrolling: touch;
+                    }
+                    
+                    .filter-group {
+                        display: flex;
+                        justify-content: flex-start; /* Align left */
+                        gap: 8px;
+                    }
+
+                    .filter-btn {
+                        flex-shrink: 0;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        background: var(--bg-lite);
+                        border: 1px solid var(--border-color);
+                        font-size: 0.75rem;
+                        height: 36px;
+                    }
+                    
+                    .filter-btn svg { width: 14px; height: 14px; }
+                    .filter-btn.active {
+                        background: var(--primary-color);
+                        color: white;
+                        border: none;
+                    }
+
+                    .hide-mobile-text { display: none; }
+
+                    /* --- Seamless Grid Layout --- */
+                    .calendar-container {
+                        gap: 0;
+                    }
+
+                    .calendar-grid {
+                        background: transparent;
+                        border: none;
+                        box-shadow: none;
+                        gap: 0; /* Remove gap for seamless look */
+                    }
+
+                    .day-header {
+                        background: transparent;
+                        border: none;
+                        color: var(--text-sub);
+                        font-size: 0.75rem;
+                        opacity: 0.7;
+                        padding-bottom: 8px;
+                    }
+
+                    .calendar-day {
+                        min-height: 56px; /* Taller touch targets */
+                        aspect-ratio: auto;
+                        border: none; /* No borders */
+                        background: transparent !important; /* Transparent bg */
+                        border-radius: 0;
+                        padding: 4px;
+                        align-items: center;
+                        justify-content: flex-start;
+                        position: relative;
+                    }
+                    
+                    /* Selection Circle */
+                    .day-number {
+                        width: 32px;
+                        height: 32px;
+                        font-size: 0.9rem;
+                        font-weight: 600;
+                        margin-bottom: 4px;
+                        border-radius: 12px; /* Soft square */
+                        transition: all 0.2s ease;
+                        z-index: 2;
+                    }
+
+                    /* Today State */
+                    .calendar-day.today .day-number {
+                        background: var(--primary-color);
+                        color: white;
+                        box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 40%, transparent);
+                    }
+
+                    /* Selected State */
+                    .calendar-day.selected .day-number {
+                        background: white;
+                        color: black;
+                        font-weight: 800;
+                    }
+
+                    /* Event Dots */
+                    .event-indicators {
+                        position: absolute;
+                        bottom: 8px;
+                        left: 0;
+                        right: 0;
+                        display: flex;
+                        justify-content: center;
+                        gap: 3px;
+                    }
+
+                    .event-dot {
+                        width: 5px;
+                        height: 5px;
+                        border-radius: 50%;
+                    }
+                    
+                    .more-events { display: none; }
+
+                    .other-month { opacity: 0.3; }
+
+                    /* --- Events Bottom Sheet --- */
+                    .events-sidebar {
+                        position: fixed;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        border-radius: 24px 24px 0 0;
+                        border: 1px solid var(--border-color);
+                        border-bottom: none;
+                        background: var(--card-bg); /* Use theme variable */
+                        backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        z-index: 1005;
+                        padding: 24px;
+                        padding-bottom: 100px;
+                        box-shadow: 0 -10px 40px rgba(0,0,0,0.15); /* Softer shadow */
+                        max-height: 70vh;
+                        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                        color: var(--text-main);
+                    }
+
+                    .sidebar-header {
+                        position: sticky;
+                        top: 0;
+                        margin-bottom: 20px;
+                        padding-bottom: 0;
+                        border: none;
+                        background: transparent;
+                        justify-content: space-between;
+                        align-items: center;
+                        display: flex;
+                    }
+
+                    .sidebar-header h3 {
+                        font-size: 1.1rem;
+                        font-weight: 800;
+                        color: var(--text-main);
+                        margin: 0;
+                        width: 100%;
+                        text-align: center;
+                    }
+                    
+                    .sidebar-header .close-btn {
+                        position: absolute;
+                        right: 0;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        background: var(--bg-lite);
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: var(--text-sub);
+                        border: 1px solid var(--border-color);
+                        z-index: 20;
+                    }
+
+                    .sidebar-header::before {
+                        content: '';
+                        position: absolute;
+                        top: -12px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 48px;
+                        height: 5px;
+                        background: var(--border-color);
+                        border-radius: 10px;
+                        opacity: 0.5;
+                    }
+                    
+                    /* List Container */
+                    .events-list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                    }
+
+                    /* Event Card Professional Style */
+                    .event-card {
+                        background: var(--bg-lite);
+                        border: 1px solid var(--border-color);
+                        border-radius: 16px;
+                        padding: 16px;
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+                        transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    }
+                    
+                    .event-card:active {
+                        transform: scale(0.98);
+                    }
+
+                    .event-indicator {
+                        width: 4px;
+                        height: 40px;
+                        border-radius: 4px;
+                        flex-shrink: 0;
+                    }
+                    
+                    .event-content {
+                        flex: 1;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                    }
+
+                    .event-content h4 {
+                        font-size: 1rem;
+                        font-weight: 700;
+                        color: var(--text-main);
+                        margin: 0;
+                    }
+
+                    .event-meta {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        font-size: 0.8rem;
+                        color: var(--text-sub);
+                        font-weight: 500;
+                    }
+                    
+                    .event-meta svg {
+                        width: 14px;
+                        height: 14px;
+                    }
+
+                    .status-icon {
+                        color: var(--text-sub);
+                        opacity: 0.5;
+                    }
+                    
+                    .empty-state {
+                        text-align: center;
+                        padding: 40px 20px;
+                        color: var(--text-sub);
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 12px;
+                    }
+                    
+                    .empty-state svg {
+                        width: 48px;
+                        height: 48px;
+                        opacity: 0.3;
+                    }
                 }
             `}</style>
         </div>

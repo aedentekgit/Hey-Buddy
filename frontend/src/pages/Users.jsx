@@ -3,7 +3,7 @@ import api from '../services/api';
 import CustomSelect from '../components/CustomSelect';
 import { toast, Toaster } from 'react-hot-toast';
 import {
-    UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Eye, EyeOff
+    UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Eye, EyeOff, Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -11,6 +11,8 @@ import Pagination from '../components/Pagination';
 import {
     ThStyle, TdStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
 } from '../components/TableStyles';
+import MobileUserCard from '../components/MobileUserCard';
+import GlobalSlideOver from '../components/GlobalSlideOver';
 
 const Users = () => {
     const [users, setUsers] = useState([]);
@@ -121,7 +123,7 @@ const Users = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
 
         // Password Validation
         if (!currentUser && !formData.password) {
@@ -197,7 +199,7 @@ const Users = () => {
                         />
                     </div>
                     <button
-                        className="btn btn-primary"
+                        className="btn btn-primary mobile-fab"
                         onClick={() => handleOpenModal()}
                     >
                         <UserPlus size={20} />
@@ -205,7 +207,7 @@ const Users = () => {
                     </button>
                 </div>
 
-                <div className="table-wrapper">
+                <div className="table-wrapper desktop-table-view">
                     <table style={TableElementStyle}>
                         <thead>
                             <tr>
@@ -345,120 +347,113 @@ const Users = () => {
                     </table>
                 </div>
 
+                {/* Mobile Card View */}
+                <div className="mobile-card-view" style={{ marginTop: '16px' }}>
+                    {loading ? (
+                        <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center' }}>
+                            <Loader2 className="animate-spin" color="var(--primary-color)" size={32} />
+                        </div>
+                    ) : filteredUsers.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-sub)' }}>
+                            No users found.
+                        </div>
+                    ) : (
+                        filteredUsers.map(user => (
+                            <MobileUserCard
+                                key={user._id}
+                                user={user}
+                                onEdit={() => handleOpenModal(user)}
+                                onView={() => handleOpenModal(user, true)}
+                                onDelete={() => setDeleteModal({ isOpen: true, id: user._id })}
+                            />
+                        ))
+                    )}
+                </div>
+
                 {!loading && <Pagination pagination={pagination} onPageChange={handlePageChange} />}
             </div>
 
-            <AnimatePresence>
-                {isModalOpen && (
-                    <div className="modal-backdrop" onClick={handleCloseModal}>
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="modal"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="modal-header">
-                                <h3 className="modal-title">
-                                    {isViewMode ? 'View User' : (currentUser ? 'Edit User' : 'New User')}
-                                </h3>
-                                <button onClick={handleCloseModal} className="modal-close">
-                                    <X size={20} />
+            <GlobalSlideOver
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                title={isViewMode ? 'View User' : (currentUser ? 'Edit User' : 'New User')}
+                actionButton={!isViewMode ? {
+                    label: 'Save User',
+                    icon: <Save size={18} />,
+                    onClick: handleSubmit
+                } : null}
+            >
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '24px' }}>
+                    <div className="form-group">
+                        <label className="form-label">FULL NAME</label>
+                        <input className="input" required disabled={isViewMode} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">EMAIL</label>
+                        <input className="input" type="email" required disabled={isViewMode} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    </div>
+                    {!isViewMode && (
+                        <div className="form-group">
+                            <label className="form-label">PASSWORD {currentUser && '(LEAVE BLANK TO UNCHANGED)'}</label>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    className="input"
+                                    type={showPassword ? "text" : "password"}
+                                    style={{ paddingRight: '40px' }}
+                                    placeholder="Enter password..."
+                                    required={!currentUser}
+                                    value={formData.password}
+                                    onChange={e => {
+                                        setFormData({ ...formData, password: e.target.value });
+                                        setPasswordError(validatePassword(e.target.value) || '');
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '10px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-sub)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: 0
+                                    }}
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
-                            <form onSubmit={handleSubmit}>
-                                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    <div className="form-group">
-                                        <label className="form-label">FULL NAME</label>
-                                        <input className="input" required disabled={isViewMode} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">EMAIL</label>
-                                        <input className="input" type="email" required disabled={isViewMode} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                                    </div>
-                                    {!isViewMode && (
-                                        <div className="form-group">
-                                            <label className="form-label">PASSWORD {currentUser && '(LEAVE BLANK TO UNCHANGED)'}</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <input
-                                                    className="input"
-                                                    type={showPassword ? "text" : "password"}
-                                                    style={{ paddingRight: '40px' }}
-                                                    placeholder="Enter password..."
-                                                    required={!currentUser}
-                                                    value={formData.password}
-                                                    onChange={e => {
-                                                        setFormData({ ...formData, password: e.target.value });
-                                                        setPasswordError(validatePassword(e.target.value) || '');
-                                                    }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        right: '10px',
-                                                        top: '50%',
-                                                        transform: 'translateY(-50%)',
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        color: 'var(--text-sub)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        padding: 0
-                                                    }}
-                                                >
-                                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                </button>
-                                            </div>
-                                            {passwordError && <span className="form-error">{passwordError}</span>}
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', gap: '16px' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label className="form-label">PHONE</label>
-                                            <input className="input" disabled={isViewMode} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label className="form-label">ROLE</label>
-                                            <CustomSelect
-                                                disabled={isViewMode}
-                                                value={formData.role}
-                                                onChange={e => setFormData({ ...formData, role: e.target.value })}
-                                                options={roles.length > 0 ? roles.map(role => ({
-                                                    value: role.name,
-                                                    label: role.name
-                                                })) : [
-                                                    { value: 'admin', label: 'Admin' },
-                                                    { value: 'user', label: 'User' }
-                                                ]}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button
-                                        type="button"
-                                        onClick={handleCloseModal}
-                                        className="btn btn-secondary"
-                                    >
-                                        {isViewMode ? 'Close' : 'Cancel'}
-                                    </button>
-                                    {!isViewMode && (
-                                        <button
-                                            type="submit"
-                                            className="btn btn-primary"
-                                        >
-                                            Save User
-                                        </button>
-                                    )}
-                                </div>
-                            </form>
-                        </motion.div>
+                            {passwordError && <span className="form-error">{passwordError}</span>}
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '16px', flexDirection: 'column' }}>
+                        <div style={{ flex: 1 }}>
+                            <label className="form-label">PHONE</label>
+                            <input className="input" disabled={isViewMode} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <label className="form-label">ROLE</label>
+                            <CustomSelect
+                                disabled={isViewMode}
+                                value={formData.role}
+                                onChange={e => setFormData({ ...formData, role: e.target.value })}
+                                options={roles.length > 0 ? roles.map(role => ({
+                                    value: role.name,
+                                    label: role.name
+                                })) : [
+                                    { value: 'admin', label: 'Admin' },
+                                    { value: 'user', label: 'User' }
+                                ]}
+                            />
+                        </div>
                     </div>
-                )}
-            </AnimatePresence>
+                </form>
+            </GlobalSlideOver>
 
             <ConfirmationModal
                 isOpen={deleteModal.isOpen}
