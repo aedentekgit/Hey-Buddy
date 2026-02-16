@@ -3,7 +3,7 @@ import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 import { Mic, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import VoicePopup from './VoicePopup';
-import './FloatingVoiceIndicator.css';
+import '../styles/FloatingVoiceIndicator.css';
 
 const FloatingVoiceIndicator = () => {
     const { isListening, isAmbient, transcript } = useVoiceAssistant();

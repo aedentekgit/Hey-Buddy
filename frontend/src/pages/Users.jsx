@@ -10,7 +10,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import Pagination from '../components/Pagination';
 import {
     ThStyle, TdStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
-} from '../components/TableStyles';
+} from '../styles/tableStyles';
 import MobileUserCard from '../components/MobileUserCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 

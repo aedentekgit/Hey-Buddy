@@ -12,7 +12,7 @@ import MobileUserCard from '../components/MobileUserCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 import {
     ThStyle, TdStyle, TableElementStyle, SearchInputStyle, SearchBoxStyle, TableRowStyle
-} from '../components/TableStyles';
+} from '../styles/tableStyles';
 
 
 const AdminManagement = () => {

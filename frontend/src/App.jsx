@@ -1,10 +1,16 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
+import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { VoiceAssistantProvider } from './context/VoiceAssistantContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { RealtimeVoiceProvider } from './context/RealtimeVoiceContext';
+
+import ProtectedRoute from './components/ProtectedRoute';
+import { useZoomPrevention } from './hooks/useZoomPrevention';
+
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -19,94 +25,15 @@ import AdminManagement from './pages/AdminManagement';
 import Dashboard from './pages/Dashboard';
 import UserSettings from './pages/UserSettings';
 import Calendar from './pages/Calendar';
-
 import BuddyVision from './pages/BuddyVision';
 import KnowledgeBase from './pages/KnowledgeBase';
 import Automations from './pages/Automations';
 import MobileMoreMenu from './pages/MobileMoreMenu';
 import RealtimeChat from './pages/RealtimeChat';
-import { RealtimeVoiceProvider } from './context/RealtimeVoiceContext';
 
-import DashboardLayout from './components/DashboardLayout';
-import { startLocationTracking, stopLocationTracking } from './services/locationService';
-
-const ProtectedRoute = ({ children, pageId }) => {
-    const { user, loading } = useAuth();
-    const location = useLocation();
-
-    // Start location tracking when user is authenticated
-    useEffect(() => {
-        if (user) {
-            startLocationTracking();
-        } else {
-            stopLocationTracking();
-        }
-
-        return () => {
-            stopLocationTracking();
-        };
-    }, [user]);
-
-    if (loading) return (
-        <div style={{
-            height: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg-color)',
-            color: 'var(--text-main)',
-            fontSize: '0.8rem',
-            fontWeight: '700',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase'
-        }}>
-            Loading...
-        </div>
-    );
-
-    if (!user) return <Navigate to="/login" />;
-
-    // Page Guard check
-    if (pageId && user.allowedPages && !user.allowedPages.includes(pageId)) {
-        console.warn(`Access Denied to ${pageId} for role ${user.role}`);
-        return <Navigate to="/admin/dashboard" />;
-    }
-
-    return <DashboardLayout>{children}</DashboardLayout>;
-};
-
-const useZoomPrevention = () => {
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '-' || e.key === '+' || e.key === '0')) {
-                e.preventDefault();
-            }
-        };
-
-        const handleWheel = (e) => {
-            if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-            }
-        };
-
-        const handleTouchMove = (e) => {
-            if (e.touches.length > 1) {
-                e.preventDefault();
-            }
-        };
-
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('wheel', handleWheel, { passive: false });
-
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-            document.removeEventListener('wheel', handleWheel);
-        };
-    }, []);
-};
-
-function App() {
+const App = () => {
     useZoomPrevention();
+
     return (
         <Router>
             <ThemeProvider>
@@ -115,12 +42,12 @@ function App() {
                         <NotificationProvider>
                             <VoiceAssistantProvider>
                                 <RealtimeVoiceProvider>
-
                                     <Routes>
                                         <Route path="/login" element={<Login />} />
                                         <Route path="/signup" element={<Signup />} />
                                         <Route path="/forgot-password" element={<ForgotPassword />} />
                                         <Route path="/reset-password" element={<ResetPassword />} />
+
                                         <Route
                                             path="/admin/realtime"
                                             element={
@@ -131,7 +58,6 @@ function App() {
                                         />
                                         <Route
                                             path="/admin/buddy"
-
                                             element={
                                                 <ProtectedRoute pageId="buddy">
                                                     <BuddyAssistant />
@@ -202,7 +128,6 @@ function App() {
                                                 </ProtectedRoute>
                                             }
                                         />
-
                                         <Route
                                             path="/admin/vision"
                                             element={
@@ -235,7 +160,6 @@ function App() {
                                                 </ProtectedRoute>
                                             }
                                         />
-                                        {/* User Settings Route - Available to all authenticated users */}
                                         <Route
                                             path="/user/settings"
                                             element={
@@ -254,6 +178,7 @@ function App() {
             </ThemeProvider>
         </Router>
     );
-}
+};
 
 export default App;
+

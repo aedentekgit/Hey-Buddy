@@ -11,7 +11,6 @@ const MobileNavbar = () => {
     const primaryNavItems = [
         { id: 'dashboard', icon: Home, path: '/admin/dashboard', label: 'Home' },
         { id: 'reminders', icon: ListTodo, path: '/admin/reminders', label: 'Tasks' },
-        { id: 'buddy', icon: Mic, path: '/admin/buddy', label: 'Buddy' },
         { id: 'memories', icon: Brain, path: '/admin/memories', label: 'Memory' },
     ].filter(item => user?.allowedPages?.includes(item.id));
 

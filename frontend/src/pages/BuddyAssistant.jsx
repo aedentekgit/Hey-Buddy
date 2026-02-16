@@ -11,10 +11,10 @@ import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 import toast from 'react-hot-toast';
 import { requestNotificationPermission, saveTokenToServer } from '../services/notificationService';
-import { TableContainerStyle } from '../components/TableStyles';
+import { TableContainerStyle } from '../styles/tableStyles';
 import GeminiVoiceAssistant from '../components/GeminiVoiceAssistant';
 import voiceService from '../services/voiceService';
-import './BuddyAssistant.css';
+import '../styles/BuddyAssistant.css';
 
 const BuddyAssistant = () => {
     const location = useLocation();
@@ -413,7 +413,7 @@ const BuddyAssistant = () => {
     ];
 
     return (
-        <div className="assistant-page-wrapper" style={{ background: 'var(--bg-color)', minHeight: '100vh', overflow: 'hidden' }}>
+        <div className="assistant-page-wrapper" style={{ background: 'var(--bg-color)', minHeight: '100vh', overflow: 'hidden', position: 'relative' }}>
             {/* History Sidebar - Overhauled for slide-over glass effect */}
             <AnimatePresence>
                 {showHistory && (
@@ -512,7 +512,7 @@ const BuddyAssistant = () => {
 
             <div className="assistant-container" style={{ padding: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 {!isMobile && (
-                    <div style={{ position: 'fixed', left: '24px', top: '24px', display: 'flex', gap: '12px', zIndex: 100 }}>
+                    <div style={{ position: 'absolute', left: '24px', top: '24px', display: 'flex', gap: '12px', zIndex: 100 }}>
                         <button
                             className="glass-card"
                             onClick={() => setShowHistory(true)}
@@ -531,7 +531,7 @@ const BuddyAssistant = () => {
                     </div>
                 )}
 
-                <div className="center-interaction" style={{ flex: 1, width: '100%', maxWidth: '800px', padding: '120px 20px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: 'calc(100vh - 100px)' }}>
+                <div className="center-interaction" style={{ flex: 1, width: '100%', maxWidth: '1000px', padding: '120px 20px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: 'calc(100vh - 100px)' }}>
                     <input
                         type="file"
                         ref={fileInputRef}

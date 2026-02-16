@@ -689,13 +689,13 @@ const AdminSettings = () => {
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1rem' }}>
                                             <InputGroup label="Host" value={settings.smtp.host} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, host: v } })} placeholder="smtp.mailtrap.io" />
                                             <InputGroup label="Port" value={settings.smtp.port} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, port: v } })} placeholder="465" />
                                         </div>
                                         <InputGroup label="Username" value={settings.smtp.username} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, username: v } })} placeholder="API Key or User" />
                                         <InputGroup label="Password" type="password" value={settings.smtp.password} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, password: v } })} placeholder="••••••••" />
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1rem' }}>
                                             <InputGroup label="From Name" value={settings.smtp.fromName} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, fromName: v } })} placeholder="My Company" />
                                             <InputGroup label="From Email" value={settings.smtp.fromEmail} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, fromEmail: v } })} placeholder="sender@example.com" />
                                         </div>
@@ -1512,16 +1512,47 @@ const AdminSettings = () => {
                         flex-direction: column;
                         align-items: flex-start !important;
                     }
+                    .responsive-section-card {
+                        padding: 1.25rem !important;
+                    }
+                    .responsive-grid-container {
+                        padding: 1.25rem !important;
+                        gap: 1.25rem !important;
+                    }
+                    .responsive-tab-button {
+                        padding: 10px 16px !important;
+                        font-size: 0.8rem !important;
+                    }
                 }
                 @media (max-width: 480px) {
                     .settings-card {
-                        padding: 12px !important;
+                        padding: 10px !important;
                     }
 
                     .settings-tabs button {
                         padding: 8px !important;
                         min-width: 42px;
                     }
+                    .responsive-section-card {
+                        padding: 0.85rem !important;
+                    }
+                    .responsive-grid-container {
+                        padding: 0.85rem !important;
+                        gap: 0.85rem !important;
+                    }
+                    .responsive-tab-button {
+                        padding: 8px 12px !important;
+                        font-size: 0.75rem !important;
+                        border-radius: 10px !important;
+                    }
+                }
+
+                .responsive-section-card {
+                    padding: 2.5rem;
+                }
+                .responsive-grid-container {
+                    padding: 2rem;
+                    gap: 2rem;
                 }
             `}</style>
         </div >
@@ -1788,7 +1819,7 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
 
     return (
         <div className="sms-grid">
-            <section className="settings-section-card">
+            <section className="settings-section-card responsive-section-card">
                 <SectionTitle label="SMS Gateway Configuration" icon={MessageSquare} color="var(--primary-color)" />
 
                 <div style={{ marginBottom: '2rem' }}>
@@ -1812,6 +1843,7 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
                                     boxShadow: activeTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
                                     whiteSpace: 'nowrap'
                                 }}
+                                className="responsive-tab-button"
                             >
                                 {tab.label}
                             </button>
@@ -1837,6 +1869,7 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
                                     boxShadow: moreGateways.some(g => g.id === activeTab) ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
                                     whiteSpace: 'nowrap'
                                 }}
+                                className="responsive-tab-button"
                             >
                                 {moreGateways.find(g => g.id === activeTab)?.label || 'Other Gateways'}
                                 <ChevronDown size={14} style={{ opacity: 0.7 }} />
@@ -1989,7 +2022,7 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <section className="settings-section-card" style={{ padding: '2.5rem' }}>
+            <section className="settings-section-card responsive-section-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
                     <SectionTitle label="Google Calendar Setup" icon={Calendar} color="#4285F4" />
 
@@ -2014,6 +2047,7 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                                     alignItems: 'center',
                                     gap: '8px'
                                 }}
+                                className="responsive-tab-button"
                             >
                                 {tab.label}
                             </button>
@@ -2046,6 +2080,7 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                                 boxShadow: activeAccount === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
                                             }}
+                                            className="responsive-tab-button"
                                         >
                                             {tab.label}
                                         </button>
@@ -2053,11 +2088,9 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                                 </div>
                             </div>
 
-                            <div style={{
+                            <div className="responsive-grid-container" style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                                gap: '2rem',
-                                padding: '2rem',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
                                 background: 'rgba(255, 255, 255, 0.015)',
                                 borderRadius: '20px',
                                 border: '1px solid rgba(255, 255, 255, 0.05)'
@@ -2275,7 +2308,7 @@ const NotificationSettings = ({ settings, setSettings }) => {
     ];
 
     return (
-        <section className="settings-section-card">
+        <section className="settings-section-card responsive-section-card">
             <SectionTitle label="Notification Configuration" icon={Bell} color="var(--primary-color)" />
             <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                 Configure Firebase Cloud Messaging for Web, Android, and iOS.
@@ -2480,7 +2513,7 @@ const StorageSettings = ({ settings, setSettings }) => {
     const isActive = (provider) => settings.storage.activeProvider === provider;
 
     return (
-        <section className="settings-section-card">
+        <section className="settings-section-card responsive-section-card">
             <SectionTitle label="Storage Configuration" icon={Database} color="var(--primary-color)" />
             <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                 Choose where to store your uploaded files. Only one provider can be active.
@@ -2683,7 +2716,7 @@ const PaymentSettings = ({ settings, setSettings }) => {
     const activeGateway = settings.paymentGateways[activeIndex] || settings.paymentGateways[0];
 
     return (
-        <section className="settings-section-card">
+        <section className="settings-section-card responsive-section-card">
             <SectionTitle label="Payment Gateways" icon={CreditCard} color="var(--primary-color)" />
             <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                 Configure multiple payment options for your customers.
@@ -3047,7 +3080,7 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
                         onChange={v => handleUpdate('appVersion', v)}
                         placeholder="1.0.0"
                     />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem' }}>
                         <div>
                             <label style={LabelStyle}>Primary Color</label>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -3087,7 +3120,7 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
             </div>
 
             <SectionTitle label="Platform Identification" icon={ShieldCheck} color="var(--primary-color)" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                 <InputGroup
                     label="Android Package Name"
                     value={settings.mobileApp.androidPackageName}
@@ -3103,7 +3136,7 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
             </div>
 
             <SectionTitle label="Support Information" icon={Mail} color="var(--primary-color)" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1.5rem' }}>
                 <InputGroup
                     label="Mobile Support Email"
                     value={settings.mobileApp.supportEmail}

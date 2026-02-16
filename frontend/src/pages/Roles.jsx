@@ -11,7 +11,7 @@ import MobileRoleCard from '../components/MobileRoleCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 import {
     ThStyle, TdStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
-} from '../components/TableStyles';
+} from '../styles/tableStyles';
 
 const Roles = () => {
     const [roles, setRoles] = useState([]);

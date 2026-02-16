@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import '../Layout.css';
+import '../styles/Layout.css';
 import { initNotifications, onMessageListener } from '../services/notificationService';
 import toast, { Toaster } from 'react-hot-toast';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';

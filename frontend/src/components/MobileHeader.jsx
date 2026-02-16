@@ -183,7 +183,7 @@ const MobileHeader = () => {
                     <input
                         autoFocus
                         type="text"
-                        placeholder="Search buddy..."
+                        placeholder="Ask anything..."
                         value={searchQuery}
                         onChange={handleSearchChange}
                         style={{

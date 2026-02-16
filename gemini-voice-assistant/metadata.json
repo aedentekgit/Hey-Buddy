@@ -1,7 +1,0 @@
-{
-  "name": "Gemini Voice Assistant",
-  "description": "A real-time, high-performance AI voice assistant powered by Gemini 2.5 Flash Native Audio. Features low-latency voice-to-voice interaction with live transcriptions.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
-}

@@ -5,7 +5,7 @@ import {
     PaginationInfoStyle,
     PaginationGroupStyle,
     PaginationButtonStyle
-} from './TableStyles';
+} from '../styles/tableStyles';
 
 const Pagination = ({ pagination, onPageChange }) => {
     if (!pagination || pagination.totalPages <= 1) return null;

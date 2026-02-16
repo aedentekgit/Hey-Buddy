@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 import Pagination from '../components/Pagination';
-import { TableElementStyle } from '../components/TableStyles';
+import { TableElementStyle } from '../styles/tableStyles';
 import MobileMemoryCard from '../components/MobileMemoryCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 

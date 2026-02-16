@@ -10,7 +10,7 @@ import SmartReminderDetails from '../components/SmartReminderDetails';
 import Pagination from '../components/Pagination';
 import {
     ThStyle, TdStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, ActionButtonStyle
-} from '../components/TableStyles';
+} from '../styles/tableStyles';
 import MobileTaskCard from '../components/MobileTaskCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 

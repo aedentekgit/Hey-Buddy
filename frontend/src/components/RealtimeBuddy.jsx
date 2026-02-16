@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Square, Wifi, WifiOff, MessageSquareText } from 'lucide-react';
 import { useRealtimeVoice } from '../context/RealtimeVoiceContext';
-import './RealtimeBuddy.css';
+import '../styles/RealtimeBuddy.css';
 
 const RealtimeBuddy = () => {
     const {

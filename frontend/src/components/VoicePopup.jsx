@@ -4,7 +4,7 @@ import { X, Mic, Send, Loader2, Volume2, StopCircle } from 'lucide-react';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
-import './VoicePopup.css';
+import '../styles/VoicePopup.css';
 
 const VoicePopup = ({ isOpen, onClose }) => {
     const {
