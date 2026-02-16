@@ -1,55 +1,14 @@
 const Settings = require('../models/Settings');
+const path = require('path');
 const { sendTestEmail } = require('../services/emailService');
 const { sendTestSMS } = require('../services/smsService');
 const { sendPushNotification } = require('../services/notificationService');
-const { uploadFileToFirebase } = require('../services/fileService');
+const { uploadFile } = require('../services/fileService');
 
 const getSettings = async (req, res) => {
     try {
-        let settings = await Settings.findOne().select('+smtp.password +ai.geminiApiKey +googleAuth.webClientSecret +googleCalendar.accounts.personal.clientSecret +googleCalendar.accounts.work.clientSecret +googleCalendar.accounts.business.clientSecret');
-        if (!settings) {
-            settings = await Settings.create({
-                general: {
-                    companyName: 'Admin Dashboard',
-                    address: 'Main Headquarters, Silicon Valley',
-                    phone: '9876543210',
-                    countryCode: 'IN',
-                    emails: ['admin@example.com'],
-                    dateFormat: 'DD-MM-YYYY',
-                    timeZone: 'UTC',
-                    timeFormat: '24h'
-                },
-                smtp: { host: '', port: 465, username: '', fromEmail: '', fromName: '', encryption: 'ssl' },
-                sms: {
-                    activeGateway: 'msg91',
-                    gateways: {
-                        msg91: { authKey: '', senderId: '', templateId: '', templateVariable: '', enabled: false }
-                    }
-                },
-                otp: { method: 'both', digits: 4, expiry: 10 },
-                notification: {
-                    firebasePublicVapidKey: '',
-                    firebaseApiKey: '',
-                    firebaseAuthDomain: '',
-                    firebaseProjectId: '',
-                    firebaseStorageBucket: '',
-                    firebaseMessageSenderId: '',
-                    firebaseAppId: '',
-                    firebaseMeasurementId: '',
-                    serviceAccountJson: '',
-                    enabled: false
-                },
-                storage: {
-                    activeProvider: 'local',
-                    local: { uploadPath: 'uploads/' },
-                    cloudinary: { cloudName: '', apiKey: '', apiSecret: '' },
-                    gcs: { bucketName: '', projectId: '', serviceAccountKeyJson: '' }
-                },
-                socialMedia: { facebook: '', instagram: '', whatsapp: '', twitter: '', linkedin: '', youtube: '', github: '' },
-                isConfigured: true
-            });
-        }
-        res.json({ success: true, data: settings });
+        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +googleCalendar.accounts.personal.clientSecret +googleCalendar.accounts.work.clientSecret +googleCalendar.accounts.business.clientSecret');
+        res.json({ success: true, data: settings || {} });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -61,26 +20,57 @@ const updateSettings = async (req, res) => {
         const updateData = req.body;
 
         if (req.files) {
-            updateData.general = JSON.parse(updateData.general || '{}');
+            if (updateData.general) {
+                updateData.general = typeof updateData.general === 'string' ? JSON.parse(updateData.general) : updateData.general;
+            } else {
+                updateData.general = {};
+            }
+
             if (req.files['logo']) {
                 const logoFile = req.files['logo'][0];
                 const destination = `general/logo-${Date.now()}${path.extname(logoFile.originalname)}`;
-                updateData.general.logo = await uploadFileToFirebase(logoFile.buffer, destination, logoFile.mimetype);
+                updateData.general.logo = await uploadFile(logoFile.buffer, destination, logoFile.mimetype);
             }
 
-            updateData.notification = JSON.parse(updateData.notification || '{}');
+            if (updateData.notification) {
+                updateData.notification = typeof updateData.notification === 'string' ? JSON.parse(updateData.notification) : updateData.notification;
+            }
+
             if (req.files['serviceAccountJson']) {
+                updateData.notification = updateData.notification || {};
                 const saFile = req.files['serviceAccountJson'][0];
                 const destination = `config/firebase-sa-${Date.now()}.json`;
-                updateData.notification.serviceAccountJson = await uploadFileToFirebase(saFile.buffer, destination, saFile.mimetype);
+                updateData.notification.serviceAccountJson = await uploadFile(saFile.buffer, destination, saFile.mimetype);
             }
 
-            updateData.storage = JSON.parse(updateData.storage || '{}');
+            if (updateData.storage) {
+                updateData.storage = typeof updateData.storage === 'string' ? JSON.parse(updateData.storage) : updateData.storage;
+            }
+
             if (req.files['gcsKeyJson']) {
+                updateData.storage = updateData.storage || {};
                 const gcsFile = req.files['gcsKeyJson'][0];
                 const destination = `config/gcs-key-${Date.now()}.json`;
                 updateData.storage.gcs = updateData.storage.gcs || {};
-                updateData.storage.gcs.serviceAccountKeyJson = await uploadFileToFirebase(gcsFile.buffer, destination, gcsFile.mimetype);
+                updateData.storage.gcs.serviceAccountKeyJson = await uploadFile(gcsFile.buffer, destination, gcsFile.mimetype);
+            }
+
+            if (updateData.mobileApp) {
+                updateData.mobileApp = typeof updateData.mobileApp === 'string' ? JSON.parse(updateData.mobileApp) : updateData.mobileApp;
+            } else {
+                updateData.mobileApp = {};
+            }
+
+            if (req.files['mobileLogo']) {
+                const mlf = req.files['mobileLogo'][0];
+                const dest = `mobile/logo-${Date.now()}${path.extname(mlf.originalname)}`;
+                updateData.mobileApp.appLogo = await uploadFile(mlf.buffer, dest, mlf.mimetype);
+            }
+
+            if (req.files['splashIcon']) {
+                const sif = req.files['splashIcon'][0];
+                const dest = `mobile/splash-${Date.now()}${path.extname(sif.originalname)}`;
+                updateData.mobileApp.splashIcon = await uploadFile(sif.buffer, dest, sif.mimetype);
             }
         }
 
@@ -96,7 +86,10 @@ const updateSettings = async (req, res) => {
             if (!settings.storage) settings.storage = {};
             if (!settings.socialMedia) settings.socialMedia = {};
 
-            if (updateData.general) Object.assign(settings.general, updateData.general);
+            if (updateData.general) {
+                Object.assign(settings.general, updateData.general);
+                settings.markModified('general');
+            }
 
             if (updateData.smtp) {
                 const { password, ...others } = updateData.smtp;
@@ -125,7 +118,7 @@ const updateSettings = async (req, res) => {
                 settings.markModified('otp');
             }
 
-            if (updateData.notification) {
+            if (updateData.notification && Object.keys(updateData.notification).length > 0) {
                 Object.assign(settings.notification, updateData.notification);
                 settings.markModified('notification');
             }
@@ -192,6 +185,12 @@ const updateSettings = async (req, res) => {
 
                 settings.markModified('googleCalendar');
             }
+
+            if (updateData.mobileApp && Object.keys(updateData.mobileApp).length > 0) {
+                if (!settings.mobileApp) settings.mobileApp = {};
+                Object.assign(settings.mobileApp, updateData.mobileApp);
+                settings.markModified('mobileApp');
+            }
         }
 
         const { general } = settings;
@@ -228,7 +227,7 @@ const testSMS = async (req, res) => {
 
 const getPublicSettings = async (req, res) => {
     try {
-        const settings = await Settings.findOne().select('appearance general googleAuth.webClientId googleAuth.enabled');
+        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled');
         res.json({ success: true, data: settings });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

@@ -1,24 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Search, X } from 'lucide-react';
+import { MapPin, Search, X, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 const MobileHeader = () => {
     const { user } = useAuth();
+    const { settings } = useSettings();
     const [userAddress, setUserAddress] = useState('');
     const [isSearchVisible, setIsSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+
+    const branding = settings?.general || {};
 
     useEffect(() => {
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await res.json();
-                    const city = data.address.city || data.address.town || data.address.village;
-                    const state = data.address.state || data.address.country;
-                    setUserAddress(`${city}, ${state}`);
+                    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+                    const token = localStorage.getItem('token');
+
+                    const res = await fetch(`${baseUrl}/users/reverse-geocode?lat=${latitude}&lon=${longitude}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    const result = await res.json();
+
+                    if (result.success) {
+                        const data = result.data;
+                        const city = data.address.city || data.address.town || data.address.village;
+                        const state = data.address.state || data.address.country;
+                        setUserAddress(`${city}, ${state}`);
+                    }
                 } catch (e) {
+                    console.error("Geocoding failed:", e);
                     setUserAddress("Unknown Location");
                 }
             }, () => {
@@ -66,7 +82,7 @@ const MobileHeader = () => {
                 marginBottom: isSearchVisible ? '10px' : '8px',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {/* Avatar */}
+                    {/* App Logo / Avatar */}
                     <div style={{
                         width: '40px',
                         height: '40px',
@@ -83,18 +99,24 @@ const MobileHeader = () => {
                         position: 'relative',
                         border: '2px solid var(--card-bg)'
                     }}>
-                        {getProfileImageUrl() ? (
+                        {branding.logo ? (
+                            <img
+                                src={branding.logo.startsWith('http') ? branding.logo : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${branding.logo}`}
+                                alt="Logo"
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            />
+                        ) : getProfileImageUrl() ? (
                             <img
                                 src={getProfileImageUrl()}
                                 alt="User"
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                         ) : (
-                            user?.name ? user.name.substring(0, 2).toUpperCase() : 'BU'
+                            <ShieldCheck size={20} color="#FFFFFF" />
                         )}
                     </div>
 
-                    {/* User Info */}
+                    {/* User Info / App Name */}
                     {!isSearchVisible && (
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <div style={{
@@ -104,7 +126,7 @@ const MobileHeader = () => {
                                 lineHeight: '1.2',
                                 letterSpacing: '-0.3px'
                             }}>
-                                {user?.name?.split(' ')[0] || 'User'}
+                                {branding.companyName || user?.name?.split(' ')[0] || 'Buddy'}
                             </div>
                             <div style={{
                                 fontSize: '0.65rem',

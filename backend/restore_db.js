@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
-// No dotenv needed - using local MongoDB on VPS
-const MONGODB_URI = 'mongodb://localhost:27017/staging_Heybuddy';
+// Load environment variables
+require('dotenv').config();
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://82.29.167.22:27017/staging_Heybuddy';
 const IMPORT_DIR = path.join(__dirname, 'db_export');
 
 async function importDB() {

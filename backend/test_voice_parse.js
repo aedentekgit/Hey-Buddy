@@ -1,16 +1,16 @@
 const axios = require('axios');
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:5001/api';
 
 const testParse = async () => {
     try {
         console.log("1. Logging in...");
         const loginRes = await axios.post(`${API_URL}/auth/login`, {
-            email: "admin@example.com",
-            password: "adminpassword123"
+            email: "admin@buddy.com",
+            password: "admin123"
         });
 
-        const token = loginRes.data.data.token;
+        const token = loginRes.data.token || (loginRes.data.data && loginRes.data.data.token);
         console.log("Login successful. Token:", token ? "YES" : "NO");
 
         console.log("2. Testing Voice Parse...");

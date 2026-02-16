@@ -108,7 +108,7 @@ export const ThemeProvider = ({ children }) => {
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
-                const res = await api.get('/settings');
+                const res = await api.get('/settings/public');
                 if (res.data?.data) {
                     const { general, appearance } = res.data.data;
                     if (general?.fontFamily) {

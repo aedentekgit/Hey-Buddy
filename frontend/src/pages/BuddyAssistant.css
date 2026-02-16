@@ -1082,9 +1082,10 @@
         }
     }
 
-    /* Hide Desktop Mic Orbit on Mobile Hero */
+    /* Show Mic Orbit on Mobile Hero */
     .mic-wrapper {
-        display: none !important;
+        display: flex !important;
+        margin: 0 auto 20px auto;
     }
 
     .interaction-text {
@@ -1095,25 +1096,26 @@
 
     /* Reduce Mic Size for Mobile */
     .mic-wrapper {
-        width: 80px;
-        height: 80px;
+        width: 140px;
+        height: 140px;
         flex-shrink: 0;
-        margin-bottom: 0;
+        margin-bottom: 20px;
     }
 
     .ai-orb-glow {
-        width: 80px;
-        height: 80px;
+        width: 140px;
+        height: 140px;
+        filter: blur(20px);
     }
 
     .ai-orb-inner {
-        width: 40px;
-        height: 40px;
+        width: 60px;
+        height: 60px;
     }
 
     .main-mic-btn {
-        width: 80px;
-        height: 80px;
+        width: 140px;
+        height: 140px;
     }
 
     .main-mic-btn.listening .ai-orb-inner {

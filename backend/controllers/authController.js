@@ -121,7 +121,7 @@ const googleLogin = async (req, res) => {
 };
 
 const signup = async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
 
     try {
         const userExists = await User.findOne({ email });
@@ -134,6 +134,7 @@ const signup = async (req, res) => {
             name,
             email,
             password,
+            phone,
             role: 'user' // Explicitly setting as per request, although it's the default
         });
 

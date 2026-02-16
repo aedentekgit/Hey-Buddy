@@ -3,7 +3,6 @@ const axios = require('axios');
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    baseURL: 'https://openrouter.ai/api/v1',
     timeout: 30000,
 });
 
@@ -36,7 +35,7 @@ Return ONLY a JSON object:
 
         try {
             const response = await openai.chat.completions.create({
-                model: "openai/gpt-4o-mini", // Default to a fast model
+                model: "gpt-4o-mini", // Default to a fast model
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: text }

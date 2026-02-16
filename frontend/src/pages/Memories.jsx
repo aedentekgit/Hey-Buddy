@@ -28,7 +28,7 @@ const Memories = () => {
     const [memoryEditContent, setMemoryEditContent] = useState('');
     const [recordEditForm, setRecordEditForm] = useState({ patientName: '', doctorName: '', notes: '' });
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
     const {
         isListening,
@@ -74,9 +74,10 @@ const Memories = () => {
     }, []);
 
     useEffect(() => {
+        const delay = search === '' ? 0 : 500;
         const timeoutId = setTimeout(() => {
             fetchAllItems(1);
-        }, 500);
+        }, delay);
         return () => clearTimeout(timeoutId);
     }, [search]);
 
@@ -190,6 +191,7 @@ const Memories = () => {
                         <thead>
                             <tr>
                                 <th style={{ width: '64px', textAlign: 'center' }} className="buddy-th hide-mobile-th">S.NO</th>
+                                <th style={{ width: '80px', textAlign: 'center' }} className="buddy-th">ICON</th>
                                 <th style={{ textAlign: 'center', minWidth: '200px' }} className="buddy-th">Details</th>
                                 <th style={{ minWidth: '100px', textAlign: 'center' }} className="buddy-th hide-on-mobile">Type</th>
                                 <th style={{ minWidth: '100px', textAlign: 'center' }} className="buddy-th hide-on-mobile">Timestamp</th>
@@ -198,9 +200,9 @@ const Memories = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '100px 0' }}><Loader2 className="animate-spin" color="var(--primary-color)" size={32} /></td></tr>
+                                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '100px 0' }}><Loader2 className="animate-spin" color="var(--primary-color)" size={32} /></td></tr>
                             ) : items.length === 0 ? (
-                                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '100px 0', color: 'var(--text-sub)' }}>No items found. Buddy is ready to learn!</td></tr>
+                                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '100px 0', color: 'var(--text-sub)' }}>No items found. Buddy is ready to learn!</td></tr>
                             ) : (
                                 items.map((item, idx) => (
                                     <motion.tr
@@ -213,31 +215,32 @@ const Memories = () => {
                                             {(pagination.currentPage - 1) * pagination.limit + idx + 1}
                                         </td>
 
-                                        <td className="buddy-td" data-label="Detail">
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                                                {/* Consistent Icon Container */}
-                                                <div style={{
-                                                    width: '36px',
-                                                    height: '36px',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    background: 'var(--bg-lite)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    color: item.type === 'memory' ? 'var(--secondary-color)' : 'var(--primary-color)',
-                                                    border: '1px solid var(--border-color)',
-                                                    flexShrink: 0
-                                                }}>
-                                                    {item.type === 'memory' ? <Brain size={18} /> : <FileText size={18} />}
-                                                </div>
+                                        <td className="buddy-td" style={{ textAlign: 'center' }}>
+                                            <div style={{
+                                                width: '36px',
+                                                height: '36px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                background: 'var(--bg-lite)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: item.type === 'memory' ? 'var(--secondary-color)' : 'var(--primary-color)',
+                                                border: '1px solid var(--border-color)',
+                                                margin: '0 auto'
+                                            }}>
+                                                {item.type === 'memory' ? <Brain size={18} /> : <FileText size={18} />}
+                                            </div>
+                                        </td>
 
+                                        <td className="buddy-td" data-label="Detail">
+                                            <div style={{ textAlign: 'center' }}>
                                                 {/* Content based on type */}
                                                 {item.type === 'memory' ? (
-                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.875rem', textAlign: 'center' }}>
+                                                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.875rem' }}>
                                                         {item.content?.substring(0, 60)}{item.content?.length > 60 ? '...' : ''}
                                                     </div>
                                                 ) : (
-                                                    <div style={{ textAlign: 'center' }}>
+                                                    <div>
                                                         <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.875rem' }}>
                                                             {item.fileName || 'Medical Document'}
                                                         </div>

@@ -167,6 +167,18 @@ const settingsSchema = new mongoose.Schema({
         themeMode: { type: String, default: 'night' },
         accentColor: { type: String, default: '#0075ff' }
     },
+    mobileApp: {
+        appName: String,
+        appLogo: String,
+        splashIcon: String,
+        androidPackageName: String,
+        iosBundleId: String,
+        appVersion: { type: String, default: '1.0.0' },
+        primaryColor: { type: String, default: '#0075ff' },
+        secondaryColor: { type: String, default: '#ffffff' },
+        supportEmail: String,
+        supportPhone: String
+    },
     isConfigured: { type: Boolean, default: false }
 }, { timestamps: true });
 

@@ -7,7 +7,7 @@ dotenv.config();
 
 const seedData = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/staging_Heybuddy');
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://82.29.167.22:27017/staging_Heybuddy');
         console.log('Connected to MongoDB for seeding...');
 
         // 1. Seed Roles
@@ -15,8 +15,8 @@ const seedData = async () => {
             {
                 name: 'admin',
                 description: 'System Administrator with full access',
-                permissions: ['dashboard', 'analytics', 'users', 'roles', 'settings', 'buddy', 'memories', 'reminders'],
-                allowedPages: ['dashboard', 'users', 'roles', 'settings', 'buddy', 'memories', 'reminders'],
+                permissions: ['dashboard', 'analytics', 'users', 'roles', 'settings', 'buddy', 'memories', 'reminders', 'management'],
+                allowedPages: ['dashboard', 'users', 'roles', 'settings', 'buddy', 'memories', 'reminders', 'management'],
                 isSystem: true
             },
             {

@@ -5,11 +5,10 @@ const path = require('path');
 const fs = require('fs');
 const { OpenAI } = require('openai');
 const paginate = require('../utils/paginate');
-const { uploadFileToFirebase } = require('../services/fileService');
+const { uploadFile } = require('../services/fileService');
 
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: process.env.OPENAI_API_KEY
 });
 
 const recordController = {
@@ -27,16 +26,16 @@ const recordController = {
             const prompt = `Extract medical info from this prescription as JSON: {patientName, doctorName, medicines: [{name, dosage, frequency: {morning, afternoon, night}, timing, duration, instructions}], notes, warnings, summary}. Language: ${language}`;
 
             const response = await openai.chat.completions.create({
-                model: "openai/gpt-4o-mini",
+                model: "gpt-4o-mini",
                 messages: [{ role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: dataUrl } }] }],
                 response_format: { type: "json_object" }
             });
 
             const extractedData = JSON.parse(response.choices[0].message.content);
 
-            // Upload to Firebase
+            // Upload using unified service (respects activeProvider & has local fallback)
             const destination = `prescriptions/${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
-            const publicUrl = await uploadFileToFirebase(req.file.buffer, destination, req.file.mimetype);
+            const publicUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
 
             const prescription = await Prescription.create({
                 userId,
@@ -129,6 +128,24 @@ const recordController = {
     deleteMemory: async (req, res) => {
         await Memory.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
         res.json({ success: true, message: "Deleted." });
+    },
+
+    createMemory: async (req, res) => {
+        try {
+            const { content, category } = req.body;
+            if (!content) return res.status(400).json({ success: false, message: "Content is required" });
+
+            const memory = await Memory.create({
+                userId: req.user._id,
+                content,
+                category: category || 'general'
+            });
+
+            res.status(201).json({ success: true, data: memory });
+        } catch (error) {
+            console.error('Create Memory Error:', error);
+            res.status(500).json({ success: false, message: "Failed to save memory" });
+        }
     },
 
     getAllRecords: async (req, res) => {

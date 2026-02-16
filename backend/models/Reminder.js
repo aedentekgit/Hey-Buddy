@@ -126,4 +126,13 @@ const reminderSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+// Performance Indexes
+reminderSchema.index({ userId: 1 });
+reminderSchema.index({ status: 1 });
+reminderSchema.index({ intent: 1 });
+reminderSchema.index({ priority: 1 });
+reminderSchema.index({ googleEventId: 1 });
+reminderSchema.index({ createdAt: -1 });
+reminderSchema.index({ updatedAt: -1 });
+
 module.exports = mongoose.model('Reminder', reminderSchema);

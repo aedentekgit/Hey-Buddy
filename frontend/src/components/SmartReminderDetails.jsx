@@ -305,8 +305,8 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                         <div>
                             <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-sub)' }}>Adjusted Notification Time</div>
                             <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--primary-glow)' }}>
-                                {reminder.time ? (() => {
-                                    const [hours, mins] = reminder.time.split(':');
+                                {activeReminder.time ? (() => {
+                                    const [hours, mins] = activeReminder.time.split(':');
                                     const date = new Date();
                                     date.setHours(hours);
                                     date.setMinutes(mins - bufferTime);
@@ -496,10 +496,10 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                 </DetailCard>
 
                 {/* Sharing & Collaboration Section */}
-                {reminder.sharedWith && reminder.sharedWith.length > 0 && (
+                {activeReminder.sharedWith && activeReminder.sharedWith.length > 0 && (
                     <DetailCard title={<><Share2 size={20} /> Sharing & Collaboration</>}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {reminder.sharedWith.map((share, idx) => (
+                            {activeReminder.sharedWith.map((share, idx) => (
                                 <div key={idx} style={{
                                     display: 'flex',
                                     justifyContent: 'space-between',
@@ -546,7 +546,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                         <button
                                             onClick={async () => {
                                                 try {
-                                                    await api.delete(`/reminders/${reminder._id}/unshare/${share.user._id}`);
+                                                    await api.delete(`/reminders/${activeReminder._id}/unshare/${share.user._id}`);
                                                     toast.success('User removed from shared list');
                                                     onUpdate();
                                                 } catch (err) {
@@ -756,7 +756,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                 <div style={{ paddingLeft: '24px' }}>
                     <h4 style={{ margin: '0 0 24px 0', fontSize: '1.1rem', fontWeight: '700' }}>Timeline</h4>
                     <div style={{ borderLeft: '2px solid var(--border-color)', paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                        {reminder.timeline?.length > 0 ? reminder.timeline.map((item, i) => (
+                        {activeReminder.timeline?.length > 0 ? activeReminder.timeline.map((item, i) => (
                             <div key={i} style={{ position: 'relative' }}>
                                 <div style={{
                                     position: 'absolute',
@@ -783,7 +783,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                     background: 'var(--primary-color)',
                                 }} />
                                 <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>Reminder Created</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{new Date(reminder.createdAt).toLocaleString()}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{new Date(activeReminder.createdAt).toLocaleString()}</div>
                             </div>
                         )}
                     </div>

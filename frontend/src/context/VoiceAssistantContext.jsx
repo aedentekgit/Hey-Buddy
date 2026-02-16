@@ -76,7 +76,11 @@ export const VoiceAssistantProvider = ({ children }) => {
 
     // Turn-taking logic with inhibit check
     const processInteraction = async (text) => {
-        if (preventProcessing) return;
+        // Mute/Disable if we have preventProcessing (e.g. on Buddy page)
+        if (preventProcessing) {
+            console.log('[VoiceContext] Interaction inhibited because preventProcessing is true');
+            return;
+        }
         setStatus('PROCESSING');
         try {
             const result = await voiceService.parseVoice(text, language, conversationHistory, conversationId);
@@ -98,27 +102,12 @@ export const VoiceAssistantProvider = ({ children }) => {
         }
     };
 
-    // Step 7 & 8: Convert text to speech and Play
+    // Step 7 & 8: Convert text to speech and Play (Muted to favor Gemini)
     const speak = (text) => {
         return new Promise((resolve) => {
-            if (!window.speechSynthesis) return resolve();
-
-            // Clear any emojis/markdown
-            const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = language;
-
-            isSpeakingRef.current = true;
-            setStatus('SPEAKING');
-
-            utterance.onend = () => {
-                isSpeakingRef.current = false;
-                setStatus('IDLE');
-                setTranscript('');
-                resolve();
-            };
-
-            window.speechSynthesis.speak(utterance);
+            console.log('[VoiceContext] speak() called (MUTED):', text);
+            // window.speechSynthesis.speak(utterance) removed to ensure single-voice experience
+            resolve();
         });
     };
 

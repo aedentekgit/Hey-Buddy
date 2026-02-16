@@ -296,7 +296,7 @@ const UserSettings = () => {
 
             // Construct backend URL (assuming backend is on port 5000 for localhost, or use relative if proxy)
             // Ideally use import.meta.env.VITE_API_URL but need to strip /api
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
             const rootUrl = baseUrl.replace('/api', '');
 
             // Ensure proper slash handling

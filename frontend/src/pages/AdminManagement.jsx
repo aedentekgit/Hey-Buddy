@@ -3,7 +3,7 @@ import api from '../services/api';
 import CustomSelect from '../components/CustomSelect';
 import { toast, Toaster } from 'react-hot-toast';
 import {
-    UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Mail, Phone, ShieldCheck, Eye, EyeOff, Save
+    UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Mail, Phone, ShieldCheck, Eye, EyeOff, Save, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -29,6 +29,8 @@ const AdminManagement = () => {
         phone: '',
         role: 'admin'
     });
+    const [profileImage, setProfileImage] = useState(null);
+    const [previewImage, setPreviewImage] = useState(null);
 
     const [showPassword, setShowPassword] = useState(false);
     const [passwordError, setPasswordError] = useState('');
@@ -83,15 +85,15 @@ const AdminManagement = () => {
     };
 
     useEffect(() => {
-        fetchUsers(1);
         fetchRoles();
     }, []);
 
-    // Debounced search
+    // Unified fetch on mount and search
     useEffect(() => {
+        const delay = searchTerm === '' ? 0 : 500;
         const timeoutId = setTimeout(() => {
             fetchUsers(1);
-        }, 500);
+        }, delay);
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
 
@@ -114,6 +116,8 @@ const AdminManagement = () => {
                 phone: user.phone || '',
                 role: user.role || 'admin'
             });
+            setPreviewImage(user.profilePicture || null);
+            setProfileImage(null);
         } else {
             setCurrentUser(null);
             setFormData({
@@ -123,6 +127,8 @@ const AdminManagement = () => {
                 phone: '',
                 role: 'admin'
             });
+            setPreviewImage(null);
+            setProfileImage(null);
         }
         setIsModalOpen(true);
     };
@@ -151,23 +157,68 @@ const AdminManagement = () => {
 
         const toastId = toast.loading(currentUser ? 'Updating...' : 'Creating...');
         try {
+            let userId = currentUser ? currentUser._id : null;
+            let res;
+
             if (currentUser) {
-                const res = await api.put(`/users/${currentUser._id}`, formData);
-                if (res.data.success) {
-                    toast.success('Admin updated', { id: toastId });
-                    fetchUsers();
-                    handleCloseModal();
-                }
+                res = await api.put(`/users/${currentUser._id}`, formData);
             } else {
-                const res = await api.post('/users', formData);
+                res = await api.post('/users', formData);
                 if (res.data.success) {
-                    toast.success('Admin created', { id: toastId });
-                    fetchUsers();
-                    handleCloseModal();
+                    userId = res.data.data._id;
                 }
+            }
+
+            if (res.data.success) {
+                // Upload Profile Picture if selected
+                if (profileImage && userId) {
+                    const formDataObj = new FormData();
+                    formDataObj.append('profilePicture', profileImage);
+                    try {
+                        await api.post(`/users/${userId}/avatar`, formDataObj, {
+                            headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+                    } catch (uploadError) {
+                        console.error("Profile upload failed", uploadError);
+                        toast.error("Admin saved, but profile picture failed to upload", { id: toastId });
+                        fetchUsers();
+                        handleCloseModal();
+                        return;
+                    }
+                }
+
+                toast.success(currentUser ? 'Admin updated' : 'Admin created', { id: toastId });
+                fetchUsers();
+                handleCloseModal();
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Action failed', { id: toastId });
+        }
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setProfileImage(file);
+            setPreviewImage(URL.createObjectURL(file));
+        }
+    };
+
+    const handleRemoveProfilePicture = async () => {
+        if (!currentUser) {
+            setProfileImage(null);
+            setPreviewImage(null);
+            return;
+        }
+
+        try {
+            await api.delete(`/users/${currentUser._id}/avatar`);
+            setPreviewImage(null);
+            setProfileImage(null);
+            toast.success("Profile picture removed");
+            setUsers(prev => prev.map(u => u._id === currentUser._id ? { ...u, profilePicture: null } : u));
+        } catch (error) {
+            toast.error("Failed to remove profile picture");
         }
     };
 
@@ -223,6 +274,7 @@ const AdminManagement = () => {
                         <thead>
                             <tr>
                                 <th style={{ width: '64px', textAlign: 'center' }} className="buddy-th hide-mobile-th">S.NO</th>
+                                <th style={{ width: '80px', textAlign: 'center' }} className="buddy-th">Profile</th>
                                 <th style={{ textAlign: 'center', minWidth: '200px' }} className="buddy-th">Admin Info</th>
                                 <th className="buddy-th hide-on-tablet">Contact Details</th>
                                 <th style={{ minWidth: '120px' }} className="buddy-th">Work Role</th>
@@ -251,11 +303,32 @@ const AdminManagement = () => {
                                         className="mobile-stacked-row"
                                     >
                                         <td style={{ textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', borderLeft: 'none', padding: '18px 10px' }} className="buddy-td hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
+                                        <td className="buddy-td" style={{ textAlign: 'center' }}>
+                                            <div style={{
+                                                width: '40px',
+                                                height: '40px',
+                                                borderRadius: '50%',
+                                                overflow: 'hidden',
+                                                margin: '0 auto',
+                                                border: '1px solid var(--border-color)',
+                                                background: 'var(--bg-lite)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                {user.profilePicture ? (
+                                                    <img
+                                                        src={user.profilePicture.startsWith('http') ? user.profilePicture : `${import.meta.env.VITE_BACKEND_URL}${user.profilePicture}`}
+                                                        alt={user.name}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    />
+                                                ) : (
+                                                    <UserIcon size={20} color="var(--text-sub)" />
+                                                )}
+                                            </div>
+                                        </td>
                                         <td style={{ borderLeft: 'none', borderRight: 'none' }} data-label="Admin" className="buddy-td">
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                                                <div className="hide-on-mobile" style={{ width: '36px', height: '36px', background: 'var(--card-bg)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', flexShrink: 0 }}>
-                                                    <UserIcon size={16} color="var(--primary-glow)" />
-                                                </div>
                                                 <div style={{ textAlign: 'center', minWidth: 0 }}>
                                                     <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem', wordBreak: 'break-word', lineHeight: '1.2' }}>
                                                         {user.name || (user.email === 'admin@example.com' ? 'Super Admin' : 'N/A')}
@@ -361,41 +434,71 @@ const AdminManagement = () => {
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
 
-                        <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
+                        {/* Profile Picture Upload Section */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                             <div style={{
-                                width: '80px',
-                                height: '80px',
-                                borderRadius: '24px',
+                                width: '100px',
+                                height: '100px',
+                                borderRadius: '50%',
                                 background: 'var(--bg-lite)',
-                                border: '1px dashed var(--border-color)',
+                                border: '2px dashed var(--border-color)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                color: 'var(--text-sub)'
+                                overflow: 'hidden',
+                                position: 'relative'
                             }}>
-                                <UserIcon size={32} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div className="form-group" style={{ marginBottom: '16px' }}>
-                                    <label className="form-label" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: 'var(--text-main)' }}>FULL NAME</label>
-                                    <input
-                                        className="input"
-                                        required
-                                        disabled={isViewMode}
-                                        value={formData.name}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        style={{
-                                            width: '100%',
-                                            padding: '12px',
-                                            borderRadius: '12px',
-                                            border: '1px solid var(--border-color)',
-                                            background: 'var(--bg-lite)',
-                                            color: 'var(--text-main)',
-                                            fontSize: '1rem'
-                                        }}
+                                {previewImage ? (
+                                    <img
+                                        src={previewImage.startsWith('http') || previewImage.startsWith('blob') ? previewImage : `${import.meta.env.VITE_BACKEND_URL}${previewImage}`}
+                                        alt="Preview"
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
-                                </div>
+                                ) : (
+                                    <UserIcon size={40} color="var(--text-sub)" />
+                                )}
                             </div>
+
+                            {!isViewMode && (
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <label className="btn btn-sm btn-secondary" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Camera size={14} />
+                                        <span>{previewImage ? 'Change' : 'Upload'}</span>
+                                        <input type="file" hidden accept="image/*" onChange={handleFileChange} />
+                                    </label>
+                                    {previewImage && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-danger"
+                                            onClick={handleRemoveProfilePicture}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <Trash2 size={14} />
+                                            <span>Remove</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                            <label className="form-label" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: 'var(--text-main)' }}>FULL NAME</label>
+                            <input
+                                className="input"
+                                required
+                                disabled={isViewMode}
+                                value={formData.name}
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-lite)',
+                                    color: 'var(--text-main)',
+                                    fontSize: '1rem'
+                                }}
+                            />
                         </div>
 
                         <div className="form-group" style={{ marginBottom: '24px' }}>

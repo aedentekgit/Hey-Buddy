@@ -38,7 +38,7 @@
     padding: 0 24px;
     position: sticky;
     top: 0;
-    margin: 0 15px 24px 15px;
+    margin: 0 0 24px 0;
     z-index: 900;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     background: transparent;
@@ -50,8 +50,8 @@
     background: var(--header-bg);
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    top: 15px;
-    margin-top: 15px;
+    top: 20px;
+    margin-top: 20px;
     backdrop-filter: blur(20px) saturate(180%);
     box-shadow: var(--card-shadow);
 }
@@ -65,8 +65,8 @@
 
 .content-container {
     padding: 24px;
-    max-width: 1400px;
-    margin: 0 auto;
+    max-width: 1600px;
+    margin: 0;
     width: 100%;
 }
 

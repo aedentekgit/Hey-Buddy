@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const voiceService = {
     parseVoice: async (text, language = 'en-US', history = [], conversationId = null) => {
@@ -73,6 +73,14 @@ const voiceService = {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response;
+    },
+
+    createMemory: async (content, category = 'general') => {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/voice/memories`, { content, category }, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
     },
 
     deleteMemory: async (id) => {

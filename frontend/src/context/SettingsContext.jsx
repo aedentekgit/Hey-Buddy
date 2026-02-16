@@ -75,7 +75,7 @@ export const SettingsProvider = ({ children }) => {
         if (!data || !data.general) return;
 
         const { companyName, logo } = data.general;
-        const fullLogoUrl = logo ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${logo}` : null;
+        const fullLogoUrl = logo ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${logo}` : null;
 
         // Helper to set meta tag
         const setMetaTag = (property, content) => {

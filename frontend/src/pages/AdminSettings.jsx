@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import CustomSelect from '../components/CustomSelect'; // Import CustomSelectDropdown
@@ -7,7 +7,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import {
     Settings, Mail, MessageSquare, CreditCard, Share2, Palette, Save, Plus, Trash2, Send, Upload, ChevronRight, Globe,
     Facebook, Instagram, Twitter, Linkedin, Youtube, ExternalLink, RefreshCw, CheckCircle2, ShieldCheck, Zap, Eye, EyeOff, Lock, ChevronDown, Bell, Database, Calendar, Link2,
-    Sun, Moon, Volume2, Copy, FileJson, Clock
+    Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +32,9 @@ const AdminSettings = () => {
         accentColor, setAccentColor
     } = useTheme();
     const { refreshSettings } = useSettings();
+    const logoInputRef = useRef(null);
+    const mobileLogoInputRef = useRef(null);
+    const splashIconInputRef = useRef(null);
 
     // Apply font globally
     const applyFont = (font) => {
@@ -84,7 +87,8 @@ const AdminSettings = () => {
             androidClientId: '',
             iosClientId: '',
             enabled: false
-        }
+        },
+        mobileApp: { appName: '', appLogo: '', splashIcon: '', androidPackageName: '', iosBundleId: '', appVersion: '1.0.0', primaryColor: '#0075ff', secondaryColor: '#ffffff', supportEmail: '', supportPhone: '' }
     });
 
 
@@ -132,7 +136,8 @@ const AdminSettings = () => {
                         paymentGateways: settings.paymentGateways.map(dg => {
                             const eg = (data.paymentGateways || []).find(g => g.name === dg.name);
                             return eg ? { ...dg, ...eg } : dg;
-                        })
+                        }),
+                        mobileApp: { ...settings.mobileApp, ...(data.mobileApp || {}) }
                     };
 
                     setSettings(mergedSettings);
@@ -208,6 +213,7 @@ const AdminSettings = () => {
         formData.append('logo', file);
         formData.append('general', JSON.stringify(settings.general));
 
+        const loadToast = toast.loading('Uploading logo...');
         try {
             const res = await api.put('/settings', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -215,10 +221,73 @@ const AdminSettings = () => {
             if (res.data.success) {
                 setSettings(prev => ({ ...prev, general: res.data.data.general }));
                 refreshSettings();
-                toast.success('Logo uploaded successfully');
+                toast.success('Logo uploaded successfully', { id: loadToast });
             }
         } catch (error) {
-            toast.error('Logo upload failed');
+            console.error('Logo upload error:', error);
+            toast.error('Logo upload failed', { id: loadToast });
+        }
+    };
+
+    const handleRemoveLogo = async () => {
+        if (!window.confirm('Are you sure you want to remove the logo?')) return;
+
+        const loadToast = toast.loading('Removing logo...');
+        try {
+            const updatedGeneral = { ...settings.general, logo: '' };
+            const res = await api.put('/settings', { general: updatedGeneral });
+            if (res.data.success) {
+                setSettings(prev => ({ ...prev, general: res.data.data.general }));
+                refreshSettings();
+                toast.success('Logo removed successfully', { id: loadToast });
+            }
+        } catch (error) {
+            console.error('Logo removal error:', error);
+            toast.error('Logo removal failed', { id: loadToast });
+        }
+    };
+
+    const handleMobileAssetUpload = async (e, field) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append(field, file);
+        formData.append('mobileApp', JSON.stringify(settings.mobileApp));
+
+        const label = field === 'mobileLogo' ? 'App Logo' : 'Splash Icon';
+        const loadToast = toast.loading(`Uploading ${label}...`);
+        try {
+            const res = await api.put('/settings', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (res.data.success) {
+                setSettings(prev => ({ ...prev, mobileApp: res.data.data.mobileApp }));
+                refreshSettings();
+                toast.success(`${label} uploaded successfully`, { id: loadToast });
+            }
+        } catch (error) {
+            console.error(`${label} upload error:`, error);
+            toast.error(`${label} upload failed`, { id: loadToast });
+        }
+    };
+
+    const handleRemoveMobileAsset = async (field) => {
+        const label = field === 'appLogo' ? 'App Logo' : 'Splash Icon';
+        if (!window.confirm(`Are you sure you want to remove the ${label.toLowerCase()}?`)) return;
+
+        const loadToast = toast.loading(`Removing ${label}...`);
+        try {
+            const updatedMobile = { ...settings.mobileApp, [field]: '' };
+            const res = await api.put('/settings', { mobileApp: updatedMobile });
+            if (res.data.success) {
+                setSettings(prev => ({ ...prev, mobileApp: res.data.data.mobileApp }));
+                refreshSettings();
+                toast.success(`${label} removed successfully`, { id: loadToast });
+            }
+        } catch (error) {
+            console.error(`${label} removal error:`, error);
+            toast.error(`${label} removal failed`, { id: loadToast });
         }
     };
 
@@ -275,7 +344,8 @@ const AdminSettings = () => {
         { id: 'appearance', label: 'Appearance', icon: Palette, color: 'var(--primary-color)' },
         { id: 'ai', label: 'AI Engine', icon: Zap, color: 'var(--primary-color)' },
         { id: 'integrations', label: 'Integrations', icon: Link2, color: 'var(--primary-color)' },
-        { id: 'auth', label: 'Authentication', icon: ShieldCheck, color: 'var(--primary-color)' }
+        { id: 'auth', label: 'Authentication', icon: ShieldCheck, color: 'var(--primary-color)' },
+        { id: 'mobile', label: 'Mobile App', icon: Smartphone, color: 'var(--primary-color)' }
     ];
 
 
@@ -379,27 +449,63 @@ const AdminSettings = () => {
                                         <div style={{ marginBottom: '1.5rem' }}>
                                             <label style={LabelStyle}>Logo</label>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <div style={{
-                                                    width: '64px',
-                                                    height: '64px',
-                                                    borderRadius: '12px',
-                                                    background: 'var(--bg-color)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    overflow: 'hidden',
-                                                    border: '1px solid var(--border-color)'
-                                                }}>
+                                                <div
+                                                    onClick={() => logoInputRef.current?.click()}
+                                                    style={{
+                                                        width: '64px',
+                                                        height: '64px',
+                                                        borderRadius: '12px',
+                                                        background: 'var(--bg-color)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        overflow: 'hidden',
+                                                        border: '1px solid var(--border-color)',
+                                                        cursor: 'pointer'
+                                                    }}>
                                                     {settings.general.logo ? (
-                                                        <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${settings.general.logo}`} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                        <img
+                                                            src={settings.general.logo.startsWith('http')
+                                                                ? settings.general.logo
+                                                                : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${settings.general.logo}`
+                                                            }
+                                                            alt="Logo"
+                                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                        />
                                                     ) : (
                                                         <Upload color="var(--text-sub)" size={20} />
                                                     )}
                                                 </div>
-                                                <label style={UploadButtonStyle}>
-                                                    Update
-                                                    <input type="file" hidden onChange={handleLogoUpload} accept="image/*" />
-                                                </label>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <label
+                                                        onClick={() => logoInputRef.current?.click()}
+                                                        style={{ ...UploadButtonStyle, cursor: 'pointer', margin: 0, textAlign: 'center' }}
+                                                    >
+                                                        Update Logo
+                                                    </label>
+                                                    {settings.general.logo && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleRemoveLogo}
+                                                            style={{
+                                                                ...UploadButtonStyle,
+                                                                background: 'transparent',
+                                                                color: 'var(--danger-color)',
+                                                                borderColor: 'var(--danger-color)',
+                                                                marginTop: 0
+                                                            }}
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    )}
+                                                    <input
+                                                        ref={logoInputRef}
+                                                        type="file"
+                                                        hidden
+                                                        onChange={handleLogoUpload}
+                                                        accept="image/*"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 
@@ -556,24 +662,25 @@ const AdminSettings = () => {
                                     <section>
                                         <SectionTitle label="SMTP Configuration" icon={Zap} color="var(--primary-color)" />
 
-                                        <div style={{ marginBottom: '1.25rem' }}>
+                                        <div style={{ marginBottom: '2rem' }}>
                                             <label style={LabelStyle}>Quick Setup</label>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                                                 {smtpPresets.map(preset => (
                                                     <button
                                                         key={preset.name}
                                                         type="button"
                                                         onClick={() => handleSmtpPreset(preset)}
                                                         style={{
-                                                            padding: '6px 12px',
-                                                            borderRadius: '8px',
-                                                            border: '1px solid var(--border-color)',
-                                                            background: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? 'var(--primary-color)' : 'var(--bg-color)',
+                                                            padding: '12px 28px',
+                                                            borderRadius: '14px',
+                                                            border: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                                            background: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? 'var(--primary-color)' : 'var(--bg-lite)',
                                                             color: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? 'white' : 'var(--text-sub)',
-                                                            fontSize: '0.75rem',
-                                                            fontWeight: '600',
                                                             cursor: 'pointer',
-                                                            transition: 'all 0.2s'
+                                                            fontWeight: '750',
+                                                            fontSize: '0.9rem',
+                                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                            boxShadow: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
                                                         }}
                                                     >
                                                         {preset.name}
@@ -1229,6 +1336,15 @@ const AdminSettings = () => {
                             {activeTab === 'auth' && (
                                 <GoogleAuthSettings settings={settings} setSettings={setSettings} />
                             )}
+
+                            {activeTab === 'mobile' && (
+                                <MobileAppSettings
+                                    settings={settings}
+                                    setSettings={setSettings}
+                                    handleAssetUpload={handleMobileAssetUpload}
+                                    handleRemoveAsset={handleRemoveMobileAsset}
+                                />
+                            )}
                         </motion.div>
                     </AnimatePresence>
 
@@ -1534,28 +1650,25 @@ const PaymentCardStyle = (enabled) => ({ padding: '1rem', borderRadius: 'var(--r
 // Appearance Styles
 const AppearanceLabelStyle = { fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '0.5rem', display: 'block', letterSpacing: '-0.02em' };
 const ModeToggleContainer = {
-    display: 'inline-flex',
-    background: 'var(--bg-lite)',
-    padding: '4px',
-    borderRadius: 'var(--radius-lg)',
-    border: '1px solid var(--border-color)',
-    gap: '4px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '12px',
+    marginBottom: '1rem'
 };
 const ModeButtonStyle = (active) => ({
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '10px 24px',
+    padding: '12px 28px',
     borderRadius: '14px',
-    background: active ? 'var(--primary-color)' : 'rgba(255, 255, 255, 0.03)',
+    background: active ? 'var(--primary-color)' : 'var(--bg-lite)',
     color: active ? 'white' : 'var(--text-sub)',
-    fontWeight: '700',
-    fontSize: '0.85rem',
+    fontWeight: '750',
+    fontSize: '0.9rem',
     cursor: 'pointer',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    border: '1px solid',
-    borderColor: active ? 'var(--primary-color)' : 'var(--border-color)',
-    boxShadow: active ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
+    border: active ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+    boxShadow: active ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
 });
 const RadioOptionStyle = { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-main)' };
 const RadioOuter = (active) => ({ width: '22px', height: '22px', borderRadius: '50%', border: `2px solid ${active ? 'var(--primary-color)' : 'var(--border-color)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' });
@@ -1678,92 +1791,95 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
             <section className="settings-section-card">
                 <SectionTitle label="SMS Gateway Configuration" icon={MessageSquare} color="var(--primary-color)" />
 
-                <div className="responsive-tabs-wrapper">
-                    {mainTabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setActiveTab(tab.id)}
-                            style={{
-                                padding: '10px 24px',
-                                borderRadius: '10px',
-                                border: 'none',
-                                background: activeTab === tab.id ? 'var(--primary-color)' : 'transparent',
-                                color: activeTab === tab.id ? 'white' : 'var(--text-sub)',
-                                cursor: 'pointer',
-                                fontWeight: '700',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: activeTab === tab.id ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                <div style={{ marginBottom: '2rem' }}>
+                    <label style={LabelStyle}>Quick Setup</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                        {mainTabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setActiveTab(tab.id)}
+                                style={{
+                                    padding: '12px 28px',
+                                    borderRadius: '14px',
+                                    border: activeTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                    background: activeTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                    color: activeTab === tab.id ? 'white' : 'var(--text-sub)',
+                                    cursor: 'pointer',
+                                    fontWeight: '750',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: activeTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
 
-                    <div style={{ position: 'relative' }}>
-                        <button
-                            type="button"
-                            onClick={() => setDropdownOpen(!dropdownOpen)}
-                            style={{
-                                padding: '10px 24px',
-                                borderRadius: '10px',
-                                border: 'none',
-                                background: moreGateways.some(g => g.id === activeTab) ? 'var(--primary-color)' : 'transparent',
-                                color: moreGateways.some(g => g.id === activeTab) ? 'white' : 'var(--text-sub)',
-                                cursor: 'pointer',
-                                fontWeight: '700',
-                                fontSize: '0.9rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: moreGateways.some(g => g.id === activeTab) ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            {moreGateways.find(g => g.id === activeTab)?.label || 'Other Gateways'}
-                            <ChevronDown size={14} style={{ opacity: 0.7 }} />
-                        </button>
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                type="button"
+                                onClick={() => setDropdownOpen(!dropdownOpen)}
+                                style={{
+                                    padding: '12px 28px',
+                                    borderRadius: '14px',
+                                    border: moreGateways.some(g => g.id === activeTab) ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                    background: moreGateways.some(g => g.id === activeTab) ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                    color: moreGateways.some(g => g.id === activeTab) ? 'white' : 'var(--text-sub)',
+                                    cursor: 'pointer',
+                                    fontWeight: '750',
+                                    fontSize: '0.9rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: moreGateways.some(g => g.id === activeTab) ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                {moreGateways.find(g => g.id === activeTab)?.label || 'Other Gateways'}
+                                <ChevronDown size={14} style={{ opacity: 0.7 }} />
+                            </button>
 
-                        {dropdownOpen && (
-                            <div style={{
-                                position: 'absolute',
-                                top: 'calc(100% + 10px)',
-                                left: 0,
-                                background: 'var(--bg-lite)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '12px',
-                                boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                                zIndex: 100,
-                                minWidth: '180px',
-                                overflow: 'hidden',
-                                backdropFilter: 'blur(20px)'
-                            }}>
-                                {moreGateways.map(gateway => (
-                                    <div
-                                        key={gateway.id}
-                                        onClick={() => {
-                                            setActiveTab(gateway.id);
-                                            setDropdownOpen(false);
-                                        }}
-                                        style={{
-                                            padding: '12px 20px',
-                                            cursor: 'pointer',
-                                            borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                            color: activeTab === gateway.id ? 'var(--primary-color)' : 'var(--text-main)',
-                                            background: activeTab === gateway.id ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent',
-                                            fontWeight: activeTab === gateway.id ? '700' : '500',
-                                            fontSize: '0.85rem',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        {gateway.label}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                            {dropdownOpen && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 'calc(100% + 10px)',
+                                    left: 0,
+                                    background: 'var(--bg-lite)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                                    zIndex: 100,
+                                    minWidth: '180px',
+                                    overflow: 'hidden',
+                                    backdropFilter: 'blur(20px)'
+                                }}>
+                                    {moreGateways.map(gateway => (
+                                        <div
+                                            key={gateway.id}
+                                            onClick={() => {
+                                                setActiveTab(gateway.id);
+                                                setDropdownOpen(false);
+                                            }}
+                                            style={{
+                                                padding: '12px 20px',
+                                                cursor: 'pointer',
+                                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                color: activeTab === gateway.id ? 'var(--primary-color)' : 'var(--text-main)',
+                                                background: activeTab === gateway.id ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent',
+                                                fontWeight: activeTab === gateway.id ? '700' : '500',
+                                                fontSize: '0.85rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {gateway.label}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -1808,7 +1924,7 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             <TestSection
                 title="Send Test SMS"
@@ -1832,7 +1948,7 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
                 }}
                 btnColor="var(--primary-color)"
             />
-        </div>
+        </div >
     );
 };
 
@@ -1877,23 +1993,26 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
                     <SectionTitle label="Google Calendar Setup" icon={Calendar} color="#4285F4" />
 
-                    <div className="responsive-tabs-wrapper">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                         {mainTabs.map(tab => (
                             <button
                                 key={tab.id}
                                 type="button"
                                 onClick={() => setSubTab(tab.id)}
                                 style={{
-                                    padding: '10px 24px',
-                                    borderRadius: '10px',
-                                    border: 'none',
-                                    background: subTab === tab.id ? 'var(--primary-color)' : 'transparent',
+                                    padding: '12px 28px',
+                                    borderRadius: '14px',
+                                    border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                    background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
                                     color: subTab === tab.id ? 'white' : 'var(--text-sub)',
                                     cursor: 'pointer',
-                                    fontWeight: '700',
+                                    fontWeight: '750',
                                     fontSize: '0.9rem',
                                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    boxShadow: subTab === tab.id ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
+                                    boxShadow: subTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}
                             >
                                 {tab.label}
@@ -1909,26 +2028,23 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
                             <div>
                                 <label style={{ ...LabelStyle, marginBottom: '1rem' }}>Select Account Type</label>
-                                <div className="responsive-tabs-wrapper" style={{ backdropFilter: 'blur(10px)' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                                     {accountTabs.map(tab => (
                                         <button
                                             key={tab.id}
                                             type="button"
                                             onClick={() => setActiveAccount(tab.id)}
                                             style={{
-                                                padding: '10px 24px',
-                                                borderRadius: '10px',
-                                                border: 'none',
-                                                background: activeAccount === tab.id ? 'var(--primary-color)' : 'transparent',
+                                                padding: '12px 28px',
+                                                borderRadius: '14px',
+                                                border: activeAccount === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                                background: activeAccount === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
                                                 color: activeAccount === tab.id ? 'white' : 'var(--text-sub)',
                                                 cursor: 'pointer',
-                                                fontWeight: '700',
-                                                fontSize: '0.85rem',
+                                                fontWeight: '750',
+                                                fontSize: '0.9rem',
                                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                boxShadow: activeAccount === tab.id ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px'
+                                                boxShadow: activeAccount === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
                                             }}
                                         >
                                             {tab.label}
@@ -2165,35 +2281,31 @@ const NotificationSettings = ({ settings, setSettings }) => {
                 Configure Firebase Cloud Messaging for Web, Android, and iOS.
             </p>
 
-            <div style={{
-                display: 'inline-flex',
-                background: 'rgba(255, 255, 255, 0.05)',
-                padding: '4px',
-                borderRadius: '14px',
-                border: '1px solid var(--border-color)',
-                marginBottom: '2rem'
-            }}>
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setSubTab(tab.id)}
-                        style={{
-                            padding: '10px 24px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            background: subTab === tab.id ? 'var(--primary-color)' : 'transparent',
-                            color: subTab === tab.id ? 'white' : 'var(--text-sub)',
-                            cursor: 'pointer',
-                            fontWeight: '700',
-                            fontSize: '0.9rem',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: subTab === tab.id ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
-                        }}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
+            <div style={{ marginBottom: '2rem' }}>
+                <label style={LabelStyle}>Quick Setup</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setSubTab(tab.id)}
+                            style={{
+                                padding: '12px 28px',
+                                borderRadius: '14px',
+                                border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                color: subTab === tab.id ? 'white' : 'var(--text-sub)',
+                                cursor: 'pointer',
+                                fontWeight: '750',
+                                fontSize: '0.9rem',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: subTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
+                            }}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'var(--bg-color)' }}>
@@ -2375,46 +2487,42 @@ const StorageSettings = ({ settings, setSettings }) => {
             </p>
 
             {/* Tabs */}
-            <div style={{
-                display: 'inline-flex',
-                background: 'rgba(255, 255, 255, 0.05)',
-                padding: '4px',
-                borderRadius: '14px',
-                border: '1px solid var(--border-color)',
-                marginBottom: '2rem'
-            }}>
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setSubTab(tab.id)}
-                        style={{
-                            padding: '10px 24px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            background: subTab === tab.id ? 'var(--primary-color)' : 'transparent',
-                            color: subTab === tab.id ? 'white' : 'var(--text-sub)',
-                            cursor: 'pointer',
-                            fontWeight: '700',
-                            fontSize: '0.9rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: subTab === tab.id ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
-                        }}
-                    >
-                        {tab.label}
-                        {isActive(tab.id) && (
-                            <div style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: subTab === tab.id ? 'white' : 'var(--primary-color)' // Note: primary on transparent bg might need checking, but logically OK.
-                            }} />
-                        )}
-                    </button>
-                ))}
+            <div style={{ marginBottom: '2rem' }}>
+                <label style={LabelStyle}>Quick Setup</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setSubTab(tab.id)}
+                            style={{
+                                padding: '12px 28px',
+                                borderRadius: '14px',
+                                border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                color: subTab === tab.id ? 'white' : 'var(--text-sub)',
+                                cursor: 'pointer',
+                                fontWeight: '750',
+                                fontSize: '0.9rem',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: subTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {tab.label}
+                            {isActive(tab.id) && (
+                                <div style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background: subTab === tab.id ? 'white' : 'var(--primary-color)'
+                                }} />
+                            )}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Content Body */}
@@ -2582,46 +2690,42 @@ const PaymentSettings = ({ settings, setSettings }) => {
             </p>
 
             {/* Tabs */}
-            <div style={{
-                display: 'inline-flex',
-                background: 'rgba(255, 255, 255, 0.05)',
-                padding: '4px',
-                borderRadius: '14px',
-                border: '1px solid var(--border-color)',
-                marginBottom: '2rem'
-            }}>
-                {settings.paymentGateways.map(gateway => (
-                    <button
-                        key={gateway.name}
-                        type="button"
-                        onClick={() => setActiveGatewayName(gateway.name)}
-                        style={{
-                            padding: '10px 24px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            background: activeGatewayName === gateway.name ? 'var(--primary-color)' : 'transparent',
-                            color: activeGatewayName === gateway.name ? 'white' : 'var(--text-sub)',
-                            cursor: 'pointer',
-                            fontWeight: '700',
-                            fontSize: '0.9rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: activeGatewayName === gateway.name ? '0 4px 15px rgba(var(--primary-rgb), 0.3)' : 'none'
-                        }}
-                    >
-                        {gateway.name}
-                        {gateway.enabled && (
-                            <div style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: activeGatewayName === gateway.name ? 'white' : '#10b981'
-                            }} />
-                        )}
-                    </button>
-                ))}
+            <div style={{ marginBottom: '2rem' }}>
+                <label style={LabelStyle}>Quick Setup</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                    {settings.paymentGateways.map(gateway => (
+                        <button
+                            key={gateway.name}
+                            type="button"
+                            onClick={() => setActiveGatewayName(gateway.name)}
+                            style={{
+                                padding: '12px 28px',
+                                borderRadius: '14px',
+                                border: activeGatewayName === gateway.name ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                background: activeGatewayName === gateway.name ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                color: activeGatewayName === gateway.name ? 'white' : 'var(--text-sub)',
+                                cursor: 'pointer',
+                                fontWeight: '750',
+                                fontSize: '0.9rem',
+                                transition: 'all 0.2s ease',
+                                boxShadow: activeGatewayName === gateway.name ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {gateway.name}
+                            {gateway.enabled && (
+                                <div style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background: activeGatewayName === gateway.name ? 'white' : '#10b981'
+                                }} />
+                            )}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Content Body */}
@@ -2732,18 +2836,19 @@ const GoogleAuthSettings = ({ settings, setSettings }) => {
                     type="button"
                     onClick={() => handleUpdate('enabled', !settings.googleAuth.enabled)}
                     style={{
-                        padding: '10px 24px',
-                        borderRadius: '12px',
-                        background: settings.googleAuth.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                        padding: '12px 28px',
+                        borderRadius: '14px',
+                        background: settings.googleAuth.enabled ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-lite)',
                         border: `1px solid ${settings.googleAuth.enabled ? 'rgba(16, 185, 129, 0.2)' : 'var(--border-color)'}`,
                         color: settings.googleAuth.enabled ? '#10b981' : 'var(--text-sub)',
-                        fontWeight: '800',
-                        fontSize: '0.8rem',
+                        fontWeight: '750',
+                        fontSize: '0.9rem',
                         cursor: 'pointer',
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px'
+                        gap: '10px',
+                        boxShadow: settings.googleAuth.enabled ? '0 4px 12px rgba(16, 185, 129, 0.15)' : 'none'
                     }}
                 >
                     <div style={{
@@ -2819,6 +2924,198 @@ const GoogleAuthSettings = ({ settings, setSettings }) => {
                         </p>
                     </div>
                 </div>
+            </div>
+        </section>
+    );
+};
+
+const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRemoveAsset }) => {
+    const mobileLogoInputRef = useRef(null);
+    const splashIconInputRef = useRef(null);
+
+    const handleUpdate = (field, value) => {
+        setSettings({
+            ...settings,
+            mobileApp: { ...settings.mobileApp, [field]: value }
+        });
+    };
+
+    const AssetUploadBox = ({ label, value, onRemove, inputRef, fieldForUpload, hint }) => (
+        <div style={{ marginBottom: '1.5rem' }}>
+            <label style={LabelStyle}>
+                {label}
+                {hint && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: 'var(--primary-color)', opacity: 0.8, fontWeight: '500' }}>({hint})</span>}
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div
+                    onClick={() => inputRef.current?.click()}
+                    style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '16px',
+                        background: 'var(--bg-lite)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        border: '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        transition: 'all 0.3s'
+                    }}>
+                    {value ? (
+                        <img
+                            src={value.startsWith('http') ? value : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${value}`}
+                            alt={label}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        />
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <Image color="var(--text-sub)" size={20} style={{ opacity: 0.5 }} />
+                            <span style={{ fontSize: '0.6rem', color: 'var(--text-sub)', fontWeight: '600' }}>UPLOAD</span>
+                        </div>
+                    )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        style={UploadButtonStyle}
+                    >
+                        Update {label}
+                    </button>
+                    {value && (
+                        <button
+                            type="button"
+                            onClick={onRemove}
+                            style={{
+                                ...UploadButtonStyle,
+                                background: 'transparent',
+                                color: 'var(--danger-color)',
+                                borderColor: 'var(--danger-color)'
+                            }}
+                        >
+                            Remove
+                        </button>
+                    )}
+                    <input
+                        ref={inputRef}
+                        type="file"
+                        hidden
+                        onChange={(e) => handleAssetUpload(e, fieldForUpload)}
+                        accept="image/*"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <section className="settings-section-card">
+            <SectionTitle label="Mobile App Branding" icon={Smartphone} color="var(--primary-color)" />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+                <div >
+                    <AssetUploadBox
+                        label="App Logo"
+                        value={settings.mobileApp.appLogo}
+                        onRemove={() => handleRemoveAsset('appLogo')}
+                        inputRef={mobileLogoInputRef}
+                        fieldForUpload="mobileLogo"
+                        hint="Recommended: 1024x1024 px"
+                    />
+                    <AssetUploadBox
+                        label="Splash/Flash Icon"
+                        value={settings.mobileApp.splashIcon}
+                        onRemove={() => handleRemoveAsset('splashIcon')}
+                        inputRef={splashIconInputRef}
+                        fieldForUpload="splashIcon"
+                        hint="Recommended: 1024x1024 px"
+                    />
+                </div>
+
+                <div>
+                    <InputGroup
+                        label="Application Name"
+                        value={settings.mobileApp.appName}
+                        onChange={v => handleUpdate('appName', v)}
+                        placeholder="e.g. Buddy AI Assistant"
+                    />
+                    <InputGroup
+                        label="App Version"
+                        value={settings.mobileApp.appVersion}
+                        onChange={v => handleUpdate('appVersion', v)}
+                        placeholder="1.0.0"
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label style={LabelStyle}>Primary Color</label>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                    type="color"
+                                    value={settings.mobileApp.primaryColor || '#0075ff'}
+                                    onChange={e => handleUpdate('primaryColor', e.target.value)}
+                                    style={{ width: '40px', height: '40px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }}
+                                />
+                                <input
+                                    type="text"
+                                    value={settings.mobileApp.primaryColor}
+                                    onChange={e => handleUpdate('primaryColor', e.target.value)}
+                                    style={{ ...InputStyle, flex: 1 }}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label style={LabelStyle}>Secondary Color</label>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                    type="color"
+                                    value={settings.mobileApp.secondaryColor || '#ffffff'}
+                                    onChange={e => handleUpdate('secondaryColor', e.target.value)}
+                                    style={{ width: '40px', height: '40px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }}
+                                />
+                                <input
+                                    type="text"
+                                    value={settings.mobileApp.secondaryColor}
+                                    onChange={e => handleUpdate('secondaryColor', e.target.value)}
+                                    style={{ ...InputStyle, flex: 1 }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <SectionTitle label="Platform Identification" icon={ShieldCheck} color="var(--primary-color)" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                <InputGroup
+                    label="Android Package Name"
+                    value={settings.mobileApp.androidPackageName}
+                    onChange={v => handleUpdate('androidPackageName', v)}
+                    placeholder="com.company.buddy"
+                />
+                <InputGroup
+                    label="iOS Bundle Identifier"
+                    value={settings.mobileApp.iosBundleId}
+                    onChange={v => handleUpdate('iosBundleId', v)}
+                    placeholder="com.company.buddy"
+                />
+            </div>
+
+            <SectionTitle label="Support Information" icon={Mail} color="var(--primary-color)" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                <InputGroup
+                    label="Mobile Support Email"
+                    value={settings.mobileApp.supportEmail}
+                    onChange={v => handleUpdate('supportEmail', v)}
+                    placeholder="app-support@company.com"
+                />
+                <InputGroup
+                    label="Mobile Support Phone"
+                    value={settings.mobileApp.supportPhone}
+                    onChange={v => handleUpdate('supportPhone', v)}
+                    placeholder="+1 234 567 890"
+                />
             </div>
         </section>
     );

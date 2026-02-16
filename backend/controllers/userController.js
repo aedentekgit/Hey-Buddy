@@ -237,8 +237,13 @@ const updateLocation = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+const { uploadFile } = require('../services/fileService');
 
-// Upload Profile Picture
+// ... (existing code)
+
+// ... (existing code)
+
+// Upload Profile Picture (Self)
 const uploadProfilePicture = async (req, res) => {
     try {
         if (!req.file) {
@@ -252,9 +257,9 @@ const uploadProfilePicture = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Upload to Firebase
+        // Upload using unified service (respects activeProvider)
         const destination = `profiles/${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
-        const publicUrl = await uploadFileToFirebase(req.file.buffer, destination, req.file.mimetype);
+        const publicUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
 
         // Update user profile
         user.profilePicture = publicUrl;
@@ -267,6 +272,54 @@ const uploadProfilePicture = async (req, res) => {
         });
     } catch (error) {
         console.error('Profile upload error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Admin: Upload Profile Picture for any user
+const adminUploadProfilePicture = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const destination = `profiles/${id}-${Date.now()}${path.extname(req.file.originalname)}`;
+        const publicUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
+
+        user.profilePicture = publicUrl;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'Profile picture updated by admin',
+            data: { profilePicture: publicUrl }
+        });
+    } catch (error) {
+        console.error('Admin profile upload error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Admin: Delete Profile Picture for any user
+const adminDeleteProfilePicture = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.profilePicture = undefined;
+        await user.save();
+
+        res.json({ success: true, message: 'Profile picture removed by admin' });
+    } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -292,6 +345,26 @@ const deleteProfilePicture = async (req, res) => {
     }
 };
 
+const reverseGeocode = async (req, res) => {
+    try {
+        const { lat, lon } = req.query;
+        if (!lat || !lon) {
+            return res.status(400).json({ success: false, message: 'Latitude and Longitude are required' });
+        }
+
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+            headers: {
+                'User-Agent': 'HeyBuddy-Health-Assistant/1.0'
+            }
+        });
+        const data = await response.json();
+        res.json({ success: true, data });
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch location data' });
+    }
+};
+
 module.exports = {
     getUsers,
     createUser,
@@ -303,5 +376,8 @@ module.exports = {
     unlinkCalendar,
     updateLocation,
     uploadProfilePicture,
-    deleteProfilePicture
+    deleteProfilePicture,
+    adminUploadProfilePicture,
+    adminDeleteProfilePicture,
+    reverseGeocode
 };

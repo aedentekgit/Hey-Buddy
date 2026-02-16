@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
     _id: {
         type: String,
+        default: () => new mongoose.Types.ObjectId().toHexString(),
         required: true
     },
     name: {
@@ -97,5 +98,8 @@ userSchema.pre('save', async function () {
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
+
+userSchema.index({ role: 1 });
+userSchema.index({ googleRefreshToken: 1 });
 
 module.exports = mongoose.model('User', userSchema);

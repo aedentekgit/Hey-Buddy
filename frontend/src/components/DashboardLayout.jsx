@@ -92,8 +92,8 @@ const DashboardLayout = ({ children }) => {
             <div
                 className="main-content"
                 style={{
-                    marginLeft: window.innerWidth >= 1024 ? (isCollapsed ? '112px' : '290px') : '0',
-                    paddingRight: window.innerWidth >= 1024 ? '15px' : '0'
+                    marginLeft: window.innerWidth >= 1024 ? (isCollapsed ? '100px' : '280px') : '0',
+                    paddingRight: window.innerWidth >= 1024 ? '20px' : '0'
                 }}
             >
                 {/* Mobile Header - Global */}
@@ -118,8 +118,8 @@ const DashboardLayout = ({ children }) => {
             <style>{`
                     @media (min-width: 1024px) {
                         .main-content {
-                            margin-left: ${isCollapsed ? '112px' : '290px'} !important;
-                            padding-right: 15px !important;
+                            margin-left: ${isCollapsed ? '100px' : '280px'} !important;
+                            padding-right: 20px !important;
                         }
                     }
 

@@ -1,7 +1,30 @@
 const admin = require('firebase-admin');
 const path = require('path');
+const fs = require('fs').promises;
 const Settings = require('../models/Settings');
 const { initFirebase } = require('./notificationService');
+
+/**
+ * Saves a file buffer locally to the server
+ */
+const saveFileLocally = async (fileBuffer, destination) => {
+    try {
+        const fullPath = path.join(__dirname, '..', 'uploads', destination);
+        const dir = path.dirname(fullPath);
+
+        // Ensure directory exists
+        await fs.mkdir(dir, { recursive: true });
+
+        // Write file
+        await fs.writeFile(fullPath, fileBuffer);
+
+        // Return the relative URL path
+        return `/uploads/${destination}`;
+    } catch (error) {
+        console.error("Local Save Error:", error);
+        throw error;
+    }
+};
 
 const getStorageBucket = async () => {
     try {
@@ -21,10 +44,6 @@ const getStorageBucket = async () => {
 
 /**
  * Uploads a file to Firebase Storage
- * @param {Buffer} fileBuffer - The file content
- * @param {string} destination - Path in the storage bucket (e.g., 'profiles/userid.png')
- * @param {string} contentType - Mime type of the file
- * @returns {Promise<string>} - The public URL of the uploaded file
  */
 const uploadFileToFirebase = async (fileBuffer, destination, contentType) => {
     try {
@@ -44,7 +63,37 @@ const uploadFileToFirebase = async (fileBuffer, destination, contentType) => {
     }
 };
 
+/**
+ * Unified Upload Function
+ * Checks settings for active provider and uploads accordingly
+ */
+const uploadFile = async (fileBuffer, destination, contentType) => {
+    try {
+        const settings = await Settings.findOne();
+        const provider = settings?.storage?.activeProvider || 'local';
+
+        if (provider === 'local') {
+            return await saveFileLocally(fileBuffer, destination);
+        } else if (provider === 'gcs' || provider === 'firebase') {
+            return await uploadFileToFirebase(fileBuffer, destination, contentType);
+        } else {
+            // Default fallback to local for safety
+            return await saveFileLocally(fileBuffer, destination);
+        }
+    } catch (error) {
+        console.error("Unified Upload Error:", error);
+        // Fallback to local if Firebase fails
+        try {
+            return await saveFileLocally(fileBuffer, destination);
+        } catch (innerError) {
+            throw error;
+        }
+    }
+};
+
 module.exports = {
+    uploadFile,
     uploadFileToFirebase,
-    getStorageBucket
+    getStorageBucket,
+    saveFileLocally
 };

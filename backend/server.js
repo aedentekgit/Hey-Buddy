@@ -7,6 +7,12 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config();
 
+console.log('--- [Server Diagnostic] ---');
+console.log('PORT:', process.env.PORT);
+console.log('JWT_SECRET Status:', process.env.JWT_SECRET ? 'LOADED' : 'MISSING');
+console.log('OPENAI_API_KEY Status:', process.env.OPENAI_API_KEY ? 'LOADED' : 'MISSING');
+console.log('MONGODB_URI Status:', process.env.MONGODB_URI ? 'LOADED' : 'MISSING');
+
 const app = express();
 
 // Middleware
@@ -53,7 +59,7 @@ app.get('/', (req, res) => {
 });
 
 // Database connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/staging_Heybuddy';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://82.29.167.22:27017/staging_Heybuddy';
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('Connected to MongoDB'))
@@ -70,11 +76,26 @@ app.use((err, req, res, next) => {
     });
 });
 
+const http = require('http');
+const { Server } = require('socket.io');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: ['http://localhost:3000', 'http://localhost:5173'],
+        credentials: true
+    }
+});
+
+// Initialize Socket.io Voice Handler
+const voiceHandler = require('./sockets/voiceHandler');
+voiceHandler(io);
+
 const PORT = process.env.PORT || 5000;
 const { startReminderWorker } = require('./services/reminderWorker');
 const { startSmartReminderScheduler } = require('./schedulers/smartReminderScheduler');
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Backend fully initialized at ${new Date().toISOString()}`);
     startReminderWorker();

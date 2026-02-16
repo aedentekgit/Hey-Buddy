@@ -8,14 +8,7 @@ const multer = require('multer');
 const path = require('path');
 
 // Configure Multer for document uploads
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({
     storage: storage,
@@ -48,6 +41,7 @@ router.put('/prescriptions/:id', protect, recordController.updatePrescription);
 router.delete('/prescriptions/:id', protect, recordController.deletePrescription);
 
 // Memory routes
+router.post('/memories', protect, recordController.createMemory);
 router.get('/memories', protect, recordController.getMemories);
 router.get('/memories/mix', protect, recordController.getAllRecords);
 router.put('/memories/:id', protect, recordController.updateMemory);

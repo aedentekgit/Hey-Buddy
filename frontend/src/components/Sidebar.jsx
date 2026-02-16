@@ -99,11 +99,23 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                     <div className="logo-flex">
                         <div className="logo-icon-box" style={{
                             background: 'var(--primary-gradient)',
-                            boxShadow: '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)'
+                            boxShadow: '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}>
-                            <ShieldCheck size={18} color="#FFFFFF" />
+                            {branding.logo ? (
+                                <img
+                                    src={branding.logo.startsWith('http') ? branding.logo : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${branding.logo}`}
+                                    alt="Logo"
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                />
+                            ) : (
+                                <ShieldCheck size={18} color="#FFFFFF" />
+                            )}
                         </div>
-                        {!isCollapsed && <span className="logo-text">BUDDY AI</span>}
+                        {!isCollapsed && <span className="logo-text">{branding.companyName || 'BUDDY AI'}</span>}
                     </div>
                 </div>
 

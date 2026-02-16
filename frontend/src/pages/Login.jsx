@@ -17,41 +17,58 @@ const Login = () => {
 
     useEffect(() => {
         const clientId = publicSettings?.googleAuth?.webClientId;
+        if (!publicSettings?.googleAuth?.enabled || !clientId || !window.google) return;
 
-        if (publicSettings?.googleAuth?.enabled && clientId && window.google) {
-            window.google.accounts.id.initialize({
-                client_id: clientId,
-                callback: async (response) => {
-                    setLoading(true);
-                    try {
-                        await googleLogin(response.credential);
-                        toast.success('Welcome back!');
-                        navigate('/admin/dashboard');
-                    } catch (error) {
-                        console.error("Google Login Error:", error);
-                        toast.error(error.response?.data?.message || 'Google login failed');
-                    } finally {
-                        setLoading(false);
-                    }
-                },
-                use_fedcm_for_prompt: false
-            });
-
+        const renderGoogleButton = () => {
             const btnWrapper = document.getElementById('google-btn-wrapper');
             if (btnWrapper) {
                 btnWrapper.innerHTML = '';
+                // Dynamically calculate width based on container, but GIS has a min of 200
+                const width = Math.max(btnWrapper.offsetWidth, 200);
+
                 window.google.accounts.id.renderButton(
                     btnWrapper,
                     {
                         theme: 'outline',
                         size: 'large',
-                        width: btnWrapper.offsetWidth,
+                        width: width,
                         text: 'continue_with',
                         shape: 'pill'
                     }
                 );
             }
-        }
+        };
+
+        window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: async (response) => {
+                setLoading(true);
+                try {
+                    await googleLogin(response.credential);
+                    toast.success('Welcome back!');
+                    navigate('/admin/dashboard');
+                } catch (error) {
+                    console.error("Google Login Error:", error);
+                    toast.error(error.response?.data?.message || 'Google login failed');
+                } finally {
+                    setLoading(false);
+                }
+            },
+            use_fedcm_for_prompt: false
+        });
+
+        // Initial render
+        renderGoogleButton();
+
+        // Re-render on resize to keep it perfectly responsive
+        let timeout;
+        const handleResize = () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(renderGoogleButton, 100);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, [publicSettings, googleLogin, navigate]);
 
     const handleSubmit = async (e) => {
@@ -149,9 +166,10 @@ const Login = () => {
                                     placeholder="Secure Password"
                                     required
                                     autoComplete="current-password"
+                                    style={{ paddingRight: '120px !important' }}
                                 />
                                 <div className="field-actions">
-                                    <Link to="/forgot-password">Forgot?</Link>
+                                    <Link to="/forgot-password" style={{ whiteSpace: 'nowrap' }}>Forgot?</Link>
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
@@ -216,16 +234,9 @@ const Login = () => {
                             </div>
 
                             <div className="social-grid">
-                                <button type="button" className="social-btn">
-                                    <svg viewBox="0 0 24 24" width="20" height="20">
-                                        <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.273 0 3.191 2.691 1.145 6.655L5.266 9.765z" />
-                                        <path fill="#34A853" d="M16.04 18.013c-1.09.696-2.415 1.132-4.04 1.132-2.909 0-5.385-1.936-6.266-4.527L1.614 17.73A11.907 11.907 0 0 0 12 24c3.12 0 6.012-1.026 8.324-2.775l-4.284-3.212z" />
-                                        <path fill="#4285F4" d="M23.955 12.136c0-.827-.066-1.636-.201-2.42H12v4.59h6.702a5.732 5.732 0 0 1-2.484 3.76l4.284 3.21c2.503-2.308 3.953-5.705 3.953-9.14z" />
-                                        <path fill="#FBBC05" d="M5.734 14.618A6.87 6.87 0 0 1 5.318 12c0-.918.155-1.801.432-2.618L1.614 6.638C.59 8.682 0 11 0 12c0 1 .59 3.318 1.614 5.362l4.12-3.144z" />
-                                    </svg>
-                                    <span>Google</span>
-                                </button>
-                                <button type="button" className="social-btn">
+                                <div id="google-btn-wrapper" className="google-btn-container"></div>
+
+                                <button type="button" className="social-btn apple-btn">
                                     <svg viewBox="0 0 384 512" width="18" height="18" fill="currentColor">
                                         <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
                                     </svg>
@@ -325,7 +336,7 @@ const Login = () => {
 
                 .login-card {
                     width: 100%;
-                    max-width: 440px;
+                    max-width: 500px;
                     z-index: 10;
                     background: var(--card-bg);
                     backdrop-filter: blur(25px);
@@ -618,42 +629,62 @@ const Login = () => {
                     background: var(--border-color);
                 }
 
-                .divider span {
+                 .divider span {
                     font-size: 10px;
                     font-weight: 800;
                     color: var(--text-sub);
                     letter-spacing: 0.1em;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    white-space: nowrap;
                 }
 
                 .social-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
+                    display: flex;
+                    flex-wrap: wrap;
                     gap: 12px;
+                    width: 100%;
+                    justify-content: center;
                 }
 
-                .social-btn {
+                .google-btn-container, .apple-btn {
+                    flex: 1;
+                    min-width: 200px; /* Minimal width to avoid text clipping */
+                    max-width: 100%;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .google-btn-container {
+                    transition: all 0.3s;
+                }
+
+                .apple-btn {
+                    border-radius: 20px !important;
+                    background: white !important;
+                    border: 1px solid #dadce0 !important;
+                    color: #3c4043 !important;
+                    padding: 0 16px !important;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     gap: 10px;
-                    padding: 10px;
-                    background: var(--card-bg);
-                    border: 1px solid var(--border-color);
-                    border-radius: 12px;
-                    color: var(--text-main);
-                    font-size: 14px;
-                    font-weight: 700;
-                    cursor: pointer;
                     transition: all 0.2s;
                 }
 
-                .social-btn:hover {
-                    background: var(--bg-lite);
-                    border-color: var(--primary-color);
-                    transform: translateY(-1px);
+                .apple-btn:hover {
+                    background: #f7f8f8 !important;
+                    border-color: #d2dce0 !important;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                 }
 
-                .social-btn svg, .social-btn img {
+                .apple-btn svg {
                     flex-shrink: 0;
                 }
 

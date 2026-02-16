@@ -24,6 +24,9 @@ import BuddyVision from './pages/BuddyVision';
 import KnowledgeBase from './pages/KnowledgeBase';
 import Automations from './pages/Automations';
 import MobileMoreMenu from './pages/MobileMoreMenu';
+import RealtimeChat from './pages/RealtimeChat';
+import { RealtimeVoiceProvider } from './context/RealtimeVoiceContext';
+
 import DashboardLayout from './components/DashboardLayout';
 import { startLocationTracking, stopLocationTracking } from './services/locationService';
 
@@ -111,127 +114,139 @@ function App() {
                     <AuthProvider>
                         <NotificationProvider>
                             <VoiceAssistantProvider>
-                                <Routes>
-                                    <Route path="/login" element={<Login />} />
-                                    <Route path="/signup" element={<Signup />} />
-                                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                                    <Route path="/reset-password" element={<ResetPassword />} />
-                                    <Route
-                                        path="/admin/buddy"
-                                        element={
-                                            <ProtectedRoute pageId="buddy">
-                                                <BuddyAssistant />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/reminders"
-                                        element={
-                                            <ProtectedRoute pageId="reminders">
-                                                <Reminders />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/calendar"
-                                        element={
-                                            <ProtectedRoute pageId="calendar">
-                                                <Calendar />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/memories"
-                                        element={
-                                            <ProtectedRoute pageId="memories">
-                                                <Memories />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/settings"
-                                        element={
-                                            <ProtectedRoute pageId="settings">
-                                                <AdminSettings />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/management"
-                                        element={
-                                            <ProtectedRoute pageId="management">
-                                                <AdminManagement />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/users"
-                                        element={
-                                            <ProtectedRoute pageId="users">
-                                                <Users />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/roles"
-                                        element={
-                                            <ProtectedRoute pageId="roles">
-                                                <Roles />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/dashboard"
-                                        element={
-                                            <ProtectedRoute pageId="dashboard">
-                                                <Dashboard />
-                                            </ProtectedRoute>
-                                        }
-                                    />
+                                <RealtimeVoiceProvider>
 
-                                    <Route
-                                        path="/admin/vision"
-                                        element={
-                                            <ProtectedRoute pageId="vision">
-                                                <BuddyVision />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/knowledge"
-                                        element={
-                                            <ProtectedRoute pageId="knowledge">
-                                                <KnowledgeBase />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/automations"
-                                        element={
-                                            <ProtectedRoute pageId="automations">
-                                                <Automations />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/admin/more"
-                                        element={
-                                            <ProtectedRoute>
-                                                <MobileMoreMenu />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    {/* User Settings Route - Available to all authenticated users */}
-                                    <Route
-                                        path="/user/settings"
-                                        element={
-                                            <ProtectedRoute>
-                                                <UserSettings />
-                                            </ProtectedRoute>
-                                        }
-                                    />
-                                    <Route path="/" element={<Navigate to="/admin/dashboard" />} />
-                                </Routes>
+                                    <Routes>
+                                        <Route path="/login" element={<Login />} />
+                                        <Route path="/signup" element={<Signup />} />
+                                        <Route path="/forgot-password" element={<ForgotPassword />} />
+                                        <Route path="/reset-password" element={<ResetPassword />} />
+                                        <Route
+                                            path="/admin/realtime"
+                                            element={
+                                                <ProtectedRoute pageId="buddy">
+                                                    <RealtimeChat />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/buddy"
+
+                                            element={
+                                                <ProtectedRoute pageId="buddy">
+                                                    <BuddyAssistant />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/reminders"
+                                            element={
+                                                <ProtectedRoute pageId="reminders">
+                                                    <Reminders />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/calendar"
+                                            element={
+                                                <ProtectedRoute pageId="calendar">
+                                                    <Calendar />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/memories"
+                                            element={
+                                                <ProtectedRoute pageId="memories">
+                                                    <Memories />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/settings"
+                                            element={
+                                                <ProtectedRoute pageId="settings">
+                                                    <AdminSettings />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/management"
+                                            element={
+                                                <ProtectedRoute pageId="management">
+                                                    <AdminManagement />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/users"
+                                            element={
+                                                <ProtectedRoute pageId="users">
+                                                    <Users />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/roles"
+                                            element={
+                                                <ProtectedRoute pageId="roles">
+                                                    <Roles />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/dashboard"
+                                            element={
+                                                <ProtectedRoute pageId="dashboard">
+                                                    <Dashboard />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+
+                                        <Route
+                                            path="/admin/vision"
+                                            element={
+                                                <ProtectedRoute pageId="vision">
+                                                    <BuddyVision />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/knowledge"
+                                            element={
+                                                <ProtectedRoute pageId="knowledge">
+                                                    <KnowledgeBase />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/automations"
+                                            element={
+                                                <ProtectedRoute pageId="automations">
+                                                    <Automations />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/more"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <MobileMoreMenu />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        {/* User Settings Route - Available to all authenticated users */}
+                                        <Route
+                                            path="/user/settings"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <UserSettings />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route path="/" element={<Navigate to="/admin/dashboard" />} />
+                                    </Routes>
+                                </RealtimeVoiceProvider>
                             </VoiceAssistantProvider>
                         </NotificationProvider>
                     </AuthProvider>

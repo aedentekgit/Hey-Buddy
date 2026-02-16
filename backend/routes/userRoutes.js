@@ -16,10 +16,13 @@ router.delete('/profile', protect, userController.deleteMyAccount);
 router.post('/fcm-token', protect, userController.saveFcmToken);
 router.post('/unlink-calendar', protect, userController.unlinkCalendar);
 router.post('/location', protect, userController.updateLocation);
+router.get('/reverse-geocode', protect, userController.reverseGeocode);
 
 // Admin Routes with :id parameter
 router.get('/', protect, authorize('admin'), userController.getUsers);
 router.post('/', protect, authorize('admin'), userController.createUser);
+router.post('/:id/avatar', protect, authorize('admin'), upload.single('profilePicture'), userController.adminUploadProfilePicture);
+router.delete('/:id/avatar', protect, authorize('admin'), userController.adminDeleteProfilePicture);
 router.put('/:id', protect, authorize('admin'), userController.updateUser);
 router.delete('/:id', protect, authorize('admin'), userController.deleteUser);
 

@@ -27,11 +27,15 @@ const protect = async (req, res, next) => {
             console.log(`[AUTH] User ${req.user.email} authorized`);
             next();
         } catch (error) {
-            console.error(`[AUTH] Verification failed: ${error.message}`);
+            console.error(`[AUTH] Verification failed for ${req.method} ${req.url}:`);
+            console.error(`  - Error Message: ${error.message}`);
+            console.error(`  - Error Name: ${error.name}`);
+            console.error(`  - Token Prefix: ${token ? token.substring(0, 10) + '...' : 'NONE'}`);
+
             if (error.name === 'TokenExpiredError') {
                 return res.status(401).json({ success: false, message: 'Token expired, please login again' });
             }
-            return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
+            return res.status(401).json({ success: false, message: `Not authorized, token failed: ${error.message}` });
         }
     } else {
         console.warn('[AUTH] No Bearer token found in headers');

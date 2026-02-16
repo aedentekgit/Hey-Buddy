@@ -64,15 +64,12 @@ const Roles = () => {
         fetchRoles(newPage);
     };
 
+    // Unified fetch on mount and search
     useEffect(() => {
-        fetchRoles(1);
-    }, []);
-
-    // Debounced search
-    useEffect(() => {
+        const delay = searchTerm === '' ? 0 : 500;
         const timeoutId = setTimeout(() => {
             fetchRoles(1);
-        }, 500);
+        }, delay);
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
 

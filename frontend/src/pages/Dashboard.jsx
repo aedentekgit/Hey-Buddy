@@ -163,7 +163,7 @@ const Dashboard = () => {
                                         </div>
                                     </div>
                                     <div className="chart-wrapper fixed-height-300">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                             <AreaChart data={analyticsData.trends}>
                                                 <defs>
                                                     <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
@@ -193,7 +193,7 @@ const Dashboard = () => {
                                             <h4>Task Status</h4>
                                         </div>
                                         <div className="chart-wrapper fixed-height-200">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                 <PieChart>
                                                     <Pie
                                                         data={analyticsData.statusStats}
@@ -221,7 +221,7 @@ const Dashboard = () => {
                                             <h4>Priority</h4>
                                         </div>
                                         <div className="chart-wrapper fixed-height-200">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                 <BarChart data={analyticsData.priorityStats}>
                                                     <XAxis dataKey="name" stroke="var(--text-sub)" fontSize={10} axisLine={false} tickLine={false} />
                                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: 'var(--card-bg)', border: 'none', borderRadius: '8px' }} />
@@ -241,7 +241,7 @@ const Dashboard = () => {
                                             <h4>Categories</h4>
                                         </div>
                                         <div className="chart-wrapper fixed-height-200">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                 <PieChart>
                                                     <Pie
                                                         data={analyticsData.intentStats}
@@ -350,7 +350,6 @@ const Dashboard = () => {
                 .premium-dashboard {
                     font-family: 'Plus Jakarta Sans', sans-serif;
                     min-height: 100vh;
-                    margin: -20px;
                     color: var(--text-main);
                     position: relative;
                 }

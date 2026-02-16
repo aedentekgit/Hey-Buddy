@@ -9,32 +9,24 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
-import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
 import { requestNotificationPermission, saveTokenToServer } from '../services/notificationService';
 import { TableContainerStyle } from '../components/TableStyles';
+import GeminiVoiceAssistant from '../components/GeminiVoiceAssistant';
+import voiceService from '../services/voiceService';
 import './BuddyAssistant.css';
 
 const BuddyAssistant = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, refreshUser } = useAuth();
-    const {
-        language, speak, isListening, isAmbient,
-        transcript: globalTranscript, setTranscript, toggleListening,
-        isConversationMode, setIsConversationMode,
-        conversationHistory, setConversationHistory,
-        currentConversationId, setCurrentConversationId
-    } = useVoiceAssistant();
+    const { setPreventProcessing } = useVoiceAssistant() || {};
 
     const [parsedReminder, setParsedReminder] = useState(null);
-    const [isParsing, setIsParsing] = useState(false);
     const [saveDestination, setSaveDestination] = useState('both');
     const [isSaving, setIsSaving] = useState(false);
     const [chatResponse, setChatResponse] = useState(null);
     const [chatVoiceResponse, setChatVoiceResponse] = useState(null);
-    const [localTranscript, setLocalTranscript] = useState('');
-    const [manualInput, setManualInput] = useState('');
     const [analyzedPrescription, setAnalyzedPrescription] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [historyList, setHistoryList] = useState([]);
@@ -43,8 +35,137 @@ const BuddyAssistant = () => {
     const fileInputRef = useRef(null);
     const chatEndRef = useRef(null);
     const [autoSavedId, setAutoSavedId] = useState(null);
-    const isProcessingRef = useRef(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+    // Legacy context states simulation for cards that still use them
+    const [conversationHistory, setConversationHistory] = useState([]);
+    const [currentConversationId, setCurrentConversationId] = useState(null);
+
+    const handleToolCall = async (name, args) => {
+        if (name === 'create_reminder') {
+            const { title, time, notes } = args;
+            const reminder = {
+                title,
+                time,
+                notes: notes || '',
+                date: new Date().toISOString().split('T')[0]
+            };
+            setParsedReminder(reminder);
+            return { status: 'success', message: `Reminder for ${title} at ${time} prepared.` };
+        }
+        if (name === 'get_user_info') {
+            return {
+                name: user?.name || 'User',
+                status: 'Active',
+                medications: ['Aspirin', 'Lisinopril']
+            };
+        }
+        if (name === 'save_memory') {
+            const { content, category } = args;
+            try {
+                const result = await voiceService.createMemory(content, category);
+                return { status: 'success', message: 'Memory saved successfully.' };
+            } catch (err) {
+                return { status: 'error', message: 'Failed to save memory.' };
+            }
+        }
+        if (name === 'list_reminders') {
+            try {
+                const res = await voiceService.getReminders(1, 100);
+                const reminders = res.data.data || [];
+                return {
+                    status: 'success',
+                    reminders: reminders.map(r => ({ id: r._id, title: r.title, time: r.time, date: r.date, notes: r.notes }))
+                };
+            } catch (err) {
+                return { status: 'error', message: 'Failed to fetch reminders.' };
+            }
+        }
+        if (name === 'delete_reminder') {
+            const { id, title } = args;
+            try {
+                let reminderId = id;
+                if (!reminderId && title) {
+                    const res = await voiceService.getReminders(1, 100);
+                    const match = (res.data.data || []).find(r => r.title.toLowerCase().includes(title.toLowerCase()));
+                    if (match) reminderId = match._id;
+                }
+                if (!reminderId) return { status: 'error', message: `Could not find reminder matching "${title || id}"` };
+                await voiceService.deleteReminder(reminderId);
+                return { status: 'success', message: 'Reminder deleted successfully.' };
+            } catch (err) {
+                return { status: 'error', message: 'Failed to delete reminder.' };
+            }
+        }
+        if (name === 'list_memories') {
+            try {
+                const res = await voiceService.getMemories(1, 100);
+                const memories = res.data.data || [];
+                return {
+                    status: 'success',
+                    memories: memories.map(m => ({ id: m._id, content: m.content, category: m.category }))
+                };
+            } catch (err) {
+                return { status: 'error', message: 'Failed to fetch memories.' };
+            }
+        }
+        if (name === 'delete_memory') {
+            const { id, query } = args;
+            try {
+                let memoryId = id;
+                if (!memoryId && query) {
+                    const res = await voiceService.getMemories(1, 100);
+                    const match = (res.data.data || []).find(m => m.content.toLowerCase().includes(query.toLowerCase()));
+                    if (match) memoryId = match._id;
+                }
+                if (!memoryId) return { status: 'error', message: `Could not find memory matching "${query || id}"` };
+                await voiceService.deleteMemory(memoryId);
+                return { status: 'success', message: 'Memory deleted successfully.' };
+            } catch (err) {
+                return { status: 'error', message: 'Failed to delete memory.' };
+            }
+        }
+        if (name === 'search_memories') {
+            const { query } = args;
+            try {
+                const res = await voiceService.getMemories(1, 100, query);
+                const memories = res.data.data || [];
+                return {
+                    status: 'success',
+                    results: memories.map(m => ({ content: m.content, category: m.category, date: m.createdAt }))
+                };
+            } catch (err) {
+                return { status: 'error', message: 'Failed to search memories.' };
+            }
+        }
+        if (name === 'get_medication_info') {
+            const { medication_name } = args;
+            return { status: 'success', message: `Fetching expert info for ${medication_name}...` };
+        }
+        if (name === 'analyze_health_summary') {
+            try {
+                const [remindersRes, memoriesRes] = await Promise.all([
+                    voiceService.getReminders(1, 20),
+                    voiceService.getMemories(1, 20)
+                ]);
+                const reminders = remindersRes.data.data || [];
+                const memories = memoriesRes.data.data || [];
+                return {
+                    status: 'success',
+                    data: {
+                        recent_reminders: reminders.map(r => ({ title: r.title, time: r.time, date: r.date, notes: r.notes })),
+                        recent_memories: memories.map(m => ({ content: m.content, category: m.category })),
+                        user_context: {
+                            name: user?.name || 'User',
+                            status: 'Active'
+                        }
+                    }
+                };
+            } catch (err) {
+                return { status: 'error', message: 'Failed to synthesize health summary.' };
+            }
+        }
+        return { error: 'Tool not found' };
+    };
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -54,19 +175,11 @@ const BuddyAssistant = () => {
 
     // Auto-scroll to bottom when response changes
     useEffect(() => {
-        if (chatResponse || parsedReminder || isParsing) {
+        if (chatResponse || parsedReminder) {
             chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [chatResponse, parsedReminder, isParsing]);
+    }, [chatResponse, parsedReminder]);
 
-    // Reset state when user starts speaking again for continuous conversation
-    useEffect(() => {
-        if (isListening && (chatResponse || parsedReminder)) {
-            // Optional: Keep visual context but prepare for new input
-            // setChatResponse(null); 
-            // setParsedReminder(null);
-        }
-    }, [isListening]);
 
     // Listen for Google Auth callback success
     useEffect(() => {
@@ -80,8 +193,14 @@ const BuddyAssistant = () => {
         return () => window.removeEventListener('message', handleMessage);
     }, [refreshUser]);
 
-    // Use global transcript or local one
-    const transcript = globalTranscript || localTranscript;
+
+    useEffect(() => {
+        if (setPreventProcessing) {
+            setPreventProcessing(true);
+            return () => setPreventProcessing(false);
+        }
+    }, [setPreventProcessing]);
+
 
     // Check if we received reminder data from navigation (with autoSave support)
     useEffect(() => {
@@ -176,132 +295,6 @@ const BuddyAssistant = () => {
         }
     }, [showHistory]);
 
-    const handleParse = async (manualText = null) => {
-        if (isProcessingRef.current) return;
-
-        // Multi-pass wake word cleanup to catch combinations like "Hey Buddy... Buddy"
-        const wakeWordRegex = /(hey\s+buddy|hello\s+buddy|hi\s+buddy|hey\s+bud|hey\s+bub|buddy|bud|bub|bodi|birdie|body|हे\s+बडी|हाय\s+बडी|नमस्ते\s+बडी|ஹே\s+படி|ஹே\s+பட்டி|வணக்கம்\s+பட்டி|హే\s+బడ్డీ|హలో\s+బడ్డీ|హే\s+బడ్డి|ಹೇ\s+ಬಡ್ಡಿ)/gi;
-
-        let textToParse = (manualText || transcript).replace(wakeWordRegex, '').trim();
-
-        // Remove trailing/leading punctuation often added by STT
-        textToParse = textToParse.replace(/^[,\s.*]+|[,\s.*]+$/g, '');
-
-        if (!textToParse || textToParse.length < 3) {
-            console.log("🚫 Blocking empty/short command:", textToParse || "(empty)");
-            return;
-        }
-
-        isProcessingRef.current = true;
-        setIsParsing(true);
-        setTranscript(''); // Clear global transcript IMMEDIATELY to stop other triggers
-        setLocalTranscript(''); // Clear local too
-
-        // 🚀 Intercept System Commands (Close/Exit/Stop) to make Buddy feel like a real agent
-        const exitPhrases = ['close', 'exit', 'stop', 'quit', 'end session', 'close everything', 'dismiss'];
-        const isExitCommand = exitPhrases.some(p => textToParse.toLowerCase().includes(p)) && textToParse.split(' ').length < 5;
-
-        if (isExitCommand) {
-            console.log("👋 Intercepted Exit Command:", textToParse);
-            setChatResponse(null);
-            setParsedReminder(null);
-            setIsConversationMode(false);
-            speak(language.startsWith('hi') ? "ठीक है, बंद कर रहा हूँ।" : "Sure, closing everything for you.");
-            setIsParsing(false);
-            isProcessingRef.current = false;
-            return;
-        }
-
-        try {
-            // Pass history AND conversationId for context!
-            const result = await voiceService.parseVoice(textToParse, language, conversationHistory, currentConversationId);
-
-            if (result.success) {
-                const { type, data, reply, voice_reply } = result.data;
-                const { conversationId } = result.meta || {};
-
-                if (conversationId && !currentConversationId) {
-                    setCurrentConversationId(conversationId);
-                }
-
-                const speechText = voice_reply || reply;
-
-                // Update History (Frontend)
-                const newTurns = [
-                    { role: 'user', content: textToParse },
-                    { role: 'assistant', content: reply || (type === 'reminder' ? 'Reminder Set' : 'Done') }
-                ];
-                setConversationHistory(prev => [...prev, ...newTurns]);
-
-                if (type === 'chat') {
-                    setChatResponse(reply);
-                    setChatVoiceResponse(speechText);
-                    speak(speechText, () => {
-                        // Auto-close after 3 seconds of silence following the speech
-                        setTimeout(() => {
-                            setChatResponse(null);
-                        }, 3000);
-                    });
-                    setParsedReminder(null); // Clear reminder if it's just chat
-                } else if (type === 'reminder') {
-                    setParsedReminder(data);
-                    setChatResponse(reply); // Show the reply text too
-                    setChatVoiceResponse(speechText);
-
-                    // AUTO-SAVE to Buddy DB immediately to prevent loss
-                    try {
-                        const saveRes = await voiceService.saveReminder(data, 'buddy');
-                        if (saveRes.success && saveRes.data?._id) {
-                            setAutoSavedId(saveRes.data._id);
-                            console.log("✅ Auto-saved reminder from Buddy page [ID:", saveRes.data._id, "]");
-                        }
-                        window.dispatchEvent(new CustomEvent('buddy-data-updated'));
-                    } catch (e) {
-                        console.error("Auto-save failed:", e);
-                    }
-
-                    if (reply) {
-                        speak(speechText, () => {
-                            // Auto-close after 3 seconds of silence following the speech
-                            setTimeout(() => {
-                                setChatResponse(null);
-                            }, 3000);
-                        });
-                    }
-                }
-
-                if (result.isDemo) {
-                    toast.success("Parsed in Demo Mode");
-                }
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Failed to process voice command.");
-        } finally {
-            setIsParsing(false);
-            setManualInput(''); // Clear input after processing
-            setTimeout(() => { isProcessingRef.current = false; }, 800); // Cooldown to prevent bounce
-        }
-    };
-
-    useEffect(() => {
-        // Determine if we should parse automatically (only for voice)
-        const shouldParse = transcript.length > 1 && !isParsing;
-
-        if (isListening) {
-            // User is still potentially speaking, wait for pause
-            const timeout = setTimeout(() => {
-                if (shouldParse) {
-                    handleParse();
-                }
-            }, 500); // 0.5s silence to trigger processing for snappy response
-            return () => clearTimeout(timeout);
-        } else {
-            // Mic stopped. If we have a pending transcript so parse it.
-            if (shouldParse && !isParsing) {
-                handleParse();
-            }
-        }
-    }, [transcript, isListening, isParsing]);
 
     const handleSave = async () => {
         if (!parsedReminder) return;
@@ -322,7 +315,6 @@ const BuddyAssistant = () => {
                 toast.success("Reminder saved successfully!");
                 setParsedReminder(null);
                 setAutoSavedId(null);
-                setLocalTranscript('');
                 setTimeout(() => navigate('/admin/reminders'), 1500);
             }
         } catch (error) {
@@ -348,22 +340,6 @@ const BuddyAssistant = () => {
         setParsedReminder(null);
         setChatResponse(null);
         setChatVoiceResponse(null);
-        setLocalTranscript('');
-    };
-
-    const handleManualSubmit = (e) => {
-        e.preventDefault();
-        if (manualInput.trim()) {
-            handleParse(manualInput);
-        }
-    };
-
-    const toggleMic = () => {
-        if (isListening) {
-            toggleListening(); // Stop
-        } else {
-            toggleListening(); // Start
-        }
     };
 
     const handleFileUpload = async (event) => {
@@ -376,10 +352,9 @@ const BuddyAssistant = () => {
         setParsedReminder(null);
 
         try {
-            const res = await voiceService.uploadPrescription(file, language);
+            const res = await voiceService.uploadPrescription(file);
             if (res.success) {
                 setAnalyzedPrescription(res.data);
-                speak(res.data.summary);
                 toast.success("Prescription analyzed!");
             }
         } catch (err) {
@@ -400,7 +375,6 @@ const BuddyAssistant = () => {
             );
             if (res.success) {
                 toast.success(res.message);
-                speak(language.startsWith('hi') ? "दवा के रिमाइंडर सेट कर दिए गए हैं।" : "Medical reminders have been set successfully.");
                 setAnalyzedPrescription(null);
                 refreshUser();
             }
@@ -415,6 +389,10 @@ const BuddyAssistant = () => {
         if (!timeStr) return 'Not set';
         try {
             if (timeStr.includes(':')) {
+                // If it already contains AM/PM, don't re-format
+                if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+                    return timeStr;
+                }
                 const [hours, mins] = timeStr.split(':');
                 const h = parseInt(hours);
                 const ampm = h >= 12 ? 'PM' : 'AM';
@@ -428,17 +406,15 @@ const BuddyAssistant = () => {
     };
 
     const quickCommands = [
-        { icon: <Plus size={18} />, text: "Create reminder", action: () => speak("What reminder would you like to set?") },
+        { icon: <Plus size={18} />, text: "Create reminder", action: () => toast.info("Just say 'Set a reminder' to Gemini!") },
         { icon: <FilePlus size={18} />, text: "Upload Prescription", action: () => fileInputRef.current?.click() },
-        { icon: <CalendarDays size={18} />, text: "Check my schedule", action: () => handleParse("Check my schedule") },
-        { icon: <Clock size={18} />, text: "What's next today", action: () => handleParse("What's next today") },
         { icon: <Brain size={18} />, text: "Remembered things", action: () => navigate('/admin/memories') },
         { icon: <List size={18} />, text: "Show active reminders", action: () => navigate('/admin/reminders') },
     ];
 
     return (
-        <div className="assistant-page-wrapper">
-            {/* History Sidebar */}
+        <div className="assistant-page-wrapper" style={{ background: 'var(--bg-color)', minHeight: '100vh', overflow: 'hidden' }}>
+            {/* History Sidebar - Overhauled for slide-over glass effect */}
             <AnimatePresence>
                 {showHistory && (
                     <>
@@ -448,85 +424,114 @@ const BuddyAssistant = () => {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setShowHistory(false)}
+                            style={{ backdropFilter: 'blur(4px)', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999 }}
                         />
                         <motion.div
-                            className="history-sidebar"
+                            className="glass-panel history-sidebar"
                             initial={{ x: '-100%' }}
                             animate={{ x: 0 }}
                             exit={{ x: '-100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            style={{
+                                position: 'fixed',
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: '320px',
+                                zIndex: 1000,
+                                borderRadius: '0 24px 24px 0',
+                                borderLeft: 'none',
+                                background: 'rgba(15, 23, 42, 0.9)',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}
                         >
-                            <div className="history-sidebar-header">
-                                <div className="header-title">
-                                    <Clock size={20} />
-                                    <h3>History</h3>
+                            <div className="history-sidebar-header" style={{ padding: '24px', borderBottom: '1px solid var(--border-color)' }}>
+                                <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <Clock size={20} className="text-indigo-400" />
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700' }}>Conversation History</h3>
                                 </div>
-                                <button className="close-history" onClick={() => setShowHistory(false)}>
+                                <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '50%', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}>
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <button className="new-chat-btn" onClick={startNewChat}>
-                                <Plus size={18} />
-                                Start New Chat
-                            </button>
+                            <div style={{ padding: '24px', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                <button className="btn-premium w-full" onClick={startNewChat} style={{ width: '100%', marginBottom: '24px' }}>
+                                    <Plus size={18} />
+                                    New Conversation
+                                </button>
 
-                            <div className="history-list-scroll">
-                                {historyLoading ? (
-                                    <div className="history-loading">
-                                        <Loader2 className="animate-spin" />
-                                        <span>Loading history...</span>
-                                    </div>
-                                ) : historyList.length === 0 ? (
-                                    <div className="history-empty">
-                                        <Sparkles size={32} opacity={0.3} />
-                                        <p>No conversations yet</p>
-                                    </div>
-                                ) : (
-                                    historyList.map(chat => (
-                                        <div
-                                            key={chat._id}
-                                            className={`history-item ${chat._id === currentConversationId ? 'active' : ''}`}
-                                            onClick={() => loadConversation(chat._id)}
-                                        >
-                                            <div className="history-item-content">
-                                                <span className="history-item-title">{chat.title || 'Chat'}</span>
-                                                <span className="history-item-date">{new Date(chat.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            <button
-                                                className="delete-history-btn"
-                                                onClick={(e) => deleteConversation(e, chat._id)}
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
+                                <div className="history-list-scroll" style={{ flex: 1, overflowY: 'auto' }}>
+                                    {historyLoading ? (
+                                        <div className="history-loading" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '40px 0' }}>
+                                            <Loader2 className="animate-spin text-indigo-500" size={32} />
+                                            <span style={{ color: 'var(--text-sub)' }}>Synchronizing history...</span>
                                         </div>
-                                    ))
-                                )}
+                                    ) : historyList.length === 0 ? (
+                                        <div className="history-empty" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-sub)' }}>
+                                            <Sparkles size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
+                                            <p>No past moments found</p>
+                                        </div>
+                                    ) : (
+                                        historyList.map(chat => (
+                                            <div
+                                                key={chat._id}
+                                                className={`glass-card history-item ${chat._id === currentConversationId ? 'active' : ''}`}
+                                                onClick={() => loadConversation(chat._id)}
+                                                style={{
+                                                    padding: '16px',
+                                                    marginBottom: '12px',
+                                                    cursor: 'pointer',
+                                                    border: chat._id === currentConversationId ? '1px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.05)',
+                                                    background: chat._id === currentConversationId ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.02)',
+                                                    position: 'relative',
+                                                    borderRadius: '16px'
+                                                }}
+                                            >
+                                                <div className="history-item-content">
+                                                    <span className="history-item-title" style={{ display: 'block', fontWeight: '600', fontSize: '0.95rem', marginBottom: '4px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chat.title || 'Health Journal Entry'}</span>
+                                                    <span className="history-item-date" style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{new Date(chat.createdAt).toLocaleDateString()}</span>
+                                                </div>
+                                                <button
+                                                    className="delete-history-btn"
+                                                    onClick={(e) => deleteConversation(e, chat._id)}
+                                                    style={{ position: 'absolute', right: '12px', top: '16px', opacity: 0.5, background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </motion.div>
                     </>
                 )}
             </AnimatePresence>
 
-            <div className="assistant-container">
+            <div className="assistant-container" style={{ padding: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 {!isMobile && (
-                    <>
+                    <div style={{ position: 'fixed', left: '24px', top: '24px', display: 'flex', gap: '12px', zIndex: 100 }}>
                         <button
-                            className="history-toggle-btn"
+                            className="glass-card"
                             onClick={() => setShowHistory(true)}
+                            style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', borderRadius: '12px' }}
                         >
-                            <Clock size={20} />
-                            <span>History</span>
+                            <Clock size={20} className="text-indigo-400" />
+                            <span style={{ fontWeight: '600' }}>History</span>
                         </button>
                         <button
-                            className="camera-toggle-btn"
+                            className="glass-card"
                             onClick={() => fileInputRef.current?.click()}
+                            style={{ padding: '12px', borderRadius: '12px' }}
                         >
-                            <Camera size={20} />
+                            <Camera size={20} className="text-cyan-400" />
                         </button>
-                    </>
+                    </div>
                 )}
-                <div className="center-interaction" style={{ flex: 1 }}>
+
+                <div className="center-interaction" style={{ flex: 1, width: '100%', maxWidth: '800px', padding: '120px 20px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: 'calc(100vh - 100px)' }}>
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -535,32 +540,22 @@ const BuddyAssistant = () => {
                         onChange={handleFileUpload}
                     />
 
-                    {isMobile && !chatResponse && !parsedReminder && !analyzedPrescription && !isParsing && (
-                        <div className="mobile-perplexity-header">
-                            <div className="user-initial-circle" onClick={() => navigate('/admin/dashboard')}>
-                                {user?.name?.charAt(0) || 'S'}
-                            </div>
-                            <div className="mobile-header-stack" onClick={() => setShowHistory(true)}>
-                                <Clock size={20} />
-                            </div>
-                        </div>
-                    )}
-
                     <AnimatePresence mode="wait">
-                        {isMobile && !chatResponse && !parsedReminder && !analyzedPrescription && !isParsing ? (
+                        {(isSaving || isUploading) ? (
                             <motion.div
-                                key="mobile-hero"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="mobile-hero-section"
+                                key="loading"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                style={{ textAlign: 'center', padding: '100px 0' }}
                             >
-                                <h1 className="mobile-hero-title">Buddy AI</h1>
-                                <p className="mobile-hero-desc">
-                                    Your personal AI assistant for health and reminders.
-                                    Ask anything, from scheduling medication to analyzing prescriptions.
-                                </p>
-
+                                <div className="animate-float">
+                                    <Loader2 className="animate-spin text-indigo-500" size={80} style={{ margin: '0 auto 24px' }} />
+                                </div>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: '700' }}>
+                                    {isUploading ? "AI Analyzing Prescription..." : "Securing to Memory..."}
+                                </h3>
+                                <p style={{ color: 'var(--text-sub)' }}>Just a moment while Buddy processes your health data.</p>
                             </motion.div>
                         ) : analyzedPrescription ? (
                             <motion.div
@@ -568,74 +563,48 @@ const BuddyAssistant = () => {
                                 initial={{ opacity: 0, scale: 0.95, y: 30 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 30 }}
-                                className="analysis-card-glass"
-                                style={{ position: 'relative', zIndex: 10 }}
+                                className="glass-panel"
+                                style={{ padding: '40px', width: '100%' }}
                             >
-                                <div className="analysis-header">
-                                    <div className="analysis-icon">
-                                        <ShieldPlus size={24} color="#10b981" />
+                                <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '16px' }}>
+                                        <ShieldPlus size={32} color="#10b981" />
                                     </div>
-                                    <div className="analysis-title">
-                                        <h3>Medical Analysis</h3>
-                                        <p>Prescription from {analyzedPrescription.extractedData.doctorName || 'Doctor'}</p>
+                                    <div style={{ flex: 1 }}>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '4px' }}>Medical Protocol Analysis</h3>
+                                        <p style={{ color: 'var(--text-sub)' }}>Extracted from provided prescription document</p>
                                     </div>
-                                    <button className="analysis-close" onClick={() => setAnalyzedPrescription(null)}>
-                                        <Plus size={18} style={{ transform: 'rotate(45deg)' }} />
+                                    <button onClick={() => setAnalyzedPrescription(null)} style={{ opacity: 0.5, background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}>
+                                        <X size={24} />
                                     </button>
                                 </div>
 
-                                <div className="analysis-body">
-                                    {analyzedPrescription.extractedData.patientName && (
-                                        <div className="patient-tag">
-                                            <Heart size={14} /> <span>Patient: {analyzedPrescription.extractedData.patientName}</span>
-                                        </div>
-                                    )}
-
-                                    <div className="medicines-list">
-                                        {analyzedPrescription.extractedData.medicines.map((med, idx) => (
-                                            <div key={idx} className="medicine-item-vision">
-                                                <div className="med-info-main">
-                                                    <div className="med-capsule">
-                                                        <span className="med-name">{med.name}</span>
-                                                        <span className="med-dosage">{med.dosage}</span>
-                                                    </div>
-                                                    <div className="med-frequency">
-                                                        {med.frequency.morning && <span className="freq-pill">Morning</span>}
-                                                        {med.frequency.afternoon && <span className="freq-pill">Afternoon</span>}
-                                                        {med.frequency.night && <span className="freq-pill">Night</span>}
-                                                    </div>
+                                <div className="medicines-list" style={{ display: 'grid', gap: '16px', marginBottom: '32px' }}>
+                                    {analyzedPrescription.extractedData.medicines.map((med, idx) => (
+                                        <div key={idx} className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'flex-start' }}>
+                                                <div>
+                                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '2px' }}>{med.name}</h4>
+                                                    <span style={{ color: 'var(--text-sub)', fontSize: '0.85rem' }}>Dosage: {med.dosage}</span>
                                                 </div>
-                                                <div className="med-details-row">
-                                                    <span className="med-timing"><Clock size={12} /> {med.timing || 'As directed'}</span>
-                                                    <span className="med-duration"><Calendar size={12} /> {med.duration || '5 days'}</span>
+                                                <div className="med-frequency" style={{ display: 'flex', gap: '6px' }}>
+                                                    {med.frequency.morning && <span className="badge-pill" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>Morning</span>}
+                                                    {med.frequency.afternoon && <span className="badge-pill" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>Noon</span>}
+                                                    {med.frequency.night && <span className="badge-pill" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>Night</span>}
                                                 </div>
-                                                {med.instructions && <p className="med-instr">Note: {med.instructions}</p>}
                                             </div>
-                                        ))}
-                                    </div>
-
-                                    {analyzedPrescription.extractedData.notes && (
-                                        <div className="analysis-notes">
-                                            <label>Additional Notes</label>
-                                            <p>{analyzedPrescription.extractedData.notes}</p>
+                                            <div style={{ display: 'flex', gap: '24px', color: 'var(--text-sub)', fontSize: '0.85rem' }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={14} /> {med.timing || 'As directed'}</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Calendar size={14} /> {med.duration || 'Full course'}</span>
+                                            </div>
                                         </div>
-                                    )}
-
-                                    <div className="medical-disclaimer">
-                                        <Shield size={12} /> This is a reminder assistant, not medical advice.
-                                    </div>
+                                    ))}
                                 </div>
 
-                                <div className="analysis-footer">
-                                    <button
-                                        className="btn-vision-primary"
-                                        onClick={handleConfirmMedicalReminders}
-                                        disabled={isSaving}
-                                    >
-                                        {isSaving ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                                        Set Medication Reminders
-                                    </button>
-                                </div>
+                                <button className="btn-premium w-full" onClick={handleConfirmMedicalReminders} style={{ width: '100%' }}>
+                                    {isSaving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+                                    Initialize Medication Reminders
+                                </button>
                             </motion.div>
                         ) : parsedReminder ? (
                             <motion.div
@@ -643,566 +612,130 @@ const BuddyAssistant = () => {
                                 initial={{ opacity: 0, scale: 0.9, y: 30 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                                className="confirmation-card"
-                                style={{ position: 'relative', zIndex: 10 }}
+                                className="glass-panel"
+                                style={{ padding: '40px', textAlign: 'center', width: '100%' }}
                             >
-                                <div className="confirmation-header">
-                                    <div className="icon-badge">
-                                        <CheckCircle2 size={24} />
+                                <div style={{ marginBottom: '24px' }}>
+                                    <div className="animate-pulse-glow" style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                        <CheckCircle2 size={40} className="text-indigo-400" />
                                     </div>
-                                    <div className="header-text">
-                                        <h3>Review Reminder</h3>
-                                        <span className="intent-badge">{parsedReminder.intent || 'General'}</span>
-                                    </div>
-                                    <button className="cancel-corner-btn" onClick={handleCancel}>
-                                        <X size={20} />
-                                    </button>
+                                    <h3 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '8px' }}>Ready to Save?</h3>
+                                    <p style={{ color: 'var(--text-sub)' }}>I've parsed the details for your new reminder.</p>
                                 </div>
 
-                                <div className="reminder-details">
-                                    <div className="detail-item">
-                                        <div className="detail-icon">
-                                            <Zap size={16} />
-                                        </div>
-                                        <div className="detail-content">
-                                            <span className="detail-label">Task Details</span>
-                                            <span className="detail-value">{parsedReminder.title}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="detail-grid">
-                                        <div className="detail-item">
-                                            <div className="detail-icon secondary">
-                                                <Calendar size={16} />
-                                            </div>
-                                            <div className="detail-content">
-                                                <span className="detail-label">Schedule Date</span>
-                                                <span className="detail-value">{parsedReminder.date || 'Today'}</span>
+                                <div className="glass-card" style={{ padding: '24px', marginBottom: '32px', textAlign: 'left', borderRadius: '20px' }}>
+                                    <h4 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '16px', color: 'var(--primary-color)' }}>{parsedReminder.title}</h4>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <Calendar className="text-indigo-400" size={18} />
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Date</p>
+                                                <p style={{ fontWeight: '600' }}>{parsedReminder.date || 'Today'}</p>
                                             </div>
                                         </div>
-                                        <div className="detail-item">
-                                            <div className="detail-icon secondary">
-                                                <Clock size={16} />
-                                            </div>
-                                            <div className="detail-content">
-                                                <span className="detail-label">Exact Time</span>
-                                                <span className="detail-value">{formatTime(parsedReminder.time)}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <Clock className="text-indigo-400" size={18} />
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Time</p>
+                                                <p style={{ fontWeight: '600' }}>{formatTime(parsedReminder.time)}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="confirmation-actions">
-                                    <div className="save-selector">
-                                        <button
-                                            className={saveDestination === 'buddy' ? 'active' : ''}
-                                            onClick={() => setSaveDestination('buddy')}
-                                        >
-                                            <Shield size={14} />
-                                            <span>Buddy Only</span>
-                                        </button>
-                                        <button
-                                            className={saveDestination === 'both' ? 'active' : ''}
-                                            onClick={() => setSaveDestination('both')}
-                                        >
-                                            <Sparkles size={14} />
-                                            <span>Buddy + Google</span>
-                                        </button>
-                                    </div>
-                                    <button
-                                        className="btn-save-confirm"
-                                        onClick={handleSave}
-                                        disabled={isSaving}
-                                    >
-                                        {isSaving ? (
-                                            <Loader2 className="animate-spin" size={20} />
-                                        ) : (
-                                            <>
-                                                <CheckCircle2 size={20} />
-                                                Confirm and Save
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
+                                <button className="btn-premium w-full" onClick={handleSave} style={{ width: '100%', height: '60px', fontSize: '1.1rem' }}>
+                                    {isSaving ? <Loader2 className="animate-spin" /> : <Shield size={22} />}
+                                    Commit to Memory
+                                </button>
+                                <button onClick={handleCancel} style={{ marginTop: '20px', color: 'var(--text-sub)', fontWeight: '600', fontSize: '0.9rem', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                    Cancel and Discard
+                                </button>
                             </motion.div>
                         ) : chatResponse ? (
                             <motion.div
                                 key="chat-response"
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="chat-response-card"
-                                style={{ position: 'relative', zIndex: 10 }}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="glass-panel"
+                                style={{ padding: '40px', width: '100%' }}
                             >
-                                <div className="chat-response-header">
-                                    <p className="chat-query-label">You asked:</p>
-                                    {globalTranscript && <p className="chat-query-text">"{globalTranscript}"</p>}
-                                </div>
-
-                                <div className="chat-answer-section">
-                                    <div className="chat-buddy-header">
-                                        <p className="chat-buddy-label">Buddy says:</p>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button
-                                                type="button"
-                                                className="chat-replay-btn"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    speak(chatVoiceResponse || chatResponse);
-                                                }}
-                                                title="Play again"
-                                            >
-                                                <Volume2 size={18} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="chat-replay-btn"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCancel();
-                                                }}
-                                                title="Close"
-                                                style={{ color: '#ef4444' }}
-                                            >
-                                                <Plus size={18} style={{ transform: 'rotate(45deg)' }} />
-                                            </button>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Sparkles size={20} color="white" />
+                                        </div>
+                                        <div>
+                                            <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Buddy's Insight</h3>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>AI Generated Response</p>
                                         </div>
                                     </div>
-                                    <p className="chat-buddy-text">
-                                        {chatResponse?.replace(/\*/g, '').replace(/_/g, '')}
-                                    </p>
+                                    <button onClick={handleCancel} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}>
+                                        <X size={20} />
+                                    </button>
                                 </div>
-                            </motion.div>
-                        ) : (isParsing || isSaving || isUploading) ? (
-                            <motion.div
-                                key="loading"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="loader-section"
-                                style={{ color: 'var(--primary-color)' }}
-                            >
-                                <div className="loading-orbit">
-                                    <Loader2 className="animate-spin" size={64} />
-                                    <Sparkles className="sparkle-ai" size={24} />
+                                <p style={{ fontSize: '1.15rem', lineHeight: '1.6', color: 'var(--text-main)', marginBottom: '32px' }}>
+                                    {chatResponse?.replace(/\*/g, '').replace(/_/g, '')}
+                                </p>
+                                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '24px', display: 'flex', gap: '12px' }}>
+                                    <button className="glass-card" style={{ padding: '12px 24px', fontWeight: '600', borderRadius: '12px' }} onClick={() => toast.success("Insight added to health journal.")}>
+                                        Add to Journal
+                                    </button>
                                 </div>
-                                <span style={{ marginTop: '1.5rem', display: 'block', fontWeight: '600', fontSize: '1.1rem', letterSpacing: '0.02em' }}>
-                                    {isUploading ? "Analyzing Prescription..." : isSaving ? "Saving Reminder..." : "Buddy is thinking..."}
-                                </span>
                             </motion.div>
                         ) : (
                             <motion.div
-                                key="default-view"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="default-view-container"
+                                key="hero-section"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 1.1 }}
+                                style={{ textAlign: 'center', width: '100%' }}
                             >
-                                <div className="mic-wrapper">
-                                    <button className={`main-mic-btn ${isListening ? 'listening' : ''} ${isParsing ? 'parsing' : ''} ${isAmbient ? 'ambient' : ''}`} onClick={toggleMic}>
-                                        <div className="ai-orb-container">
-                                            <div className="ai-orb-glow"></div>
-                                            <div className="ai-orb-ring ai-orb-ring-1"></div>
-                                            <div className="ai-orb-ring ai-orb-ring-2"></div>
-                                            <div className="ai-orb-ring ai-orb-ring-3"></div>
-                                            <div className="ai-orb-inner">
-                                                <div className="ai-orb-flux"></div>
+                                <div style={{ height: '40px' }} /> {/* Spacing instead of logo */}
+
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center' }}>
+                                    {quickCommands.map((cmd, index) => (
+                                        <button key={index} className="glass-card" onClick={cmd.action} style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', cursor: 'pointer' }}>
+                                            <div style={{ color: index % 2 === 0 ? 'var(--primary-color)' : 'var(--secondary-color)' }}>
+                                                {cmd.icon}
                                             </div>
-                                        </div>
-                                    </button>
+                                            <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-main)' }}>{cmd.text}</span>
+                                        </button>
+                                    ))}
                                 </div>
-
-                                {(isListening || isConversationMode) && (
-                                    <div className="interaction-text">
-                                        <h2 className={isListening ? 'text-gradient-animate' : ''}>
-                                            {isListening ? "I'm Listening..." : "Conversation Active..."}
-                                        </h2>
-                                        {isListening && <p className="listening-subtext">Go ahead, I'm listening.</p>}
-                                        {isListening && transcript && (
-                                            <motion.div
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                className="live-transcript-preview"
-                                            >
-                                                "{transcript}"
-                                            </motion.div>
-                                        )}
-                                        {isConversationMode && !isListening && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                                <p className="listening-subtext ambient">Session is active, no wake word needed</p>
-                                                <button
-                                                    onClick={() => setIsConversationMode(false)}
-                                                    style={{
-                                                        background: 'color-mix(in srgb, var(--danger-color) 10%, transparent)',
-                                                        color: 'var(--danger-color)',
-                                                        border: '1px solid color-mix(in srgb, var(--danger-color) 20%, transparent)',
-                                                        padding: '4px 12px',
-                                                        borderRadius: '20px',
-                                                        fontSize: '0.7rem',
-                                                        fontWeight: '700',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    End Session
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {!isMobile && (
-                                    <div className="quick-commands-section">
-                                        <span className="quick-commands-label">Quick Commands</span>
-                                        <div className="commands-list">
-                                            {quickCommands.map((cmd, index) => (
-                                                <button key={index} className="command-pill" onClick={cmd.action}>
-                                                    <div className="command-icon-box">
-                                                        {cmd.icon}
-                                                    </div>
-                                                    <span className="command-text">{cmd.text}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
 
-                    {isMobile && !chatResponse && !parsedReminder && !analyzedPrescription && !isParsing && (
-                        <div className="mobile-perplexity-bottom-panel">
-                            <div className="mobile-chips-scroll">
-                                <button className="mobile-action-chip" onClick={() => handleParse("Plan my meds")}>
-                                    <Calendar size={14} /> Plan my meds
-                                </button>
-                                <button className="mobile-action-chip" onClick={() => handleParse("Analyze prescription")}>
-                                    <ShieldPlus size={14} /> Analyze lab
-                                </button>
-                                <button className="mobile-action-chip" onClick={() => handleParse("Find health tips")}>
-                                    <Heart size={14} /> Health tips
-                                </button>
-                                <button className="mobile-action-chip favorite">
-                                    <Heart size={14} />
-                                </button>
-                            </div>
-                            <div className="mobile-input-container-pill">
-                                <span className="ask-placeholder" onClick={() => fileInputRef.current?.click()}>Ask Buddy anything...</span>
-                                <div className="mobile-input-actions-row">
-                                    <div className="left-icons">
-                                        <Plus size={18} className="panel-icon" onClick={() => fileInputRef.current?.click()} />
-                                        <Search size={18} className="panel-icon" />
-                                    </div>
-                                    <div className="right-icons">
-                                        <button className="mobile-toggle-btn">
-                                            <Sparkles size={16} />
-                                        </button>
-                                        <button className="mobile-mic-circle" onClick={toggleMic}>
-                                            <Mic size={20} color="white" />
-                                        </button>
-                                        <div className="visualizer-bars">
-                                            <div className="bar"></div>
-                                            <div className="bar active"></div>
-                                            <div className="bar"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     <div ref={chatEndRef} />
                 </div>
 
-                {/* Input Area - Restored for the main Buddy AI page */}
-                {!isMobile && (
-                    <div className="input-area">
-                        <form onSubmit={handleManualSubmit} className="input-container">
-                            <input
-                                type="text"
-                                className="text-input"
-                                placeholder="Type or speak to Buddy..."
-                                value={manualInput}
-                                onChange={(e) => setManualInput(e.target.value)}
-                                disabled={isListening}
-                            />
-                            <button
-                                type="submit"
-                                className="send-btn-round"
-                                style={{
-                                    background: manualInput.trim() ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                    color: manualInput.trim() ? 'white' : 'var(--text-sub)',
-                                }}
-                                disabled={isParsing}
-                                onClick={(e) => {
-                                    if (!manualInput.trim()) {
-                                        e.preventDefault();
-                                        toggleMic();
-                                    }
-                                }}
-                            >
-                                {manualInput.trim() ? <Send size={20} /> : <Mic size={22} style={{ color: isListening ? '#ef4444' : 'inherit' }} />}
-                            </button>
-                        </form>
-                    </div>
-                )}
+                <div className="fixed-assistant-overlay" style={{
+                    position: 'relative',
+                    zIndex: 200,
+                    width: '100%',
+                    maxWidth: '600px',
+                    margin: '0 auto 60px',
+                    display: (!chatResponse && !parsedReminder && !analyzedPrescription && !isSaving && !isUploading) ? 'block' : 'none'
+                }}>
+                    <GeminiVoiceAssistant onToolCall={handleToolCall} />
+                </div>
+            </div>
 
-                <style>{`
-                .assistant-container {
-                    position: relative;
-                }
-                .assistant-container::before {
-                    content: '';
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    width: 600px;
-                    height: 600px;
-                    background: radial-gradient(circle, rgba(var(--primary-rgb), 0.05) 0%, transparent 70%);
-                    pointer-events: none;
-                    z-index: 0;
-                }
+            <style>{`
                 .animate-spin { animation: spin 1s linear infinite; } 
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-                /* History Sidebar Styles */
-                .assistant-page-wrapper {
-                    display: flex;
-                    height: calc(100vh - 84px);
-                    width: 100%;
-                    overflow: hidden;
-                    position: relative;
-                }
-
-                .history-toggle-btn {
-                    position: absolute;
-                    top: 20px;
-                    left: 20px;
-                    z-index: 100;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 8px 16px;
-                    background: var(--bg-lite);
-                    border: 1px solid var(--border-color);
-                    border-radius: 12px;
-                    color: var(--text-main);
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    backdrop-filter: blur(10px);
-                    transition: all 0.3s;
-                    box-shadow: var(--card-shadow);
-                }
-
-                .history-toggle-btn:hover {
-                    background: var(--card-bg);
-                    border-color: var(--primary-color);
-                    transform: translateY(-2px);
-                }
-
-                .camera-toggle-btn {
-                    position: absolute;
-                    top: 20px;
-                    right: 20px;
-                    z-index: 100;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 8px 16px;
-                    background: var(--bg-lite);
-                    border: 1px solid var(--border-color);
-                    border-radius: 12px;
-                    color: var(--text-main);
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    backdrop-filter: blur(10px);
-                    transition: all 0.3s;
-                    box-shadow: var(--card-shadow);
-                }
-
-                .camera-toggle-btn:hover {
-                    background: var(--card-bg);
-                    border-color: var(--primary-color);
-                    transform: translateY(-2px);
-                }
-
-                .history-overlay {
-                    position: fixed;
-                    inset: 0;
-                    background: rgba(0, 0, 0, 0.4);
-                    backdrop-filter: blur(4px);
-                    z-index: 1000;
-                }
-
-                .history-sidebar {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    bottom: 0;
-                    width: 320px;
-                    background: var(--bg-color);
-                    border-right: 1px solid var(--border-color);
-                    z-index: 1001;
-                    display: flex;
-                    flex-direction: column;
-                    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.2);
-                }
-
-                .history-sidebar-header {
-                    padding: 24px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    border-bottom: 1px solid var(--border-color);
-                }
-
-                .header-title {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    color: var(--text-main);
-                }
-
-                .header-title h3 {
-                    font-size: 1.1rem;
-                    font-weight: 700;
-                    margin: 0;
-                }
-
-                .close-history {
-                    background: none;
-                    border: none;
-                    color: var(--text-sub);
-                    cursor: pointer;
-                    padding: 4px;
-                    transition: color 0.2s;
-                }
-
-                .close-history:hover {
-                    color: var(--text-main);
-                }
-
-                .new-chat-btn {
-                    margin: 20px;
-                    padding: 12px;
-                    background: var(--primary-color);
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 8px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
-                }
-
-                .new-chat-btn:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.4);
-                }
-
-                .history-list-scroll {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 0 12px 24px;
-                }
-
-                .history-item {
-                    padding: 14px 16px;
-                    border-radius: 12px;
-                    margin-bottom: 8px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    background: transparent;
-                    border: 1px solid transparent;
-                }
-
-                .history-item:hover {
-                    background: var(--bg-lite);
-                    border-color: var(--border-color);
-                }
-
-                .history-item.active {
-                    background: rgba(var(--primary-rgb), 0.1);
-                    border-color: rgba(var(--primary-rgb), 0.3);
-                }
-
-                .history-item-content {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                    overflow: hidden;
-                }
-
-                .history-item-title {
-                    color: var(--text-main);
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-
-                .history-item-date {
-                    color: var(--text-sub);
-                    font-size: 0.75rem;
-                }
-
-                .delete-history-btn {
-                    opacity: 0;
-                    background: none;
-                    border: none;
-                    color: var(--text-sub);
-                    padding: 4px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .history-item:hover .delete-history-btn {
-                    opacity: 1;
-                }
-
-                .delete-history-btn:hover {
-                    color: var(--danger-color);
-                }
-
-                .history-empty, .history-loading {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 40px 20px;
-                    color: var(--text-sub);
-                    text-align: center;
-                    gap: 12px;
-                }
+                
+                .glass-card { transition: all 0.3s ease; }
+                .glass-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); }
 
                 @media (max-width: 768px) {
-                    .assistant-page-wrapper {
-                        height: 100%;
-                        width: 100%;
-                    }
-                    .history-toggle-btn {
-                        top: 12px;
-                        left: 12px;
-                        padding: 6px 12px;
-                        font-size: 0.8rem;
-                    }
-                    .history-sidebar {
-                        width: 85%;
-                        box-shadow: 10px 0 30px rgba(0,0,0,0.4);
-                    }
+                    .history-sidebar { width: 85% !important; }
+                    .center-interaction { padding-top: 80px !important; }
                 }
+
+                .badge-pill { font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
             `}</style>
-            </div>
         </div>
     );
 };

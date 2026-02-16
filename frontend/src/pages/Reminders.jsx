@@ -34,9 +34,10 @@ const Reminders = () => {
 
     // Unified effect for initial load and search
     useEffect(() => {
+        const delay = searchTerm === '' ? 0 : 500;
         const timeoutId = setTimeout(() => {
             fetchReminders(1);
-        }, 500);
+        }, delay);
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
 
