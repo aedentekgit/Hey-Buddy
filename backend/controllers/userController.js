@@ -60,6 +60,7 @@ const updateUser = async (req, res) => {
         user.email = email || user.email;
         user.phone = phone || user.phone;
         user.role = role || user.role;
+        user.timezone = req.body.timezone || user.timezone;
 
 
         if (password) {
@@ -140,6 +141,7 @@ const updateProfile = async (req, res) => {
         if (name !== undefined) user.name = name;
         if (phone !== undefined) user.phone = phone;
         if (address !== undefined) user.address = address;
+        if (req.body.timezone !== undefined) user.timezone = req.body.timezone;
 
         if (req.body.voicePreferences) {
             user.voicePreferences = {

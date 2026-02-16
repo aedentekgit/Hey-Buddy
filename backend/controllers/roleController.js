@@ -14,7 +14,7 @@ const getRoles = async (req, res) => {
 
 const createRole = async (req, res) => {
     try {
-        const { name, description, permissions, allowedPages } = req.body;
+        const { name, description, permissions, allowedPages, webAccess, mobileAccess } = req.body;
 
         const existingRole = await Role.findOne({ name });
         if (existingRole) {
@@ -26,6 +26,8 @@ const createRole = async (req, res) => {
             description,
             permissions: permissions || [],
             allowedPages: allowedPages || [],
+            webAccess: webAccess !== undefined ? webAccess : true,
+            mobileAccess: mobileAccess !== undefined ? mobileAccess : true,
             isSystem: false
         });
 
@@ -38,7 +40,7 @@ const createRole = async (req, res) => {
 const updateRole = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, permissions, allowedPages } = req.body;
+        const { name, description, permissions, allowedPages, webAccess, mobileAccess } = req.body;
 
         const role = await Role.findById(id);
         if (!role) {
@@ -56,6 +58,8 @@ const updateRole = async (req, res) => {
         role.description = description !== undefined ? description : role.description;
         if (permissions) role.permissions = permissions;
         if (allowedPages) role.allowedPages = allowedPages;
+        if (webAccess !== undefined) role.webAccess = webAccess;
+        if (mobileAccess !== undefined) role.mobileAccess = mobileAccess;
 
         await role.save();
 

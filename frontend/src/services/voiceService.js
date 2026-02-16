@@ -5,7 +5,19 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 const voiceService = {
     parseVoice: async (text, language = 'en-US', history = [], conversationId = null) => {
         const token = localStorage.getItem('token');
-        const response = await axios.post(`${API_URL}/voice/parse`, { text, language, history, conversationId }, {
+
+        // Get user's local timezone
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const clientTimestamp = Date.now();
+
+        const response = await axios.post(`${API_URL}/voice/parse`, {
+            text,
+            language,
+            history,
+            conversationId,
+            timeZone,
+            clientTimestamp
+        }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;

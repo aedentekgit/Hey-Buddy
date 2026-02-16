@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast, Toaster } from 'react-hot-toast';
 import {
-    Plus, Edit2, Trash2, Search, X, Loader2, Eye, Save
+    Plus, Edit2, Trash2, Search, X, Loader2, Eye, Save, Globe, Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -22,7 +22,9 @@ const Roles = () => {
     const [formData, setFormData] = useState({
         name: '',
         permissions: [],
-        allowedPages: []
+        allowedPages: [],
+        webAccess: true,
+        mobileAccess: true
     });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
     const [isViewMode, setIsViewMode] = useState(false);
@@ -88,14 +90,18 @@ const Roles = () => {
             setFormData({
                 name: role.name || '',
                 permissions: role.permissions || [],
-                allowedPages: role.allowedPages || []
+                allowedPages: role.allowedPages || [],
+                webAccess: role.webAccess !== undefined ? role.webAccess : true,
+                mobileAccess: role.mobileAccess !== undefined ? role.mobileAccess : true
             });
         } else {
             setCurrentRole(null);
             setFormData({
                 name: '',
                 permissions: [],
-                allowedPages: []
+                allowedPages: [],
+                webAccess: true,
+                mobileAccess: true
             });
         }
         setIsModalOpen(true);
@@ -333,6 +339,129 @@ const Roles = () => {
                                 }}
                             />
                             {currentRole?.isSystem && !isViewMode && <span className="form-hint" style={{ color: '#eab308', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>System role name cannot be changed</span>}
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '24px' }}>
+                            <label className="form-label" style={{ display: 'block', marginBottom: '12px', fontWeight: 'bold', color: 'var(--text-main)' }}>PLATFORM ACCESS CONTROL</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
+                                {/* Web Access Toggle */}
+                                <div
+                                    onClick={() => {
+                                        if (isViewMode) return;
+                                        setFormData({ ...formData, webAccess: !formData.webAccess });
+                                    }}
+                                    style={{
+                                        padding: '16px',
+                                        borderRadius: '16px',
+                                        background: formData.webAccess ? 'color-mix(in srgb, var(--success-color) 10%, transparent)' : 'var(--bg-lite)',
+                                        border: `1px solid ${formData.webAccess ? 'var(--success-color)' : 'var(--border-color)'}`,
+                                        cursor: isViewMode ? 'default' : 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px',
+                                        transition: 'all 0.2s',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{
+                                            padding: '8px',
+                                            borderRadius: '10px',
+                                            background: formData.webAccess ? 'var(--success-color)' : 'var(--text-sub)',
+                                            color: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <Globe size={18} />
+                                        </div>
+                                        <div style={{
+                                            width: '36px',
+                                            height: '20px',
+                                            borderRadius: '20px',
+                                            background: formData.webAccess ? 'var(--success-color)' : 'var(--text-sub)',
+                                            position: 'relative',
+                                            opacity: isViewMode ? 0.6 : 1,
+                                            transition: 'all 0.3s'
+                                        }}>
+                                            <div style={{
+                                                width: '14px',
+                                                height: '14px',
+                                                borderRadius: '50%',
+                                                background: 'white',
+                                                position: 'absolute',
+                                                top: '3px',
+                                                left: formData.webAccess ? '19px' : '3px',
+                                                transition: 'all 0.3s'
+                                            }} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: '700', fontSize: '0.9rem', color: formData.webAccess ? 'var(--success-color)' : 'var(--text-main)' }}>Website App</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>{formData.webAccess ? 'Access Enabled' : 'Access Restricted'}</div>
+                                    </div>
+                                </div>
+
+                                {/* Mobile Access Toggle */}
+                                <div
+                                    onClick={() => {
+                                        if (isViewMode) return;
+                                        setFormData({ ...formData, mobileAccess: !formData.mobileAccess });
+                                    }}
+                                    style={{
+                                        padding: '16px',
+                                        borderRadius: '16px',
+                                        background: formData.mobileAccess ? 'color-mix(in srgb, var(--info-color) 10%, transparent)' : 'var(--bg-lite)',
+                                        border: `1px solid ${formData.mobileAccess ? 'var(--info-color)' : 'var(--border-color)'}`,
+                                        cursor: isViewMode ? 'default' : 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px',
+                                        transition: 'all 0.2s',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{
+                                            padding: '8px',
+                                            borderRadius: '10px',
+                                            background: formData.mobileAccess ? 'var(--info-color)' : 'var(--text-sub)',
+                                            color: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <Smartphone size={18} />
+                                        </div>
+                                        <div style={{
+                                            width: '36px',
+                                            height: '20px',
+                                            borderRadius: '20px',
+                                            background: formData.mobileAccess ? 'var(--info-color)' : 'var(--text-sub)',
+                                            position: 'relative',
+                                            opacity: isViewMode ? 0.6 : 1,
+                                            transition: 'all 0.3s'
+                                        }}>
+                                            <div style={{
+                                                width: '14px',
+                                                height: '14px',
+                                                borderRadius: '50%',
+                                                background: 'white',
+                                                position: 'absolute',
+                                                top: '3px',
+                                                left: formData.mobileAccess ? '19px' : '3px',
+                                                transition: 'all 0.3s'
+                                            }} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: '700', fontSize: '0.9rem', color: formData.mobileAccess ? 'var(--info-color)' : 'var(--text-main)' }}>Mobile App</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>{formData.mobileAccess ? 'Access Enabled' : 'Access Restricted'}</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="form-group">

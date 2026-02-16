@@ -11,6 +11,19 @@ const nluService = {
      * Generates a structured response based on user input and context
      */
     generateResponse: async (text, context, targetLanguage = 'en-US') => {
+        // Calculate current time in User's Timezone
+        const timeZone = context.userContext?.timeZone || 'UTC';
+        const userTime = new Date().toLocaleString('en-US', {
+            timeZone: timeZone,
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+        });
+
         const systemPrompt = `
 You are "Buddy", a warm, friendly AI assistant.
 Rules:
@@ -18,6 +31,8 @@ Rules:
 2. Use the provided context (History, Memories, Reminders) to give relevant answers.
 3. Be concise and conversational.
 4. If the user wants to set a reminder, return a structured JSON response.
+
+CURRENT USER TIME: ${userTime} (${timeZone})
 
 CONTEXT:
 History: ${JSON.stringify(context.history)}

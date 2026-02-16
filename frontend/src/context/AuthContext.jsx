@@ -13,7 +13,23 @@ export const AuthProvider = ({ children }) => {
             if (token) {
                 try {
                     const res = await api.get('/auth/me');
-                    setUser(res.data.data);
+                    const userData = res.data.data;
+
+                    if (userData && userData.webAccess === false) {
+                        console.warn('Web access restricted for this role. Logging out.');
+                        localStorage.removeItem('token');
+                        setUser(null);
+                        return;
+                    }
+
+                    // Sync Timezone
+                    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    if (userData && (!userData.timezone || userData.timezone !== browserTimezone)) {
+                        console.log('[Auth] Syncing timezone:', browserTimezone);
+                        api.put('/users/profile', { timezone: browserTimezone }).catch(console.error);
+                    }
+
+                    setUser(userData);
                 } catch (error) {
                     localStorage.removeItem('token');
                     setUser(null);
@@ -28,7 +44,15 @@ export const AuthProvider = ({ children }) => {
         const res = await api.post('/auth/login', { email, password });
         if (res.data.success) {
             localStorage.setItem('token', res.data.data.token);
-            setUser(res.data.data);
+
+            // Sync Timezone on Login
+            const userData = res.data.data;
+            const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (userData && (!userData.timezone || userData.timezone !== browserTimezone)) {
+                api.put('/users/profile', { timezone: browserTimezone }).catch(console.error);
+            }
+
+            setUser(userData);
             return { success: true };
         }
         return { success: false, message: res.data.message };
@@ -64,8 +88,16 @@ export const AuthProvider = ({ children }) => {
         if (token) {
             try {
                 const res = await api.get('/auth/me');
-                setUser(res.data.data);
-                return res.data.data;
+                const userData = res.data.data;
+
+                if (userData && userData.webAccess === false) {
+                    localStorage.removeItem('token');
+                    setUser(null);
+                    return null;
+                }
+
+                setUser(userData);
+                return userData;
             } catch (error) {
                 console.error("Refresh user error:", error);
             }

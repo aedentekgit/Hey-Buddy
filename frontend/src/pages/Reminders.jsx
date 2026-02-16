@@ -200,13 +200,19 @@ const Reminders = () => {
     const formatTime = (timeStr) => {
         if (!timeStr) return 'All day';
         try {
+            // Check if it already has AM/PM suffix
+            if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+                return timeStr;
+            }
+
             // Check if it's HH:mm format
             if (timeStr.includes(':')) {
-                const [hours, mins] = timeStr.split(':');
-                const h = parseInt(hours);
+                const parts = timeStr.split(':');
+                const h = parseInt(parts[0]);
+                const m = parts[1].padStart(2, '0');
                 const ampm = h >= 12 ? 'PM' : 'AM';
                 const h12 = h % 12 || 12;
-                return `${h12}:${mins} ${ampm}`;
+                return `${h12}:${m} ${ampm}`;
             }
         } catch (e) {
             return timeStr;

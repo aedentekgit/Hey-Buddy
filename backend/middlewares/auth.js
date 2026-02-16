@@ -18,13 +18,32 @@ const protect = async (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             req.user = await User.findById(decoded.id).select('-password');
-
             if (!req.user) {
                 console.warn(`[AUTH] User not found in database for ID: ${decoded.id}`);
                 return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
             }
 
-            console.log(`[AUTH] User ${req.user.email} authorized`);
+            // Platform Access Enforcement
+            const Role = require('../models/Role');
+            const role = await Role.findOne({ name: req.user.role });
+            const platform = req.headers['x-platform'] || 'web'; // Default to web for security
+
+            if (role) {
+                if (platform === 'web' && !role.webAccess) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Access denied: Web platform restricted for this role.'
+                    });
+                }
+                if (platform === 'mobile' && !role.mobileAccess) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Access denied: Mobile platform restricted for this role.'
+                    });
+                }
+            }
+
+            console.log(`[AUTH] User ${req.user.email} authorized on platform: ${platform}`);
             next();
         } catch (error) {
             console.error(`[AUTH] Verification failed for ${req.method} ${req.url}:`);

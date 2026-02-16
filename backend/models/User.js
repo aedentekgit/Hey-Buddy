@@ -58,6 +58,10 @@ const userSchema = new mongoose.Schema({
             default: 'soft'
         }
     },
+    timezone: {
+        type: String,
+        default: 'UTC'
+    },
     currentLocation: {
         lat: Number,
         lng: Number,

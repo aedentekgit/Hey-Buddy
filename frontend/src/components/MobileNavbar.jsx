@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-    Home, Mic, ListTodo, Brain, MoreHorizontal
+    Home, Sparkles, ListTodo, Brain, MoreHorizontal
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,8 +11,9 @@ const MobileNavbar = () => {
     const primaryNavItems = [
         { id: 'dashboard', icon: Home, path: '/admin/dashboard', label: 'Home' },
         { id: 'reminders', icon: ListTodo, path: '/admin/reminders', label: 'Tasks' },
+        { id: 'buddy', icon: Sparkles, path: '/admin/buddy', label: 'Buddy' },
         { id: 'memories', icon: Brain, path: '/admin/memories', label: 'Memory' },
-    ].filter(item => user?.allowedPages?.includes(item.id));
+    ].filter(item => item.id === 'buddy' || user?.allowedPages?.includes(item.id));
 
     return (
         <div className="mobile-navbar-container">

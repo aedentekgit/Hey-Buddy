@@ -20,6 +20,14 @@ const roleSchema = new mongoose.Schema({
     isSystem: {
         type: Boolean,
         default: false
+    },
+    webAccess: {
+        type: Boolean,
+        default: true
+    },
+    mobileAccess: {
+        type: Boolean,
+        default: true
     }
 }, { timestamps: true });
 

@@ -18,6 +18,16 @@ const login = async (req, res) => {
 
         if (user && (await user.comparePassword(password))) {
             const role = await Role.findOne({ name: user.role });
+            const platform = req.headers['x-platform'] || 'web';
+
+            if (role) {
+                if (platform === 'web' && !role.webAccess) {
+                    return res.status(403).json({ success: false, message: 'Your account does not have permission to access the Web platform.' });
+                }
+                if (platform === 'mobile' && !role.mobileAccess) {
+                    return res.status(403).json({ success: false, message: 'Your account does not have permission to access the Mobile platform.' });
+                }
+            }
 
             res.json({
                 success: true,
@@ -29,6 +39,8 @@ const login = async (req, res) => {
                     profilePicture: user.profilePicture,
                     permissions: role ? role.permissions : [],
                     allowedPages: role ? role.allowedPages : [],
+                    webAccess: role ? role.webAccess : true,
+                    mobileAccess: role ? role.mobileAccess : true,
                     token: generateToken(user._id),
                 },
             });
@@ -100,6 +112,16 @@ const googleLogin = async (req, res) => {
         }
 
         const role = await Role.findOne({ name: user.role });
+        const platform = req.headers['x-platform'] || 'web';
+
+        if (role) {
+            if (platform === 'web' && !role.webAccess) {
+                return res.status(403).json({ success: false, message: 'Your account does not have permission to access the Web platform.' });
+            }
+            if (platform === 'mobile' && !role.mobileAccess) {
+                return res.status(403).json({ success: false, message: 'Your account does not have permission to access the Mobile platform.' });
+            }
+        }
 
         res.json({
             success: true,
@@ -111,6 +133,8 @@ const googleLogin = async (req, res) => {
                 profilePicture: user.profilePicture,
                 permissions: role ? role.permissions : [],
                 allowedPages: role ? role.allowedPages : [],
+                webAccess: role ? role.webAccess : true,
+                mobileAccess: role ? role.mobileAccess : true,
                 token: generateToken(user._id),
             },
         });

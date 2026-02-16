@@ -96,31 +96,53 @@ async function getTrafficAwareTravelTime(origin, destination) {
 async function checkEarlyWarnings() {
     try {
         const now = new Date();
-        const currentTime = now.toTimeString().slice(0, 5); // HH:MM
-        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); // HH:MM
+        const currentDate = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
 
         // Find reminders with early warning enabled, scheduled for today/future
         const reminders = await Reminder.find({
             'smartFeatures.earlyWarning': true,
             status: 'pending',
-            date: { $gte: currentDate },
             location: { $ne: null },
             'coordinates.lat': { $exists: true },
             'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation');
+        }).populate('userId', 'name email fcmTokens currentLocation timezone');
 
         for (const reminder of reminders) {
+            const user = reminder.userId;
+            if (!user) continue;
+
+            const userTimezone = user.timezone || 'UTC';
+            const now = new Date();
+            const currentDate = now.toLocaleDateString('en-CA', { timeZone: userTimezone }); // YYYY-MM-DD
+
+            // Filter for reminders due today or later in user's timezone
+            if (reminder.date < currentDate) continue;
+
             // Skip if no user location available
-            if (!reminder.userId.currentLocation?.lat || !reminder.userId.currentLocation?.lng) {
+            if (!user.currentLocation?.lat || !user.currentLocation?.lng) {
                 continue;
             }
 
-            // Parse reminder time
-            const [reminderHour, reminderMin] = reminder.time.split(':').map(Number);
+            // Parse reminder time (handle HH:mm and HH:mm AM/PM)
+            let reminderHour, reminderMin;
+            const timeStr = reminder.time || '00:00';
+            const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i);
+
+            if (ampmMatch) {
+                reminderHour = parseInt(ampmMatch[1]);
+                reminderMin = parseInt(ampmMatch[2]);
+                const period = ampmMatch[3].toLowerCase();
+                if (period === 'pm' && reminderHour < 12) reminderHour += 12;
+                if (period === 'am' && reminderHour === 12) reminderHour = 0;
+            } else {
+                [reminderHour, reminderMin] = timeStr.split(':').map(Number);
+            }
+
             const reminderDateTime = new Date(reminder.date);
             reminderDateTime.setHours(reminderHour, reminderMin, 0, 0);
 
-            // Calculate time until reminder
+            // Calculate time until reminder (using relative comparison is okay as Date objects are absolute)
             const timeUntilReminder = (reminderDateTime - now) / 1000; // seconds
 
             // Only check if reminder is within the next 4 hours
@@ -130,7 +152,7 @@ async function checkEarlyWarnings() {
 
             // Get traffic-aware travel time
             const travelInfo = await getTrafficAwareTravelTime(
-                reminder.userId.currentLocation,
+                user.currentLocation,
                 reminder.coordinates
             );
 
@@ -149,7 +171,7 @@ async function checkEarlyWarnings() {
 
                 // Create notification
                 await Notification.create({
-                    userId: reminder.userId._id,
+                    userId: user._id,
                     title: '🚨 Early Warning Alert',
                     message: message,
                     type: 'reminder',
@@ -159,8 +181,8 @@ async function checkEarlyWarnings() {
                 });
 
                 // Send push notification
-                if (reminder.userId.fcmTokens && reminder.userId.fcmTokens.length > 0) {
-                    const pushPromises = reminder.userId.fcmTokens.map(token =>
+                if (user.fcmTokens && user.fcmTokens.length > 0) {
+                    const pushPromises = user.fcmTokens.map(token =>
                         sendPushNotification(token, '🚨 Early Warning Alert', message, {
                             type: 'early_warning',
                             reminderId: reminder._id.toString()
@@ -183,26 +205,45 @@ async function checkEarlyWarnings() {
  */
 async function adjustReminderTimesForTraffic() {
     try {
-        const now = new Date();
-        const currentDate = now.toISOString().split('T')[0];
-
-        // Find reminders with traffic-aware feature enabled
         const reminders = await Reminder.find({
             'smartFeatures.trafficAware': true,
             status: 'pending',
-            date: { $gte: currentDate },
             location: { $ne: null },
             'coordinates.lat': { $exists: true },
             'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation');
+        }).populate('userId', 'name email fcmTokens currentLocation timezone');
 
         for (const reminder of reminders) {
-            if (!reminder.userId.currentLocation?.lat || !reminder.userId.currentLocation?.lng) {
+            const user = reminder.userId;
+            if (!user) continue;
+
+            const userTimezone = user.timezone || 'UTC';
+            const now = new Date();
+            const currentDate = now.toLocaleDateString('en-CA', { timeZone: userTimezone });
+
+            if (reminder.date < currentDate) continue;
+
+            if (!user.currentLocation?.lat || !user.currentLocation?.lng) {
                 continue;
             }
 
             // Parse reminder time
-            const [reminderHour, reminderMin] = reminder.time.split(':').map(Number);
+            let reminderHour, reminderMin;
+            const timeStr = reminder.time || '00:00';
+            const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i);
+
+            if (ampmMatch) {
+                reminderHour = parseInt(ampmMatch[1]);
+                reminderMin = parseInt(ampmMatch[2]);
+                const period = ampmMatch[3].toLowerCase();
+                if (period === 'pm' && reminderHour < 12) reminderHour += 12;
+                if (period === 'am' && reminderHour === 12) reminderHour = 0;
+            } else {
+                const parts = timeStr.split(':');
+                reminderHour = parseInt(parts[0]);
+                reminderMin = parseInt(parts[1]);
+            }
+
             const reminderDateTime = new Date(reminder.date);
             reminderDateTime.setHours(reminderHour, reminderMin, 0, 0);
 

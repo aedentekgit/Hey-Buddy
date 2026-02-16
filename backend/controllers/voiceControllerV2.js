@@ -10,7 +10,7 @@ const { createGoogleCalendarEvent } = require('../services/googleCalendarService
 exports.processVoice = async (req, res) => {
     try {
         const startTime = Date.now();
-        const { text, language = 'en-US', conversationId = null } = req.body;
+        const { text, language = 'en-US', conversationId = null, timeZone = 'UTC' } = req.body;
         const userId = req.user?._id;
 
         console.log('--- [VoiceV2 Request Start] ---');
@@ -22,11 +22,11 @@ exports.processVoice = async (req, res) => {
             return res.status(400).json({ success: false, message: "No text captured." });
         }
 
-        console.log(`[VoiceV2] Processing: "${text}" for user ${userId}`);
+        console.log(`[VoiceV2] Processing: "${text}" for user ${userId} (TimeZone: ${timeZone})`);
 
         // 1. Get Context (Step 5)
         const contextStartTime = Date.now();
-        const context = await contextService.getContext(userId, conversationId);
+        const context = await contextService.getContext(userId, conversationId, timeZone);
         console.log(`[VoiceV2] Context retrieved in ${Date.now() - contextStartTime}ms`);
 
         // 2. Generate Response (Steps 4 & 6)

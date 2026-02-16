@@ -9,6 +9,7 @@ import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 
 import MobileNavbar from './MobileNavbar';
 import MobileHeader from './MobileHeader';
+import FloatingVoiceIndicator from './FloatingVoiceIndicator';
 
 const DashboardLayout = ({ children }) => {
     const { speak } = useVoiceAssistant();
@@ -51,22 +52,42 @@ const DashboardLayout = ({ children }) => {
     // Initialize Notifications & Voice Announcements
     useEffect(() => {
         const setupVoiceAnnouncements = async () => {
-            await initNotifications();
+            const config = await initNotifications();
+            if (config) {
+                // Request Permission and Sync Token
+                try {
+                    const { requestNotificationPermission, saveTokenToServer } = await import('../services/notificationService');
+                    const token = await requestNotificationPermission();
+                    if (token) {
+                        await saveTokenToServer(token);
+                        console.log('[Layout] FCM Token synced');
+                    } else {
+                        console.warn('[Layout] Permission denied or token generation failed');
+                    }
+                } catch (err) {
+                    console.error('[Layout] Notification Setup Error:', err);
+                }
 
-            onMessageListener((payload) => {
-                console.log("Foreground Notification Received:", payload);
-                const { title, body } = payload.notification;
+                onMessageListener((payload) => {
+                    console.log("Foreground Notification Received:", payload);
+                    const { title, body } = payload.notification;
 
-                // Visual Alert
-                toast.success(`${title}: ${body}`, { duration: 5000 });
+                    // Visual Alert
+                    toast.success(`${title}: ${body}`, {
+                        duration: 6000,
+                        icon: '🔔'
+                    });
 
-                // Voice Announcement
-                speak(`Reminder: ${body}`);
-            });
+                    // Voice Announcement
+                    if (speak) {
+                        speak(`Reminder: ${body}`);
+                    }
+                });
+            }
         };
 
         setupVoiceAnnouncements();
-    }, []);
+    }, [speak]);
 
     return (
         <div className="layout-wrapper">
@@ -114,6 +135,7 @@ const DashboardLayout = ({ children }) => {
             </div>
 
             {!isBuddyPage && <MobileNavbar />}
+            {!isBuddyPage && <FloatingVoiceIndicator />}
 
             <style>{`
                     @media (min-width: 1024px) {

@@ -47,7 +47,8 @@ const BuddyAssistant = () => {
                 title,
                 time,
                 notes: notes || '',
-                date: new Date().toISOString().split('T')[0]
+                // Use Local Date (YYYY-MM-DD) to match backend worker logic
+                date: new Date().toLocaleDateString('en-CA')
             };
             setParsedReminder(reminder);
             return { status: 'success', message: `Reminder for ${title} at ${time} prepared.` };
@@ -225,15 +226,7 @@ const BuddyAssistant = () => {
         }
     }, [location.state, navigate, setConversationHistory, currentConversationId]);
 
-    useEffect(() => {
-        const setupNotifications = async () => {
-            const token = await requestNotificationPermission();
-            if (token) {
-                await saveTokenToServer(token);
-            }
-        };
-        setupNotifications();
-    }, []);
+
 
     const fetchHistory = async () => {
         setHistoryLoading(true);
@@ -441,7 +434,6 @@ const BuddyAssistant = () => {
                                 zIndex: 1000,
                                 borderRadius: '0 24px 24px 0',
                                 borderLeft: 'none',
-                                background: 'rgba(15, 23, 42, 0.9)',
                                 display: 'flex',
                                 flexDirection: 'column'
                             }}
@@ -451,7 +443,7 @@ const BuddyAssistant = () => {
                                     <Clock size={20} className="text-indigo-400" />
                                     <h3 style={{ fontSize: '1.25rem', fontWeight: '700' }}>Conversation History</h3>
                                 </div>
-                                <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '50%', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}>
+                                <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'var(--bg-lite)', padding: '8px', borderRadius: '50%', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer' }}>
                                     <X size={20} />
                                 </button>
                             </div>
@@ -510,217 +502,190 @@ const BuddyAssistant = () => {
                 )}
             </AnimatePresence>
 
-            <div className="assistant-container" style={{ padding: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                {!isMobile && (
-                    <div style={{ position: 'absolute', left: '24px', top: '24px', display: 'flex', gap: '12px', zIndex: 100 }}>
-                        <button
-                            className="glass-card"
-                            onClick={() => setShowHistory(true)}
-                            style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', borderRadius: '12px' }}
-                        >
-                            <Clock size={20} className="text-indigo-400" />
-                            <span style={{ fontWeight: '600' }}>History</span>
-                        </button>
-                        <button
-                            className="glass-card"
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{ padding: '12px', borderRadius: '12px' }}
-                        >
-                            <Camera size={20} className="text-cyan-400" />
-                        </button>
-                    </div>
-                )}
+            <div className="assistant-container" style={{
+                padding: '0',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '100%',
+                height: '100vh',
+                justifyContent: 'center',
+                position: 'relative'
+            }}>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    accept="image/*,.pdf"
+                    onChange={handleFileUpload}
+                />
 
-                <div className="center-interaction" style={{ flex: 1, width: '100%', maxWidth: '1000px', padding: '120px 20px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: 'calc(100vh - 100px)' }}>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        style={{ display: 'none' }}
-                        accept="image/*,.pdf"
-                        onChange={handleFileUpload}
-                    />
-
-                    <AnimatePresence mode="wait">
-                        {(isSaving || isUploading) ? (
-                            <motion.div
-                                key="loading"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                style={{ textAlign: 'center', padding: '100px 0' }}
-                            >
-                                <div className="animate-float">
-                                    <Loader2 className="animate-spin text-indigo-500" size={80} style={{ margin: '0 auto 24px' }} />
-                                </div>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: '700' }}>
-                                    {isUploading ? "AI Analyzing Prescription..." : "Securing to Memory..."}
-                                </h3>
-                                <p style={{ color: 'var(--text-sub)' }}>Just a moment while Buddy processes your health data.</p>
-                            </motion.div>
-                        ) : analyzedPrescription ? (
-                            <motion.div
-                                key="analyzed-prescription"
-                                initial={{ opacity: 0, scale: 0.95, y: 30 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: 30 }}
-                                className="glass-panel"
-                                style={{ padding: '40px', width: '100%' }}
-                            >
-                                <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '16px', borderRadius: '16px' }}>
-                                        <ShieldPlus size={32} color="#10b981" />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '4px' }}>Medical Protocol Analysis</h3>
-                                        <p style={{ color: 'var(--text-sub)' }}>Extracted from provided prescription document</p>
-                                    </div>
-                                    <button onClick={() => setAnalyzedPrescription(null)} style={{ opacity: 0.5, background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}>
-                                        <X size={24} />
-                                    </button>
-                                </div>
-
-                                <div className="medicines-list" style={{ display: 'grid', gap: '16px', marginBottom: '32px' }}>
-                                    {analyzedPrescription.extractedData.medicines.map((med, idx) => (
-                                        <div key={idx} className="glass-card" style={{ padding: '20px', borderRadius: '16px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '2px' }}>{med.name}</h4>
-                                                    <span style={{ color: 'var(--text-sub)', fontSize: '0.85rem' }}>Dosage: {med.dosage}</span>
-                                                </div>
-                                                <div className="med-frequency" style={{ display: 'flex', gap: '6px' }}>
-                                                    {med.frequency.morning && <span className="badge-pill" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>Morning</span>}
-                                                    {med.frequency.afternoon && <span className="badge-pill" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>Noon</span>}
-                                                    {med.frequency.night && <span className="badge-pill" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>Night</span>}
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '24px', color: 'var(--text-sub)', fontSize: '0.85rem' }}>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={14} /> {med.timing || 'As directed'}</span>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Calendar size={14} /> {med.duration || 'Full course'}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <button className="btn-premium w-full" onClick={handleConfirmMedicalReminders} style={{ width: '100%' }}>
-                                    {isSaving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
-                                    Initialize Medication Reminders
-                                </button>
-                            </motion.div>
-                        ) : parsedReminder ? (
-                            <motion.div
-                                key="parsed-card"
-                                initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                                className="glass-panel"
-                                style={{ padding: '40px', textAlign: 'center', width: '100%' }}
-                            >
-                                <div style={{ marginBottom: '24px' }}>
-                                    <div className="animate-pulse-glow" style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                                        <CheckCircle2 size={40} className="text-indigo-400" />
-                                    </div>
-                                    <h3 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '8px' }}>Ready to Save?</h3>
-                                    <p style={{ color: 'var(--text-sub)' }}>I've parsed the details for your new reminder.</p>
-                                </div>
-
-                                <div className="glass-card" style={{ padding: '24px', marginBottom: '32px', textAlign: 'left', borderRadius: '20px' }}>
-                                    <h4 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '16px', color: 'var(--primary-color)' }}>{parsedReminder.title}</h4>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <Calendar className="text-indigo-400" size={18} />
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Date</p>
-                                                <p style={{ fontWeight: '600' }}>{parsedReminder.date || 'Today'}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <Clock className="text-indigo-400" size={18} />
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Time</p>
-                                                <p style={{ fontWeight: '600' }}>{formatTime(parsedReminder.time)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button className="btn-premium w-full" onClick={handleSave} style={{ width: '100%', height: '60px', fontSize: '1.1rem' }}>
-                                    {isSaving ? <Loader2 className="animate-spin" /> : <Shield size={22} />}
-                                    Commit to Memory
-                                </button>
-                                <button onClick={handleCancel} style={{ marginTop: '20px', color: 'var(--text-sub)', fontWeight: '600', fontSize: '0.9rem', background: 'none', border: 'none', cursor: 'pointer' }}>
-                                    Cancel and Discard
-                                </button>
-                            </motion.div>
-                        ) : chatResponse ? (
-                            <motion.div
-                                key="chat-response"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="glass-panel"
-                                style={{ padding: '40px', width: '100%' }}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Sparkles size={20} color="white" />
-                                        </div>
-                                        <div>
-                                            <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Buddy's Insight</h3>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>AI Generated Response</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={handleCancel} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}>
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                                <p style={{ fontSize: '1.15rem', lineHeight: '1.6', color: 'var(--text-main)', marginBottom: '32px' }}>
-                                    {chatResponse?.replace(/\*/g, '').replace(/_/g, '')}
-                                </p>
-                                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '24px', display: 'flex', gap: '12px' }}>
-                                    <button className="glass-card" style={{ padding: '12px 24px', fontWeight: '600', borderRadius: '12px' }} onClick={() => toast.success("Insight added to health journal.")}>
-                                        Add to Journal
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                key="hero-section"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 1.1 }}
-                                style={{ textAlign: 'center', width: '100%' }}
-                            >
-                                <div style={{ height: '40px' }} /> {/* Spacing instead of logo */}
-
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center' }}>
-                                    {quickCommands.map((cmd, index) => (
-                                        <button key={index} className="glass-card" onClick={cmd.action} style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', cursor: 'pointer' }}>
-                                            <div style={{ color: index % 2 === 0 ? 'var(--primary-color)' : 'var(--secondary-color)' }}>
-                                                {cmd.icon}
-                                            </div>
-                                            <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-main)' }}>{cmd.text}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    <div ref={chatEndRef} />
-                </div>
-
-                <div className="fixed-assistant-overlay" style={{
-                    position: 'relative',
-                    zIndex: 200,
-                    width: '100%',
-                    maxWidth: '600px',
-                    margin: '0 auto 60px',
-                    display: (!chatResponse && !parsedReminder && !analyzedPrescription && !isSaving && !isUploading) ? 'block' : 'none'
+                {/* Main Assistant UI - ALWAYS VISIBLE */}
+                <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 10
                 }}>
-                    <GeminiVoiceAssistant onToolCall={handleToolCall} />
+                    <GeminiVoiceAssistant
+                        onToolCall={handleToolCall}
+                        quickActions={quickCommands}
+                        onToggleHistory={setShowHistory}
+                    />
                 </div>
+
+                {/* Overlays / Action Cards (Modals) */}
+                <AnimatePresence>
+                    {(isSaving || isUploading || analyzedPrescription || parsedReminder || chatResponse) && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            style={{
+                                position: 'fixed',
+                                inset: 0,
+                                zIndex: 100,
+                                background: 'rgba(255, 255, 255, 0.4)',
+                                backdropFilter: 'blur(12px)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '24px'
+                            }}
+                        >
+                            <div className="center-interaction" style={{ width: '100%', maxWidth: '600px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <AnimatePresence mode="wait">
+                                    {(isSaving || isUploading) ? (
+                                        <motion.div
+                                            key="loading"
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.9 }}
+                                            style={{ textAlign: 'center' }}
+                                        >
+                                            <div className="animate-float">
+                                                <Loader2 className="animate-spin text-indigo-500" size={64} style={{ margin: '0 auto 24px' }} />
+                                            </div>
+                                            <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>
+                                                {isUploading ? "Analyzing Prescription..." : "Saving to Memory..."}
+                                            </h3>
+                                        </motion.div>
+                                    ) : analyzedPrescription ? (
+                                        <motion.div
+                                            key="analyzed-prescription"
+                                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                                            className="glass-panel"
+                                            style={{
+                                                padding: '32px',
+                                                width: '100%',
+                                                background: 'white',
+                                                borderRadius: '32px',
+                                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)',
+                                                border: '1px solid rgba(0,0,0,0.05)'
+                                            }}
+                                        >
+                                            <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                <div style={{ background: 'var(--primary-glow)', padding: '12px', borderRadius: '16px' }}>
+                                                    <ShieldPlus size={24} style={{ color: 'var(--primary-color)' }} />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>Medical Protocol</h3>
+                                                </div>
+                                                <button onClick={() => setAnalyzedPrescription(null)} style={{ opacity: 0.4, background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gap: '12px', marginBottom: '24px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '8px' }}>
+                                                {analyzedPrescription.extractedData.medicines.map((med, idx) => (
+                                                    <div key={idx} style={{ padding: '16px', borderRadius: '16px', background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.03)' }}>
+                                                        <h4 style={{ fontWeight: '700', marginBottom: '4px' }}>{med.name}</h4>
+                                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)' }}>{med.dosage} • {med.timing}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <button className="btn-premium w-full" onClick={handleConfirmMedicalReminders} style={{ width: '100%', height: '52px' }}>
+                                                Set Medication Reminders
+                                            </button>
+                                        </motion.div>
+                                    ) : parsedReminder ? (
+                                        <motion.div
+                                            key="parsed-card"
+                                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                                            className="glass-panel"
+                                            style={{
+                                                padding: '32px',
+                                                width: '100%',
+                                                background: 'white',
+                                                borderRadius: '32px',
+                                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)',
+                                                textAlign: 'center'
+                                            }}
+                                        >
+                                            <div style={{ marginBottom: '24px' }}>
+                                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--primary-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                                    <Calendar size={28} style={{ color: 'var(--primary-color)' }} />
+                                                </div>
+                                                <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Create Reminder?</h3>
+                                            </div>
+
+                                            <div style={{ padding: '20px', marginBottom: '24px', textAlign: 'left', borderRadius: '20px', background: 'rgba(0,0,0,0.02)' }}>
+                                                <h4 style={{ fontWeight: '700', marginBottom: '8px' }}>{parsedReminder.title}</h4>
+                                                <p style={{ fontSize: '0.9rem', color: 'var(--text-sub)' }}>{parsedReminder.date || 'Today'} at {formatTime(parsedReminder.time)}</p>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                <button onClick={handleCancel} style={{ flex: 1, height: '48px', borderRadius: '14px', border: '1px solid var(--border-color)', background: 'transparent', fontWeight: '600', cursor: 'pointer' }}>
+                                                    Cancel
+                                                </button>
+                                                <button className="btn-premium" onClick={handleSave} style={{ flex: 2, height: '48px', borderRadius: '14px' }}>
+                                                    Save Reminder
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    ) : chatResponse ? (
+                                        <motion.div
+                                            key="chat-response"
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -20 }}
+                                            className="glass-panel"
+                                            style={{
+                                                padding: '32px',
+                                                width: '100%',
+                                                background: 'white',
+                                                borderRadius: '32px',
+                                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <Sparkles size={20} style={{ color: 'var(--primary-color)' }} />
+                                                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Buddy's Insight</h3>
+                                                </div>
+                                                <button onClick={handleCancel} style={{ opacity: 0.4, background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
+                                            <p style={{ fontSize: '1.1rem', lineHeight: '1.6', color: 'var(--text-main)', marginBottom: '24px' }}>
+                                                {chatResponse?.replace(/\*/g, '').replace(/_/g, '')}
+                                            </p>
+                                            <button className="btn-premium w-full" onClick={() => { toast.success("Insight saved."); handleCancel(); }}>
+                                                Close
+                                            </button>
+                                        </motion.div>
+                                    ) : null}
+                                </AnimatePresence>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
+
 
             <style>{`
                 .animate-spin { animation: spin 1s linear infinite; } 

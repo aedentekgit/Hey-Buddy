@@ -9,7 +9,7 @@ const contextService = {
      * @param {string} conversationId 
      * @returns {Promise<Object>} History and relevant memories
      */
-    getContext: async (userId, conversationId = null) => {
+    getContext: async (userId, conversationId = null, timeZone = 'UTC') => {
         let history = [];
         let memories = [];
         let recentReminders = [];
@@ -26,12 +26,16 @@ const contextService = {
             // 2. Fetch Memories
             memories = await Memory.find({ userId }).sort({ createdAt: -1 }).limit(10);
 
-            // 3. Fetch Recent Reminders (to allow natural queries like "what's next?")
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            recentReminders = await Reminder.find({ 
-                userId, 
-                date: { $gte: today.toISOString().split('T')[0] } 
+            // 3. Fetch Recent Reminders (Using User's Timezone)
+            const now = new Date();
+            // Get YYYY-MM-DD in the user's timezone
+            const userDate = now.toLocaleDateString('en-CA', { timeZone: timeZone });
+
+            console.log(`[ContextService] Fetching reminders for user ${userId} from date: ${userDate} (${timeZone})`);
+
+            recentReminders = await Reminder.find({
+                userId,
+                date: { $gte: userDate }
             }).sort({ date: 1, time: 1 }).limit(5);
 
             return {
@@ -41,7 +45,11 @@ const contextService = {
                     title: r.title,
                     time: r.time,
                     date: r.date
-                }))
+                })),
+                userContext: { // Pass timezone info for NLU
+                    timeZone,
+                    localDate: userDate
+                }
             };
         } catch (error) {
             console.error('[ContextService] Error fetching context:', error);

@@ -29,6 +29,7 @@ export const VoiceAssistantProvider = ({ children }) => {
     const recognitionRef = useRef(null);
     const isSpeakingRef = useRef(false);
     const silenceTimerRef = useRef(null);
+    const isIntentionalStop = useRef(false);
 
     // Sync settings
     const language = settings?.general?.language || 'en-US';
@@ -38,9 +39,46 @@ export const VoiceAssistantProvider = ({ children }) => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) return;
 
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
+        if (!recognitionRef.current) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.onstart = () => setStatus('LISTENING');
+
+            recognition.onerror = (event) => {
+                console.error('[VoiceContext] Speech Recognition Error:', event.error);
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    isIntentionalStop.current = true;
+                    setStatus('IDLE');
+                    toast.error('Microphone access denied. Please check permissions.');
+                }
+            };
+
+            recognition.onend = () => {
+                // If it wasn't a manual stop, restart immediately to keep "mic on"
+                if (!isIntentionalStop.current) {
+                    console.log('[VoiceContext] Browser stopped mic. Restarting for continuity...');
+                    setTimeout(() => {
+                        try {
+                            // Double-check intention after delay
+                            if (!isIntentionalStop.current) {
+                                recognition.start();
+                            }
+                        } catch (e) {
+                            // Ignore errors if it's already started
+                        }
+                    }, 500); // Small delay to prevent CPU spinning
+                } else {
+                    // User explicitly stopped
+                    if (!isSpeakingRef.current) {
+                        setStatus('IDLE');
+                    }
+                }
+            };
+            recognitionRef.current = recognition;
+        }
+
+        const recognition = recognitionRef.current;
         recognition.lang = language;
 
         recognition.onresult = (event) => {
@@ -51,25 +89,19 @@ export const VoiceAssistantProvider = ({ children }) => {
 
             setTranscript(currentTranscript);
 
-            // Step 3: Turn-taking (Detect end of speech)
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = setTimeout(() => {
                 if (currentTranscript.trim()) {
                     processInteraction(currentTranscript);
                     recognition.stop();
                 }
-            }, 1200); // 1.2s silence confirms turn end
+            }, 1200);
         };
 
-        recognition.onstart = () => setStatus('LISTENING');
-        recognition.onend = () => {
-            if (!isSpeakingRef.current && status === 'LISTENING') {
-                setStatus('IDLE');
-            }
+        return () => {
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         };
-
-        recognitionRef.current = recognition;
-    }, [language, status]);
+    }, [language]); // Only recreate/update language. Status handling moved.
 
     // State for external components to inhibit voice processing
     const [preventProcessing, setPreventProcessing] = useState(false);
@@ -81,43 +113,71 @@ export const VoiceAssistantProvider = ({ children }) => {
             console.log('[VoiceContext] Interaction inhibited because preventProcessing is true');
             return;
         }
-        setStatus('PROCESSING');
         try {
             const result = await voiceService.parseVoice(text, language, conversationHistory, conversationId);
             if (result.success) {
                 const { reply, voice_reply, type, data } = result.data;
                 setConversationId(result.meta.conversationId);
 
-                // Step 7 & 8: TTS & Playback
                 await speak(voice_reply || reply);
 
                 if (type === 'reminder') {
-                    // Logic to show/route to reminder
                     navigate('/admin/reminders', { state: { parsedReminder: data } });
                 }
             }
         } catch (error) {
             toast.error("I couldn't process that.");
-            setStatus('IDLE');
+        } finally {
+            setStatus('IDLE'); // Ensure we ALWAYS go back to IDLE
+            setTranscript('');
         }
     };
 
-    // Step 7 & 8: Convert text to speech and Play (Muted to favor Gemini)
+    // Step 7 & 8: Convert text to speech and Play
     const speak = (text) => {
         return new Promise((resolve) => {
-            console.log('[VoiceContext] speak() called (MUTED):', text);
-            // window.speechSynthesis.speak(utterance) removed to ensure single-voice experience
-            resolve();
+            console.log('[VoiceContext] speak() called:', text);
+
+            // Native Browser TTS fallback for notifications/reminders
+            if (window.speechSynthesis) {
+                // Cancel any ongoing speech
+                window.speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = language;
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+
+                utterance.onend = () => resolve();
+                utterance.onerror = (e) => {
+                    console.error('[VoiceContext] TTS Error:', e);
+                    resolve();
+                };
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                resolve();
+            }
         });
     };
 
     const toggleAssistant = async () => {
         if (status === 'LISTENING') {
+            isIntentionalStop.current = true; // Mark as manual stop
             recognitionRef.current?.stop();
         } else {
-            await initAudio();
-            playWakeSound();
-            recognitionRef.current?.start();
+            try {
+                // EXPLICIT PERMISSION REQUEST
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                isIntentionalStop.current = false; // Mark as manual start
+                await initAudio();
+                playWakeSound();
+                recognitionRef.current?.start();
+            } catch (err) {
+                console.error('Microphone permission denied:', err);
+                toast.error('Please allow microphone access to use the assistant.');
+            }
         }
     };
 

@@ -2,8 +2,104 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { createPcmBlob, decode, decodeAudioData } from '../utils/audio';
+import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sparkles, Brain, Clock, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 
-const GeminiVoiceAssistant = ({ onToolCall }) => {
+// --- Voice Orbit Component (Advanced 3D Spherical Visualizer) ---
+const VoiceOrbit = ({ isActive, isThinking, isSpeaking, volume }) => {
+    const canvasRef = useRef(null);
+    const particles = useRef([]);
+    const frameRef = useRef(null);
+    const rotation = useRef({ x: 0, y: 0 });
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+        let height = canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+
+        // Higher particle density for clarity
+        const particleCount = 1000;
+        particles.current = Array.from({ length: particleCount }, () => {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2 - 1);
+            return {
+                baseTheta: theta,
+                basePhi: phi,
+                radius: 100 + Math.random() * 25, // Slightly tighter
+                size: 1.2 + Math.random() * 1.5,  // Larger particles
+                opacity: 0.5 + Math.random() * 0.4, // Higher base visibility
+                colorPhase: Math.random() * Math.PI * 2
+            };
+        });
+
+        const animate = () => {
+            ctx.clearRect(0, 0, width, height);
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            let rotationSpeed = 0.007;
+            let sphereScale = 1;
+
+            if (isThinking) rotationSpeed = 0.05;
+            if (isSpeaking) sphereScale = 1 + Math.sin(Date.now() * 0.008) * 0.18;
+            if (isActive) sphereScale += volume * 12;
+
+            rotation.current.y += rotationSpeed;
+            rotation.current.x += rotationSpeed * 0.4;
+
+            const projected = particles.current.map(p => {
+                let r = p.radius * sphereScale;
+                let x = Math.sin(p.basePhi) * Math.cos(p.baseTheta + rotation.current.y);
+                let y = Math.sin(p.basePhi + rotation.current.x) * Math.sin(p.baseTheta + rotation.current.y);
+                let z = Math.cos(p.basePhi + rotation.current.x);
+                return { finalX: x * r, finalY: y * r, finalZ: z * r, p };
+            }).sort((a, b) => a.finalZ - b.finalZ);
+
+            projected.forEach(({ finalX, finalY, finalZ, p }) => {
+                const scale = (finalZ + 150) / 300;
+                const alpha = Math.max(0, p.opacity * (scale + 0.1));
+
+                // More vivid 'Power Amber'
+                const hue = isThinking ? 42 : 36;
+                const sat = 100;
+                const light = 50 + Math.sin(Date.now() * 0.005 + p.colorPhase) * 20;
+
+                ctx.beginPath();
+                ctx.arc(
+                    centerX + finalX * window.devicePixelRatio,
+                    centerY + finalY * window.devicePixelRatio,
+                    Math.max(0.1, p.size * (scale + 0.5) * window.devicePixelRatio),
+                    0, 2 * Math.PI
+                );
+                ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+
+                // Add a permanent glow effect to foreground particles
+                if (scale > 0.8) {
+                    ctx.shadowColor = `rgba(255, 140, 0, ${alpha * 0.8})`;
+                    ctx.shadowBlur = 12 * (volume + 0.5);
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+
+                ctx.fill();
+            });
+
+            frameRef.current = requestAnimationFrame(animate);
+        };
+
+        animate();
+        return () => cancelAnimationFrame(frameRef.current);
+    }, [isActive, isThinking, isSpeaking, volume]);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            style={{ width: '100%', height: '100%', display: 'block' }}
+        />
+    );
+};
+
+const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => {
     // --- States ---
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -11,10 +107,25 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
     const [error, setError] = useState(null);
     const [volume, setVolume] = useState(0);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+    // Wake Word is OFF by default. User must start conversation to enable it (or we can add a toggle)
+    // However, per user request "No background listening without user consent", we default to false.
+    const [isWakeWordEnabled, setIsWakeWordEnabled] = useState(false);
     const [isWakeWordListening, setIsWakeWordListening] = useState(false);
+    const [textInput, setTextInput] = useState('');
+    const [inputMode, setInputMode] = useState('idle'); // 'idle' | 'voice' | 'text'
+    const [selectedImage, setSelectedImage] = useState(null); // { inlineData: { data: string, mimeType: string } }
+    const [imagePreview, setImagePreview] = useState(null);
+    const imagePreviewRef = useRef(null); // Added to track preview for callbacks
+    const [isProcessingImage, setIsProcessingImage] = useState(false);
+    const [isThinking, setIsThinking] = useState(false);
+    const [isAISpeaking, setIsAISpeaking] = useState(false);
+    const fileInputRef = useRef(null);
 
     // --- Refs for managing session & audio ---
     const sessionRef = useRef(null);
+    const connectingRef = useRef(false); // New lock ref
+    const isMicPausedLocal = useRef(false); // Pauses mic stream without stopping tracks
+    const shouldMuteResponseRef = useRef(false); // Mutes AI audio if input was text
     const inputAudioCtxRef = useRef(null);
     const outputAudioCtxRef = useRef(null);
     const streamRef = useRef(null);
@@ -26,16 +137,18 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
     // Transcriptions are built up iteratively
     const currentInputTranscription = useRef('');
     const currentOutputTranscription = useRef('');
+    const manualStopRef = useRef(false);
 
     // --- Helpers ---
-    const addTranscript = useCallback((type, text) => {
-        if (!text.trim()) return;
+    const addTranscript = useCallback((type, text, image = null) => {
+        if (!text?.trim() && !image) return;
         setTranscripts((prev) => [
             ...prev,
             {
                 id: Math.random().toString(36).substr(2, 9),
                 type,
                 text,
+                image,
                 timestamp: Date.now(),
             },
         ]);
@@ -52,26 +165,94 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
     const cleanup = useCallback(() => {
         setIsActive(false);
         setIsConnecting(false);
+        connectingRef.current = false;
 
+        // 1. Disconnect audio graph
         if (scriptProcessorRef.current) {
             scriptProcessorRef.current.disconnect();
             scriptProcessorRef.current = null;
         }
+
+        // 2. Stop all MediaStream tracks (RELEASES MIC)
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current.getTracks().forEach((track) => {
+                track.stop();
+                console.log('[Media] Track stopped:', track.label);
+            });
             streamRef.current = null;
         }
+
+        // 3. Stop all playing AI audio
+        stopAllAudio();
+
+        // 4. Close Gemini Session
         if (sessionRef.current) {
-            try { sessionRef.current.close(); } catch (e) { }
+            try {
+                sessionRef.current.close();
+                console.log('[Gemini] Session closed.');
+            } catch (e) { }
             sessionRef.current = null;
         }
-        stopAllAudio();
     }, [stopAllAudio]);
 
-    const startAssistant = async () => {
-        if (isConnecting || isActive) return;
+    const connectMicrophone = async () => {
+        if (!sessionRef.current || streamRef.current) return; // Already have stream or no session
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
+
+            const source = inputAudioCtxRef.current.createMediaStreamSource(stream);
+            const analyser = inputAudioCtxRef.current.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            analyserRef.current = analyser;
+
+            const scriptProcessor = inputAudioCtxRef.current.createScriptProcessor(4096, 1, 1);
+            scriptProcessor.onaudioprocess = (e) => {
+                if (isMicPausedLocal.current) return; // Mic Muted Logic
+
+                const inputData = e.inputBuffer.getChannelData(0);
+                // Volume calc
+                let sum = 0;
+                for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
+                setVolume(Math.sqrt(sum / inputData.length));
+
+                if (sessionRef.current) {
+                    const pcmBlob = createPcmBlob(inputData);
+                    sessionRef.current.sendRealtimeInput({ media: pcmBlob });
+                }
+            };
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(inputAudioCtxRef.current.destination);
+            scriptProcessorRef.current = scriptProcessor;
+
+            setInputMode('voice');
+            shouldMuteResponseRef.current = false; // Ensure voice is heard
+        } catch (err) {
+            console.error("Mic Error:", err);
+            setError("Microphone access denied.");
+        }
+    };
+
+    const startAssistant = async (enableMic = true) => {
+        if (connectingRef.current) return;
+
+        if (isActive && sessionRef.current) {
+            // Already active. If enabling mic, upgrade.
+            if (enableMic && !streamRef.current) {
+                await connectMicrophone();
+            }
+            return;
+        }
+
+        connectingRef.current = true;
         setIsConnecting(true);
         setError(null);
+        if (enableMic) setTranscripts([]);
+        if (!isActive) setTranscripts([]);
+
+        manualStopRef.current = false;
 
         try {
             // 1. Setup Audio Contexts
@@ -82,28 +263,21 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                 outputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
             }
 
-            // Resume context (browser security)
             await inputAudioCtxRef.current.resume();
             await outputAudioCtxRef.current.resume();
 
-            // 2. Get Microphone
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            streamRef.current = stream;
+            // Enable Wake Word if mic requested
+            if (enableMic) setIsWakeWordEnabled(true);
 
-            // Analyser for UI feedback
-            const source = inputAudioCtxRef.current.createMediaStreamSource(stream);
-            const analyser = inputAudioCtxRef.current.createAnalyser();
-            analyser.fftSize = 256;
-            source.connect(analyser);
-            analyserRef.current = analyser;
-
-            // Use the API key from environment variables
+            // Connect Session
             const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-            if (!apiKey) {
-                throw new Error('VITE_GEMINI_API_KEY is not defined in .env file');
-            }
+            if (!apiKey) throw new Error('No API Key');
 
             const ai = new GoogleGenAI({ apiKey });
+
+            const now = new Date();
+            const localTimeStr = now.toLocaleString();
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
             const sessionPromise = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -113,6 +287,8 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
                     },
                     systemInstruction: `You are Buddy, a helpful health and personal assistant.
+                    Current local time: ${localTimeStr} (${timeZone}). 
+                    Use this time as the reference for all scheduling and time-based questions.
                     You can set reminders, check health history, and analyze prescriptions.
                     You have a "Buddy Memory" where you store important facts the user tells you.
                     When a user asks a question about something you should know or remember (like "Where is my wallet?" or "What is my blood type?"), ALWAYS check both your reminders and your stored memories using list_reminders and list_memories / search_memories tools.
@@ -227,34 +403,32 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                     outputAudioTranscription: {},
                 },
                 callbacks: {
-                    onopen: () => {
+                    onopen: async () => {
                         console.log('Gemini Session Opened');
                         setIsActive(true);
                         setIsConnecting(false);
+                        connectingRef.current = false;
 
-                        // Start streaming audio data to Gemini
-                        const scriptProcessor = inputAudioCtxRef.current.createScriptProcessor(4096, 1, 1);
-                        scriptProcessor.onaudioprocess = (e) => {
-                            const inputData = e.inputBuffer.getChannelData(0);
+                        // We use a small delay to ensure state and session are fully synced
+                        setTimeout(() => {
+                            if (selectedImage && sessionRef.current) {
+                                console.log('[Multimodal] Injecting image context into new session');
+                                sessionRef.current.sendClientContent({
+                                    turns: [{ role: 'user', parts: [selectedImage] }],
+                                    turnComplete: false // User is likely about to ask a question
+                                });
+                                // We keep the preview visible until the turn actually completes (AI starts responding)
+                            }
+                        }, 200);
 
-                            // Simple volume calculation for visualization
-                            let sum = 0;
-                            for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
-                            setVolume(Math.sqrt(sum / inputData.length));
-
-                            const pcmBlob = createPcmBlob(inputData);
-                            sessionPromise.then(session => {
-                                session.sendRealtimeInput({ media: pcmBlob });
-                            });
-                        };
-                        source.connect(scriptProcessor);
-                        scriptProcessor.connect(inputAudioCtxRef.current.destination);
-                        scriptProcessorRef.current = scriptProcessor;
+                        setInputMode(prev => prev === 'voice' ? 'voice' : 'text');
+                        setIsThinking(false);
+                        setIsAISpeaking(false);
                     },
                     onmessage: async (message) => {
                         // Handle Audio Output
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                        if (base64Audio && outputAudioCtxRef.current) {
+                        if (base64Audio && outputAudioCtxRef.current && !shouldMuteResponseRef.current) {
                             const ctx = outputAudioCtxRef.current;
                             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
 
@@ -262,8 +436,13 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                             const sourceNode = ctx.createBufferSource();
                             sourceNode.buffer = audioBuffer;
                             sourceNode.connect(ctx.destination);
-                            sourceNode.onended = () => sourcesRef.current.delete(sourceNode);
+                            sourceNode.onended = () => {
+                                sourcesRef.current.delete(sourceNode);
+                                if (sourcesRef.current.size === 0) setIsAISpeaking(false);
+                            };
 
+                            setIsThinking(false);
+                            setIsAISpeaking(true);
                             sourceNode.start(nextStartTimeRef.current);
                             nextStartTimeRef.current += audioBuffer.duration;
                             sourcesRef.current.add(sourceNode);
@@ -292,16 +471,34 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                             }
                             const session = await sessionPromise;
                             session.sendToolResponse({ functionResponses: results });
+
+                            console.log('[Gemini] Tool execution complete.');
                         }
 
                         // Handle Interruptions
                         if (message.serverContent?.interrupted) {
                             stopAllAudio();
+                            setIsAISpeaking(false);
+                            setIsThinking(false);
                         }
 
-                        // Handle Transcriptions
+                        // Handle Transcriptions & Intent Detection
                         if (message.serverContent?.inputTranscription) {
-                            currentInputTranscription.current += message.serverContent.inputTranscription.text;
+                            const text = message.serverContent.inputTranscription.text;
+                            currentInputTranscription.current += text;
+
+                            // IMMEDIATE STOP INTENT
+                            const lowerText = text.toLowerCase();
+                            if (lowerText.includes('stop') || lowerText.includes('end session') || lowerText.includes('cancel')) {
+                                console.log('[Intent] Stop command detected');
+                                stopAssistant(); // Use the wrapper to ensure Full Stop
+                                return;
+                            }
+
+                            if (inputMode === 'voice') {
+                                setIsThinking(false);
+                                setIsAISpeaking(false);
+                            }
                         }
                         if (message.serverContent?.outputTranscription) {
                             currentOutputTranscription.current += message.serverContent.outputTranscription.text;
@@ -309,8 +506,12 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
 
                         // Turn completion: finalize transcript entries
                         if (message.serverContent?.turnComplete) {
+                            if (inputMode === 'voice') setIsThinking(true);
+                            shouldMuteResponseRef.current = false; // Reset mute for next turn
+                            const consumedImage = imagePreviewRef.current; // Use ref for current value
+                            clearImage(); // Consumed the image context
                             if (currentInputTranscription.current) {
-                                addTranscript('user', currentInputTranscription.current);
+                                addTranscript('user', currentInputTranscription.current, consumedImage);
                                 currentInputTranscription.current = '';
                             }
                             if (currentOutputTranscription.current) {
@@ -322,6 +523,7 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                     onerror: (e) => {
                         console.error('Gemini Error:', e);
                         setError('Connection error. Please check your API key and network.');
+                        connectingRef.current = false;
                         cleanup();
                     },
                     onclose: () => {
@@ -332,15 +534,105 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
             });
 
             sessionRef.current = await sessionPromise;
+
+            // CRITICAL: Connect microphone for the new session if requested
+            if (enableMic) {
+                await connectMicrophone();
+            }
         } catch (err) {
             console.error('Failed to start assistant:', err);
             setError(err.message || 'Failed to start. Check microphone permissions.');
             setIsConnecting(false);
+            connectingRef.current = false;
         }
     };
 
     const stopAssistant = () => {
+        manualStopRef.current = true;
+        setIsWakeWordEnabled(false); // KILL SWITCH: Disable wake word loop
+        setIsWakeWordListening(false);
         cleanup();
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            setError("Please select a valid image file (JPG, PNG, WEBP).");
+            return;
+        }
+
+        setIsProcessingImage(true);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result.split(',')[1];
+            setSelectedImage({
+                inlineData: {
+                    data: base64,
+                    mimeType: file.type
+                }
+            });
+            setImagePreview(event.target.result);
+            imagePreviewRef.current = event.target.result;
+            setIsProcessingImage(false);
+
+            // If already active, sync the image immediately to the AI context
+            if (sessionRef.current && isActive) {
+                console.log('[Multimodal] Active session: Syncing image immediately');
+                sessionRef.current.sendClientContent({
+                    turns: [{ role: 'user', parts: [{ inlineData: { data: base64, mimeType: file.type } }] }],
+                    turnComplete: false
+                });
+            }
+        };
+        reader.onerror = () => {
+            setError("Failed to read image file.");
+            setIsProcessingImage(false);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const clearImage = () => {
+        setSelectedImage(null);
+        setImagePreview(null);
+        imagePreviewRef.current = null;
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleSendText = async () => {
+        if (!textInput.trim() && !selectedImage) return;
+
+        shouldMuteResponseRef.current = true; // Mute AI audio for this text response
+        const text = textInput;
+        const img = selectedImage;
+        const preview = imagePreview; // Capture preview for the transcript
+
+        setTextInput('');
+        clearImage();
+
+        let session = sessionRef.current;
+        if (!session || !isActive) {
+            await startAssistant(false);
+            session = sessionRef.current;
+        }
+
+        if (session) {
+            addTranscript('user', text, preview);
+            try {
+                const parts = [];
+                if (img) parts.push(img);
+                if (text) parts.push({ text: text });
+
+                session.sendClientContent({
+                    turns: [{ role: 'user', parts }],
+                    turnComplete: true
+                });
+            } catch (e) {
+                console.error("Failed to send content:", e);
+                setError("Failed to send message.");
+            }
+        }
     };
 
     // Auto-scroll transcripts
@@ -359,12 +651,20 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
     }, [transcripts]);
 
     // --- Wake Word Detection ('Hey Buddy') ---
+    // --- Wake Word Detection ('Hey Buddy') ---
     useEffect(() => {
+        // Master Kill Switch check
+        if (!isWakeWordEnabled) {
+            setIsWakeWordListening(false);
+            return;
+        }
+
         let recognition = null;
         let shouldRestart = true;
+        let triggerAssistantAfterEnd = false;
 
         const startWakeWordRecognition = () => {
-            if (isActive || isConnecting) return;
+            if (isActive || isConnecting || !isWakeWordEnabled) return;
 
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) return;
@@ -376,7 +676,6 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
 
             recognition.onstart = () => {
                 setIsWakeWordListening(true);
-                // console.log('[Wake Word] Listening for "Hey Buddy"...');
             };
 
             recognition.onresult = (event) => {
@@ -387,8 +686,8 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                 if (transcript.includes('hey buddy')) {
                     console.log('[Wake Word] Detected "Hey Buddy"!');
                     shouldRestart = false;
+                    triggerAssistantAfterEnd = true;
                     recognition.stop();
-                    startAssistant();
                 }
             };
 
@@ -396,14 +695,17 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                 if (event.error === 'not-allowed') {
                     shouldRestart = false;
                     setIsWakeWordListening(false);
+                    // If permission denied, disable system
+                    setIsWakeWordEnabled(false);
                 }
             };
 
             recognition.onend = () => {
-                if (shouldRestart && !isActive && !isConnecting) {
-                    setTimeout(startWakeWordRecognition, 1000);
-                } else {
-                    setIsWakeWordListening(false);
+                setIsWakeWordListening(false);
+                if (triggerAssistantAfterEnd) {
+                    startAssistant();
+                } else if (shouldRestart && !isActive && !isConnecting && isWakeWordEnabled && !manualStopRef.current) {
+                    setTimeout(startWakeWordRecognition, 300);
                 }
             };
 
@@ -420,209 +722,542 @@ const GeminiVoiceAssistant = ({ onToolCall }) => {
                 try { recognition.stop(); } catch (e) { }
             }
         };
-    }, [isActive, isConnecting, startAssistant]);
+    }, [isActive, isConnecting, isWakeWordEnabled]); // Added isWakeWordEnabled dependency
 
     return (
-        <div className="flex flex-col gap-6" style={{ width: '100%' }}>
-            {/* Visual Feedback Area */}
-            <div className="flex flex-col items-center justify-center py-8 relative">
-                {/* Wake Word Hint */}
-                {!isActive && !isConnecting && isWakeWordListening && (
-                    <div
-                        className="wake-word-hint"
-                        style={{
-                            color: '#64748b',
-                            fontSize: '0.875rem',
-                            marginBottom: '1rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            zIndex: 10
-                        }}
-                    >
-                        <span className="pulse-dot" style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: '#10b981',
-                            boxShadow: '0 0 8px #10b981'
-                        }} />
-                        Listening for "Hey Buddy"...
-                    </div>
-                )}
-                <div className="relative flex items-center justify-center">
-                    {/* Glowing Aura */}
-                    <div
-                        className={`absolute inset-0 rounded-full bg-blue-500/20 blur-3xl transition-all duration-300 ${isActive ? 'scale-150 opacity-100' : 'scale-0 opacity-0'}`}
-                        style={{
-                            transform: `scale(${1 + volume * 5})`,
-                            borderRadius: '9999px',
-                            zIndex: 0
-                        }}
-                    />
+        <div style={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            width: '100%',
+            backgroundColor: 'var(--bg-color)',
+            fontFamily: 'var(--font-family)',
+            overflow: 'hidden',
+        }}>
+            {/* 1. PREMIUM HEADER */}
+            <div style={{
+                height: '72px',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 24px',
+                zIndex: 40,
+                position: 'relative',
+                background: 'rgba(255, 255, 255, 0.4)',
+                backdropFilter: 'blur(20px)',
+                borderBottom: '1px solid rgba(0,0,0,0.03)'
+            }}>
+                {/* Left: History Button */}
+                <button
+                    onClick={() => onToggleHistory?.(true)}
+                    style={{
+                        padding: '10px 14px',
+                        borderRadius: '14px',
+                        background: 'rgba(0,0,0,0.03)',
+                        border: '1px solid rgba(0,0,0,0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: 'var(--text-main)',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <Clock size={16} />
+                </button>
 
-                    {/* Main Ring */}
-                    <div
-                        className={`w-32 h-32 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${isActive ? 'border-blue-400 bg-blue-500/10' : 'border-slate-700 bg-slate-800'}`}
-                        style={{
-                            width: isMobile ? '96px' : '128px',
-                            height: isMobile ? '96px' : '128px',
-                            borderRadius: '9999px',
-                            borderWidth: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 300ms',
-                            borderColor: isActive ? '#60a5fa' : '#334155',
-                            backgroundColor: isActive ? 'rgba(59, 130, 246, 0.1)' : '#1e293b'
-                        }}
-                    >
-                        {isActive ? (
-                            <div className="flex gap-1 items-end h-8" style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', height: '32px' }}>
-                                {[1, 2, 3, 4, 5].map((i) => (
-                                    <div
-                                        key={i}
-                                        className="w-1.5 bg-blue-400 rounded-full transition-all duration-75"
-                                        style={{
-                                            width: '6px',
-                                            backgroundColor: '#60a5fa',
-                                            borderRadius: '9999px',
-                                            height: `${Math.max(4, volume * 100 * (0.5 + Math.random()))}px`
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <svg
-                                style={{
-                                    width: isMobile ? '36px' : '48px',
-                                    height: isMobile ? '36px' : '48px',
-                                    color: '#64748b'
-                                }}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                            </svg>
-                        )}
+                {/* Center: Branding */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Sparkles size={18} style={{ color: 'var(--primary-color)' }} />
+                        <span style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '1.25rem', letterSpacing: '-0.03em' }}>Buddy</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            backgroundColor: isActive ? '#10b981' : '#94a3b8',
+                            boxShadow: isActive ? '0 0 8px #10b981' : 'none'
+                        }} className={isActive ? "animate-pulse" : ""} />
+                        <span style={{ fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-sub)', letterSpacing: '0.05em' }}>
+                            {isActive ? (inputMode === 'voice' ? 'Listening' : 'Active') : 'Idle'}
+                        </span>
                     </div>
                 </div>
 
-                <div className="mt-6 text-center" style={{ marginTop: '24px', textAlign: 'center' }}>
-                    {isConnecting ? (
-                        <span style={{ color: '#60a5fa', fontWeight: 500 }}>Connecting to Gemini...</span>
-                    ) : isActive ? (
-                        <span style={{ color: '#4ade80', fontWeight: 500 }}>Listening... Go ahead, talk to me!</span>
-                    ) : (
-                        <span style={{ color: '#64748b', fontWeight: 500 }}>Ready when you are</span>
+                {/* Right: Profile */}
+                <button style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(0,0,0,0.05)',
+                    background: 'rgba(0,0,0,0.03)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-sub)',
+                    cursor: 'pointer'
+                }}>
+                    <User size={20} />
+                </button>
+            </div>
+
+            {/* Orbit Animation UI - Only active if voice-related */}
+            <div style={{
+                position: 'fixed',
+                top: '40%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '100%',
+                height: isMobile ? '350px' : '500px',
+                zIndex: 5,
+                pointerEvents: 'none',
+                opacity: transcripts.length === 0 ? 1 : 0,
+                transition: 'opacity 0.8s ease'
+            }}>
+                <VoiceOrbit
+                    isActive={isActive && inputMode === 'voice'}
+                    isThinking={isThinking}
+                    isSpeaking={isAISpeaking}
+                    volume={volume}
+                />
+            </div>
+
+            {/* 2. CHAT AREA */}
+            <div
+                ref={scrollRef}
+                style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    paddingBottom: isMobile ? '120px' : '160px' // Ensure messages clear the fixed bar
+                }}
+            >
+                <div style={{
+                    width: '100%',
+                    maxWidth: '840px',
+                    padding: transcripts.length === 0 ? '0' : '20px 24px 40px 24px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '20px',
+                    minHeight: transcripts.length === 0 ? 'calc(100% - 72px)' : 'auto'
+                }}>
+
+                    {/* Empty State visualizer */}
+                    {transcripts.length === 0 && (
+                        <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '40px 20px',
+                            animation: 'fadeIn 0.8s ease',
+                            zIndex: 10
+                        }}>
+                            <div style={{ position: 'relative', marginBottom: '48px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                {/* Soft Background Glow */}
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    width: isActive ? '200px' : '120px',
+                                    height: isActive ? '200px' : '120px',
+                                    background: 'var(--primary-gradient)',
+                                    borderRadius: '50%',
+                                    filter: 'blur(100px)',
+                                    opacity: isActive ? 0.35 : 0.1,
+                                    transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1)'
+                                }} />
+
+                                {/* Orb removed for ultimate minimalism */}
+
+                                <h1 style={{
+                                    fontSize: isMobile ? '2rem' : '2.5rem',
+                                    fontWeight: '800',
+                                    color: 'var(--text-main)',
+                                    marginBottom: '8px',
+                                    textAlign: 'center',
+                                    letterSpacing: '-0.03em'
+                                }}>
+                                    Buddy Assistant
+                                </h1>
+                                <p style={{
+                                    fontSize: '1rem',
+                                    color: 'var(--text-sub)',
+                                    textAlign: 'center',
+                                    fontStyle: 'italic',
+                                    marginBottom: '32px'
+                                }}>
+                                    "Hey Buddy, what's new today?"
+                                </p>
+
+                                {/* Wake Word indicator */}
+                                {!isActive && isWakeWordListening && (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '14px 28px',
+                                        borderRadius: '99px',
+                                        background: 'white',
+                                        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)',
+                                        border: '1px solid rgba(0,0,0,0.03)',
+                                        color: 'var(--primary-color)',
+                                        fontSize: '0.9rem',
+                                        fontWeight: '700'
+                                    }}>
+                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary-color)' }} className="animate-pulse" />
+                                        Say "Hey Buddy"
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Chat Messages */}
+                    {transcripts.map((t, i) => (
+                        <div key={t.id} style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: t.type === 'user' ? 'flex-end' : 'flex-start',
+                        }}>
+                            <div style={{
+                                maxWidth: isMobile ? '90%' : '85%',
+                                padding: '14px 20px',
+                                borderRadius: '24px',
+                                fontSize: '1.05rem',
+                                lineHeight: '1.55',
+                                background: t.type === 'user' ? 'var(--primary-gradient)' : 'rgba(255, 255, 255, 0.7)',
+                                backdropFilter: t.type === 'ai' ? 'blur(10px)' : 'none',
+                                color: t.type === 'user' ? 'white' : 'var(--text-main)',
+                                borderBottomRightRadius: t.type === 'user' ? '4px' : '24px',
+                                borderBottomLeftRadius: t.type === 'ai' ? '4px' : '24px',
+                                border: '1px solid rgba(0,0,0,0.03)',
+                                boxShadow: t.type === 'ai' ? '0 4px 20px -5px rgba(0,0,0,0.03)' : '0 10px 25px -5px rgba(99, 102, 241, 0.25)',
+                                animation: 'slideUp 0.4s cubic-bezier(0, 0, 0.2, 1)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '10px'
+                            }}>
+                                {t.image && (
+                                    <img
+                                        src={t.image}
+                                        alt="User upload"
+                                        style={{
+                                            maxWidth: '100%',
+                                            maxHeight: '300px',
+                                            borderRadius: '16px',
+                                            objectFit: 'cover',
+                                            border: t.type === 'user' ? '2px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.05)'
+                                        }}
+                                    />
+                                )}
+                                {t.text && <span>{t.text}</span>}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Typing Animation */}
+                    {isActive && inputMode === 'text' && isMicPausedLocal.current && (
+                        <div style={{ display: 'flex', padding: '8px 4px' }}>
+                            <div style={{
+                                padding: '12px 18px',
+                                borderRadius: '24px',
+                                borderBottomLeftRadius: '4px',
+                                background: 'white',
+                                display: 'flex',
+                                gap: '6px'
+                            }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', opacity: 0.6, animation: 'bounce 1s infinite' }} />
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', opacity: 0.6, animation: 'bounce 1s infinite', animationDelay: '0.2s' }} />
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', opacity: 0.6, animation: 'bounce 1s infinite', animationDelay: '0.4s' }} />
+                            </div>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div style={{ textAlign: 'center', margin: '12px 0' }}>
+                            <span style={{
+                                padding: '10px 20px',
+                                borderRadius: '14px',
+                                background: 'rgba(239, 68, 68, 0.08)',
+                                color: '#ef4444',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                border: '1px solid rgba(239, 68, 68, 0.1)'
+                            }}>
+                                {error}
+                            </span>
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Transcript Log */}
-            <div
-                ref={scrollRef}
-                style={{
-                    height: isMobile ? '160px' : '256px',
-                    overflowY: 'auto',
-                    backgroundColor: 'rgba(15, 23, 42, 0.5)',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(51, 65, 85, 0.5)',
-                    padding: '12px',
+            {/* 3. FIXED BOTTOM INPUT BAR */}
+            <div style={{
+                position: 'fixed',
+                bottom: 0,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: isMobile ? '100%' : '90%',
+                maxWidth: '920px', // Desktop max-width as requested
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: isMobile ? '12px 16px' : '20px 24px',
+                paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 12px)',
+                background: 'linear-gradient(to top, var(--bg-color) 80%, transparent)',
+                zIndex: 100, // Above everything
+                boxSizing: 'border-box'
+            }}>
+                <div style={{
+                    width: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px'
-                }}
-            >
-                {transcripts.length === 0 ? (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontStyle: 'italic', textAlign: 'center', width: '100%' }}>
-                        <div style={{ width: '100%' }}>No conversation yet...</div>
-                    </div>
-                ) : (
-                    transcripts.map((t) => (
-                        <div key={t.id} style={{ display: 'flex', flexDirection: 'column', alignItems: t.type === 'user' ? 'flex-end' : 'flex-start' }}>
-                            <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: '4px', paddingLeft: '8px', paddingRight: '8px' }}>
-                                {t.type === 'user' ? 'You' : 'Gemini'}
-                            </span>
-                            <div style={{
-                                maxWidth: '85%',
-                                padding: '8px 16px',
-                                borderRadius: '16px',
-                                fontSize: '14px',
-                                backgroundColor: t.type === 'user' ? '#2563eb' : '#334155',
-                                color: t.type === 'user' ? '#ffffff' : '#e2e8f0',
-                                borderTopRightRadius: t.type === 'user' ? '0' : '16px',
-                                borderTopLeftRadius: t.type === 'ai' ? '0' : '16px'
-                            }}>
-                                {t.text}
+                    gap: isMobile ? '12px' : '16px'
+                }}>
+
+                    {/* Image Preview Area */}
+                    {(imagePreview || isProcessingImage) && (
+                        <div style={{
+                            alignSelf: 'flex-start',
+                            position: 'relative',
+                            padding: '4px',
+                            background: 'white',
+                            borderRadius: '16px',
+                            boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
+                            border: '1px solid rgba(0,0,0,0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            animation: 'slideUp 0.3s ease-out'
+                        }}>
+                            {isProcessingImage ? (
+                                <div style={{ width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Loader2 className="animate-spin" size={20} color="var(--primary-color)" />
+                                </div>
+                            ) : (
+                                <div style={{ position: 'relative', width: '60px', height: '60px' }}>
+                                    <img src={imagePreview} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }} />
+                                    <button
+                                        onClick={clearImage}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-8px',
+                                            right: '-8px',
+                                            width: '24px',
+                                            height: '24px',
+                                            borderRadius: '50%',
+                                            background: '#ef4444',
+                                            color: 'white',
+                                            border: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)'
+                                        }}
+                                    >
+                                        <X size={14} strokeWidth={3} />
+                                    </button>
+                                </div>
+                            )}
+                            <div style={{ paddingRight: '12px' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main)', display: 'block' }}>Image Attached</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)' }}>{isProcessingImage ? 'Analyzing...' : 'Ready to analyze'}</span>
                             </div>
                         </div>
-                    ))
-                )}
-            </div>
+                    )}
 
-            {/* Error Message */}
-            {
-                error && (
-                    <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.5)', color: '#f87171', padding: '12px', borderRadius: '12px', fontSize: '14px', textAlign: 'center' }}>
-                        {error}
+                    {/* Suggestions Chips - Responsive horizontal scroll */}
+                    {!isActive && quickActions && quickActions.length > 0 && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            overflowX: 'auto',
+                            padding: '4px 2px',
+                            maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+                            WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+                            scrollbarWidth: 'none'
+                        }}>
+                            {quickActions.map((cmd, i) => (
+                                <button key={i} onClick={cmd.action} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 18px',
+                                    background: 'white',
+                                    border: '1px solid rgba(0,0,0,0.05)',
+                                    borderRadius: '16px',
+                                    whiteSpace: 'nowrap',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-main)',
+                                    fontSize: '0.9rem',
+                                    fontWeight: '600',
+                                    boxShadow: '0 4px 12px -5px rgba(0,0,0,0.05)',
+                                    transition: 'all 0.2s',
+                                    flexShrink: 0
+                                }}>
+                                    <span style={{ opacity: 0.7 }}>{cmd.icon}</span> {cmd.text}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Main Input Pillar - High Precision Flexbox Layout */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px',
+                        paddingLeft: '12px',
+                        background: 'white',
+                        border: '1px solid rgba(0,0,0,0.06)',
+                        borderRadius: '32px',
+                        boxShadow: '0 15px 35px -10px rgba(0,0,0,0.12)',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                    }}>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            style={{ display: 'none' }}
+                            accept="image/*"
+                            onChange={handleImageChange}
+                        />
+                        {/* Plus button - Fixed Action Width */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{
+                                width: '44px',
+                                height: '44px',
+                                minWidth: '44px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'rgba(0,0,0,0.03)',
+                                border: 'none',
+                                color: 'var(--text-sub)',
+                                cursor: 'pointer',
+                                transition: 'background 0.2s'
+                            }}>
+                            <Plus size={22} strokeWidth={2} />
+                        </button>
+
+                        {/* Input Field - Consumes remaining space */}
+                        <input
+                            style={{
+                                flex: 1,
+                                height: '44px',
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                color: 'var(--text-main)',
+                                fontSize: '1.05rem',
+                                fontFamily: 'inherit',
+                                padding: '0 8px',
+                                width: '100%', // Required for some browsers
+                                minWidth: 0 // Safety for flex-basis
+                            }}
+                            placeholder="Message Buddy..."
+                            value={textInput}
+                            disabled={isActive && inputMode === 'voice'}
+                            onChange={(e) => setTextInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
+                        />
+
+                        {/* Mic / Send Button - Fixed Action Width */}
+                        <div style={{ display: 'flex', alignItems: 'center', minWidth: '44px' }}>
+                            {textInput.trim() ? (
+                                <button
+                                    onClick={handleSendText}
+                                    style={{
+                                        width: '44px',
+                                        height: '44px',
+                                        borderRadius: '22px',
+                                        background: 'var(--primary-gradient)',
+                                        border: 'none',
+                                        color: 'white',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 8px 20px -5px rgba(99, 102, 241, 0.4)'
+                                    }}
+                                >
+                                    <ArrowUp size={22} strokeWidth={2.5} />
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => isActive ? stopAssistant() : startAssistant(true)}
+                                    style={{
+                                        width: '44px',
+                                        height: '44px',
+                                        borderRadius: '22px',
+                                        background: isActive && inputMode === 'voice' ? '#ef4444' : 'rgba(99, 102, 241, 0.08)',
+                                        border: 'none',
+                                        color: isActive && inputMode === 'voice' ? 'white' : 'var(--primary-color)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s',
+                                        boxShadow: isActive && inputMode === 'voice' ? '0 0 25px rgba(239, 68, 68, 0.45)' : 'none'
+                                    }}
+                                >
+                                    {isActive ? <Square size={18} fill="white" /> : <Mic size={22} strokeWidth={2} />}
+                                </button>
+                            )}
+                        </div>
                     </div>
-                )
-            }
-
-            {/* Controls */}
-            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '8px' }}>
-                {!isActive ? (
-                    <button
-                        onClick={startAssistant}
-                        disabled={isConnecting}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '16px 32px',
-                            borderRadius: '9999px',
-                            fontWeight: 'bold',
-                            color: '#ffffff',
-                            backgroundColor: isConnecting ? '#334155' : '#2563eb',
-                            cursor: isConnecting ? 'not-allowed' : 'pointer',
-                            border: 'none',
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                            transition: 'all 200ms'
-                        }}
-                    >
-                        <svg style={{ width: '20px', height: '20px' }} fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                        </svg>
-                        Start Conversation
-                    </button>
-                ) : (
-                    <button
-                        onClick={stopAssistant}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '16px 32px',
-                            borderRadius: '9999px',
-                            fontWeight: 'bold',
-                            color: '#ffffff',
-                            backgroundColor: '#dc2626',
-                            cursor: 'pointer',
-                            border: 'none',
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                            transition: 'all 200ms'
-                        }}
-                    >
-                        <svg style={{ width: '20px', height: '20px' }} fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
-                        </svg>
-                        Stop Assistant
-                    </button>
-                )}
+                </div>
             </div>
-        </div >
+            <style>{`
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes bounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-4px); }
+                }
+                .animate-pulse {
+                    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                .animate-spin {
+                    animation: spin 1s linear infinite;
+                }
+            `}</style>
+        </div>
     );
 };
 
