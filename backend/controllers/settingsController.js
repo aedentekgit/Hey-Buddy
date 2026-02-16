@@ -2,6 +2,7 @@ const Settings = require('../models/Settings');
 const { sendTestEmail } = require('../services/emailService');
 const { sendTestSMS } = require('../services/smsService');
 const { sendPushNotification } = require('../services/notificationService');
+const { uploadFileToFirebase } = require('../services/fileService');
 
 const getSettings = async (req, res) => {
     try {
@@ -62,18 +63,24 @@ const updateSettings = async (req, res) => {
         if (req.files) {
             updateData.general = JSON.parse(updateData.general || '{}');
             if (req.files['logo']) {
-                updateData.general.logo = `/uploads/${req.files['logo'][0].filename}`;
+                const logoFile = req.files['logo'][0];
+                const destination = `general/logo-${Date.now()}${path.extname(logoFile.originalname)}`;
+                updateData.general.logo = await uploadFileToFirebase(logoFile.buffer, destination, logoFile.mimetype);
             }
 
             updateData.notification = JSON.parse(updateData.notification || '{}');
             if (req.files['serviceAccountJson']) {
-                updateData.notification.serviceAccountJson = `/uploads/${req.files['serviceAccountJson'][0].filename}`;
+                const saFile = req.files['serviceAccountJson'][0];
+                const destination = `config/firebase-sa-${Date.now()}.json`;
+                updateData.notification.serviceAccountJson = await uploadFileToFirebase(saFile.buffer, destination, saFile.mimetype);
             }
 
             updateData.storage = JSON.parse(updateData.storage || '{}');
             if (req.files['gcsKeyJson']) {
+                const gcsFile = req.files['gcsKeyJson'][0];
+                const destination = `config/gcs-key-${Date.now()}.json`;
                 updateData.storage.gcs = updateData.storage.gcs || {};
-                updateData.storage.gcs.serviceAccountKeyJson = `/uploads/${req.files['gcsKeyJson'][0].filename}`;
+                updateData.storage.gcs.serviceAccountKeyJson = await uploadFileToFirebase(gcsFile.buffer, destination, gcsFile.mimetype);
             }
         }
 

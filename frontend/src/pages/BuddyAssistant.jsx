@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Mic, MicOff, Send, Calendar, CheckCircle2, Clock, MapPin, Repeat, Loader2,
     Zap, Volume2, Sparkles, Plus, List, CalendarDays, Brain, FilePlus, Heart,
-    ShieldPlus, Shield, X, Trash2, Camera
+    ShieldPlus, Shield, X, Trash2, Camera, ArrowRight, Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
@@ -44,6 +44,13 @@ const BuddyAssistant = () => {
     const chatEndRef = useRef(null);
     const [autoSavedId, setAutoSavedId] = useState(null);
     const isProcessingRef = useRef(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Auto-scroll to bottom when response changes
     useEffect(() => {
@@ -502,19 +509,23 @@ const BuddyAssistant = () => {
             </AnimatePresence>
 
             <div className="assistant-container">
-                <button
-                    className="history-toggle-btn"
-                    onClick={() => setShowHistory(true)}
-                >
-                    <Clock size={20} />
-                    <span>History</span>
-                </button>
-                <button
-                    className="camera-toggle-btn"
-                    onClick={() => fileInputRef.current?.click()}
-                >
-                    <Camera size={20} />
-                </button>
+                {!isMobile && (
+                    <>
+                        <button
+                            className="history-toggle-btn"
+                            onClick={() => setShowHistory(true)}
+                        >
+                            <Clock size={20} />
+                            <span>History</span>
+                        </button>
+                        <button
+                            className="camera-toggle-btn"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <Camera size={20} />
+                        </button>
+                    </>
+                )}
                 <div className="center-interaction" style={{ flex: 1 }}>
                     <input
                         type="file"
@@ -524,8 +535,34 @@ const BuddyAssistant = () => {
                         onChange={handleFileUpload}
                     />
 
+                    {isMobile && !chatResponse && !parsedReminder && !analyzedPrescription && !isParsing && (
+                        <div className="mobile-perplexity-header">
+                            <div className="user-initial-circle" onClick={() => navigate('/admin/dashboard')}>
+                                {user?.name?.charAt(0) || 'S'}
+                            </div>
+                            <div className="mobile-header-stack" onClick={() => setShowHistory(true)}>
+                                <Clock size={20} />
+                            </div>
+                        </div>
+                    )}
+
                     <AnimatePresence mode="wait">
-                        {analyzedPrescription ? (
+                        {isMobile && !chatResponse && !parsedReminder && !analyzedPrescription && !isParsing ? (
+                            <motion.div
+                                key="mobile-hero"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="mobile-hero-section"
+                            >
+                                <h1 className="mobile-hero-title">Buddy AI</h1>
+                                <p className="mobile-hero-desc">
+                                    Your personal AI assistant for health and reminders.
+                                    Ask anything, from scheduling medication to analyzing prescriptions.
+                                </p>
+
+                            </motion.div>
+                        ) : analyzedPrescription ? (
                             <motion.div
                                 key="analyzed-prescription"
                                 initial={{ opacity: 0, scale: 0.95, y: 30 }}
@@ -813,56 +850,101 @@ const BuddyAssistant = () => {
                                     </div>
                                 )}
 
-                                <div className="quick-commands-section">
-                                    <span className="quick-commands-label">Quick Commands</span>
-                                    <div className="commands-list">
-                                        {quickCommands.map((cmd, index) => (
-                                            <button key={index} className="command-pill" onClick={cmd.action}>
-                                                <div className="command-icon-box">
-                                                    {cmd.icon}
-                                                </div>
-                                                <span className="command-text">{cmd.text}</span>
-                                            </button>
-                                        ))}
+                                {!isMobile && (
+                                    <div className="quick-commands-section">
+                                        <span className="quick-commands-label">Quick Commands</span>
+                                        <div className="commands-list">
+                                            {quickCommands.map((cmd, index) => (
+                                                <button key={index} className="command-pill" onClick={cmd.action}>
+                                                    <div className="command-icon-box">
+                                                        {cmd.icon}
+                                                    </div>
+                                                    <span className="command-text">{cmd.text}</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    {isMobile && !chatResponse && !parsedReminder && !analyzedPrescription && !isParsing && (
+                        <div className="mobile-perplexity-bottom-panel">
+                            <div className="mobile-chips-scroll">
+                                <button className="mobile-action-chip" onClick={() => handleParse("Plan my meds")}>
+                                    <Calendar size={14} /> Plan my meds
+                                </button>
+                                <button className="mobile-action-chip" onClick={() => handleParse("Analyze prescription")}>
+                                    <ShieldPlus size={14} /> Analyze lab
+                                </button>
+                                <button className="mobile-action-chip" onClick={() => handleParse("Find health tips")}>
+                                    <Heart size={14} /> Health tips
+                                </button>
+                                <button className="mobile-action-chip favorite">
+                                    <Heart size={14} />
+                                </button>
+                            </div>
+                            <div className="mobile-input-container-pill">
+                                <span className="ask-placeholder" onClick={() => fileInputRef.current?.click()}>Ask Buddy anything...</span>
+                                <div className="mobile-input-actions-row">
+                                    <div className="left-icons">
+                                        <Plus size={18} className="panel-icon" onClick={() => fileInputRef.current?.click()} />
+                                        <Search size={18} className="panel-icon" />
+                                    </div>
+                                    <div className="right-icons">
+                                        <button className="mobile-toggle-btn">
+                                            <Sparkles size={16} />
+                                        </button>
+                                        <button className="mobile-mic-circle" onClick={toggleMic}>
+                                            <Mic size={20} color="white" />
+                                        </button>
+                                        <div className="visualizer-bars">
+                                            <div className="bar"></div>
+                                            <div className="bar active"></div>
+                                            <div className="bar"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div ref={chatEndRef} />
                 </div>
 
                 {/* Input Area - Restored for the main Buddy AI page */}
-                <div className="input-area">
-                    <form onSubmit={handleManualSubmit} className="input-container">
-                        <input
-                            type="text"
-                            className="text-input"
-                            placeholder="Type or speak to Buddy..."
-                            value={manualInput}
-                            onChange={(e) => setManualInput(e.target.value)}
-                            disabled={isListening}
-                        />
-                        <button
-                            type="submit"
-                            className="send-btn-round"
-                            style={{
-                                background: manualInput.trim() ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                color: manualInput.trim() ? 'white' : 'var(--text-sub)',
-                            }}
-                            disabled={isParsing}
-                            onClick={(e) => {
-                                if (!manualInput.trim()) {
-                                    e.preventDefault();
-                                    toggleMic();
-                                }
-                            }}
-                        >
-                            {manualInput.trim() ? <Send size={20} /> : <Mic size={22} style={{ color: isListening ? '#ef4444' : 'inherit' }} />}
-                        </button>
-                    </form>
-                </div>
+                {!isMobile && (
+                    <div className="input-area">
+                        <form onSubmit={handleManualSubmit} className="input-container">
+                            <input
+                                type="text"
+                                className="text-input"
+                                placeholder="Type or speak to Buddy..."
+                                value={manualInput}
+                                onChange={(e) => setManualInput(e.target.value)}
+                                disabled={isListening}
+                            />
+                            <button
+                                type="submit"
+                                className="send-btn-round"
+                                style={{
+                                    background: manualInput.trim() ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                    color: manualInput.trim() ? 'white' : 'var(--text-sub)',
+                                }}
+                                disabled={isParsing}
+                                onClick={(e) => {
+                                    if (!manualInput.trim()) {
+                                        e.preventDefault();
+                                        toggleMic();
+                                    }
+                                }}
+                            >
+                                {manualInput.trim() ? <Send size={20} /> : <Mic size={22} style={{ color: isListening ? '#ef4444' : 'inherit' }} />}
+                            </button>
+                        </form>
+                    </div>
+                )}
 
                 <style>{`
                 .assistant-container {

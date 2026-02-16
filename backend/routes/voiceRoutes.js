@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const voiceController = require('../controllers/voiceController');
+const voiceControllerV2 = require('../controllers/voiceControllerV2');
+const recordController = require('../controllers/recordController');
+const reminderController = require('../controllers/reminderController');
 const { protect } = require('../middlewares/auth');
 const multer = require('multer');
 const path = require('path');
@@ -27,29 +29,32 @@ const upload = multer({
     }
 });
 
-router.post('/parse', protect, voiceController.parseVoice);
-router.post('/save', protect, voiceController.saveReminder);
-router.get('/', protect, voiceController.getReminders);
-router.delete('/:id', protect, voiceController.deleteReminder);
-router.put('/:id', protect, voiceController.updateReminder);
+// Core Voice Interactions (Step 1-6)
+router.post('/parse', protect, voiceControllerV2.processVoice);
+router.post('/save', protect, voiceControllerV2.saveReminder);
 
-// Medical / Prescription routes (Supports both hyphen and underscore aliases for robustness)
-router.post('/upload-prescription', protect, upload.single('document'), voiceController.uploadPrescription);
-router.post('/upload_prescription', protect, upload.single('document'), voiceController.uploadPrescription);
-router.post('/confirm-medical-reminders', protect, voiceController.confirmMedicalReminders);
-router.get('/prescriptions', protect, voiceController.getPrescriptions);
-router.get('/prescriptions/:id', protect, voiceController.getPrescriptionById);
-router.put('/prescriptions/:id', protect, voiceController.updatePrescription);
-router.delete('/prescriptions/:id', protect, voiceController.deletePrescription);
+// Reminder CRUD (Refactored to separate controller)
+router.get('/', protect, reminderController.getReminders);
+router.delete('/:id', protect, reminderController.deleteReminder);
+router.put('/:id', protect, reminderController.updateReminder);
+
+// Medical / Prescription routes
+router.post('/upload-prescription', protect, upload.single('document'), recordController.uploadPrescription);
+router.post('/upload_prescription', protect, upload.single('document'), recordController.uploadPrescription);
+router.post('/confirm-medical-reminders', protect, recordController.confirmMedicalReminders);
+router.get('/prescriptions', protect, recordController.getPrescriptions);
+router.get('/prescriptions/:id', protect, recordController.getPrescriptionById);
+router.put('/prescriptions/:id', protect, recordController.updatePrescription);
+router.delete('/prescriptions/:id', protect, recordController.deletePrescription);
 
 // Memory routes
-router.get('/memories', protect, voiceController.getMemories);
-router.get('/memories/mix', protect, voiceController.getAllMemoriesAndRecords);
-router.put('/memories/:id', protect, voiceController.updateMemory);
-router.delete('/memories/:id', protect, voiceController.deleteMemory);
+router.get('/memories', protect, recordController.getMemories);
+router.get('/memories/mix', protect, recordController.getAllRecords);
+router.put('/memories/:id', protect, recordController.updateMemory);
+router.delete('/memories/:id', protect, recordController.deleteMemory);
 
 // Google Calendar OAuth
-router.get('/google/auth', protect, voiceController.getGoogleAuthUrl);
-router.get('/google/callback', voiceController.googleCallback);
+router.get('/google/auth', protect, reminderController.getGoogleAuthUrl);
+router.get('/google/callback', reminderController.googleCallback);
 
 module.exports = router;

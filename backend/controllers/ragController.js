@@ -1,6 +1,8 @@
 const Document = require('../models/Document');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require('fs');
+const { uploadFileToFirebase } = require('../services/fileService');
+const path = require('path');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -10,14 +12,11 @@ exports.uploadDocument = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-        // In a real RAG system we'd parse PDF/Doc here. 
-        // For simplicity, we'll assume text extraction or use Gemini to "read" the image/text.
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const fileBuffer = fs.readFileSync(req.file.path);
         const imagePart = {
             inlineData: {
-                data: fileBuffer.toString("base64"),
+                data: req.file.buffer.toString("base64"),
                 mimeType: req.file.mimetype
             },
         };
@@ -26,19 +25,22 @@ exports.uploadDocument = async (req, res) => {
         const result = await model.generateContent([prompt, imagePart]);
         const extractedText = result.response.text();
 
+        // Upload to Firebase
+        const destination = `documents/${req.user._id}-${Date.now()}${path.extname(req.file.originalname)}`;
+        const publicUrl = await uploadFileToFirebase(req.file.buffer, destination, req.file.mimetype);
+
         const doc = await Document.create({
             userId: req.user._id,
             fileName: req.file.originalname,
             fileType: req.file.mimetype,
+            fileUrl: publicUrl,
             content: extractedText,
             metadata: { size: req.file.size }
         });
 
-        fs.unlinkSync(req.file.path);
-
         res.status(201).json({ success: true, data: doc });
     } catch (error) {
-        if (req.file) fs.unlinkSync(req.file.path);
+        console.error("RAG Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

@@ -7,7 +7,7 @@ dotenv.config();
 
 const seedData = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/admin_db');
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/staging_Heybuddy');
         console.log('Connected to MongoDB for seeding...');
 
         // 1. Seed Roles
@@ -38,21 +38,22 @@ const seedData = async () => {
         }
 
         // 2. Seed Admin User
-        const adminEmail = 'admin@example.com';
+        const adminEmail = 'admin@buddy.com';
         const adminExists = await User.findOne({ email: adminEmail });
 
         if (!adminExists) {
             const admin = new User({
+                _id: new mongoose.Types.ObjectId().toString(),
                 name: 'Administrator',
                 email: adminEmail,
-                password: 'adminpassword123',
+                password: 'admin123',
                 role: 'admin'
             });
 
             await admin.save();
             console.log('Admin user created successfully');
             console.log('Email:', adminEmail);
-            console.log('Password: adminpassword123');
+            console.log('Password: admin123');
         } else {
             // Update existing admin to ensure it has the admin role and name
             adminExists.role = 'admin';

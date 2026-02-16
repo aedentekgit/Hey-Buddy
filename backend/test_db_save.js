@@ -7,7 +7,7 @@ dotenv.config();
 
 const testSave = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/admin_db');
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/staging_Heybuddy');
         console.log('Connected to MongoDB');
 
         // Find a user

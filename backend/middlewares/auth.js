@@ -4,31 +4,37 @@ const User = require('../models/User');
 const protect = async (req, res, next) => {
     let token;
 
+    console.log(`[AUTH] Checking token for ${req.method} ${req.url}`);
+
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
 
             if (!process.env.JWT_SECRET) {
-                console.error('JWT_SECRET is not defined in environment variables');
+                console.error('[AUTH] JWT_SECRET is not defined');
                 return res.status(500).json({ success: false, message: 'Server configuration error' });
             }
 
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
             req.user = await User.findById(decoded.id).select('-password');
 
             if (!req.user) {
+                console.warn(`[AUTH] User not found in database for ID: ${decoded.id}`);
                 return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
             }
 
+            console.log(`[AUTH] User ${req.user.email} authorized`);
             next();
         } catch (error) {
-            console.error(`Auth Error: ${error.message}`);
+            console.error(`[AUTH] Verification failed: ${error.message}`);
             if (error.name === 'TokenExpiredError') {
                 return res.status(401).json({ success: false, message: 'Token expired, please login again' });
             }
             return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
         }
     } else {
+        console.warn('[AUTH] No Bearer token found in headers');
         res.status(401).json({ success: false, message: 'Not authorized, no token' });
     }
 };

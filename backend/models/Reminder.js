@@ -12,7 +12,7 @@ const reminderSchema = new mongoose.Schema({
     },
     intent: {
         type: String,
-        enum: ['meeting', 'medicine', 'pickup', 'bill', 'personal', 'generic'],
+        enum: ['meeting', 'medicine', 'pickup', 'bill', 'personal', 'generic', 'manual_creation'],
         default: 'generic'
     },
     medicineDetails: {

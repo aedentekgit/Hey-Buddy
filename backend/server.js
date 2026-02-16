@@ -10,7 +10,6 @@ dotenv.config();
 const app = express();
 
 // Middleware
-// Middleware
 app.use(cors({
     origin: ['http://localhost:3000', 'http://localhost:5173'],
     credentials: true
@@ -54,7 +53,7 @@ app.get('/', (req, res) => {
 });
 
 // Database connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/admin_db';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/staging_Heybuddy';
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('Connected to MongoDB'))

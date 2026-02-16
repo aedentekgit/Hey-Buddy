@@ -365,7 +365,7 @@ GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 
 **Other Settings**:
 ```env
-MONGODB_URI=mongodb://localhost:27017/admin_db
+MONGODB_URI=mongodb://localhost:27017/staging_Heybuddy
 PORT=5000
 JWT_SECRET=your_jwt_secret
 ```

@@ -97,7 +97,7 @@ const DashboardLayout = ({ children }) => {
                 }}
             >
                 {/* Mobile Header - Global */}
-                <MobileHeader />
+                {!isBuddyPage && <MobileHeader />}
 
                 {!isBuddyPage && !isMorePage && (
                     <Header
@@ -113,7 +113,7 @@ const DashboardLayout = ({ children }) => {
                 </main>
             </div>
 
-            <MobileNavbar />
+            {!isBuddyPage && <MobileNavbar />}
 
             <style>{`
                     @media (min-width: 1024px) {
@@ -136,7 +136,7 @@ const DashboardLayout = ({ children }) => {
                     ${isBuddyPage ? `
                     /* Buddy Page Specific Styles injected dynamically */
                     .buddy-content-override {
-                        padding: 20px 0 0 0 !important;
+                        padding: 0 !important;
                         max-width: 100% !important;
                         overflow: hidden !important;
                         height: calc(100vh - 20px) !important;
@@ -144,10 +144,12 @@ const DashboardLayout = ({ children }) => {
 
                     @media (max-width: 768px) {
                         .buddy-content-override {
-                            height: calc(100vh - 80px) !important; /* Adjust height for navbar */
+                            height: 100vh !important;
+                            padding: 0 !important;
                         }
                         .main-content {
-                            padding-bottom: 80px !important; /* Adjust for buddy page specifically */
+                            padding-bottom: 0 !important;
+                            margin-left: 0 !important;
                         }
                     }
                     ` : ''}

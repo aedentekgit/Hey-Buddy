@@ -2,6 +2,7 @@ const User = require('../models/User');
 const paginate = require('../utils/paginate');
 const fs = require('fs');
 const path = require('path');
+const { uploadFileToFirebase } = require('../services/fileService');
 
 // Get all users
 const getUsers = async (req, res) => {
@@ -251,23 +252,18 @@ const uploadProfilePicture = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Delete old profile picture if exists
-        if (user.profilePicture) {
-            const oldPath = path.join(__dirname, '../', user.profilePicture);
-            if (fs.existsSync(oldPath)) {
-                fs.unlinkSync(oldPath);
-            }
-        }
+        // Upload to Firebase
+        const destination = `profiles/${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
+        const publicUrl = await uploadFileToFirebase(req.file.buffer, destination, req.file.mimetype);
 
-        // Save new path (relative to backend root, served via /uploads)
-        // Store as 'uploads/profiles/filename'
-        user.profilePicture = `uploads/profiles/${req.file.filename}`;
+        // Update user profile
+        user.profilePicture = publicUrl;
         await user.save();
 
         res.json({
             success: true,
             message: 'Profile picture updated',
-            data: { profilePicture: user.profilePicture }
+            data: { profilePicture: publicUrl }
         });
     } catch (error) {
         console.error('Profile upload error:', error);
@@ -286,10 +282,6 @@ const deleteProfilePicture = async (req, res) => {
         }
 
         if (user.profilePicture) {
-            const oldPath = path.join(__dirname, '../', user.profilePicture);
-            if (fs.existsSync(oldPath)) {
-                fs.unlinkSync(oldPath);
-            }
             user.profilePicture = null;
             await user.save();
         }

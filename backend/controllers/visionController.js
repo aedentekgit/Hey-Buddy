@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const Reminder = require('../models/Reminder');
 const Notification = require('../models/Notification');
+const { uploadFileToFirebase } = require('../services/fileService');
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -15,17 +16,17 @@ exports.analyzeImage = async (req, res) => {
 
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        // Helper to convert file to GoogleGenerativeAI.Part object
-        function fileToGenerativePart(path, mimeType) {
+        // Helper to convert memory buffer to GoogleGenerativeAI.Part object
+        function bufferToGenerativePart(buffer, mimeType) {
             return {
                 inlineData: {
-                    data: Buffer.from(fs.readFileSync(path)).toString("base64"),
+                    data: buffer.toString("base64"),
                     mimeType
                 },
             };
         }
 
-        const imagePart = fileToGenerativePart(req.file.path, req.file.mimetype);
+        const imagePart = bufferToGenerativePart(req.file.buffer, req.file.mimetype);
 
         const prompt = `
             Analyze this image and extract actionable information. 
@@ -56,18 +57,18 @@ exports.analyzeImage = async (req, res) => {
         const jsonStr = text.replace(/```json|```/g, "").trim();
         const analysis = JSON.parse(jsonStr);
 
-        // Clean up uploaded file
-        fs.unlinkSync(req.file.path);
+        // Upload to Firebase for history
+        const destination = `vision/${req.user._id}-${Date.now()}${path.extname(req.file.originalname)}`;
+        const publicUrl = await uploadFileToFirebase(req.file.buffer, destination, req.file.mimetype);
 
         res.status(200).json({
             success: true,
-            data: analysis
+            data: analysis,
+            imageUrl: publicUrl
         });
     } catch (error) {
         console.error("Vision Error:", error);
         res.status(500).json({ success: false, message: "AI Analysis failed", error: error.message });
-        // Cleanup on error if file exists
-        if (req.file) fs.unlinkSync(req.file.path);
     }
 };
 

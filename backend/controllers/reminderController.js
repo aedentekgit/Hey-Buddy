@@ -4,6 +4,7 @@ const { google } = require('googleapis');
 const User = require('../models/User');
 const { sendPushNotification } = require('../services/notificationService');
 const { sendEmail } = require('../services/emailService');
+const paginate = require('../utils/paginate');
 
 const {
     createGoogleCalendarEvent,
@@ -13,14 +14,22 @@ const {
 
 exports.getReminders = async (req, res) => {
     try {
-        const reminders = await Reminder.find({
+        const query = {
             $or: [
                 { userId: req.user._id },
                 { 'sharedWith.user': req.user._id },
                 { assignedTo: req.user._id }
             ]
-        }).sort({ date: 1 }).populate('userId', 'name email').populate('assignedTo', 'name email');
-        res.status(200).json({ success: true, data: reminders });
+        };
+        const results = await paginate(Reminder, query, req.query);
+
+        // Populate creator and share details
+        results.data = await Reminder.populate(results.data, [
+            { path: 'userId', select: 'name email' },
+            { path: 'sharedWith.user', select: 'name email' }
+        ]);
+
+        res.status(200).json({ success: true, ...results });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -279,5 +288,90 @@ exports.unshareReminder = async (req, res) => {
         res.status(200).json({ success: true, message: 'User removed from shared list' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getGoogleAuthUrl = async (req, res) => {
+    try {
+        const Settings = require('../models/Settings');
+        const settings = await Settings.findOne();
+
+        const googleConfig = settings?.googleCalendar;
+        const activeAccount = googleConfig?.activeAccount || 'personal';
+        const accountConfig = googleConfig?.accounts?.[activeAccount];
+
+        const clientId = accountConfig?.clientId || process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = accountConfig?.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
+        const redirectUri = accountConfig?.redirectUri || process.env.GOOGLE_REDIRECT_URI;
+
+        if (!clientId || !clientSecret) {
+            return res.status(400).json({ success: false, message: "Google Calendar credentials not configured." });
+        }
+
+        const oauth2Client = new google.auth.OAuth2(
+            clientId,
+            clientSecret,
+            redirectUri
+        );
+        const scopes = ['https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.readonly'];
+        const state = req.user._id.toString();
+        const url = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: scopes, state: state, prompt: 'consent' });
+        res.status(200).json({ success: true, url });
+    } catch (error) {
+        console.error("Auth URL Error:", error);
+        res.status(500).json({ success: false, message: "Could not generate Auth URL" });
+    }
+};
+
+exports.googleCallback = async (req, res) => {
+    try {
+        const { code, state: userId } = req.query;
+        if (!code) return res.status(400).send("No code provided from Google");
+
+        const Settings = require('../models/Settings');
+        const settings = await Settings.findOne().select('+googleCalendar.accounts.personal.clientSecret +googleCalendar.accounts.work.clientSecret +googleCalendar.accounts.business.clientSecret');
+
+        const googleConfig = settings?.googleCalendar;
+        const activeAccount = googleConfig?.activeAccount || 'personal';
+        const accountConfig = googleConfig?.accounts?.[activeAccount];
+
+        const clientId = accountConfig?.clientId || process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = accountConfig?.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
+        const redirectUri = accountConfig?.redirectUri || process.env.GOOGLE_REDIRECT_URI;
+
+        if (!clientId || !clientSecret) {
+            throw new Error('Google Calendar credentials not configured.');
+        }
+
+        const oauth2Client = new google.auth.OAuth2(
+            clientId,
+            clientSecret,
+            redirectUri
+        );
+
+        const { tokens } = await oauth2Client.getToken(code);
+        const User = require('../models/User');
+        const updateData = {};
+        if (tokens.refresh_token) updateData.googleRefreshToken = tokens.refresh_token;
+
+        await User.findByIdAndUpdate(userId, updateData);
+
+        res.send(`
+            <html>
+                <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white; margin: 0;">
+                    <div style="text-align: center; background: #1e293b; padding: 3rem; border-radius: 24px;">
+                        <h2 style="color: white; margin: 0 0 1rem;">Connected!</h2>
+                        <p style="color: #94a3b8; margin-bottom: 2rem;">Your Google Calendar is now successfully linked.</p>
+                        <script>
+                            if (window.opener) window.opener.postMessage("GOOGLE_AUTH_SUCCESS", "*");
+                            setTimeout(() => { window.close(); }, 3000);
+                        </script>
+                    </div>
+                </body>
+            </html>
+        `);
+    } catch (error) {
+        console.error("Callback Error:", error);
+        res.status(500).send("Authentication failed.");
     }
 };
