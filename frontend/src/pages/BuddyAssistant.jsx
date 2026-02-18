@@ -14,6 +14,7 @@ import { requestNotificationPermission, saveTokenToServer } from '../services/no
 import { TableContainerStyle } from '../styles/tableStyles';
 import GeminiVoiceAssistant from '../components/GeminiVoiceAssistant';
 import voiceService from '../services/voiceService';
+import ConfirmationModal from '../components/ConfirmationModal';
 import '../styles/BuddyAssistant.css';
 
 const BuddyAssistant = () => {
@@ -39,6 +40,7 @@ const BuddyAssistant = () => {
     // Legacy context states simulation for cards that still use them
     const [conversationHistory, setConversationHistory] = useState([]);
     const [currentConversationId, setCurrentConversationId] = useState(null);
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
     const handleToolCall = async (name, args) => {
         if (name === 'create_reminder') {
@@ -259,7 +261,12 @@ const BuddyAssistant = () => {
 
     const deleteConversation = async (e, id) => {
         e.stopPropagation();
-        if (!window.confirm("Delete this conversation?")) return;
+        setDeleteModal({ isOpen: true, id });
+    };
+
+    const confirmDeleteConversation = async () => {
+        const id = deleteModal.id;
+        if (!id) return;
         try {
             await api.delete(`/conversations/${id}`);
             setHistoryList(prev => prev.filter(c => c._id !== id));
@@ -348,10 +355,10 @@ const BuddyAssistant = () => {
             const res = await voiceService.uploadPrescription(file);
             if (res.success) {
                 setAnalyzedPrescription(res.data);
-                toast.success("Prescription analyzed!");
+                toast.success("Image analyzed!");
             }
         } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to analyze prescription");
+            toast.error(err.response?.data?.message || "Failed to analyze image");
             console.error(err);
         } finally {
             setIsUploading(false);
@@ -399,8 +406,8 @@ const BuddyAssistant = () => {
     };
 
     const quickCommands = [
-        { icon: <Plus size={18} />, text: "Create reminder", action: () => toast.info("Just say 'Set a reminder' to Gemini!") },
-        { icon: <FilePlus size={18} />, text: "Upload Prescription", action: () => fileInputRef.current?.click() },
+        { icon: <Plus size={18} />, text: "Create reminder", action: () => toast("Just say 'Set a reminder' to Gemini!") },
+        { icon: <Camera size={18} />, text: "Upload Image", action: () => fileInputRef.current?.click() },
         { icon: <Brain size={18} />, text: "Remembered things", action: () => navigate('/admin/memories') },
         { icon: <List size={18} />, text: "Show active reminders", action: () => navigate('/admin/reminders') },
     ];
@@ -566,7 +573,7 @@ const BuddyAssistant = () => {
                                                 <Loader2 className="animate-spin text-indigo-500" size={64} style={{ margin: '0 auto 24px' }} />
                                             </div>
                                             <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>
-                                                {isUploading ? "Analyzing Prescription..." : "Saving to Memory..."}
+                                                {isUploading ? "Analyzing Image..." : "Saving to Memory..."}
                                             </h3>
                                         </motion.div>
                                     ) : analyzedPrescription ? (
@@ -590,7 +597,7 @@ const BuddyAssistant = () => {
                                                     <ShieldPlus size={24} style={{ color: 'var(--primary-color)' }} />
                                                 </div>
                                                 <div style={{ flex: 1 }}>
-                                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>Medical Protocol</h3>
+                                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>Analysis Results</h3>
                                                 </div>
                                                 <button onClick={() => setAnalyzedPrescription(null)} style={{ opacity: 0.4, background: 'none', border: 'none', cursor: 'pointer' }}>
                                                     <X size={20} />
@@ -607,7 +614,7 @@ const BuddyAssistant = () => {
                                             </div>
 
                                             <button className="btn-premium w-full" onClick={handleConfirmMedicalReminders} style={{ width: '100%', height: '52px' }}>
-                                                Set Medication Reminders
+                                                Confirm & Save
                                             </button>
                                         </motion.div>
                                     ) : parsedReminder ? (
@@ -685,6 +692,16 @@ const BuddyAssistant = () => {
                     )}
                 </AnimatePresence>
             </div>
+
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, id: null })}
+                onConfirm={confirmDeleteConversation}
+                title="Delete Conversation"
+                message="Are you sure you want to delete this conversation? All messages will be permanently removed."
+                confirmText="Delete"
+                type="danger"
+            />
 
 
             <style>{`

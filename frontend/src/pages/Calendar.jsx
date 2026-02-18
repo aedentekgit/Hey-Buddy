@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatTime } from '../utils/dateUtils';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const Calendar = () => {
     const { user } = useAuth();
@@ -23,6 +24,7 @@ const Calendar = () => {
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
     // New reminder state
     const [newReminder, setNewReminder] = useState({
@@ -263,8 +265,13 @@ const Calendar = () => {
         }
     };
 
-    const handleDeleteReminder = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this reminder?')) return;
+    const handleDeleteReminder = (id) => {
+        setDeleteModal({ isOpen: true, id });
+    };
+
+    const confirmDeleteReminder = async () => {
+        const id = deleteModal.id;
+        if (!id) return;
 
         try {
             await api.delete(`/reminders/${id}`);
@@ -609,6 +616,15 @@ const Calendar = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, id: null })}
+                onConfirm={confirmDeleteReminder}
+                title="Delete Reminder"
+                message="Are you sure you want to delete this reminder? This action cannot be undone."
+                confirmText="Delete"
+            />
 
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');

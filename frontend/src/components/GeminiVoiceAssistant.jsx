@@ -1,6 +1,6 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { io } from 'socket.io-client';
+import voiceService from '../services/voiceService';
 import { createPcmBlob, decode, decodeAudioData } from '../utils/audio';
 import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sparkles, Brain, Clock, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 
@@ -185,18 +185,18 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
         // 3. Stop all playing AI audio
         stopAllAudio();
 
-        // 4. Close Gemini Session
+        // 4. Close Backend Socket
         if (sessionRef.current) {
             try {
-                sessionRef.current.close();
-                console.log('[Gemini] Session closed.');
+                sessionRef.current.disconnect();
+                console.log('[Socket] Session disconnected.');
             } catch (e) { }
             sessionRef.current = null;
         }
     }, [stopAllAudio]);
 
     const connectMicrophone = async () => {
-        if (!sessionRef.current || streamRef.current) return; // Already have stream or no session
+        if (!sessionRef.current || streamRef.current) return;
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -210,7 +210,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
 
             const scriptProcessor = inputAudioCtxRef.current.createScriptProcessor(4096, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
-                if (isMicPausedLocal.current) return; // Mic Muted Logic
+                if (isMicPausedLocal.current) return;
 
                 const inputData = e.inputBuffer.getChannelData(0);
                 // Volume calc
@@ -218,9 +218,12 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
                 for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
                 setVolume(Math.sqrt(sum / inputData.length));
 
-                if (sessionRef.current) {
-                    const pcmBlob = createPcmBlob(inputData);
-                    sessionRef.current.sendRealtimeInput({ media: pcmBlob });
+                if (sessionRef.current && sessionRef.current.connected) {
+                    const int16Buffer = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        int16Buffer[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                    }
+                    sessionRef.current.emit('audio_chunk', int16Buffer.buffer);
                 }
             };
             source.connect(scriptProcessor);
@@ -228,7 +231,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
             scriptProcessorRef.current = scriptProcessor;
 
             setInputMode('voice');
-            shouldMuteResponseRef.current = false; // Ensure voice is heard
+            shouldMuteResponseRef.current = false;
         } catch (err) {
             console.error("Mic Error:", err);
             setError("Microphone access denied.");
@@ -239,7 +242,6 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
         if (connectingRef.current) return;
 
         if (isActive && sessionRef.current) {
-            // Already active. If enabling mic, upgrade.
             if (enableMic && !streamRef.current) {
                 await connectMicrophone();
             }
@@ -266,282 +268,91 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
             await inputAudioCtxRef.current.resume();
             await outputAudioCtxRef.current.resume();
 
-            // Enable Wake Word if mic requested
             if (enableMic) setIsWakeWordEnabled(true);
 
-            // Connect Session
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-            if (!apiKey) throw new Error('No API Key');
+            // Connect to Backend Socket.io
+            const token = localStorage.getItem('token');
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
 
-            const ai = new GoogleGenAI({ apiKey });
-
-            const now = new Date();
-            const localTimeStr = now.toLocaleString();
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-            const sessionPromise = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                    speechConfig: {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-                    },
-                    systemInstruction: `You are Buddy, a helpful health and personal assistant.
-                    Current local time: ${localTimeStr} (${timeZone}). 
-                    Use this time as the reference for all scheduling and time-based questions.
-                    You can set reminders, check health history, and analyze prescriptions.
-                    You have a "Buddy Memory" where you store important facts the user tells you.
-                    When a user asks a question about something you should know or remember (like "Where is my wallet?" or "What is my blood type?"), ALWAYS check both your reminders and your stored memories using list_reminders and list_memories / search_memories tools.
-                    When a user asks about a medication, usage, or side effects, use the get_medication_info tool.
-                    When a user asks for a health summary or oversight of their recent data, use the analyze_health_summary tool.
-                    When a user asks to set a reminder, use the create_reminder tool.
-                    When a user tells you a fact to remember, use the save_memory tool.
-                    Always be professional, sympathetic, and concise.`,
-                    tools: [
-                        {
-                            functionDeclarations: [
-                                {
-                                    name: 'create_reminder',
-                                    description: 'Set a new medication or health reminder for the user.',
-                                    parameters: {
-                                        type: 'OBJECT',
-                                        properties: {
-                                            title: { type: 'STRING', description: 'The title or medication name' },
-                                            time: { type: 'STRING', description: 'The time for the reminder (e.g. 08:00 PM)' },
-                                            notes: { type: 'STRING', description: 'Additional instructions' }
-                                        },
-                                        required: ['title', 'time']
-                                    }
-                                },
-                                {
-                                    name: 'get_user_info',
-                                    description: 'Get information about the current user and their active medications.',
-                                    parameters: { type: 'OBJECT', properties: {} }
-                                },
-                                {
-                                    name: 'save_memory',
-                                    description: 'Save an important fact or piece of information about the user that they want you to remember.',
-                                    parameters: {
-                                        type: 'OBJECT',
-                                        properties: {
-                                            content: { type: 'STRING', description: 'The fact or information to remember' },
-                                            category: { type: 'STRING', description: 'Optional category (health, personal, family, etc.)' }
-                                        },
-                                        required: ['content']
-                                    }
-                                },
-                                {
-                                    name: 'list_reminders',
-                                    description: 'Fetch the list of current reminders for the user.',
-                                    parameters: { type: 'OBJECT', properties: {} }
-                                },
-                                {
-                                    name: 'delete_reminder',
-                                    description: 'Delete a specific reminder by its ID or title.',
-                                    parameters: {
-                                        type: 'OBJECT',
-                                        properties: {
-                                            id: { type: 'STRING', description: 'The internal ID of the reminder (if known)' },
-                                            title: { type: 'STRING', description: 'The title of the reminder to match' }
-                                        },
-                                        required: []
-                                    }
-                                },
-                                {
-                                    name: 'list_memories',
-                                    description: 'Fetch the list of stored memories (buddy memories) for the user.',
-                                    parameters: { type: 'OBJECT', properties: {} }
-                                },
-                                {
-                                    name: 'delete_memory',
-                                    description: 'Delete a specific memory by its ID or content fragment.',
-                                    parameters: {
-                                        type: 'OBJECT',
-                                        properties: {
-                                            id: { type: 'STRING', description: 'The internal ID of the memory (if known)' },
-                                            query: { type: 'STRING', description: 'A snippet of the memory content to match' }
-                                        },
-                                        required: []
-                                    }
-                                },
-                                {
-                                    name: 'search_memories',
-                                    description: 'Search for a specific piece of information in the users stored memories.',
-                                    parameters: {
-                                        type: 'OBJECT',
-                                        properties: {
-                                            query: { type: 'STRING', description: 'The search term or question to look for in memories' }
-                                        },
-                                        required: ['query']
-                                    }
-                                },
-                                {
-                                    name: 'get_medication_info',
-                                    description: 'Get detailed information about a medication, including usage, side effects, and precautions.',
-                                    parameters: {
-                                        type: 'OBJECT',
-                                        properties: {
-                                            medication_name: { type: 'STRING', description: 'The name of the medication to look up' }
-                                        },
-                                        required: ['medication_name']
-                                    }
-                                },
-                                {
-                                    name: 'analyze_health_summary',
-                                    description: 'Analyze the users recent health history by looking at their reminders, medications, and stored memories.',
-                                    parameters: {
-                                        type: 'OBJECT',
-                                        properties: {
-                                            timeframe: { type: 'STRING', description: 'The timeframe to analyze (e.g. recent, last month)' }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    ],
-                    inputAudioTranscription: {},
-                    outputAudioTranscription: {},
-                },
-                callbacks: {
-                    onopen: async () => {
-                        console.log('Gemini Session Opened');
-                        setIsActive(true);
-                        setIsConnecting(false);
-                        connectingRef.current = false;
-
-                        // We use a small delay to ensure state and session are fully synced
-                        setTimeout(() => {
-                            if (selectedImage && sessionRef.current) {
-                                console.log('[Multimodal] Injecting image context into new session');
-                                sessionRef.current.sendClientContent({
-                                    turns: [{ role: 'user', parts: [selectedImage] }],
-                                    turnComplete: false // User is likely about to ask a question
-                                });
-                                // We keep the preview visible until the turn actually completes (AI starts responding)
-                            }
-                        }, 200);
-
-                        setInputMode(prev => prev === 'voice' ? 'voice' : 'text');
-                        setIsThinking(false);
-                        setIsAISpeaking(false);
-                    },
-                    onmessage: async (message) => {
-                        // Handle Audio Output
-                        const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                        if (base64Audio && outputAudioCtxRef.current && !shouldMuteResponseRef.current) {
-                            const ctx = outputAudioCtxRef.current;
-                            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-
-                            const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
-                            const sourceNode = ctx.createBufferSource();
-                            sourceNode.buffer = audioBuffer;
-                            sourceNode.connect(ctx.destination);
-                            sourceNode.onended = () => {
-                                sourcesRef.current.delete(sourceNode);
-                                if (sourcesRef.current.size === 0) setIsAISpeaking(false);
-                            };
-
-                            setIsThinking(false);
-                            setIsAISpeaking(true);
-                            sourceNode.start(nextStartTimeRef.current);
-                            nextStartTimeRef.current += audioBuffer.duration;
-                            sourcesRef.current.add(sourceNode);
-                        }
-
-                        // Handle Tool Calls
-                        const toolCall = message.toolCall;
-                        if (toolCall && onToolCall) {
-                            console.log('Gemini requested tool:', toolCall);
-                            const results = [];
-                            for (const call of toolCall.functionCalls) {
-                                try {
-                                    const result = await onToolCall(call.name, call.args);
-                                    results.push({
-                                        name: call.name,
-                                        id: call.id,
-                                        response: { result }
-                                    });
-                                } catch (e) {
-                                    results.push({
-                                        name: call.name,
-                                        id: call.id,
-                                        response: { error: e.message }
-                                    });
-                                }
-                            }
-                            const session = await sessionPromise;
-                            session.sendToolResponse({ functionResponses: results });
-
-                            console.log('[Gemini] Tool execution complete.');
-                        }
-
-                        // Handle Interruptions
-                        if (message.serverContent?.interrupted) {
-                            stopAllAudio();
-                            setIsAISpeaking(false);
-                            setIsThinking(false);
-                        }
-
-                        // Handle Transcriptions & Intent Detection
-                        if (message.serverContent?.inputTranscription) {
-                            const text = message.serverContent.inputTranscription.text;
-                            currentInputTranscription.current += text;
-
-                            // IMMEDIATE STOP INTENT
-                            const lowerText = text.toLowerCase();
-                            if (lowerText.includes('stop') || lowerText.includes('end session') || lowerText.includes('cancel')) {
-                                console.log('[Intent] Stop command detected');
-                                stopAssistant(); // Use the wrapper to ensure Full Stop
-                                return;
-                            }
-
-                            if (inputMode === 'voice') {
-                                setIsThinking(false);
-                                setIsAISpeaking(false);
-                            }
-                        }
-                        if (message.serverContent?.outputTranscription) {
-                            currentOutputTranscription.current += message.serverContent.outputTranscription.text;
-                        }
-
-                        // Turn completion: finalize transcript entries
-                        if (message.serverContent?.turnComplete) {
-                            if (inputMode === 'voice') setIsThinking(true);
-                            shouldMuteResponseRef.current = false; // Reset mute for next turn
-                            const consumedImage = imagePreviewRef.current; // Use ref for current value
-                            clearImage(); // Consumed the image context
-                            if (currentInputTranscription.current) {
-                                addTranscript('user', currentInputTranscription.current, consumedImage);
-                                currentInputTranscription.current = '';
-                            }
-                            if (currentOutputTranscription.current) {
-                                addTranscript('ai', currentOutputTranscription.current);
-                                currentOutputTranscription.current = '';
-                            }
-                        }
-                    },
-                    onerror: (e) => {
-                        console.error('Gemini Error:', e);
-                        setError('Connection error. Please check your API key and network.');
-                        connectingRef.current = false;
-                        cleanup();
-                    },
-                    onclose: () => {
-                        console.log('Gemini Session Closed');
-                        cleanup();
-                    },
-                },
+            const socket = io(backendUrl, {
+                auth: { token },
+                transports: ['websocket']
             });
 
-            sessionRef.current = await sessionPromise;
+            socket.on('connect', async () => {
+                console.log('[Socket] Connected to Backend');
+                setIsActive(true);
+                setIsConnecting(false);
+                connectingRef.current = false;
 
-            // CRITICAL: Connect microphone for the new session if requested
-            if (enableMic) {
-                await connectMicrophone();
-            }
+                if (enableMic) {
+                    await connectMicrophone();
+                }
+
+                setInputMode(prev => prev === 'voice' ? 'voice' : 'text');
+                setIsThinking(false);
+                setIsAISpeaking(false);
+            });
+
+            socket.on('audio_out', async (base64) => {
+                if (outputAudioCtxRef.current && !shouldMuteResponseRef.current) {
+                    const ctx = outputAudioCtxRef.current;
+                    nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
+
+                    const audioBuffer = await decodeAudioData(decode(base64), ctx, 24000, 1);
+                    const sourceNode = ctx.createBufferSource();
+                    sourceNode.buffer = audioBuffer;
+                    sourceNode.connect(ctx.destination);
+                    sourceNode.onended = () => {
+                        sourcesRef.current.delete(sourceNode);
+                        if (sourcesRef.current.size === 0) setIsAISpeaking(false);
+                    };
+
+                    setIsThinking(false);
+                    setIsAISpeaking(true);
+                    sourceNode.start(nextStartTimeRef.current);
+                    nextStartTimeRef.current += audioBuffer.duration;
+                    sourcesRef.current.add(sourceNode);
+                }
+            });
+
+            socket.on('caption', (text) => {
+                setIsThinking(false);
+                currentOutputTranscription.current += text;
+            });
+
+            socket.on('response_done', () => {
+                if (currentOutputTranscription.current) {
+                    addTranscript('ai', currentOutputTranscription.current);
+                    currentOutputTranscription.current = '';
+                }
+                setIsThinking(false);
+            });
+
+            socket.on('clear_audio_queue', () => {
+                stopAllAudio();
+                setIsAISpeaking(false);
+                setIsThinking(false);
+            });
+
+            socket.on('connect_error', (err) => {
+                console.error('[Socket] Connection error:', err);
+                setError('Failed to connect to assistant service.');
+                setIsConnecting(false);
+                connectingRef.current = false;
+                cleanup();
+            });
+
+            socket.on('disconnect', () => {
+                console.log('[Socket] Disconnected');
+                cleanup();
+            });
+
+            sessionRef.current = socket;
+
         } catch (err) {
             console.error('Failed to start assistant:', err);
-            setError(err.message || 'Failed to start. Check microphone permissions.');
+            setError(err.message || 'Failed to start. Check your connection.');
             setIsConnecting(false);
             connectingRef.current = false;
         }
@@ -568,23 +379,15 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
         reader.onload = (event) => {
             const base64 = event.target.result.split(',')[1];
             setSelectedImage({
-                inlineData: {
-                    data: base64,
-                    mimeType: file.type
-                }
+                data: base64,
+                mimeType: file.type
             });
             setImagePreview(event.target.result);
             imagePreviewRef.current = event.target.result;
             setIsProcessingImage(false);
 
-            // If already active, sync the image immediately to the AI context
-            if (sessionRef.current && isActive) {
-                console.log('[Multimodal] Active session: Syncing image immediately');
-                sessionRef.current.sendClientContent({
-                    turns: [{ role: 'user', parts: [{ inlineData: { data: base64, mimeType: file.type } }] }],
-                    turnComplete: false
-                });
-            }
+            // Note: In backend mode, we don't sync the image immediately over socket.
+            // It will be sent with the next text command.
         };
         reader.onerror = () => {
             setError("Failed to read image file.");
@@ -603,35 +406,29 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory }) => 
     const handleSendText = async () => {
         if (!textInput.trim() && !selectedImage) return;
 
-        shouldMuteResponseRef.current = true; // Mute AI audio for this text response
+        shouldMuteResponseRef.current = true;
         const text = textInput;
         const img = selectedImage;
-        const preview = imagePreview; // Capture preview for the transcript
+        const preview = imagePreview;
 
         setTextInput('');
         clearImage();
 
-        let session = sessionRef.current;
-        if (!session || !isActive) {
-            await startAssistant(false);
-            session = sessionRef.current;
-        }
+        addTranscript('user', text, preview);
+        setIsThinking(true);
 
-        if (session) {
-            addTranscript('user', text, preview);
-            try {
-                const parts = [];
-                if (img) parts.push(img);
-                if (text) parts.push({ text: text });
+        try {
+            // Using the backend API for text/image interactions
+            const response = await voiceService.parseVoice(text, img);
 
-                session.sendClientContent({
-                    turns: [{ role: 'user', parts }],
-                    turnComplete: true
-                });
-            } catch (e) {
-                console.error("Failed to send content:", e);
-                setError("Failed to send message.");
+            if (response.success && response.data) {
+                addTranscript('ai', response.data.reply);
             }
+        } catch (err) {
+            console.error("Text interaction failed:", err);
+            setError("Failed to send message.");
+        } finally {
+            setIsThinking(false);
         }
     };
 

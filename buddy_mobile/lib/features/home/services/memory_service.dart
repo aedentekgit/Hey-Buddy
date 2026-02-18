@@ -1,0 +1,121 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:io' show Platform;
+
+class MemoryService {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  // Helper to get base URL
+  String get _baseUrl {
+    if (Platform.isAndroid) return 'http://10.0.2.2:5001/api';
+    return 'http://localhost:5001/api';
+  }
+
+  // Fetch Memories from Backend
+  Future<List<dynamic>> fetchMemories() async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/voice/memories/mix'), // Updated to correct endpoint
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data']; // Assuming 'data' contains the list of memories
+        }
+      }
+      return [];
+    } catch (e) {
+      print("Error fetching memories: $e");
+      return [];
+    }
+  }
+
+  // Delete Memory
+  Future<bool> deleteMemory(String memoryId) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/voice/memories/$memoryId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error deleting memory: $e");
+      return false;
+    }
+  }
+
+  // Update Memory
+  Future<bool> updateMemory(String memoryId, String content) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+
+      final response = await http.put(
+        Uri.parse('$_baseUrl/voice/memories/$memoryId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'content': content}),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error updating memory: $e");
+      return false;
+    }
+  }
+
+  // Delete Prescription/Record
+  Future<bool> deletePrescription(String recordId) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/voice/prescriptions/$recordId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error deleting prescription: $e");
+      return false;
+    }
+  }
+
+  // Update Prescription/Record
+  Future<bool> updatePrescription(String recordId, Map<String, dynamic> data) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+
+      final response = await http.put(
+        Uri.parse('$_baseUrl/voice/prescriptions/$recordId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'extractedData': data}),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error updating prescription: $e");
+      return false;
+    }
+  }
+}

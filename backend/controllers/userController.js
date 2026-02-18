@@ -126,23 +126,33 @@ const saveFcmToken = async (req, res) => {
 
 const updateProfile = async (req, res) => {
     try {
-        const userId = req.user._id; // Ensure authentication passes req.user
-        const { name, phone, address } = req.body;
+        const userId = req.user._id;
+        const { name, phone, address, timezone } = req.body;
 
         console.log('[UserController] Updating profile for user:', userId);
-        console.log('[UserController] Update data:', { name, phone, address });
+        console.log('[UserController] Received update data:', req.body);
 
         const user = await User.findById(userId);
         if (!user) {
+            console.error('[UserController] User not found during update:', userId);
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Update only if values are provided (allow empty strings to clear fields)
+        // Apply updates
         if (name !== undefined) user.name = name;
         if (phone !== undefined) user.phone = phone;
         if (address !== undefined) user.address = address;
-        if (req.body.timezone !== undefined) user.timezone = req.body.timezone;
+        if (timezone !== undefined) user.timezone = timezone;
 
+        // Defensive fix for corrupted fcmTokens that blocks validation
+        if (user.fcmTokens && Array.isArray(user.fcmTokens)) {
+            const corrupted = user.fcmTokens.some(t => typeof t === 'string' && t.includes('[\\n') && t.includes('token:'));
+            if (corrupted) {
+                user.fcmTokens = user.fcmTokens.filter(t => typeof t === 'string' && !t.includes('[\\n'));
+            }
+        }
+
+        // Preferences updates
         if (req.body.voicePreferences) {
             user.voicePreferences = {
                 ...user.voicePreferences,
@@ -161,11 +171,18 @@ const updateProfile = async (req, res) => {
         const userResponse = user.toObject();
         delete userResponse.password;
 
-        console.log('[UserController] Profile updated successfully');
-        res.json({ success: true, message: 'Profile updated successfully', data: userResponse });
+        console.log('[UserController] Profile updated successfully for:', user.email);
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: userResponse
+        });
     } catch (error) {
         console.error('[UserController] Update profile error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update profile: ' + error.message
+        });
     }
 };
 

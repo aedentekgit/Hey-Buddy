@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const voiceService = {
-    parseVoice: async (text, language = 'en-US', history = [], conversationId = null) => {
+    parseVoice: async (text, image = null, language = 'en-US', history = [], conversationId = null) => {
         const token = localStorage.getItem('token');
 
         // Get user's local timezone
@@ -12,6 +12,7 @@ const voiceService = {
 
         const response = await axios.post(`${API_URL}/voice/parse`, {
             text,
+            image, // { data: string, mimeType: string }
             language,
             history,
             conversationId,

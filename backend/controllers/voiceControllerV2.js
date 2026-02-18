@@ -1,4 +1,5 @@
 const nluService = require('../services/nluService');
+const geminiService = require('../services/geminiService');
 const contextService = require('../services/contextService');
 const Reminder = require('../models/Reminder');
 const { createGoogleCalendarEvent } = require('../services/googleCalendarService');
@@ -10,7 +11,7 @@ const { createGoogleCalendarEvent } = require('../services/googleCalendarService
 exports.processVoice = async (req, res) => {
     try {
         const startTime = Date.now();
-        const { text, language = 'en-US', conversationId = null, timeZone = 'UTC' } = req.body;
+        const { text, image = null, language = 'en-US', conversationId = null, timeZone = 'UTC' } = req.body;
         const userId = req.user?._id;
 
         console.log('--- [VoiceV2 Request Start] ---');
@@ -22,7 +23,7 @@ exports.processVoice = async (req, res) => {
             return res.status(400).json({ success: false, message: "No text captured." });
         }
 
-        console.log(`[VoiceV2] Processing: "${text}" for user ${userId} (TimeZone: ${timeZone})`);
+        console.log(`[VoiceV2] Processing via Gemini: "${text}" for user ${userId} (TimeZone: ${timeZone})`);
 
         // 1. Get Context (Step 5)
         const contextStartTime = Date.now();
@@ -30,9 +31,9 @@ exports.processVoice = async (req, res) => {
         console.log(`[VoiceV2] Context retrieved in ${Date.now() - contextStartTime}ms`);
 
         // 2. Generate Response (Steps 4 & 6)
-        console.log('[VoiceV2] Calling NLU Service...');
+        console.log('[VoiceV2] Calling Gemini Service...');
         const aiStartTime = Date.now();
-        const aiResponse = await nluService.generateResponse(text, context, language);
+        const aiResponse = await geminiService.generateResponse(text, userId, context, language, image);
         console.log(`[VoiceV2] AI response generated in ${Date.now() - aiStartTime}ms`);
 
         // 3. Save Context (Step 5)

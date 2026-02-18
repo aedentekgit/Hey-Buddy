@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -27,23 +28,17 @@ class _SignupScreenState extends State<SignupScreen> {
     final confirmPassword = _confirmPasswordController.text.trim();
     
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
+      ToastUtils.showErrorToast('Please fill in all fields');
       return;
     }
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+      ToastUtils.showErrorToast('Passwords do not match');
       return;
     }
 
     if (!_agreedToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please agree to the terms and policy')),
-      );
+      ToastUtils.showErrorToast('Please agree to the terms and policy');
       return;
     }
 
@@ -53,14 +48,10 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!mounted) return;
     
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created! Please sign in.')),
-      );
+      ToastUtils.showSuccessToast('Account created! Please sign in.');
       Navigator.of(context).pop();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registration failed. Email might be taken.')),
-      );
+      ToastUtils.showErrorToast('Registration failed. Email might be taken.');
     }
   }
 

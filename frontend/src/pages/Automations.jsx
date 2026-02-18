@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Cpu, Plus, Trash2, Copy, Check, ExternalLink, Terminal, Shield, Zap, Loader2 } from 'lucide-react';
 import automationService from '../services/automationService';
 import toast from 'react-hot-toast';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const Automations = () => {
     const [webhooks, setWebhooks] = useState([]);
@@ -10,6 +11,7 @@ const Automations = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
     const [newWebhook, setNewWebhook] = useState({ name: '', targetAction: 'create_reminder' });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
     const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -47,8 +49,13 @@ const Automations = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Delete this automation?")) return;
+    const handleDelete = (id) => {
+        setDeleteModal({ isOpen: true, id });
+    };
+
+    const confirmDelete = async () => {
+        const id = deleteModal.id;
+        if (!id) return;
         try {
             await automationService.deleteWebhook(id);
             toast.success("Automation removed");
@@ -160,6 +167,14 @@ const Automations = () => {
                 </div>
             </div>
 
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, id: null })}
+                onConfirm={confirmDelete}
+                title="Delete Automation"
+                message="Are you sure you want to delete this automation? This connection will stop working immediately."
+                confirmText="Delete"
+            />
             <style>{`
                 .automations-container {
                     padding: 2rem;

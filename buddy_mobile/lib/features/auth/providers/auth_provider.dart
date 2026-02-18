@@ -19,7 +19,8 @@ class AuthProvider with ChangeNotifier {
     final result = await _authService.login(email, password);
     
     if (result['success'] == true) {
-      _token = result['token'];
+      final data = result['data'];
+      _token = data['token']; // Corrected: token is inside data object
       await _storage.write(key: 'jwt', value: _token);
       _isLoading = false;
       notifyListeners();

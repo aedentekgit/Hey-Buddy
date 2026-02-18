@@ -1,0 +1,104 @@
+
+> backend@1.0.0 dev
+> nodemon server.js
+
+[33m[nodemon] 3.1.11[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node server.js`[39m
+[dotenv@17.3.1] injecting env (11) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+--- [Server Diagnostic] ---
+PORT: 5001
+JWT_SECRET Status: LOADED
+OPENAI_API_KEY Status: LOADED
+MONGODB_URI Status: LOADED
+Server is running on port 5001
+Backend fully initialized at 2026-02-18T06:22:34.661Z
+✅ Smart Reminder Scheduler started - Running every 5 minutes
+Connected to MongoDB
+🚀 Running initial smart reminder check...
+Running smart reminder checks...
+Smart reminder checks completed.
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+🤖 Smart Reminder Scheduler triggered at: 2026-02-18T06:25:00.015Z
+Running smart reminder checks...
+Smart reminder checks completed.
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+🤖 Smart Reminder Scheduler triggered at: 2026-02-18T06:30:00.009Z
+Running smart reminder checks...
+Checking reminders (Timezone Aware)...
+Smart reminder checks completed.
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] Checking token for GET /?page=1&limit=10&search=
+[AUTH] Checking token for GET /memories/mix
+[AUTH] Checking token for GET /me
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] User admin@buddy.com authorized on platform: web
+Checking reminders (Timezone Aware)...
+[AUTH] Checking token for GET /
+[AUTH] User admin@buddy.com authorized on platform: web

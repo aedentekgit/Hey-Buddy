@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import voiceService from '../services/voiceService';
 import { requestNotificationPermission } from '../services/notificationService';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const FONTS = [
     { value: "'Inter', sans-serif", label: "Inter (Modern)" },
@@ -103,6 +104,7 @@ const AdminSettings = () => {
 
     const [testEmail, setTestEmail] = useState('');
     const [testPhone, setTestPhone] = useState('');
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, type: null, payload: null, title: '', message: '' });
 
     // Local state for pending appearance changes - Moved up for correct initialization
     const [appearance, setAppearance] = useState({
@@ -229,9 +231,16 @@ const AdminSettings = () => {
         }
     };
 
-    const handleRemoveLogo = async () => {
-        if (!window.confirm('Are you sure you want to remove the logo?')) return;
+    const handleRemoveLogo = () => {
+        setDeleteModal({
+            isOpen: true,
+            type: 'logo',
+            title: 'Remove Logo',
+            message: 'Are you sure you want to remove the logo?'
+        });
+    };
 
+    const confirmRemoveLogo = async () => {
         const loadToast = toast.loading('Removing logo...');
         try {
             const updatedGeneral = { ...settings.general, logo: '' };
@@ -272,10 +281,20 @@ const AdminSettings = () => {
         }
     };
 
-    const handleRemoveMobileAsset = async (field) => {
+    const handleRemoveMobileAsset = (field) => {
         const label = field === 'appLogo' ? 'App Logo' : 'Splash Icon';
-        if (!window.confirm(`Are you sure you want to remove the ${label.toLowerCase()}?`)) return;
+        setDeleteModal({
+            isOpen: true,
+            type: 'mobileAsset',
+            payload: field,
+            title: `Remove ${label}`,
+            message: `Are you sure you want to remove the ${label.toLowerCase()}?`
+        });
+    };
 
+    const confirmRemoveMobileAsset = async () => {
+        const field = deleteModal.payload;
+        const label = field === 'appLogo' ? 'App Logo' : 'Splash Icon';
         const loadToast = toast.loading(`Removing ${label}...`);
         try {
             const updatedMobile = { ...settings.mobileApp, [field]: '' };
@@ -1555,7 +1574,20 @@ const AdminSettings = () => {
                     gap: 2rem;
                 }
             `}</style>
-        </div >
+
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+                onConfirm={() => {
+                    setDeleteModal({ ...deleteModal, isOpen: false });
+                    if (deleteModal.type === 'logo') confirmRemoveLogo();
+                    if (deleteModal.type === 'mobileAsset') confirmRemoveMobileAsset();
+                }}
+                title={deleteModal.title}
+                message={deleteModal.message}
+                confirmText="Remove"
+            />
+        </div>
     );
 };
 

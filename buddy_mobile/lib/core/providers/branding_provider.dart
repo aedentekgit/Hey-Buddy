@@ -86,15 +86,63 @@ class BrandingProvider extends ChangeNotifier {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: _primaryColor,
-        foregroundColor: Colors.white,
-        minimumSize: const Size(double.infinity, 56),
+        backgroundColor: _primaryColor.withOpacity(0.05),
+        foregroundColor: _primaryColor,
+        elevation: 0,
+        side: BorderSide(color: _primaryColor.withOpacity(0.2), width: 1.2),
+        minimumSize: const Size(double.infinity, 46),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
-        textStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
+        textStyle: GoogleFonts.outfit(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        backgroundColor: const Color(0xFFF1F5F9),
+        foregroundColor: const Color(0xFF64748B),
+        elevation: 0,
+        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+        minimumSize: const Size(double.infinity, 46),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        textStyle: GoogleFonts.outfit(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        return Colors.white;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return _primaryColor;
+        return const Color(0xFF94A3B8); // Distinct ash gray
+      }),
+      trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+    ),
+    dropdownMenuTheme: DropdownMenuThemeData(
+      textStyle: GoogleFonts.outfit(fontSize: 14),
+      menuStyle: MenuStyle(
+        backgroundColor: WidgetStateProperty.all(Colors.white),
+        elevation: WidgetStateProperty.all(8),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
+    ),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStateProperty.all(Colors.white),
+        elevation: WidgetStateProperty.all(8),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
     ),

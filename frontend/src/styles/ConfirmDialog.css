@@ -15,7 +15,7 @@
 
 .confirm-dialog {
     background: #ffffff;
-    border-radius: 24px;
+    border-radius: var(--radius-3xl);
     padding: 2.5rem 2rem;
     max-width: 450px;
     width: 100%;
@@ -47,7 +47,7 @@
 .dialog-icon {
     width: 72px;
     height: 72px;
-    border-radius: 20px;
+    border-radius: var(--radius-2xl);
     background: linear-gradient(135deg, #fee2e2, #fecaca);
     display: flex;
     align-items: center;

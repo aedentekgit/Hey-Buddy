@@ -4,6 +4,8 @@ import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/signup_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/features/home/screens/main_screen.dart';
+import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,9 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
     
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
+      ToastUtils.showErrorToast('Please fill in all fields');
       return;
     }
 
@@ -35,12 +35,10 @@ class _LoginScreenState extends State<LoginScreen> {
     
     if (success) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const Scaffold(body: Center(child: Text('Home')))),
+        MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid email or password')),
-      );
+      ToastUtils.showErrorToast('Invalid email or password');
     }
   }
 

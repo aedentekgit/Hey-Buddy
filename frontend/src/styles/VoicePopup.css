@@ -16,7 +16,7 @@
 
 .voice-popup {
     background: #1e293b;
-    border-radius: 24px;
+    border-radius: var(--radius-3xl);
     width: 100%;
     max-width: 440px;
     box-shadow:
@@ -77,21 +77,34 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #10b981; /* Green for ready */
+    background: #10b981;
+    /* Green for ready */
     box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
     transition: all 0.3s ease;
 }
 
 .status-dot.pulsing {
-    background: #ef4444; /* Red for listening */
+    background: #ef4444;
+    /* Red for listening */
     box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
     animation: pulse-dot 1s infinite;
 }
 
 @keyframes pulse-dot {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.4); opacity: 0.6; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.4);
+        opacity: 0.6;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .status-text {
@@ -183,7 +196,11 @@
     border-bottom-right-radius: 4px;
     color: #e0e7ff;
 }
-.user-message .message-label { color: #818cf8; text-align: right; }
+
+.user-message .message-label {
+    color: #818cf8;
+    text-align: right;
+}
 
 /* Buddy Message */
 .buddy-message {
@@ -193,7 +210,10 @@
     border-bottom-left-radius: 4px;
     color: #f1f5f9;
 }
-.buddy-message .message-label { color: #10b981; }
+
+.buddy-message .message-label {
+    color: #10b981;
+}
 
 .message-header {
     display: flex;
@@ -269,7 +289,9 @@
     color: white;
 }
 
-.voice-input::placeholder { color: rgba(255, 255, 255, 0.2); }
+.voice-input::placeholder {
+    color: rgba(255, 255, 255, 0.2);
+}
 
 .input-actions {
     display: flex;
@@ -277,7 +299,8 @@
     align-items: center;
 }
 
-.mic-btn, .send-btn {
+.mic-btn,
+.send-btn {
     border: none;
     border-radius: 10px;
     width: 36px;
@@ -291,7 +314,10 @@
     color: rgba(255, 255, 255, 0.7);
 }
 
-.mic-btn:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+.mic-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
 
 .send-btn {
     background: #6366f1;
@@ -300,10 +326,12 @@
     height: 40px;
     border-radius: 12px;
 }
+
 .send-btn:hover:not(:disabled) {
     background: #4f46e5;
     transform: scale(1.05);
 }
+
 .send-btn:disabled {
     opacity: 0.3;
     pointer-events: none;
@@ -329,6 +357,7 @@
     cursor: pointer;
     transition: all 0.2s;
 }
+
 .quick-btn:hover {
     background: rgba(255, 255, 255, 0.08);
     color: white;
@@ -358,19 +387,49 @@
 
 .wave-bar {
     width: 4px;
-    background: #ef4444; /* Red for listening */
+    background: #ef4444;
+    /* Red for listening */
     border-radius: 4px;
     animation: wave-bounce 1s ease-in-out infinite;
 }
-.wave-bar:nth-child(1) { height: 10px; animation-delay: 0.0s; }
-.wave-bar:nth-child(2) { height: 16px; animation-delay: 0.1s; }
-.wave-bar:nth-child(3) { height: 24px; animation-delay: 0.2s; }
-.wave-bar:nth-child(4) { height: 14px; animation-delay: 0.3s; }
-.wave-bar:nth-child(5) { height: 8px; animation-delay: 0.4s; }
+
+.wave-bar:nth-child(1) {
+    height: 10px;
+    animation-delay: 0.0s;
+}
+
+.wave-bar:nth-child(2) {
+    height: 16px;
+    animation-delay: 0.1s;
+}
+
+.wave-bar:nth-child(3) {
+    height: 24px;
+    animation-delay: 0.2s;
+}
+
+.wave-bar:nth-child(4) {
+    height: 14px;
+    animation-delay: 0.3s;
+}
+
+.wave-bar:nth-child(5) {
+    height: 8px;
+    animation-delay: 0.4s;
+}
 
 @keyframes wave-bounce {
-    0%, 100% { transform: scaleY(1); opacity: 0.5; }
-    50% { transform: scaleY(1.8); opacity: 1; }
+
+    0%,
+    100% {
+        transform: scaleY(1);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scaleY(1.8);
+        opacity: 1;
+    }
 }
 
 .listening-text {
@@ -395,14 +454,26 @@
     cursor: pointer;
     transition: all 0.2s;
 }
+
 .stop-listening-btn:hover {
     background: #ef4444;
     color: white;
 }
 
 /* Spinner */
-.spinner { animation: spin 1s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
 
 /* Mobile */
 @media (max-width: 640px) {

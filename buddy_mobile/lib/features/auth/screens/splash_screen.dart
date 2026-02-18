@@ -4,6 +4,7 @@ import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -41,7 +42,7 @@ class _SplashScreenState extends State<SplashScreen> {
       );
     } else {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const Scaffold(body: Center(child: Text('Home')))),
+        MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     }
   }

@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema({
         default: null
     },
     fcmTokens: [{
-        type: String
+        type: mongoose.Schema.Types.Mixed
     }],
     voicePreferences: {
         gender: {
