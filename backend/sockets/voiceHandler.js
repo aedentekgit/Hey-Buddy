@@ -21,8 +21,18 @@ const voiceHandler = (io) => {
     io.on('connection', (socket) => {
         console.log(`[Socket] 📞 New Voice Session: ${socket.id} (User: ${socket.userId})`);
 
-        const agent = new BuddyAgent(socket.userId, socket);
-        activeAgents.set(socket.id, agent);
+        socket.on('setup_agent', (config) => {
+            const { language = 'en-US' } = config || {};
+
+            // Cleanup existing agent if any
+            if (activeAgents.has(socket.id)) {
+                activeAgents.get(socket.id).cleanup();
+            }
+
+            const agent = new BuddyAgent(socket.userId, socket, language);
+            activeAgents.set(socket.id, agent);
+            console.log(`[Socket] Agent configured for ${socket.id} with language: ${language}`);
+        });
 
         socket.on('audio_chunk', (data) => {
             const agent = activeAgents.get(socket.id);

@@ -16,9 +16,13 @@ const getSettings = async (req, res) => {
 
 const updateSettings = async (req, res) => {
     try {
-        let settings = await Settings.findOne();
-        const updateData = req.body;
+        let updateData = req.body;
 
+        // Fetch current settings once for deep-merging
+        const settings = await Settings.findOne();
+        const currentSettings = settings ? settings.toObject() : {};
+
+        // Handle file uploads first
         if (req.files) {
             if (updateData.general) {
                 updateData.general = typeof updateData.general === 'string' ? JSON.parse(updateData.general) : updateData.general;
@@ -74,133 +78,143 @@ const updateSettings = async (req, res) => {
             }
         }
 
+        // If no document exists yet, create one via normal save
         if (!settings) {
-            settings = new Settings(updateData);
-        } else {
-            // Ensure sub-objects exist
-            if (!settings.general) settings.general = {};
-            if (!settings.smtp) settings.smtp = {};
-            if (!settings.sms) settings.sms = {};
-            if (!settings.otp) settings.otp = {};
-            if (!settings.notification) settings.notification = {};
-            if (!settings.storage) settings.storage = {};
-            if (!settings.socialMedia) settings.socialMedia = {};
-
-            if (updateData.general) {
-                Object.assign(settings.general, updateData.general);
-                settings.markModified('general');
+            const newSettings = new Settings(updateData);
+            const { general } = newSettings;
+            if (general?.companyName && general?.phone) {
+                newSettings.isConfigured = true;
             }
+            await newSettings.save();
+            return res.json({ success: true, data: newSettings });
+        }
 
-            if (updateData.smtp) {
-                const { password, ...others } = updateData.smtp;
-                Object.assign(settings.smtp, others);
-                if (password) settings.smtp.password = password;
-                settings.markModified('smtp');
+        // Build update doc by deep-merging current settings with inbound data.
+        // Using findOneAndUpdate with $set avoids Mongoose version (__v) conflicts entirely.
+        const updateDoc = {};
+
+        // General
+        if (updateData.general) {
+            updateDoc['general'] = { ...(currentSettings.general || {}), ...updateData.general };
+        }
+
+        // SMTP — keep existing password if no new one provided
+        if (updateData.smtp) {
+            const { password, ...others } = updateData.smtp;
+            updateDoc['smtp'] = { ...(currentSettings.smtp || {}), ...others };
+            if (password) updateDoc['smtp'].password = password;
+        }
+
+        // SMS
+        if (updateData.sms) {
+            updateDoc['sms'] = { ...(currentSettings.sms || {}), ...updateData.sms };
+        }
+
+        // Social Media
+        if (updateData.socialMedia) {
+            updateDoc['socialMedia'] = { ...(currentSettings.socialMedia || {}), ...updateData.socialMedia };
+        }
+
+        // Payment Gateways (replace array entirely)
+        if (updateData.paymentGateways) {
+            updateDoc['paymentGateways'] = updateData.paymentGateways;
+        }
+
+        // OTP
+        if (updateData.otp) {
+            updateDoc['otp'] = { ...(currentSettings.otp || {}), ...updateData.otp };
+        }
+
+        // Notification
+        if (updateData.notification && Object.keys(updateData.notification).length > 0) {
+            updateDoc['notification'] = { ...(currentSettings.notification || {}), ...updateData.notification };
+        }
+
+        // Storage — deep merge provider sub-objects
+        if (updateData.storage) {
+            const mergedStorage = { ...(currentSettings.storage || {}) };
+            if (updateData.storage.activeProvider !== undefined) {
+                mergedStorage.activeProvider = updateData.storage.activeProvider;
             }
-
-            if (updateData.sms) {
-                Object.assign(settings.sms, updateData.sms);
-                settings.markModified('sms');
+            if (updateData.storage.local) {
+                mergedStorage.local = { ...(mergedStorage.local || {}), ...updateData.storage.local };
             }
-
-            if (updateData.socialMedia) {
-                Object.assign(settings.socialMedia, updateData.socialMedia);
-                settings.markModified('socialMedia');
+            if (updateData.storage.cloudinary) {
+                mergedStorage.cloudinary = { ...(mergedStorage.cloudinary || {}), ...updateData.storage.cloudinary };
             }
-
-            if (updateData.paymentGateways) {
-                settings.paymentGateways = updateData.paymentGateways;
-                settings.markModified('paymentGateways');
+            if (updateData.storage.gcs) {
+                mergedStorage.gcs = { ...(mergedStorage.gcs || {}), ...updateData.storage.gcs };
             }
+            updateDoc['storage'] = mergedStorage;
+        }
 
-            if (updateData.otp) {
-                Object.assign(settings.otp, updateData.otp);
-                settings.markModified('otp');
+        // AI
+        if (updateData.ai) {
+            updateDoc['ai'] = { ...(currentSettings.ai || {}), ...updateData.ai };
+        }
+
+        // Appearance
+        if (updateData.appearance) {
+            updateDoc['appearance'] = { ...(currentSettings.appearance || {}), ...updateData.appearance };
+        }
+
+        // Google Auth — protect webClientSecret
+        if (updateData.googleAuth) {
+            const { webClientSecret, ...others } = updateData.googleAuth;
+            updateDoc['googleAuth'] = { ...(currentSettings.googleAuth || {}), ...others };
+            if (webClientSecret) updateDoc['googleAuth'].webClientSecret = webClientSecret;
+        }
+
+        // Google Calendar — deep merge accounts
+        if (updateData.googleCalendar) {
+            const mergedCalendar = { ...(currentSettings.googleCalendar || {}) };
+            if (updateData.googleCalendar.activeAccount !== undefined) {
+                mergedCalendar.activeAccount = updateData.googleCalendar.activeAccount;
             }
-
-            if (updateData.notification && Object.keys(updateData.notification).length > 0) {
-                Object.assign(settings.notification, updateData.notification);
-                settings.markModified('notification');
-            }
-
-            if (updateData.storage) {
-                // If deep merging is needed, do it here. For now simplest assign.
-                // Deep merge activeProvider and provider configs
-                settings.storage.activeProvider = updateData.storage.activeProvider || settings.storage.activeProvider;
-                if (updateData.storage.local) Object.assign(settings.storage.local, updateData.storage.local);
-                if (updateData.storage.cloudinary) Object.assign(settings.storage.cloudinary, updateData.storage.cloudinary);
-                if (updateData.storage.gcs) Object.assign(settings.storage.gcs, updateData.storage.gcs);
-
-                settings.markModified('storage');
-            }
-
-            if (updateData.ai) {
-                if (!settings.ai) settings.ai = {};
-                Object.assign(settings.ai, updateData.ai);
-                settings.markModified('ai');
-            }
-
-            if (updateData.appearance) {
-                if (!settings.appearance) settings.appearance = {};
-                Object.assign(settings.appearance, updateData.appearance);
-                settings.markModified('appearance');
-            }
-
-            if (updateData.googleAuth) {
-                if (!settings.googleAuth) settings.googleAuth = {};
-                const { webClientSecret, ...others } = updateData.googleAuth;
-                Object.assign(settings.googleAuth, others);
-                if (webClientSecret) settings.googleAuth.webClientSecret = webClientSecret;
-                settings.markModified('googleAuth');
-            }
-
-            if (updateData.googleCalendar) {
-                if (!settings.googleCalendar) settings.googleCalendar = {};
-
-                // Handle activeAccount
-                if (updateData.googleCalendar.activeAccount !== undefined) {
-                    settings.googleCalendar.activeAccount = updateData.googleCalendar.activeAccount;
-                }
-
-                // Handle accounts (personal, work, business)
-                if (updateData.googleCalendar.accounts) {
-                    if (!settings.googleCalendar.accounts) settings.googleCalendar.accounts = {};
-
-                    ['personal', 'work', 'business'].forEach(accountType => {
-                        if (updateData.googleCalendar.accounts[accountType]) {
-                            if (!settings.googleCalendar.accounts[accountType]) {
-                                settings.googleCalendar.accounts[accountType] = {};
-                            }
-
-                            const { clientSecret, ...others } = updateData.googleCalendar.accounts[accountType];
-                            Object.assign(settings.googleCalendar.accounts[accountType], others);
-
-                            // Only update clientSecret if provided
-                            if (clientSecret) {
-                                settings.googleCalendar.accounts[accountType].clientSecret = clientSecret;
-                            }
+            if (updateData.googleCalendar.accounts) {
+                mergedCalendar.accounts = { ...(mergedCalendar.accounts || {}) };
+                ['personal', 'work', 'business'].forEach(accountType => {
+                    if (updateData.googleCalendar.accounts[accountType]) {
+                        const { clientSecret, ...others } = updateData.googleCalendar.accounts[accountType];
+                        mergedCalendar.accounts[accountType] = {
+                            ...(mergedCalendar.accounts[accountType] || {}),
+                            ...others
+                        };
+                        if (clientSecret) {
+                            mergedCalendar.accounts[accountType].clientSecret = clientSecret;
                         }
-                    });
-                }
-
-                settings.markModified('googleCalendar');
+                    }
+                });
             }
-
-            if (updateData.mobileApp && Object.keys(updateData.mobileApp).length > 0) {
-                if (!settings.mobileApp) settings.mobileApp = {};
-                Object.assign(settings.mobileApp, updateData.mobileApp);
-                settings.markModified('mobileApp');
-            }
+            updateDoc['googleCalendar'] = mergedCalendar;
         }
 
-        const { general } = settings;
-        if (general?.companyName && general?.phone) {
-            settings.isConfigured = true;
+        // Mobile App
+        if (updateData.mobileApp && Object.keys(updateData.mobileApp).length > 0) {
+            updateDoc['mobileApp'] = { ...(currentSettings.mobileApp || {}), ...updateData.mobileApp };
         }
 
-        await settings.save();
-        res.json({ success: true, data: settings });
+        // Determine isConfigured
+        const finalCompanyName = (updateDoc['general'] || currentSettings.general)?.companyName;
+        const finalPhone = (updateDoc['general'] || currentSettings.general)?.phone;
+        if (finalCompanyName && finalPhone) {
+            updateDoc['isConfigured'] = true;
+        }
+
+        // Use findOneAndUpdate with $set — bypasses __v version conflicts completely
+        const updatedSettings = await Settings.findOneAndUpdate(
+            {},
+            { $set: updateDoc },
+            {
+                new: true,
+                upsert: false,
+                runValidators: false,
+            }
+        ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey');
+
+        res.json({ success: true, data: updatedSettings });
     } catch (error) {
+        console.error('updateSettings error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

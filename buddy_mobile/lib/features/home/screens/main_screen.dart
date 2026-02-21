@@ -12,10 +12,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/widgets/mobile_task_card.dart';
 import 'package:intl/intl.dart';
-import 'package:buddy_mobile/features/home/widgets/smart_details_panel.dart';
+import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
+
 import 'package:buddy_mobile/features/account/screens/account_settings_screen.dart';
+import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -555,7 +558,10 @@ class _TaskScreenState extends State<TaskScreen> {
       if (diff == 1) return 'Tomorrow';
       if (diff == -1) return 'Yesterday';
       
-      return DateFormat('EEE, d MMM').format(date);
+      final user = Provider.of<UserProvider>(context, listen: false).user;
+      final format = user['dateFormat'] ?? 'DD/MM/YYYY';
+      
+      return DateFormatter.formatDate(date, format: format);
     } catch (e) {
       return dateStr;
     }
@@ -563,7 +569,22 @@ class _TaskScreenState extends State<TaskScreen> {
 
   String _formatTime(String? timeStr) {
     if (timeStr == null || timeStr.isEmpty) return 'All day';
-    return timeStr;
+    
+    // timeStr might be just HH:mm or already formatted.
+    // DateFormatter.formatTime expects DateTime.
+    // We should parse it first if possible.
+    try {
+        final now = DateTime.now();
+        final dt = _parseTime(now, timeStr);
+        if (dt != null) {
+            final user = Provider.of<UserProvider>(context, listen: false).user;
+            final format = user['timeFormat'] ?? '12';
+            return DateFormatter.formatTime(dt, format: format);
+        }
+        return timeStr;
+    } catch (e) {
+        return timeStr;
+    }
   }
 
   DateTime? _parseTime(DateTime baseDate, String? timeStr) {
@@ -789,13 +810,14 @@ class _TaskScreenState extends State<TaskScreen> {
     );
   }
 
-  void _showEditSlideOver(BuildContext context, Map<String, dynamic> task, {bool isEditMode = false}) {
-    _showRightSlideOver(
-      context: context,
-      title: isEditMode ? "Edit Settings" : "Smart Details",
-      child: SmartDetailsPanel(
-        reminder: task,
-        initialEditMode: isEditMode,
+  void _navigateToSmartDetails(BuildContext context, Map<String, dynamic> task, {bool isEditMode = false}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SmartDetailsScreen(
+          task: task,
+          isEditMode: isEditMode,
+        ),
       ),
     );
   }
@@ -920,8 +942,8 @@ class _TaskScreenState extends State<TaskScreen> {
                         eta: task['eta'],
                         earlyWarningActive: earlyWarningActive,
                         onDelete: () => _showDeleteDialog(context, task['_id']),
-                        onEdit: () => _showEditSlideOver(context, task, isEditMode: true),
-                        onView: () => _showEditSlideOver(context, task, isEditMode: false),
+                        onEdit: () => _navigateToSmartDetails(context, task, isEditMode: true),
+                        onView: () => _navigateToSmartDetails(context, task, isEditMode: false),
                         onShare: () => _showShareDialog(context, task),
                       );
                     },

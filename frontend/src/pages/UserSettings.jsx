@@ -4,7 +4,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import {
     User, Phone, MapPin, Trash2, AlertTriangle, Save, Loader2, Mail, Calendar,
     CheckCircle, XCircle, Link2, Unlink, Settings, Shield, Eye, EyeOff, LayoutGrid, Camera, ImagePlus,
-    Bell, MessageSquare, Clock
+    Bell, MessageSquare, Clock, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
@@ -118,7 +118,9 @@ const UserSettings = () => {
         name: '',
         email: '',
         phone: '',
-        address: ''
+        address: '',
+        dateFormat: 'DD/MM/YYYY',
+        timeFormat: '12'
     });
 
     // State for notification preferences
@@ -135,7 +137,9 @@ const UserSettings = () => {
                 name: user.name || '',
                 email: user.email || '',
                 phone: user.phone || '',
-                address: user.address || ''
+                address: user.address || '',
+                dateFormat: user.dateFormat || 'DD/MM/YYYY',
+                timeFormat: user.timeFormat || '12'
             });
             if (user.notificationPreferences) {
                 setNotifPreferences(user.notificationPreferences);
@@ -498,6 +502,32 @@ const UserSettings = () => {
                                             type="textarea"
                                             icon={<MapPin size={18} />}
                                         />
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                            <SelectGroup
+                                                label="Date Format"
+                                                name="dateFormat"
+                                                value={formData.dateFormat}
+                                                onChange={handleChange}
+                                                icon={<Calendar size={18} />}
+                                                options={[
+                                                    { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY (31/12/2024)' },
+                                                    { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY (12/31/2024)' },
+                                                    { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (2024-12-31)' }
+                                                ]}
+                                            />
+                                            <SelectGroup
+                                                label="Time Format"
+                                                name="timeFormat"
+                                                value={formData.timeFormat}
+                                                onChange={handleChange}
+                                                icon={<Clock size={18} />}
+                                                options={[
+                                                    { value: '12', label: '12 Hour (01:30 PM)' },
+                                                    { value: '24', label: '24 Hour (13:30)' }
+                                                ]}
+                                            />
+                                        </div>
 
                                         <div style={{ paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                                             <button
@@ -961,6 +991,28 @@ const InputGroup = ({ label, name, value, onChange, type = 'text', placeholder =
         </div>
     );
 };
+
+const SelectGroup = ({ label, name, value, onChange, options, icon }) => (
+    <div style={{ marginBottom: '0.5rem' }}>
+        <label style={LabelStyle}>{label}</label>
+        <div style={{ position: 'relative' }}>
+            {icon && <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', pointerEvents: 'none' }}>{icon}</div>}
+            <select
+                name={name}
+                value={value}
+                onChange={onChange}
+                style={{ ...InputStyle, paddingLeft: icon ? '48px' : '16px', appearance: 'none', cursor: 'pointer' }}
+            >
+                {options.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+            <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-sub)' }}>
+                <ChevronDown size={16} />
+            </div>
+        </div>
+    </div>
+);
 
 const Modal = ({ icon: Icon, iconColor, title, description, confirmText, confirmColor, onConfirm, onCancel, loading }) => (
     <motion.div

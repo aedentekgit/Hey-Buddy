@@ -12,8 +12,11 @@ import GlobalSlideOver from '../components/GlobalSlideOver';
 import {
     ThStyle, TdStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
 } from '../styles/tableStyles';
+import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 const Roles = () => {
+    const { user: currentUserData } = useAuth();
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -220,7 +223,7 @@ const Roles = () => {
                                         <td style={{ textAlign: 'center' }} data-label="Role" className="buddy-td">
                                             <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '0.9rem' }}>{role.name}</div>
                                             <div className="show-on-tablet" style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '2px' }}>
-                                                {new Date(role.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                                                {formatDate(role.createdAt, currentUserData?.dateFormat)}
                                             </div>
                                         </td>
                                         <td style={{ borderLeft: 'none', borderRight: 'none' }} data-label="Access" className="buddy-td">
@@ -241,7 +244,7 @@ const Roles = () => {
                                         </td>
                                         <td className="buddy-td hide-on-tablet" data-label="Created">
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
-                                                {new Date(role.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {formatDate(role.createdAt, currentUserData?.dateFormat)}
                                             </div>
                                         </td>
                                         <td style={{ borderLeft: 'none' }} className="buddy-td mobile-actions-cell">

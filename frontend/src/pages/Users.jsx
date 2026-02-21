@@ -13,8 +13,11 @@ import {
 } from '../styles/tableStyles';
 import MobileUserCard from '../components/MobileUserCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
+import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 const Users = () => {
+    const { user: currentUserData } = useAuth();
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -360,7 +363,7 @@ const Users = () => {
                                         </td>
                                         <td className="buddy-td hide-on-mobile" data-label="Joined">
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-sub)', fontWeight: '500' }}>
-                                                {new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {formatDate(user.createdAt, currentUserData?.dateFormat)}
                                             </div>
                                         </td>
                                         <td className="buddy-td mobile-actions-cell">

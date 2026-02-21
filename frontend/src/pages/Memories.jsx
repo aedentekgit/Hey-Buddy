@@ -9,8 +9,11 @@ import Pagination from '../components/Pagination';
 import { TableElementStyle } from '../styles/tableStyles';
 import MobileMemoryCard from '../components/MobileMemoryCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
+import { formatDate, formatTime } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 const Memories = () => {
+    const { user } = useAuth();
     // --- Unified State ---
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -153,14 +156,7 @@ const Memories = () => {
     };
 
     // --- Helpers ---
-    const formatDate = (dateStr) => {
-        if (!dateStr) return 'N/A';
-        return new Date(dateStr).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
-    };
+
 
     const getFileUrl = (path) => {
         if (!path) return '#';
@@ -267,7 +263,7 @@ const Memories = () => {
 
                                         <td className="buddy-td hide-on-mobile-custom" data-label="Date">
                                             <div style={{ color: 'var(--text-sub)', fontSize: '0.85rem' }}>
-                                                <Clock size={12} style={{ marginRight: '6px' }} />{formatDate(item.createdAt)}
+                                                <Clock size={12} style={{ marginRight: '6px' }} />{formatDate(item.createdAt, user?.dateFormat)}
                                             </div>
                                         </td>
 
@@ -361,7 +357,7 @@ const Memories = () => {
                             <DetailCard title={<><Brain size={20} color="var(--primary-color)" /> Insight</>}>
                                 <p style={{ fontSize: '1.1rem', color: 'var(--text-main)', lineHeight: '1.6' }}>{viewModal.item.content}</p>
                                 <div style={{ marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Clock size={14} /> Recorded on {new Date(viewModal.item.createdAt).toLocaleString()}
+                                    <Clock size={14} /> Recorded on {formatDate(viewModal.item.createdAt, user?.dateFormat)} {formatTime(new Date(viewModal.item.createdAt).getHours() + ':' + new Date(viewModal.item.createdAt).getMinutes(), user?.timeFormat)}
                                 </div>
                             </DetailCard>
                         ) : (
@@ -369,7 +365,7 @@ const Memories = () => {
                                 <DetailCard title={<><FileText size={20} color="var(--primary-color)" /> Information</>}>
                                     <InfoRow label="Patient" value={viewModal.item.extractedData?.patientName || 'Unknown'} />
                                     <InfoRow label="Prescribed by" value={`Dr. ${viewModal.item.extractedData?.doctorName || 'Unspecified'}`} />
-                                    <InfoRow label="Uploaded" value={formatDate(viewModal.item.createdAt)} />
+                                    <InfoRow label="Uploaded" value={formatDate(viewModal.item.createdAt, user?.dateFormat)} />
                                     {viewModal.item.extractedData?.notes && (
                                         <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
                                             <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Buddy Notes</label>

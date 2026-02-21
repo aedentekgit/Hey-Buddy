@@ -8,21 +8,22 @@ const contextService = require('../services/contextService');
  * BuddyAgent: The core state machine for a real-time voice session.
  */
 class BuddyAgent extends EventEmitter {
-    constructor(userId, socket) {
+    constructor(userId, socket, language = 'en-US') {
         super();
         this.userId = userId;
         this.socket = socket;
+        this.language = language;
         this.isInterrupted = false;
         this.userContext = null;
 
-        console.log(`[BuddyAgent] 🚀 New Session (Gemini): ${socket.id} (User: ${userId})`);
+        console.log(`[BuddyAgent] 🚀 New Session (Gemini): ${socket.id} (User: ${userId}, Lang: ${language})`);
 
         // Initialize Gemini Live Service
         this.ai = new GeminiLiveService(process.env.GEMINI_API_KEY);
-        this.initialize();
+        this.initialize(language);
     }
 
-    async initialize() {
+    async initialize(targetLanguage) {
         try {
             // 1. Fetch User Data for Timezone context
             const user = await User.findById(this.userId);
@@ -56,7 +57,9 @@ class BuddyAgent extends EventEmitter {
                    - If user asks for today's reminders and they aren't in the context, call 'list_reminders' with date="today".
                    - If context and tool response say there are no reminders/facts, say so clearly. Do NOT invent data.
                 
-                3. Truth is in the Tools/Context. If neither shows the data, it does NOT exist.`;
+                3. Truth is in the Tools/Context. If neither shows the data, it does NOT exist.
+                
+                4. Always be professional, sympathetic, and concise. ${targetLanguage === 'auto' ? "Detect the user's language and respond in that same language." : `Respond in ${targetLanguage}.`}`;
 
             this.setupListeners();
             this.ai.connect(systemInstruction);

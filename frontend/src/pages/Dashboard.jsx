@@ -13,7 +13,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { formatTime } from '../utils/dateUtils';
+import { formatTime, formatDate } from '../utils/dateUtils';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -176,7 +176,14 @@ const Dashboard = () => {
                                                     </linearGradient>
                                                 </defs>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                                                <XAxis dataKey="date" stroke="var(--text-sub)" fontSize={12} tickLine={false} axisLine={false} />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    stroke="var(--text-sub)"
+                                                    fontSize={12}
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    tickFormatter={(tick) => formatDate(tick, user?.dateFormat)}
+                                                />
                                                 <YAxis stroke="var(--text-sub)" fontSize={12} tickLine={false} axisLine={false} />
                                                 <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--text-main)' }} />
                                                 <Area type="monotone" dataKey="created" name="Created" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorCreated)" />
@@ -310,7 +317,7 @@ const Dashboard = () => {
                                                 </div>
                                                 <div className="activity-main">
                                                     <p className="activity-title">{row.title}</p>
-                                                    <p className="activity-meta"><Clock size={12} /> {formatTime(row.time)}</p>
+                                                    <p className="activity-meta"><Clock size={12} /> {formatTime(row.time, user?.timeFormat)}</p>
                                                 </div>
                                                 <span className={`badge ${row.status}`}>{row.status}</span>
                                             </motion.div>

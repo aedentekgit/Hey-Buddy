@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'package:buddy_mobile/features/account/providers/user_provider.dart';
+import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 
 class SmartDetailsPanel extends StatefulWidget {
   final Map<String, dynamic> reminder;
@@ -124,18 +126,43 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _StatusBadge(label: status == 'completed' ? "Completed" : "On Track"),
-              TextButton.icon(
-                onPressed: () {
+              InkWell(
+                onTap: () {
                   if (isEditing) {
                     setState(() => isEditing = false);
                   } else {
                     setState(() => isEditing = true);
                   }
                 },
-                icon: Icon(isEditing ? LucideIcons.x : LucideIcons.pencil, size: 16),
-                label: Text(isEditing ? "Cancel" : "Edit Settings"),
-                style: TextButton.styleFrom(
-                  foregroundColor: isEditing ? Colors.red : const Color(0xFF6366F1),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isEditing ? const Color(0xFFFEE2E2) : const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isEditing ? const Color(0xFFFECACA) : const Color(0xFFE0E7FF),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isEditing ? LucideIcons.x : LucideIcons.pencil,
+                        size: 14,
+                        color: isEditing ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isEditing ? "Cancel" : "Edit Settings",
+                        style: GoogleFonts.outfit(
+                          color: isEditing ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -521,7 +548,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                     _TimelineItem(
                       title: "Reminder Created",
                       time: widget.reminder['createdAt'] != null 
-                          ? DateFormat('MMM d, yyyy • h:mm a').format(DateTime.parse(widget.reminder['createdAt']))
+                          ? _formatFullDateTime(widget.reminder['createdAt'])
                           : "Just now",
                       isFirst: true,
                     )
@@ -529,7 +556,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                     ...timeline.asMap().entries.map((e) => _TimelineItem(
                           title: e.value['action'] ?? '',
                           time: e.value['timestamp'] != null 
-                              ? DateFormat('MMM d, yyyy • h:mm a').format(DateTime.parse(e.value['timestamp']))
+                              ? _formatFullDateTime(e.value['timestamp'])
                               : "",
                           isFirst: e.key == 0,
                         )),
@@ -555,14 +582,36 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     );
   }
 
+  String _formatFullDateTime(String dateStr) {
+      try {
+          final date = DateTime.parse(dateStr);
+          final user = Provider.of<UserProvider>(context, listen: false).user;
+          final dFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
+          final tFormat = user['timeFormat'] ?? '12';
+          return "${DateFormatter.formatDate(date, format: dFormat)} • ${DateFormatter.formatTime(date, format: tFormat)}";
+      } catch (e) {
+          return dateStr;
+      }
+  }
+
   String _getAdjustedTime() {
     if (timeController.text.isEmpty || !timeController.text.contains(':')) return "--:--";
     try {
       final parts = timeController.text.split(':');
       final now = DateTime.now();
-      final target = DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+      // Parsing logic assumes HH:mm input from timeController (standard TimeOfDay format usually)
+      // But if timeController contains AM/PM, int.parse might fail.
+      // Let's assume standard HH:mm for simplicity or try to parse flexibly.
+      int hour = int.parse(parts[0].trim());
+      int minute = int.parse(parts[1].split(' ')[0].trim()); // handle potential " PM"
+      
+      if (timeController.text.toLowerCase().contains('pm') && hour < 12) hour += 12;
+      
+      final target = DateTime(now.year, now.month, now.day, hour, minute);
       final adjusted = target.subtract(Duration(minutes: bufferTime.toInt()));
-      return DateFormat('h:mm a').format(adjusted);
+      
+      final user = Provider.of<UserProvider>(context, listen: false).user;
+      return DateFormatter.formatTime(adjusted, format: user['timeFormat'] ?? '12');
     } catch (e) {
       return "--:--";
     }

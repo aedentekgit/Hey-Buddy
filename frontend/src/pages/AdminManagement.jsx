@@ -10,12 +10,15 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import Pagination from '../components/Pagination';
 import MobileUserCard from '../components/MobileUserCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
+import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 import {
     ThStyle, TdStyle, TableElementStyle, SearchInputStyle, SearchBoxStyle, TableRowStyle
 } from '../styles/tableStyles';
 
 
 const AdminManagement = () => {
+    const { user: currentUserData } = useAuth();
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -357,7 +360,7 @@ const AdminManagement = () => {
                                         </td>
                                         <td className="buddy-td hide-on-mobile-custom" style={{ borderLeft: 'none', borderRight: 'none' }} data-label="Joined">
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)', whiteSpace: 'nowrap' }}>
-                                                {new Date(user.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                {formatDate(user.createdAt, currentUserData?.dateFormat)}
                                             </div>
                                         </td>
                                         <td style={{ borderLeft: 'none' }} className="buddy-td mobile-actions-cell">

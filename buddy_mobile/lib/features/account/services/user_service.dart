@@ -148,4 +148,23 @@ class UserService {
       return false;
     }
   }
+
+  // Unlink Google Calendar
+  Future<bool> unlinkCalendar() async {
+    try {
+      final token = await _getToken();
+      final response = await http.post(
+        Uri.parse('$_baseUrl/users/unlink-calendar'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("[UserService] Error unlinking calendar: $e");
+      return false;
+    }
+  }
 }

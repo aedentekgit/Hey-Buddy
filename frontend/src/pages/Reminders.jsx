@@ -13,6 +13,7 @@ import {
 } from '../styles/tableStyles';
 import MobileTaskCard from '../components/MobileTaskCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
+import { formatTime, formatDate } from '../utils/dateUtils';
 
 const Reminders = () => {
     const { user } = useAuth();
@@ -171,54 +172,7 @@ const Reminders = () => {
         }
     };
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return 'No date';
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const d = new Date(dateStr);
-        d.setHours(0, 0, 0, 0);
-
-        const diffTime = d.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Tomorrow';
-        if (diffDays === -1) return 'Yesterday';
-        if (diffDays > 1 && diffDays < 7) {
-            return d.toLocaleDateString('en-IN', { weekday: 'long' });
-        }
-
-        return d.toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
-    };
-
-    const formatTime = (timeStr) => {
-        if (!timeStr) return 'All day';
-        try {
-            // Check if it already has AM/PM suffix
-            if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
-                return timeStr;
-            }
-
-            // Check if it's HH:mm format
-            if (timeStr.includes(':')) {
-                const parts = timeStr.split(':');
-                const h = parseInt(parts[0]);
-                const m = parts[1].padStart(2, '0');
-                const ampm = h >= 12 ? 'PM' : 'AM';
-                const h12 = h % 12 || 12;
-                return `${h12}:${m} ${ampm}`;
-            }
-        } catch (e) {
-            return timeStr;
-        }
-        return timeStr;
-    };
 
     // Search is now handled on the backend
     const filteredReminders = reminders;
@@ -309,11 +263,11 @@ const Reminders = () => {
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                                     <Calendar size={12} color="var(--primary-color)" />
-                                                    {formatDate(reminder.date)}
+                                                    {formatDate(reminder.date, user?.dateFormat)}
                                                 </div>
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                                     <Clock size={12} />
-                                                    {formatTime(reminder.time)}
+                                                    {formatTime(reminder.time, user?.timeFormat)}
                                                 </div>
                                             </div>
                                         </td>
@@ -404,8 +358,8 @@ const Reminders = () => {
                             const variant = isOverdue ? 'danger' : (isTask ? 'orange' : 'green');
                             const status = isOverdue ? 'Risk Alert' : (isTask ? 'PENDING' : 'ON TRACK');
                             const timeLabel = isOverdue
-                                ? `Due ${formatDate(reminder.date)} (${timeDiff})`
-                                : formatTime(reminder.time);
+                                ? `Due ${formatDate(reminder.date, user?.dateFormat)} (${timeDiff})`
+                                : formatTime(reminder.time, user?.timeFormat);
 
                             return (
                                 <MobileTaskCard

@@ -38,22 +38,27 @@ class UserProvider extends ChangeNotifier {
   }
 
   // Update Profile
-  Future<bool> updateProfile(String name, String phone, String address) async {
+  Future<bool> updateProfile(String name, String phone, String address, {String? dateFormat, String? timeFormat}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      // Optimistically update local state if we want, but wait for backend confirmation
-      final success = await _userService.updateProfile({
+      final data = {
         'name': name,
         'phone': phone,
         'address': address,
-      });
+      };
+      if (dateFormat != null) data['dateFormat'] = dateFormat;
+      if (timeFormat != null) data['timeFormat'] = timeFormat;
+      
+      final success = await _userService.updateProfile(data);
 
       if (success) {
         _user['name'] = name;
         _user['phone'] = phone;
         _user['address'] = address;
+        if (dateFormat != null) _user['dateFormat'] = dateFormat;
+        if (timeFormat != null) _user['timeFormat'] = timeFormat;
         notifyListeners();
         return true;
       }
@@ -120,6 +125,52 @@ class UserProvider extends ChangeNotifier {
       // If success, AuthProvider should handle logout
       return success;
     } catch (e) {
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Update Notification Preferences
+  Future<bool> updateNotificationPreferences(Map<String, dynamic> prefs) async {
+    notifyListeners();
+    try {
+      // Optimistic update
+      final currentPrefs = _user['notificationPreferences'] as Map<String, dynamic>? ?? {};
+      final newPrefs = {...currentPrefs, ...prefs};
+      
+      final success = await _userService.updateProfile({
+        'notificationPreferences': newPrefs
+      });
+
+      if (success) {
+        _user['notificationPreferences'] = newPrefs;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    }
+  }
+
+  // Unlink Google Calendar
+  Future<bool> unlinkCalendar() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final success = await _userService.unlinkCalendar();
+      if (success) {
+        _user['googleRefreshToken'] = null;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = 'Failed to unlink calendar';
       return false;
     } finally {
       _isLoading = false;

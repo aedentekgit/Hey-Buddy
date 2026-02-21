@@ -143,6 +143,8 @@ const updateProfile = async (req, res) => {
         if (phone !== undefined) user.phone = phone;
         if (address !== undefined) user.address = address;
         if (timezone !== undefined) user.timezone = timezone;
+        if (req.body.dateFormat !== undefined) user.dateFormat = req.body.dateFormat;
+        if (req.body.timeFormat !== undefined) user.timeFormat = req.body.timeFormat;
 
         // Defensive fix for corrupted fcmTokens that blocks validation
         if (user.fcmTokens && Array.isArray(user.fcmTokens)) {

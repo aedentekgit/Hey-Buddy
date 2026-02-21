@@ -9,6 +9,8 @@ import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
+import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
+
 
 class AccountSettingsScreen extends StatefulWidget {
   const AccountSettingsScreen({super.key});
@@ -24,6 +26,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  
+  String _dateFormat = 'DD/MM/YYYY';
+  String _timeFormat = '12';
 
   File? _imageFile;
 
@@ -43,6 +48,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             _nameController.text = user['name'] ?? '';
             _phoneController.text = user['phone'] ?? '';
             _addressController.text = user['address'] ?? '';
+            _dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
+            _timeFormat = user['timeFormat'] ?? '12';
           });
         }
       });
@@ -83,6 +90,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       _nameController.text.trim(),
       _phoneController.text.trim(),
       _addressController.text.trim(),
+      dateFormat: _dateFormat,
+      timeFormat: _timeFormat,
     );
 
     if (!mounted) return;
@@ -100,17 +109,31 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Delete Account', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to permanently delete your account? This action cannot be undone.', style: GoogleFonts.outfit()),
+        title: Text("Delete Account", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Text("Are you sure you want to permanently delete your account? This action cannot be undone.", style: GoogleFonts.outfit()),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text('Delete', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text("Cancel"),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.withOpacity(0.05),
+                    foregroundColor: Colors.red,
+                    side: BorderSide(color: Colors.red.withOpacity(0.2), width: 1.5),
+                    elevation: 0,
+                  ),
+                  child: const Text("Delete"),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -119,7 +142,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     if (shouldDelete == true && mounted) {
       final success = await Provider.of<UserProvider>(context, listen: false).deleteAccount();
       if (success && mounted) {
-        Provider.of<AuthProvider>(context, listen: false).logout();
+        await Provider.of<AuthProvider>(context, listen: false).logout();
+        if (mounted) {
+           Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        }
       }
     }
   }
@@ -129,23 +158,43 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Log Out', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to log out?', style: GoogleFonts.outfit()),
+        title: Text("Log Out", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Text("Are you sure you want to log out of your account?", style: GoogleFonts.outfit()),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Log Out', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text("Cancel"),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                  ),
+                  child: const Text("Log Out"),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
 
     if (shouldLogout == true && mounted) {
-       Provider.of<AuthProvider>(context, listen: false).logout();
+       await Provider.of<AuthProvider>(context, listen: false).logout();
+       if (mounted) {
+         Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+       }
     }
   }
 
@@ -215,18 +264,260 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       case _SettingsView.editProfile:
         return _buildEditProfile();
       case _SettingsView.notifications:
+        return _buildNotifications();
       case _SettingsView.integrations:
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(LucideIcons.construction, size: 48, color: Colors.grey[300]),
-              const SizedBox(height: 16),
-              Text("Coming Soon", style: GoogleFonts.outfit(color: Colors.grey[500], fontSize: 16)),
-            ],
-          ),
-        );
+        return _buildIntegrations();
     }
+  }
+
+  // --- NOTIFICATIONS VIEW ---
+  Widget _buildNotifications() {
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.user;
+    // Safe access to nested prefs
+    final prefs = user['notificationPreferences'] as Map<String, dynamic>? ?? {};
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Configure how you receive alerts and reminders.",
+            style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 24),
+          
+          _buildNotificationItem(
+            "Push Notifications", 
+            "Receive instant alerts on your device.", 
+            "push", 
+            prefs['push']
+          ),
+          _buildNotificationItem(
+            "SMS Notifications", 
+            "Get critical alerts directly via SMS.", 
+            "sms", 
+            prefs['sms']
+          ),
+          _buildNotificationItem(
+            "Email Notifications", 
+            "Receive summaries and reminders via email.", 
+            "email", 
+            prefs['email']
+          ),
+          _buildNotificationItem(
+            "In-App Notifications", 
+            "See alerts within the Buddy interface.", 
+            "inApp", 
+            prefs['inApp']
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(String title, String subtitle, String key, dynamic data) {
+    final Map<String, dynamic> safeData = data is Map<String, dynamic> ? data : {'enabled': false};
+    final bool isEnabled = safeData['enabled'] ?? false;
+    
+    // We are simplifying the UI to match the professional request - cleaner row, no delay inputs for now
+    // or if delay is needed, it should be cleaner. The user point to "2nd image page" which typically shows clean list tiles.
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366F1).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              key == 'push' ? LucideIcons.bell : 
+              key == 'sms' ? LucideIcons.messageSquare : 
+              key == 'email' ? LucideIcons.mail : LucideIcons.appWindow, 
+              size: 24, 
+              color: const Color(0xFF6366F1)
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.outfit(
+                    color: Colors.grey[500],
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Transform.scale(
+            scale: 0.8,
+            child: Switch.adaptive(
+              value: isEnabled,
+              activeColor: Colors.white,
+              activeTrackColor: const Color(0xFF6366F1),
+              onChanged: (val) {
+                // Preserving existing delay if any, though we hid the input
+                final currentDelay = safeData['delay'] ?? 0;
+                _updateNotificationPref(key, {'enabled': val, 'delay': currentDelay});
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateNotificationPref(String key, Map<String, dynamic> newData) {
+     final userProvider = Provider.of<UserProvider>(context, listen: false);
+     // We need to fetch current entire prefs to merge correctly if we were doing it manually, 
+     // but UserProvider's updateNotificationPreferences handles merging with existing state.
+     // However, we are sending { 'push': { ... } } so we need to wrap it.
+     userProvider.updateNotificationPreferences({key: newData});
+  }
+
+
+  // --- INTEGRATIONS VIEW ---
+  Widget _buildIntegrations() {
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.user;
+    final bool isGoogleConnected = user['googleRefreshToken'] != null;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+           Container(
+             padding: const EdgeInsets.all(20),
+             decoration: BoxDecoration(
+               color: Colors.white,
+               borderRadius: BorderRadius.circular(20),
+               border: Border.all(color: Colors.grey[200]!),
+               boxShadow: [
+                 BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 4))
+               ],
+             ),
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Row(
+                   children: [
+                     Container(
+                       padding: const EdgeInsets.all(10),
+                       decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(12)),
+                       child: const Icon(LucideIcons.calendar, color: Colors.blue, size: 24),
+                     ),
+                     const SizedBox(width: 16),
+                     Expanded(
+                       child: Column(
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+                           Text("Google Calendar", style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700)),
+                           if (isGoogleConnected)
+                             Text("Connected", style: GoogleFonts.outfit(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13))
+                           else
+                             Text("Not Connected", style: GoogleFonts.outfit(color: Colors.grey, fontSize: 13)),
+                         ],
+                       ),
+                     ),
+                     if (isGoogleConnected)
+                        const Icon(LucideIcons.checkCircle2, color: Colors.green, size: 24)
+                   ],
+                 ),
+                 const SizedBox(height: 16),
+                 Text(
+                   "Connect your Google Calendar to automatically sync reminders and events created through Buddy AI.",
+                   style: GoogleFonts.outfit(color: Colors.grey[600], height: 1.5),
+                 ),
+                 const SizedBox(height: 24),
+                 if (isGoogleConnected)
+                   SizedBox(
+                     width: double.infinity,
+                     child: OutlinedButton.icon(
+                       onPressed: () => _handleUnlinkCalendar(context),
+                       icon: const Icon(LucideIcons.link2Off, size: 18),
+                       label: Text("Unlink Calendar", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                       style: OutlinedButton.styleFrom(
+                         foregroundColor: Colors.red,
+                         side: const BorderSide(color: Colors.red),
+                         padding: const EdgeInsets.symmetric(vertical: 12),
+                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                       ),
+                     ),
+                   )
+                 else
+                   Container(
+                     padding: const EdgeInsets.all(12),
+                     decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
+                     child: Row(
+                       children: [
+                         const Icon(LucideIcons.info, size: 16, color: Colors.grey),
+                         const SizedBox(width: 8),
+                         Expanded(child: Text("To connect, please use the web dashboard.", style: GoogleFonts.outfit(color: Colors.grey[600], fontSize: 12))),
+                       ],
+                     ),
+                   )
+               ],
+             ),
+           ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleUnlinkCalendar(BuildContext context) async {
+     final confirm = await showDialog<bool>(
+       context: context,
+       builder: (ctx) => AlertDialog(
+         title: Text("Unlink Calendar?", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+         content: Text("Are you sure you want to stops syncing events?", style: GoogleFonts.outfit()),
+         actions: [
+           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+           TextButton(
+             onPressed: () => Navigator.pop(ctx, true), 
+             child: const Text("Unlink", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+           ),
+         ],
+       )
+     );
+
+     if (confirm == true) {
+       await Provider.of<UserProvider>(context, listen: false).unlinkCalendar();
+       ToastUtils.showSuccessToast("Calendar unlinked successfully");
+     }
   }
 
   // --- MENU VIEW ---
@@ -518,6 +809,39 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           _buildTextField(_phoneController, "Phone Number", LucideIcons.phone),
           const SizedBox(height: 16),
            _buildTextField(_addressController, "Address", LucideIcons.mapPin, maxLines: 3),
+          const SizedBox(height: 24),
+          
+          _buildLabel("Preferences"),
+          const SizedBox(height: 16),
+          
+          Row(
+            children: [
+              Expanded(
+                child: _buildDropdown(
+                  label: "Date Format",
+                  value: _dateFormat,
+                  items: const [
+                    DropdownMenuItem(value: 'DD/MM/YYYY', child: Text('DD/MM/YYYY')),
+                    DropdownMenuItem(value: 'MM/DD/YYYY', child: Text('MM/DD/YYYY')),
+                    DropdownMenuItem(value: 'YYYY-MM-DD', child: Text('YYYY-MM-DD')),
+                  ],
+                  onChanged: (val) => setState(() => _dateFormat = val!),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildDropdown(
+                  label: "Time Format",
+                  value: _timeFormat,
+                  items: const [
+                    DropdownMenuItem(value: '12', child: Text('12 Hour')),
+                    DropdownMenuItem(value: '24', child: Text('24 Hour')),
+                  ],
+                  onChanged: (val) => setState(() => _timeFormat = val!),
+                ),
+              ),
+            ],
+          ),
           
           const SizedBox(height: 40),
           
@@ -575,6 +899,51 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               prefixIcon: Icon(icon, size: 18, color: Colors.grey[400]),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown({
+    required String label,
+    required String value,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey[500],
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: items.any((item) => item.value == value) ? value : items.first.value,
+              items: items,
+              onChanged: onChanged,
+              isExpanded: true,
+              style: GoogleFonts.outfit(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1E293B),
+              ),
+              icon: Icon(LucideIcons.chevronDown, size: 18, color: Colors.grey[400]),
             ),
           ),
         ),

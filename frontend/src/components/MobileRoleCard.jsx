@@ -1,5 +1,7 @@
 import React from 'react';
 import { Shield, Eye, Edit2, Trash2, Calendar } from 'lucide-react';
+import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 const MobileRoleCard = ({
     role,
@@ -7,6 +9,7 @@ const MobileRoleCard = ({
     onEdit,
     onDelete
 }) => {
+    const { user } = useAuth();
     // Green Theme (Consistent with Admin/User "Safe" vibe)
     // Green Theme (Consistent with Admin/User "Safe" vibe)
     const styles = {
@@ -24,7 +27,7 @@ const MobileRoleCard = ({
     };
 
     const title = role.name;
-    const subTitle = new Date(role.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const subTitle = formatDate(role.createdAt, user?.dateFormat);
     const permissionCount = role.permissions?.length || 0;
 
     return (

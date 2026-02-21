@@ -1,5 +1,7 @@
 import React from 'react';
 import { Brain, FileText, Calendar, Edit2, Trash2, Eye } from 'lucide-react';
+import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 const MobileMemoryCard = ({
     item,
@@ -7,6 +9,7 @@ const MobileMemoryCard = ({
     onEdit,
     onDelete
 }) => {
+    const { user } = useAuth();
     const isMemory = item.type === 'memory';
 
     // Style Variants
@@ -41,13 +44,8 @@ const MobileMemoryCard = ({
     const styles = isMemory ? purpleStyles : greenStyles;
 
     // Format Date
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        return new Date(dateStr).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
+    const formatDateLocal = (dateStr) => {
+        return formatDate(dateStr, user?.dateFormat);
     };
 
     const title = isMemory
@@ -55,7 +53,7 @@ const MobileMemoryCard = ({
         : (item.fileName || 'Medical Document');
 
     const subTitle = isMemory
-        ? formatDate(item.createdAt)
+        ? formatDateLocal(item.createdAt)
         : (item.extractedData?.patientName || 'No Patient Name');
 
     return (
@@ -134,7 +132,7 @@ const MobileMemoryCard = ({
                             alignItems: 'center',
                             gap: '4px'
                         }}>
-                            <Calendar size={10} /> {formatDate(item.createdAt)}
+                            <Calendar size={10} /> {formatDateLocal(item.createdAt)}
                         </div>
                     </div>
                 </div>

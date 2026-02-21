@@ -8,7 +8,7 @@ import {
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { formatTime } from '../utils/dateUtils';
+import { formatTime, formatDate } from '../utils/dateUtils';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 const Calendar = () => {
@@ -414,11 +414,7 @@ const Calendar = () => {
                     >
                         <div className="sidebar-header">
                             <h3>
-                                {selectedDate.toLocaleDateString('en-US', {
-                                    weekday: 'long',
-                                    month: 'long',
-                                    day: 'numeric'
-                                })}
+                                {formatDate(selectedDate, user?.dateFormat)}
                             </h3>
                             <button className="close-btn" onClick={() => setSelectedDate(null)}>
                                 <X size={20} />
@@ -469,7 +465,7 @@ const Calendar = () => {
                                             <h4>{reminder.title}</h4>
                                             <div className="event-meta">
                                                 <Clock size={14} />
-                                                <span>{formatTime(reminder.time)}</span>
+                                                <span>{formatTime(reminder.time, user?.timeFormat)}</span>
                                             </div>
                                             {reminder.location && (
                                                 <div className="event-meta">
@@ -575,11 +571,11 @@ const Calendar = () => {
                                     <div className="detail-row">
                                         <div className="detail-meta">
                                             <CalendarIcon size={18} />
-                                            <span>{new Date(selectedEvent?.date).toLocaleDateString()}</span>
+                                            <span>{formatDate(selectedEvent?.date, user?.dateFormat)}</span>
                                         </div>
                                         <div className="detail-meta">
                                             <Clock size={18} />
-                                            <span>{formatTime(selectedEvent?.time)}</span>
+                                            <span>{formatTime(selectedEvent?.time, user?.timeFormat)}</span>
                                         </div>
                                     </div>
 

@@ -8,6 +8,8 @@ import {
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import GlobalSlideOver from './GlobalSlideOver';
+import { formatTime, formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 const DetailCard = ({ title, children, className = '' }) => (
     <div className={`detail-card ${className}`} style={{
@@ -64,6 +66,7 @@ const ToggleSwitch = ({ checked, onChange }) => (
 );
 
 const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = false, isOpen = true }) => {
+    const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(initialEditMode);
 
     // Cached reminder for exit animation
@@ -260,7 +263,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                     />
                                 </div>
                             ) : (
-                                <>Time: {time || '--:--'} • {date || 'No date set'}</>
+                                <>Time: {formatTime(time, user?.timeFormat) || '--:--'} • {formatDate(date, user?.dateFormat) || 'No date set'}</>
                             )}
                         </div>
                     </div>
@@ -307,10 +310,8 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                             <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--primary-glow)' }}>
                                 {activeReminder.time ? (() => {
                                     const [hours, mins] = activeReminder.time.split(':');
-                                    const date = new Date();
-                                    date.setHours(hours);
-                                    date.setMinutes(mins - bufferTime);
-                                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    const formatted = formatTime(`${hours}:${parseInt(mins) - bufferTime}`, user?.timeFormat);
+                                    return formatted;
                                 })() : '--:--'}
                             </div>
                         </div>
@@ -769,7 +770,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                     border: '2px solid var(--primary-color)'
                                 }} />
                                 <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>{item.action}</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{new Date(item.timestamp).toLocaleString()}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{formatDate(item.timestamp, user?.dateFormat)} {formatTime(new Date(item.timestamp).getHours() + ':' + new Date(item.timestamp).getMinutes(), user?.timeFormat)}</div>
                             </div>
                         )) : (
                             <div style={{ position: 'relative' }}>
@@ -783,7 +784,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                     background: 'var(--primary-color)',
                                 }} />
                                 <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>Reminder Created</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{new Date(activeReminder.createdAt).toLocaleString()}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>{formatDate(activeReminder.createdAt, user?.dateFormat)} {formatTime(new Date(activeReminder.createdAt).getHours() + ':' + new Date(activeReminder.createdAt).getMinutes(), user?.timeFormat)}</div>
                             </div>
                         )}
                     </div>

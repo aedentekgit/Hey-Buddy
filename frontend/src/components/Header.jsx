@@ -8,6 +8,7 @@ import { useNotifications } from '../context/NotificationContext';
 import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatTime, formatDate } from '../utils/dateUtils';
 
 const Header = ({ onMenuClick, title, hideSearch }) => {
     const [scrolled, setScrolled] = useState(false);
@@ -87,21 +88,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
         return () => clearInterval(timer);
     }, []);
 
-    const formatTime = (date) => {
-        return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        });
-    };
 
-    const formatDate = (date) => {
-        return date.toLocaleDateString('en-US', {
-            weekday: 'short',
-            day: 'numeric',
-            month: 'short'
-        });
-    };
 
     const { logout } = useAuth();
 
@@ -193,11 +180,11 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                         height: '24px'
                     }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--primary-color)', letterSpacing: '0.02em' }}>
-                            {formatTime(currentTime)}
+                            {formatTime(currentTime, user?.timeFormat)}
                         </span>
                         <span style={{ width: '1px', height: '10px', background: 'var(--border-color)' }} />
                         <span style={{ fontSize: '0.7rem', fontWeight: '600', color: 'var(--text-sub)' }}>
-                            {formatDate(currentTime)}
+                            {formatDate(currentTime, user?.dateFormat)}
                         </span>
                     </div>
                 </div>
@@ -973,7 +960,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                     }
                 }
             `}</style>
-        </header>
+        </header >
     );
 };
 

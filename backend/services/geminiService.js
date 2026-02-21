@@ -260,12 +260,19 @@ const geminiService = {
                 3. DATE SENSITIVITY:
                    - "Today" is ${userContext.localDate}.
                 
-                4. Always be professional, sympathetic, and concise. Respond in ${targetLanguage}.`,
+                4. Always be professional, sympathetic, and concise. ${targetLanguage === 'auto' ? "Detect the user's language and respond in that same language." : `Respond in ${targetLanguage}.`}`,
                 tools: buddyTools
             });
 
+            // Convert history from DB format {role, content} to Gemini format {role, parts: [{text}]}
+            // Also map 'assistant' -> 'model' as Gemini requires
+            const geminiHistory = (context.history || []).map(m => ({
+                role: m.role === 'assistant' ? 'model' : m.role,
+                parts: [{ text: m.content || '' }]
+            }));
+
             const chat = model.startChat({
-                history: context.history || []
+                history: geminiHistory
             });
 
             const parts = [{ text: text }];

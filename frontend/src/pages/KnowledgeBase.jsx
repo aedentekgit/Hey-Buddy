@@ -3,8 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Upload, Search, MessageSquare, FileText, Trash2, Loader2, Plus, Sparkles, Send, Brain } from 'lucide-react';
 import knowledgeService from '../services/knowledgeService';
 import toast from 'react-hot-toast';
+import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 const KnowledgeBase = () => {
+    const { user } = useAuth();
     const [documents, setDocuments] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
@@ -130,7 +133,7 @@ const KnowledgeBase = () => {
                                             </div>
                                             <div className="doc-info">
                                                 <h3>{doc.fileName}</h3>
-                                                <span>{(doc.metadata?.size / 1024).toFixed(1)} KB • {new Date(doc.createdAt).toLocaleDateString()}</span>
+                                                <span>{(doc.metadata?.size / 1024).toFixed(1)} KB • {formatDate(doc.createdAt, user?.dateFormat)}</span>
                                             </div>
                                         </motion.div>
                                     ))

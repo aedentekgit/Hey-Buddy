@@ -6,6 +6,8 @@ import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import 'package:buddy_mobile/core/services/location_service.dart';
+
 class MobileHeader extends StatefulWidget {
   const MobileHeader({super.key});
 
@@ -16,6 +18,23 @@ class MobileHeader extends StatefulWidget {
 class _MobileHeaderState extends State<MobileHeader> {
   bool _isSearchVisible = false;
   final TextEditingController _searchController = TextEditingController();
+  String? _currentLocation;
+  final LocationService _locationService = LocationService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocation();
+  }
+
+  Future<void> _loadLocation() async {
+    final location = await _locationService.getCurrentLocation();
+    if (location != null && mounted) {
+      setState(() {
+        _currentLocation = location;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -112,7 +131,7 @@ class _MobileHeaderState extends State<MobileHeader> {
                                   Icon(LucideIcons.mapPin, size: 10, color: primaryColor),
                                   const SizedBox(width: 4),
                                   Text(
-                                    user['address'] ?? "New York, USA", 
+                                    _currentLocation ?? user['address'] ?? "New York, USA", 
                                     style: GoogleFonts.outfit(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,

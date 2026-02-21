@@ -62,6 +62,16 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: 'UTC'
     },
+    dateFormat: {
+        type: String,
+        enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
+        default: 'DD/MM/YYYY'
+    },
+    timeFormat: {
+        type: String,
+        enum: ['12', '24'],
+        default: '12'
+    },
     currentLocation: {
         lat: Number,
         lng: Number,

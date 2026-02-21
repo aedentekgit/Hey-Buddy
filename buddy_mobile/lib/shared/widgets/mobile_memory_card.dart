@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-
+import 'package:buddy_mobile/features/account/providers/user_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 class MobileMemoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onView;
@@ -53,7 +55,21 @@ class MobileMemoryCard extends StatelessWidget {
         ? (item['content'] ?? 'No Content')
         : (item['fileName'] ?? 'Medical Document');
 
-    final String date = _formatDate(item['createdAt']);
+
+
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
+
+    String formatDate(String? dateStr) {
+       if (dateStr == null) return '';
+       try {
+         return DateFormatter.formatDate(DateTime.parse(dateStr), format: dateFormat);
+       } catch (e) {
+         return dateStr;
+       }
+    }
+
+    final String date = formatDate(item['createdAt']);
     final dynamic extracted = item['extractedData'];
     final String? patientName = (!isMemory && extracted != null) ? extracted['patientName'] : null;
     final String? doctorName = (!isMemory && extracted != null) ? extracted['doctorName'] : null;
@@ -263,19 +279,7 @@ class MobileMemoryCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '';
-    try {
-      final date = DateTime.parse(dateStr).toLocal();
-      // Format: DD-MM-YYYY (or matching your web implementation)
-      // Web uses: new Date(dateStr).toLocaleDateString('en-IN', ...) -> results in numeric DD, short MMM, numeric YYYY
-      // But Flutter needs a simple string for now if intl is not enabled.
-      return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-    } catch (e) {
-      return dateStr;
-    }
-  }
-}
+
 
 class _ActionButton extends StatelessWidget {
   final String text;

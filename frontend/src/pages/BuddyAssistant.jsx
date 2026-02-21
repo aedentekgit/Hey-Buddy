@@ -15,6 +15,7 @@ import { TableContainerStyle } from '../styles/tableStyles';
 import GeminiVoiceAssistant from '../components/GeminiVoiceAssistant';
 import voiceService from '../services/voiceService';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { formatTime, formatDate } from '../utils/dateUtils';
 import '../styles/BuddyAssistant.css';
 
 const BuddyAssistant = () => {
@@ -37,10 +38,13 @@ const BuddyAssistant = () => {
     const chatEndRef = useRef(null);
     const [autoSavedId, setAutoSavedId] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+    const [preferredLanguage, setPreferredLanguage] = useState('auto');
+
     // Legacy context states simulation for cards that still use them
     const [conversationHistory, setConversationHistory] = useState([]);
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
+    const loadIntoChatRef = useRef(null); // Receives the loader fn from GeminiVoiceAssistant
 
     const handleToolCall = async (name, args) => {
         if (name === 'create_reminder') {
@@ -251,8 +255,11 @@ const BuddyAssistant = () => {
                 const conv = response.data.data;
                 setCurrentConversationId(conv._id);
                 setConversationHistory(conv.messages);
-                setChatResponse(conv.messages[conv.messages.length - 1].content);
                 setShowHistory(false);
+                // Load messages directly into the chat bubble view
+                if (loadIntoChatRef.current) {
+                    loadIntoChatRef.current(conv.messages, conv._id);
+                }
             }
         } catch (error) {
             toast.error("Failed to load conversation");
@@ -287,6 +294,10 @@ const BuddyAssistant = () => {
         setChatResponse(null);
         setParsedReminder(null);
         setShowHistory(false);
+        // Clear the chat bubble view too
+        if (loadIntoChatRef.current) {
+            loadIntoChatRef.current([], null);
+        }
     };
 
     useEffect(() => {
@@ -352,7 +363,7 @@ const BuddyAssistant = () => {
         setParsedReminder(null);
 
         try {
-            const res = await voiceService.uploadPrescription(file);
+            const res = await voiceService.uploadPrescription(file, preferredLanguage);
             if (res.success) {
                 setAnalyzedPrescription(res.data);
                 toast.success("Image analyzed!");
@@ -385,25 +396,7 @@ const BuddyAssistant = () => {
         }
     };
 
-    const formatTime = (timeStr) => {
-        if (!timeStr) return 'Not set';
-        try {
-            if (timeStr.includes(':')) {
-                // If it already contains AM/PM, don't re-format
-                if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
-                    return timeStr;
-                }
-                const [hours, mins] = timeStr.split(':');
-                const h = parseInt(hours);
-                const ampm = h >= 12 ? 'PM' : 'AM';
-                const h12 = h % 12 || 12;
-                return `${h12}:${mins} ${ampm}`;
-            }
-        } catch (e) {
-            return timeStr;
-        }
-        return timeStr;
-    };
+
 
     const quickCommands = [
         { icon: <Plus size={18} />, text: "Create reminder", action: () => toast("Just say 'Set a reminder' to Gemini!") },
@@ -445,12 +438,12 @@ const BuddyAssistant = () => {
                                 flexDirection: 'column'
                             }}
                         >
-                            <div className="history-sidebar-header" style={{ padding: '24px', borderBottom: '1px solid var(--border-color)' }}>
-                                <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="history-sidebar-header" style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <Clock size={20} className="text-indigo-400" />
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700' }}>Conversation History</h3>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>Conversation History</h3>
                                 </div>
-                                <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'var(--bg-lite)', padding: '8px', borderRadius: '50%', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer' }}>
+                                <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'var(--bg-lite)', padding: '8px', borderRadius: '50%', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <X size={20} />
                                 </button>
                             </div>
@@ -490,7 +483,7 @@ const BuddyAssistant = () => {
                                             >
                                                 <div className="history-item-content">
                                                     <span className="history-item-title" style={{ display: 'block', fontWeight: '600', fontSize: '0.95rem', marginBottom: '4px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chat.title || 'Health Journal Entry'}</span>
-                                                    <span className="history-item-date" style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{new Date(chat.createdAt).toLocaleDateString()}</span>
+                                                    <span className="history-item-date" style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{formatDate(chat.createdAt, user?.dateFormat)}</span>
                                                 </div>
                                                 <button
                                                     className="delete-history-btn"
@@ -537,6 +530,10 @@ const BuddyAssistant = () => {
                         onToolCall={handleToolCall}
                         quickActions={quickCommands}
                         onToggleHistory={setShowHistory}
+                        language={preferredLanguage}
+                        onLanguageChange={setPreferredLanguage}
+                        user={user}
+                        onRegisterLoader={(fn) => { loadIntoChatRef.current = fn; }}
                     />
                 </div>
 
@@ -642,7 +639,7 @@ const BuddyAssistant = () => {
 
                                             <div style={{ padding: '20px', marginBottom: '24px', textAlign: 'left', borderRadius: '20px', background: 'rgba(0,0,0,0.02)' }}>
                                                 <h4 style={{ fontWeight: '700', marginBottom: '8px' }}>{parsedReminder.title}</h4>
-                                                <p style={{ fontSize: '0.9rem', color: 'var(--text-sub)' }}>{parsedReminder.date || 'Today'} at {formatTime(parsedReminder.time)}</p>
+                                                <p style={{ fontSize: '0.9rem', color: 'var(--text-sub)' }}>{formatDate(parsedReminder.date, user?.dateFormat) || 'Today'} at {formatTime(parsedReminder.time, user?.timeFormat)}</p>
                                             </div>
 
                                             <div style={{ display: 'flex', gap: '12px' }}>
