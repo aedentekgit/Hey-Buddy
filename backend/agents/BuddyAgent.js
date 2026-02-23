@@ -8,13 +8,14 @@ const contextService = require('../services/contextService');
  * BuddyAgent: The core state machine for a real-time voice session.
  */
 class BuddyAgent extends EventEmitter {
-    constructor(userId, socket, language = 'en-US') {
+    constructor(userId, socket, language = 'auto') {
         super();
         this.userId = userId;
         this.socket = socket;
         this.language = language;
         this.isInterrupted = false;
         this.userContext = null;
+        this.lastInputType = 'voice'; // Default mode
 
         console.log(`[BuddyAgent] 🚀 New Session (Gemini): ${socket.id} (User: ${userId}, Lang: ${language})`);
 
@@ -49,17 +50,16 @@ class BuddyAgent extends EventEmitter {
                 ${context.reminders.length > 0 ? context.reminders.map(r => `- ${r.title} at ${r.time} (${r.date})`).join('\n') : 'No upcoming reminders found.'}
                 
                 STRICT RULES:
-                1. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
-                   - Requests about schedule or tasks MUST use 'list_reminders' if not in the list above.
-                   - Requests about facts, past events, or preferences MUST use 'search_memories' or 'list_memories' if not in the list above.
+                1. REMINDERS vs MEMORIES are separated.
+                   - Schedule/Tasks -> Use 'list_reminders'.
+                   - Facts/Notes/History -> Use 'search_memories' or 'list_memories'.
                 
-                2. NO HALLUCINATION:
-                   - If user asks for today's reminders and they aren't in the context, call 'list_reminders' with date="today".
-                   - If context and tool response say there are no reminders/facts, say so clearly. Do NOT invent data.
+                2. NO HALLUCINATION: If the tool result is empty, say so. Do NOT invent data.
                 
-                3. Truth is in the Tools/Context. If neither shows the data, it does NOT exist.
-                
-                4. Always be professional, sympathetic, and concise. ${targetLanguage === 'auto' ? "Detect the user's language and respond in that same language." : `Respond in ${targetLanguage}.`}`;
+                3. MULTILINGUAL & MULTIMODAL:
+                   - DETECT the user's language automatically. Respond in the SAME language they used.
+                   - If the user types, respond with text. If the user speaks, respond naturally.
+                   - Always be professional, sympathetic, and concise.`;
 
             this.setupListeners();
             this.ai.connect(systemInstruction);
@@ -76,14 +76,19 @@ class BuddyAgent extends EventEmitter {
         });
 
         this.ai.on('audio_delta', (base64) => {
-            if (!this.isInterrupted) {
+            // Only send audio back if the last user input was voice
+            if (!this.isInterrupted && this.lastInputType === 'voice') {
                 this.socket.emit('audio_out', base64);
             }
         });
 
         this.ai.on('text_delta', (text) => {
-            console.log(`[BuddyAgent] 💬 AI Delta: ${text}`);
-            this.socket.emit('caption', text);
+            // console.log(`[BuddyAgent] 💬 AI Delta: ${text}`);
+            this.socket.emit('caption', text); // caption = AI speaking or typing
+        });
+
+        this.ai.on('user_transcript', (text) => {
+            this.socket.emit('user_transcript', text); // Real-time feedback of what user said
         });
 
         this.ai.on('response_done', () => {
@@ -108,7 +113,6 @@ class BuddyAgent extends EventEmitter {
 
                 if (handler) {
                     try {
-                        // PASS USER CONTEXT HERE
                         const toolResult = await handler(this.userId, call.args, this.userContext);
                         results.push({
                             name: call.name,
@@ -141,10 +145,23 @@ class BuddyAgent extends EventEmitter {
     handleIncomingAudio(audioBuffer) {
         if (!this.ai.isConnected) return;
         this.isInterrupted = false;
+        this.lastInputType = 'voice';
 
         // Convert Buffer to Base64 for Gemini
         const base64 = Buffer.from(audioBuffer).toString('base64');
         this.ai.sendAudio(base64);
+    }
+
+    /**
+     * Handle text messages from the client
+     */
+    handleText(text) {
+        if (!this.ai.isConnected) return;
+        this.isInterrupted = false;
+        this.lastInputType = 'text';
+
+        console.log(`[BuddyAgent] ⌨️ Handling text input: ${text}`);
+        this.ai.sendText(text);
     }
 
     /**

@@ -114,7 +114,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             return;
         }
         try {
-            const result = await voiceService.parseVoice(text, language, conversationHistory, conversationId);
+            const result = await voiceService.parseVoice(text, 'auto', conversationHistory, conversationId);
             if (result.success) {
                 const { reply, voice_reply, type, data } = result.data;
                 setConversationId(result.meta.conversationId);

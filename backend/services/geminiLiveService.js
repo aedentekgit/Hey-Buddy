@@ -11,7 +11,7 @@ class GeminiLiveService extends EventEmitter {
         this.apiKey = apiKey;
         this.ws = null;
         this.isConnected = false;
-        this.model = "models/gemini-2.0-flash-exp-image-generation";
+        this.model = "models/gemini-2.0-flash";
     }
 
     connect(systemInstruction = null) {
@@ -65,7 +65,7 @@ class GeminiLiveService extends EventEmitter {
             setup: {
                 model: this.model,
                 generation_config: {
-                    response_modalities: ["AUDIO"],
+                    response_modalities: ["AUDIO", "TEXT"], // Support both
                     speech_config: {
                         voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } }
                     }
@@ -88,18 +88,25 @@ class GeminiLiveService extends EventEmitter {
         const serverContent = response.serverContent || response.server_content;
         if (serverContent) {
             const modelTurn = serverContent.modelTurn || serverContent.model_turn;
-            const part = modelTurn?.parts?.[0];
+            const parts = modelTurn?.parts || [];
 
-            // Audio Data
-            if (part?.inlineData?.data || part?.inline_data?.data) {
-                const audioData = part?.inlineData?.data || part?.inline_data?.data;
-                this.emit('audio_delta', audioData);
+            for (const part of parts) {
+                // Audio Data
+                if (part?.inlineData?.data || part?.inline_data?.data) {
+                    const audioData = part?.inlineData?.data || part?.inline_data?.data;
+                    this.emit('audio_delta', audioData);
+                }
+
+                // AI Text Output
+                if (part?.text) {
+                    this.emit('text_delta', part.text);
+                }
             }
 
-            // Transcripts (Turn-based)
+            // User Speech Transcripts (Interim)
             if (serverContent.inputTranscription || serverContent.input_transcription) {
                 const transcription = serverContent.inputTranscription || serverContent.input_transcription;
-                this.emit('text_delta', transcription.text);
+                this.emit('user_transcript', transcription.text);
             }
 
             if (serverContent.turnComplete || serverContent.turn_complete) {
@@ -133,6 +140,22 @@ class GeminiLiveService extends EventEmitter {
         this.ws.send(JSON.stringify(message));
     }
 
+    sendText(text) {
+        if (!this.isConnected) return;
+        const message = {
+            client_content: {
+                turns: [
+                    {
+                        role: "user",
+                        parts: [{ text: text }]
+                    }
+                ],
+                turn_complete: true
+            }
+        };
+        this.ws.send(JSON.stringify(message));
+    }
+
     sendToolResponse(functionResponses) {
         if (!this.isConnected) return;
         const message = {
@@ -144,8 +167,8 @@ class GeminiLiveService extends EventEmitter {
     }
 
     cancelResponse() {
-        // Multi-modal live handles interruption via the stream or by sending a specific message
-        // For now, we'll just stop sending audio and clearing local queues is handled by BuddyAgent
+        // Multi-modal live handles interruption by sending a new turn or via specific server messages
+        // Here we just ensure we are ready for a new turn.
     }
 
     disconnect() {

@@ -189,11 +189,23 @@ class MobileTaskCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: onDelete,
-                  icon: const Icon(LucideIcons.trash2, size: 16, color: Color(0xFFEF4444)),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                Row(
+                  children: [
+                    if (onEdit != null)
+                      IconButton(
+                        onPressed: onEdit,
+                        icon: Icon(LucideIcons.edit2, size: 16, color: primaryColor),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: onDelete,
+                      icon: const Icon(LucideIcons.trash2, size: 16, color: Color(0xFFEF4444)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
               ],
             ),

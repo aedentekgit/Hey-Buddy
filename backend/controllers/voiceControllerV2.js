@@ -11,7 +11,7 @@ const { createGoogleCalendarEvent } = require('../services/googleCalendarService
 exports.processVoice = async (req, res) => {
     try {
         const startTime = Date.now();
-        const { text, image = null, language = 'en-US', conversationId = null, timeZone = 'UTC' } = req.body;
+        const { text, image = null, language = 'auto', conversationId = null, timeZone = 'UTC' } = req.body;
         const userId = req.user?._id;
 
         console.log('--- [VoiceV2 Request Start] ---');

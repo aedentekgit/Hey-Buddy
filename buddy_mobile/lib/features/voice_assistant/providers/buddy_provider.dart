@@ -60,7 +60,7 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage(String text, {String? imagePath, String language = 'en-US'}) async {
+  Future<void> sendMessage(String text, {String? imagePath, String language = 'auto'}) async {
     _isThinking = true;
     notifyListeners();
 

@@ -39,6 +39,11 @@ const voiceHandler = (io) => {
             if (agent) agent.handleIncomingAudio(data);
         });
 
+        socket.on('text_message', (text) => {
+            const agent = activeAgents.get(socket.id);
+            if (agent) agent.handleText(text);
+        });
+
         socket.on('user_interruption', () => {
             console.log(`[Socket] ⏹️ User interruption: ${socket.id}`);
             const agent = activeAgents.get(socket.id);

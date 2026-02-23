@@ -140,18 +140,21 @@ class _MemoryScreenPlaceholderState extends State<MemoryScreenPlaceholder> {
                     );
                   }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: provider.memories.length,
-                    itemBuilder: (context, index) {
-                      final memory = provider.memories[index];
-                      return MobileMemoryCard(
-                        item: memory,
-                        onView: () => _showViewDialog(context, memory),
-                        onEdit: () => _showEditDialog(context, memory),
-                        onDelete: () => _showDeleteDialog(context, memory),
-                      );
-                    },
+                  return RefreshIndicator(
+                    onRefresh: () => provider.loadMemories(),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: provider.memories.length,
+                      itemBuilder: (context, index) {
+                        final memory = provider.memories[index];
+                        return MobileMemoryCard(
+                          item: memory,
+                          onView: () => _showViewDialog(context, memory),
+                          onEdit: () => _showEditDialog(context, memory),
+                          onDelete: () => _showDeleteDialog(context, memory),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
@@ -195,31 +198,38 @@ class _TaskScreenState extends State<TaskScreen> {
                   if (provider.isLoading) return const Center(child: CircularProgressIndicator());
                   if (provider.tasks.isEmpty) return const Center(child: Text("No reminders found"));
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: provider.tasks.length,
-                    itemBuilder: (context, index) {
-                      final task = provider.tasks[index];
-                      final dateStr = task['date'];
-                      bool isOverdue = false;
-                      
-                      if (dateStr != null && task['status'] != 'completed') {
-                        final reminderDate = DateTime.parse(dateStr);
-                        final parsedTime = TaskUtils.parseTime(reminderDate, task['time']);
-                        final finalDate = parsedTime ?? DateTime(reminderDate.year, reminderDate.month, reminderDate.day, 23, 59);
-                        isOverdue = DateTime.now().isAfter(finalDate);
-                      }
-
-                      return MobileTaskCard(
-                        title: task['title'] ?? 'Untitled',
-                        status: isOverdue ? 'Risk Alert' : 'ON TRACK',
-                        variant: isOverdue ? 'danger' : 'green',
-                        time: task['time'] ?? 'All day',
-                        location: task['location'] ?? 'No Location',
-                        onView: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SmartDetailsScreen(task: task))),
-                        onDelete: () => provider.deleteTask(task['_id']),
-                      );
-                    },
+                  return RefreshIndicator(
+                    onRefresh: () => provider.loadTasks(),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: provider.tasks.length,
+                      itemBuilder: (context, index) {
+                        final task = provider.tasks[index];
+                        final dateStr = task['date'];
+                        bool isOverdue = false;
+                        
+                        if (dateStr != null && task['status'] != 'completed') {
+                          final reminderDate = DateTime.parse(dateStr);
+                          final parsedTime = TaskUtils.parseTime(reminderDate, task['time']);
+                          final finalDate = parsedTime ?? DateTime(reminderDate.year, reminderDate.month, reminderDate.day, 23, 59);
+                          isOverdue = DateTime.now().isAfter(finalDate);
+                        }
+                  
+                        return MobileTaskCard(
+                          title: task['title'] ?? 'Untitled',
+                          status: isOverdue ? 'Risk Alert' : 'ON TRACK',
+                          variant: isOverdue ? 'danger' : 'green',
+                          time: task['time'] ?? 'All day',
+                          location: task['location'] ?? 'No Location',
+                          onView: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SmartDetailsScreen(task: task))),
+                          onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ReminderCreateScreen(task: task))),
+                          onDelete: () async {
+                            final success = await provider.deleteTask(task['_id']);
+                            if (success) ToastUtils.showSuccessToast("Reminder deleted");
+                          },
+                        );
+                      },
+                    ),
                   );
                 },
               ),

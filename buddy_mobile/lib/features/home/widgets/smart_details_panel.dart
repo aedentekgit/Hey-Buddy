@@ -150,13 +150,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       Icon(
                         isEditing ? LucideIcons.x : LucideIcons.pencil,
                         size: 14,
-                        color: isEditing ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                        color: isEditing ? const Color(0xFFEF4444) : Theme.of(context).primaryColor,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         isEditing ? "Cancel" : "Edit Settings",
                         style: GoogleFonts.outfit(
-                          color: isEditing ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                          color: isEditing ? const Color(0xFFEF4444) : Theme.of(context).primaryColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -244,10 +244,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withOpacity(0.1),
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text("${bufferTime.toInt()} min", style: GoogleFonts.outfit(color: const Color(0xFF6366F1), fontWeight: FontWeight.w800, fontSize: 13)),
+                    child: Text("${bufferTime.toInt()} min", style: GoogleFonts.outfit(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w800, fontSize: 13)),
                   ),
                 ],
               ),
@@ -255,10 +255,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 6,
-                  activeTrackColor: const Color(0xFF6366F1),
+                  activeTrackColor: Theme.of(context).primaryColor,
                   inactiveTrackColor: const Color(0xFFE2E8F0),
                   thumbColor: Colors.white,
-                  overlayColor: const Color(0xFF6366F1).withOpacity(0.12),
+                  overlayColor: Theme.of(context).primaryColor.withOpacity(0.12),
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10, elevation: 3),
                 ),
                 child: Slider(
@@ -278,12 +278,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [const Color(0xFF6366F1).withOpacity(0.1), const Color(0xFF818CF8).withOpacity(0.15)],
+                    colors: [Theme.of(context).primaryColor.withOpacity(0.1), Theme.of(context).primaryColor.withOpacity(0.15)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.1)),
+                  border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.1)),
                 ),
                 child: Row(
                   children: [
@@ -294,14 +294,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
                       ),
-                      child: const Icon(LucideIcons.bell, color: Color(0xFF6366F1), size: 18),
+                      child: Icon(LucideIcons.bell, color: Theme.of(context).primaryColor, size: 18),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("ADJUSTED NOTIFICATION", style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF6366F1), letterSpacing: 1)),
+                          Text("ADJUSTED NOTIFICATION", style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Theme.of(context).primaryColor, letterSpacing: 1)),
                           const SizedBox(height: 2),
                           Text(_getAdjustedTime(), style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B))),
                         ],
@@ -341,7 +341,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 min: 100,
                 max: 2000,
                 divisions: 19,
-                activeColor: const Color(0xFF6366F1),
+                activeColor: Theme.of(context).primaryColor,
                 onChanged: isEditing ? (v) => setState(() => geofenceRadius = v) : null,
               ),
             ],
@@ -432,7 +432,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 value: smartFeatures['earlyWarning']!,
                 onChanged: (v) => isEditing ? setState(() => smartFeatures['earlyWarning'] = v) : null,
                 tag: "AI",
-                tagColor: const Color(0xFF6366F1),
+                tagColor: Theme.of(context).primaryColor,
               ),
               _SmartFeatureTile(
                 icon: LucideIcons.car,
@@ -689,7 +689,7 @@ class _InfoRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 18, color: const Color(0xFF6366F1)),
+          child: Icon(icon, size: 18, color: Theme.of(context).primaryColor),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -960,7 +960,7 @@ class _TimelineItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF6366F1), width: 2),
+                border: Border.all(color: Theme.of(context).primaryColor, width: 2),
               ),
             ),
           ),

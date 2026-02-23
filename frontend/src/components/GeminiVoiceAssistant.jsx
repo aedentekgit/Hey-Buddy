@@ -116,8 +116,8 @@ const VoiceOrbit = ({ isActive, isThinking, isSpeaking, volume, hasContent }) =>
     );
 };
 
-const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBack, language = 'en-US', onLanguageChange, user, onRegisterLoader }) => {
-    // --- States ---
+const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBack, language = 'auto', onLanguageChange, user, onRegisterLoader }) => {
+    // ... (rest of the initial states)
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [transcripts, setTranscripts] = useState([]);
@@ -131,26 +131,25 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Wake Word is OFF by default. User must start conversation to enable it (or we can add a toggle)
-    // However, per user request "No background listening without user consent", we default to false.
+    // ... (wake word states)
     const [isWakeWordEnabled, setIsWakeWordEnabled] = useState(false);
     const [isWakeWordListening, setIsWakeWordListening] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [inputMode, setInputMode] = useState('idle'); // 'idle' | 'voice' | 'text'
-    const [selectedImage, setSelectedImage] = useState(null); // { inlineData: { data: string, mimeType: string } }
+    const [selectedImage, setSelectedImage] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
-    const imagePreviewRef = useRef(null); // Added to track preview for callbacks
+    const imagePreviewRef = useRef(null);
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [isThinking, setIsThinking] = useState(false);
     const [isAISpeaking, setIsAISpeaking] = useState(false);
     const fileInputRef = useRef(null);
 
-    // --- Refs for managing session & audio ---
+    // --- Refs ---
     const sessionRef = useRef(null);
-    const connectingRef = useRef(false); // New lock ref
-    const isMicPausedLocal = useRef(false); // Pauses mic stream without stopping tracks
-    const shouldMuteResponseRef = useRef(false); // Mutes AI audio if input was text
-    const conversationIdRef = useRef(null); // Persists the current conversation thread ID
+    const connectingRef = useRef(false);
+    const isMicPausedLocal = useRef(false);
+    const shouldMuteResponseRef = useRef(false);
+    const conversationIdRef = useRef(null);
     const inputAudioCtxRef = useRef(null);
     const outputAudioCtxRef = useRef(null);
     const streamRef = useRef(null);
@@ -159,7 +158,6 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const scriptProcessorRef = useRef(null);
     const analyserRef = useRef(null);
 
-    // Transcriptions are built up iteratively
     const currentInputTranscription = useRef('');
     const currentOutputTranscription = useRef('');
     const manualStopRef = useRef(false);
@@ -179,11 +177,9 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         ]);
     }, []);
 
-    // Expose a function to BuddyAssistant so it can load history into the chat view
     useEffect(() => {
         if (onRegisterLoader) {
             onRegisterLoader((messages, convId) => {
-                // messages: [{role: 'user'|'assistant', content: string}]
                 const mapped = messages.map((m) => ({
                     id: Math.random().toString(36).substr(2, 9),
                     type: m.role === 'user' ? 'user' : 'ai',
@@ -209,58 +205,38 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         setIsActive(false);
         setIsConnecting(false);
         connectingRef.current = false;
-
-        // 1. Disconnect audio graph
         if (scriptProcessorRef.current) {
             scriptProcessorRef.current.disconnect();
             scriptProcessorRef.current = null;
         }
-
-        // 2. Stop all MediaStream tracks (RELEASES MIC)
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => {
-                track.stop();
-                console.log('[Media] Track stopped:', track.label);
-            });
+            streamRef.current.getTracks().forEach((track) => track.stop());
             streamRef.current = null;
         }
-
-        // 3. Stop all playing AI audio
         stopAllAudio();
-
-        // 4. Close Backend Socket
         if (sessionRef.current) {
-            try {
-                sessionRef.current.disconnect();
-                console.log('[Socket] Session disconnected.');
-            } catch (e) { }
+            try { sessionRef.current.disconnect(); } catch (e) { }
             sessionRef.current = null;
         }
     }, [stopAllAudio]);
 
     const connectMicrophone = async () => {
         if (!sessionRef.current || streamRef.current) return;
-
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
-
             const source = inputAudioCtxRef.current.createMediaStreamSource(stream);
             const analyser = inputAudioCtxRef.current.createAnalyser();
             analyser.fftSize = 256;
             source.connect(analyser);
             analyserRef.current = analyser;
-
             const scriptProcessor = inputAudioCtxRef.current.createScriptProcessor(4096, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
                 if (isMicPausedLocal.current) return;
-
                 const inputData = e.inputBuffer.getChannelData(0);
-                // Volume calc
                 let sum = 0;
                 for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
                 setVolume(Math.sqrt(sum / inputData.length));
-
                 if (sessionRef.current && sessionRef.current.connected) {
                     const int16Buffer = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
@@ -272,7 +248,6 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputAudioCtxRef.current.destination);
             scriptProcessorRef.current = scriptProcessor;
-
             setInputMode('voice');
             shouldMuteResponseRef.current = false;
         } catch (err) {
@@ -283,59 +258,31 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
     const startAssistant = async (enableMic = true) => {
         if (connectingRef.current) return;
-
         if (isActive && sessionRef.current) {
-            if (enableMic && !streamRef.current) {
-                await connectMicrophone();
-            }
+            if (enableMic && !streamRef.current) await connectMicrophone();
             return;
         }
-
         connectingRef.current = true;
         setIsConnecting(true);
         setError(null);
         if (enableMic) setTranscripts([]);
-        if (!isActive) setTranscripts([]);
-
         manualStopRef.current = false;
-
         try {
-            // 1. Setup Audio Contexts
-            if (!inputAudioCtxRef.current) {
-                inputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-            }
-            if (!outputAudioCtxRef.current) {
-                outputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            }
-
+            if (!inputAudioCtxRef.current) inputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            if (!outputAudioCtxRef.current) outputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
             await inputAudioCtxRef.current.resume();
             await outputAudioCtxRef.current.resume();
-
             if (enableMic) setIsWakeWordEnabled(true);
-
-            // Connect to Backend Socket.io
             const token = localStorage.getItem('token');
             const backendUrl = config.BACKEND_URL;
-
-            const socket = io(backendUrl, {
-                auth: { token },
-                transports: ['websocket']
-            });
+            const socket = io(backendUrl, { auth: { token }, transports: ['websocket'] });
 
             socket.on('connect', async () => {
-                console.log('[Socket] Connected to Backend');
                 setIsActive(true);
                 setIsConnecting(false);
                 connectingRef.current = false;
-
-                // Configure the agent with selected language
-                socket.emit('setup_agent', { language });
-
-                if (enableMic) {
-                    await connectMicrophone();
-                }
-
-                setInputMode(prev => prev === 'voice' ? 'voice' : 'text');
+                socket.emit('setup_agent', { language: 'auto' });
+                if (enableMic) await connectMicrophone();
                 setIsThinking(false);
                 setIsAISpeaking(false);
             });
@@ -344,7 +291,6 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 if (outputAudioCtxRef.current && !shouldMuteResponseRef.current) {
                     const ctx = outputAudioCtxRef.current;
                     nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-
                     const audioBuffer = await decodeAudioData(decode(base64), ctx, 24000, 1);
                     const sourceNode = ctx.createBufferSource();
                     sourceNode.buffer = audioBuffer;
@@ -353,7 +299,6 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                         sourcesRef.current.delete(sourceNode);
                         if (sourcesRef.current.size === 0) setIsAISpeaking(false);
                     };
-
                     setIsThinking(false);
                     setIsAISpeaking(true);
                     sourceNode.start(nextStartTimeRef.current);
@@ -382,22 +327,15 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
             });
 
             socket.on('connect_error', (err) => {
-                console.error('[Socket] Connection error:', err);
                 setError('Failed to connect to assistant service.');
                 setIsConnecting(false);
                 connectingRef.current = false;
                 cleanup();
             });
 
-            socket.on('disconnect', () => {
-                console.log('[Socket] Disconnected');
-                cleanup();
-            });
-
+            socket.on('disconnect', () => cleanup());
             sessionRef.current = socket;
-
         } catch (err) {
-            console.error('Failed to start assistant:', err);
             setError(err.message || 'Failed to start. Check your connection.');
             setIsConnecting(false);
             connectingRef.current = false;
@@ -406,7 +344,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
     const stopAssistant = () => {
         manualStopRef.current = true;
-        setIsWakeWordEnabled(false); // KILL SWITCH: Disable wake word loop
+        setIsWakeWordEnabled(false);
         setIsWakeWordListening(false);
         cleanup();
     };
@@ -414,29 +352,16 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         if (!file.type.startsWith('image/')) {
-            setError("Please select a valid image file (JPG, PNG, WEBP).");
+            setError("Please select a valid image file.");
             return;
         }
-
         setIsProcessingImage(true);
         const reader = new FileReader();
         reader.onload = (event) => {
             const base64 = event.target.result.split(',')[1];
-            setSelectedImage({
-                data: base64,
-                mimeType: file.type
-            });
+            setSelectedImage({ data: base64, mimeType: file.type });
             setImagePreview(event.target.result);
-            imagePreviewRef.current = event.target.result;
-            setIsProcessingImage(false);
-
-            // Note: In backend mode, we don't sync the image immediately over socket.
-            // It will be sent with the next text command.
-        };
-        reader.onerror = () => {
-            setError("Failed to read image file.");
             setIsProcessingImage(false);
         };
         reader.readAsDataURL(file);
@@ -445,37 +370,37 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const clearImage = () => {
         setSelectedImage(null);
         setImagePreview(null);
-        imagePreviewRef.current = null;
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleSendText = async () => {
         if (!textInput.trim() && !selectedImage) return;
 
-        shouldMuteResponseRef.current = true;
         const text = textInput;
         const img = selectedImage;
         const preview = imagePreview;
 
         setTextInput('');
         clearImage();
-
         addTranscript('user', text, preview);
         setIsThinking(true);
 
-        try {
-            // Pass the current conversationId to continue the same thread
-            const response = await voiceService.parseVoice(text, img, language, [], conversationIdRef.current);
+        // If real-time session is active, send via socket
+        if (sessionRef.current?.connected) {
+            setInputMode('text');
+            shouldMuteResponseRef.current = true; // Mode detection: user typed, so mute voice output
+            sessionRef.current.emit('text_message', text);
+            return;
+        }
 
+        // Fallback to REST API
+        try {
+            const response = await voiceService.parseVoice(text, img, 'auto', [], conversationIdRef.current);
             if (response.success && response.data) {
                 addTranscript('ai', response.data.reply);
-                // Save the conversation ID for the next message
-                if (response.meta?.conversationId) {
-                    conversationIdRef.current = response.meta.conversationId;
-                }
+                if (response.meta?.conversationId) conversationIdRef.current = response.meta.conversationId;
             }
         } catch (err) {
-            console.error("Text interaction failed:", err);
             setError("Failed to send message.");
         } finally {
             setIsThinking(false);

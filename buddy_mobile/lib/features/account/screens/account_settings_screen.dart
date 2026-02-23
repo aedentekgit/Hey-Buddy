@@ -345,7 +345,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.1),
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -353,7 +353,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               key == 'sms' ? LucideIcons.messageSquare : 
               key == 'email' ? LucideIcons.mail : LucideIcons.appWindow, 
               size: 24, 
-              color: const Color(0xFF6366F1)
+              color: Theme.of(context).primaryColor
             ),
           ),
           const SizedBox(width: 16),
@@ -387,7 +387,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             child: Switch.adaptive(
               value: isEnabled,
               activeColor: Colors.white,
-              activeTrackColor: const Color(0xFF6366F1),
+              activeTrackColor: Theme.of(context).primaryColor,
               onChanged: (val) {
                 // Preserving existing delay if any, though we hid the input
                 final currentDelay = safeData['delay'] ?? 0;
@@ -604,16 +604,19 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             icon: LucideIcons.bell,
             title: "Notifications",
             onTap: () => setState(() => _currentView = _SettingsView.notifications),
+            primaryColor: primaryColor,
           ),
           _buildSettingsTile(
             icon: LucideIcons.plug,
             title: "Integrations",
             onTap: () => setState(() => _currentView = _SettingsView.integrations),
+            primaryColor: primaryColor,
           ),
           _buildSettingsTile(
             icon: LucideIcons.lock,
             title: "Privacy & Security",
             onTap: () {}, 
+            primaryColor: primaryColor,
           ),
 
           const SizedBox(height: 28),
@@ -625,11 +628,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             icon: LucideIcons.helpCircle,
             title: "Help Center",
             onTap: () {},
+            primaryColor: primaryColor,
           ),
           _buildSettingsTile(
             icon: LucideIcons.fileText,
             title: "Terms of Service",
             onTap: () {},
+            primaryColor: primaryColor,
           ),
 
           const SizedBox(height: 28),
@@ -684,9 +689,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     required String title,
     required VoidCallback onTap,
     Color? color,
+    Color? primaryColor,
     bool isDestructive = false,
   }) {
-    final themeColor = color ?? const Color(0xFF6366F1);
+    final themeColor = color ?? primaryColor ?? const Color(0xFF6366F1);
     
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
