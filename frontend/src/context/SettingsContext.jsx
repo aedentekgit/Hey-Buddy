@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { config as envConfig } from '../config/env';
+import { getImageUrl } from '../utils/imageUrl';
 
 const SettingsContext = createContext();
 
@@ -76,7 +77,7 @@ export const SettingsProvider = ({ children }) => {
         if (!data || !data.general) return;
 
         const { companyName, logo } = data.general;
-        const fullLogoUrl = logo ? `${envConfig.BACKEND_URL}${logo}` : null;
+        const fullLogoUrl = logo ? getImageUrl(logo) : null;
 
         // Helper to set meta tag
         const setMetaTag = (property, content) => {

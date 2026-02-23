@@ -266,10 +266,16 @@ const geminiService = {
 
             // Convert history from DB format {role, content} to Gemini format {role, parts: [{text}]}
             // Also map 'assistant' -> 'model' as Gemini requires
-            const geminiHistory = (context.history || []).map(m => ({
+            let geminiHistory = (context.history || []).map(m => ({
                 role: m.role === 'assistant' ? 'model' : m.role,
                 parts: [{ text: m.content || '' }]
             }));
+
+            // Gemini SDK requirement: The history must start with a message from the 'user' role.
+            // If our sliced history starts with 'model', we must remove it until we find a 'user' message.
+            while (geminiHistory.length > 0 && geminiHistory[0].role === 'model') {
+                geminiHistory.shift();
+            }
 
             const chat = model.startChat({
                 history: geminiHistory
