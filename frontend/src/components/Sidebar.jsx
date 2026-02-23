@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { AnimatePresence, motion } from 'framer-motion';
+import { config as envConfig } from '../config/env';
 
 const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
     const { user, logout } = useAuth();
@@ -107,7 +108,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                         }}>
                             {branding.logo ? (
                                 <img
-                                    src={branding.logo.startsWith('http') ? branding.logo : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${branding.logo}`}
+                                    src={branding.logo.startsWith('http') ? branding.logo : `${envConfig.BACKEND_URL}${branding.logo}`}
                                     alt="Logo"
                                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                 />

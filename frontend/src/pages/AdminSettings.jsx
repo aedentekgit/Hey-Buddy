@@ -16,6 +16,7 @@ import voiceService from '../services/voiceService';
 import { requestNotificationPermission } from '../services/notificationService';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { getImageUrl } from '../utils/imageUrl';
+import { config as envConfig } from '../config/env';
 
 const FONTS = [
     { value: "'Inter', sans-serif", label: "Inter (Modern)" },
@@ -78,9 +79,9 @@ const AdminSettings = () => {
         googleCalendar: {
             activeAccount: '',
             accounts: {
-                personal: { clientId: '', clientSecret: '', redirectUri: `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/voice/google/callback`, enabled: false },
-                work: { clientId: '', clientSecret: '', redirectUri: `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/voice/google/callback`, enabled: false },
-                business: { clientId: '', clientSecret: '', redirectUri: `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/voice/google/callback`, enabled: false }
+                personal: { clientId: '', clientSecret: '', redirectUri: `${envConfig.API_URL}/voice/google/callback`, enabled: false },
+                work: { clientId: '', clientSecret: '', redirectUri: `${envConfig.API_URL}/voice/google/callback`, enabled: false },
+                business: { clientId: '', clientSecret: '', redirectUri: `${envConfig.API_URL}/voice/google/callback`, enabled: false }
             }
         },
         googleAuth: {
@@ -2141,11 +2142,11 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                                 <div style={{ gridColumn: '1 / -1' }}>
                                     <InputGroup
                                         label="Redirect URI"
-                                        value={currentConfig.redirectUri || `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/voice/google/callback`}
+                                        value={currentConfig.redirectUri || `${envConfig.API_URL}/voice/google/callback`}
                                         onChange={v => handleUpdate('redirectUri', v)}
                                     />
                                     <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '-0.5rem' }}>
-                                        Default: {import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/voice/google/callback
+                                        Default: {envConfig.API_URL}/voice/google/callback
                                     </p>
                                 </div>
                             </div>
@@ -2208,12 +2209,12 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
                                     <li>Add the Redirect URI below to your Google App:
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px', background: 'var(--bg-lite)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                                             <code style={{ fontSize: '0.8rem', color: 'var(--primary-color)', flex: 1, wordBreak: 'break-all' }}>
-                                                {import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/voice/google/callback
+                                                {envConfig.API_URL}/voice/google/callback
                                             </code>
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    navigator.clipboard.writeText(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/voice/google/callback`);
+                                                    navigator.clipboard.writeText(`${envConfig.API_URL}/voice/google/callback`);
                                                     toast.success('URI Copied!');
                                                 }}
                                                 style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)' }}

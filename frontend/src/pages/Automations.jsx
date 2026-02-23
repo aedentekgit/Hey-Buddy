@@ -4,6 +4,7 @@ import { Cpu, Plus, Trash2, Copy, Check, ExternalLink, Terminal, Shield, Zap, Lo
 import automationService from '../services/automationService';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { config as envConfig } from '../config/env';
 
 const Automations = () => {
     const [webhooks, setWebhooks] = useState([]);
@@ -13,7 +14,7 @@ const Automations = () => {
     const [newWebhook, setNewWebhook] = useState({ name: '', targetAction: 'create_reminder' });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+    const API_BASE = envConfig.API_URL;
 
     useEffect(() => {
         fetchWebhooks();

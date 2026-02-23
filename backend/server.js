@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
+const config = require('./config/env');
 
-// Load environment variables
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 console.log('--- [Server Diagnostic] ---');
 console.log('PORT:', process.env.PORT);
@@ -17,7 +17,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:5173'],
+    origin: [config.FRONTEND_URL, config.FRONTEND_URL_ALT, 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean),
     credentials: true
 }));
 app.use(express.json());
@@ -57,6 +57,12 @@ app.use('/api/knowledge', ragRoutes);
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Admin API' });
 });
+app.get('/api', (req, res) => {
+    res.json({ message: 'Welcome to the Admin API' });
+});
+app.get('/api/', (req, res) => {
+    res.json({ message: 'Welcome to the Admin API' });
+});
 
 // Database connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://82.29.167.22:27017/staging_Heybuddy';
@@ -82,7 +88,7 @@ const { Server } = require('socket.io');
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:3000', 'http://localhost:5173'],
+        origin: [config.FRONTEND_URL, config.FRONTEND_URL_ALT, 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean),
         credentials: true
     }
 });
@@ -91,7 +97,7 @@ const io = new Server(server, {
 const voiceHandler = require('./sockets/voiceHandler');
 voiceHandler(io);
 
-const PORT = process.env.PORT || 5000;
+const PORT = config.PORT;
 const { startReminderWorker } = require('./services/reminderWorker');
 const { startSmartReminderScheduler } = require('./schedulers/smartReminderScheduler');
 

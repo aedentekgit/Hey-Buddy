@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { config as envConfig } from '../config/env';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+    baseURL: envConfig.API_URL,
 });
 
 // Add request interceptor to add token

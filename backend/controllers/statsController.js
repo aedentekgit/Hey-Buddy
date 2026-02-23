@@ -12,23 +12,31 @@ exports.getDashboardStats = async (req, res) => {
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
         sevenDaysAgo.setHours(0, 0, 0, 0);
 
+        const userQuery = {
+            $or: [
+                { userId },
+                { 'sharedWith.user': userId },
+                { assignedTo: userId }
+            ]
+        };
+
         // 1. Basic Counts using Facets (Wait for them in parallel or use separate calls if needed, but aggregation is best)
         const statsPromises = [];
 
         if (isAdmin) {
             statsPromises.push(User.countDocuments());
-            statsPromises.push(Reminder.countDocuments());
+            statsPromises.push(Reminder.countDocuments(userQuery));
             statsPromises.push(Role.countDocuments());
             statsPromises.push(User.countDocuments({ googleRefreshToken: { $ne: null } }));
         } else {
             statsPromises.push(Promise.resolve(1)); // Dummy for total users
-            statsPromises.push(Reminder.countDocuments({ userId }));
+            statsPromises.push(Reminder.countDocuments(userQuery));
             statsPromises.push(Promise.resolve(1)); // Dummy for total roles
             statsPromises.push(User.findById(userId).then(u => u.googleRefreshToken ? 1 : 0));
         }
 
         // 2. Chart Data using Aggregation (Single query for all 7 days)
-        const matchQuery = isAdmin ? { createdAt: { $gte: sevenDaysAgo } } : { userId, createdAt: { $gte: sevenDaysAgo } };
+        const matchQuery = { ...userQuery, createdAt: { $gte: sevenDaysAgo } };
 
         const chartDataPromise = Reminder.aggregate([
             { $match: matchQuery },
@@ -42,7 +50,7 @@ exports.getDashboardStats = async (req, res) => {
         ]);
 
         // 3. Recent Reminders
-        const recentQuery = isAdmin ? {} : { userId };
+        const recentQuery = userQuery;
         const recentRemindersPromise = Reminder.find(recentQuery)
             .sort({ createdAt: -1 })
             .limit(5)
@@ -72,7 +80,7 @@ exports.getDashboardStats = async (req, res) => {
             data: {
                 stats: [
                     { label: isAdmin ? 'Total Users' : 'Profile Status', value: isAdmin ? totalUsers : 'Active', icon: 'users', color: '#6366f1' },
-                    { label: isAdmin ? 'Total Reminders' : 'My Reminders', value: totalReminders, icon: 'mic', color: '#8b5cf6' },
+                    { label: 'My Reminders', value: totalReminders, icon: 'mic', color: '#8b5cf6' },
                     { label: isAdmin ? 'Active Roles' : 'System Guard', value: isAdmin ? totalRoles : 'Protected', icon: 'shield', color: '#10b981' },
                     { label: 'Google Linked', value: googleLinkedUsers > 0 ? 'Linked' : 'Not Linked', icon: 'calendar', color: '#f59e0b' }
                 ],
@@ -90,7 +98,14 @@ exports.getDetailedAnalytics = async (req, res) => {
     try {
         const isAdmin = req.user.role === 'admin';
         const userId = req.user._id;
-        const matchQuery = isAdmin ? {} : { userId };
+        
+        const matchQuery = {
+            $or: [
+                { userId },
+                { 'sharedWith.user': userId },
+                { assignedTo: userId }
+            ]
+        };
 
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);

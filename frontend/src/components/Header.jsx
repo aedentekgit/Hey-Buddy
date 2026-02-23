@@ -9,6 +9,7 @@ import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatTime, formatDate } from '../utils/dateUtils';
+import { config as envConfig } from '../config/env';
 
 const Header = ({ onMenuClick, title, hideSearch }) => {
     const [scrolled, setScrolled] = useState(false);
@@ -139,7 +140,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
     const getProfileImageUrl = () => {
         if (!user?.profilePicture) return null;
         if (user.profilePicture.startsWith('http')) return user.profilePicture;
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const baseUrl = envConfig.API_URL;
         const rootUrl = baseUrl.replace('/api', '');
         const cleanRoot = rootUrl.endsWith('/') ? rootUrl.slice(0, -1) : rootUrl;
         const cleanPath = user.profilePicture.startsWith('/') ? user.profilePicture : `/${user.profilePicture}`;

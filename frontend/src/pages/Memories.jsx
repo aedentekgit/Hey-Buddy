@@ -11,6 +11,7 @@ import MobileMemoryCard from '../components/MobileMemoryCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
+import { config as envConfig } from '../config/env';
 
 const Memories = () => {
     const { user } = useAuth();
@@ -31,7 +32,7 @@ const Memories = () => {
     const [memoryEditContent, setMemoryEditContent] = useState('');
     const [recordEditForm, setRecordEditForm] = useState({ patientName: '', doctorName: '', notes: '' });
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+    const API_URL = envConfig.API_URL;
 
     const {
         isListening,

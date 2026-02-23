@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const config = require('../config/env');
 
 const settingsSchema = new mongoose.Schema({
     _id: {
@@ -151,19 +152,19 @@ const settingsSchema = new mongoose.Schema({
             personal: {
                 clientId: String,
                 clientSecret: { type: String, select: false },
-                redirectUri: { type: String, default: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5001/api/voice/google/callback' },
+                redirectUri: { type: String, default: config.GOOGLE_REDIRECT_URI },
                 enabled: { type: Boolean, default: false }
             },
             work: {
                 clientId: String,
                 clientSecret: { type: String, select: false },
-                redirectUri: { type: String, default: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5001/api/voice/google/callback' },
+                redirectUri: { type: String, default: config.GOOGLE_REDIRECT_URI },
                 enabled: { type: Boolean, default: false }
             },
             business: {
                 clientId: String,
                 clientSecret: { type: String, select: false },
-                redirectUri: { type: String, default: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5001/api/voice/google/callback' },
+                redirectUri: { type: String, default: config.GOOGLE_REDIRECT_URI },
                 enabled: { type: Boolean, default: false }
             }
         }

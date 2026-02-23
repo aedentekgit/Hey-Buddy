@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
+import { config as envConfig } from '../config/env';
 
 const RealtimeVoiceContext = createContext();
 
@@ -28,7 +29,7 @@ export const RealtimeVoiceProvider = ({ children }) => {
         setTranscript('');
         try {
             // 1. Initialize Socket
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+            const backendUrl = envConfig.BACKEND_URL;
             const socket = io(backendUrl, {
                 auth: { token: localStorage.getItem('token') }
             });

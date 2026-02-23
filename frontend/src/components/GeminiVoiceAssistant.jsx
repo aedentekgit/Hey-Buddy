@@ -4,6 +4,7 @@ import voiceService from '../services/voiceService';
 import { createPcmBlob, decode, decodeAudioData } from '../utils/audio';
 import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sparkles, Brain, Clock, X, Image as ImageIcon, Loader2, Zap, History, ArrowLeft } from 'lucide-react';
 import { getImageUrl } from '../utils/imageUrl';
+import { config } from '../config/env';
 
 // --- Voice Orbit Component (Interactive Square Visualizer) ---
 const VoiceOrbit = ({ isActive, isThinking, isSpeaking, volume, hasContent }) => {
@@ -314,7 +315,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
             // Connect to Backend Socket.io
             const token = localStorage.getItem('token');
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+            const backendUrl = config.BACKEND_URL;
 
             const socket = io(backendUrl, {
                 auth: { token },

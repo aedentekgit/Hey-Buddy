@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Search, X, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { config as envConfig } from '../config/env';
 
 const MobileHeader = () => {
     const { user } = useAuth();
@@ -17,7 +18,7 @@ const MobileHeader = () => {
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
-                    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+                    const baseUrl = envConfig.API_URL;
                     const token = localStorage.getItem('token');
 
                     const res = await fetch(`${baseUrl}/users/reverse-geocode?lat=${latitude}&lon=${longitude}`, {
@@ -54,7 +55,7 @@ const MobileHeader = () => {
     const getProfileImageUrl = () => {
         if (!user?.profilePicture) return null;
         if (user.profilePicture.startsWith('http')) return user.profilePicture;
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const baseUrl = envConfig.API_URL;
         const rootUrl = baseUrl.replace('/api', '');
         const cleanRoot = rootUrl.endsWith('/') ? rootUrl.slice(0, -1) : rootUrl;
         const cleanPath = user.profilePicture.startsWith('/') ? user.profilePicture : `/${user.profilePicture}`;
@@ -101,7 +102,7 @@ const MobileHeader = () => {
                     }}>
                         {branding.logo ? (
                             <img
-                                src={branding.logo.startsWith('http') ? branding.logo : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${branding.logo}`}
+                                src={branding.logo.startsWith('http') ? branding.logo : `${envConfig.BACKEND_URL}${branding.logo}`}
                                 alt="Logo"
                                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             />
