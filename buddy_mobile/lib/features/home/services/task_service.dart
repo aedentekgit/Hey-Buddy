@@ -3,23 +3,23 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import 'package:buddy_mobile/core/config/app_config.dart';
+
 class TaskService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  String get _baseUrl {
-    if (Platform.isAndroid) return 'http://10.0.2.2:5001/api';
-    return 'http://localhost:5001/api';
-  }
+  String get _baseUrl => AppConfig.baseUrl;
 
   Future<Map<String, dynamic>> fetchReminders({int page = 1, int limit = 10, String search = ''}) async {
     try {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.get(
-        Uri.parse('$_baseUrl/voice?page=$page&limit=$limit&search=$search'),
+        Uri.parse('${_baseUrl}voice?page=$page&limit=$limit&search=$search'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
       );
 
@@ -38,9 +38,10 @@ class TaskService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.delete(
-        Uri.parse('$_baseUrl/voice/$id'),
+        Uri.parse('${_baseUrl}voice/$id'),
         headers: {
           'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
         },
       );
 
@@ -56,10 +57,11 @@ class TaskService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.put(
-        Uri.parse('$_baseUrl/voice/$id'),
+        Uri.parse('${_baseUrl}voice/$id'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
         body: jsonEncode(data),
       );
@@ -76,10 +78,11 @@ class TaskService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/voice/save'),
+        Uri.parse('${_baseUrl}voice/save'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
         body: jsonEncode({
           'reminderData': {

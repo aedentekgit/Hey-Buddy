@@ -4,14 +4,13 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import 'package:buddy_mobile/core/config/app_config.dart';
+
 class MemoryService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // Helper to get base URL
-  String get _baseUrl {
-    if (Platform.isAndroid) return 'http://10.0.2.2:5001/api';
-    return 'http://localhost:5001/api';
-  }
+  String get _baseUrl => AppConfig.baseUrl;
 
   // Fetch Memories from Backend
   Future<List<dynamic>> fetchMemories() async {
@@ -19,10 +18,11 @@ class MemoryService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.get(
-        Uri.parse('$_baseUrl/voice/memories/mix'), // Updated to correct endpoint
+        Uri.parse('${_baseUrl}voice/memories/mix'), // Updated to correct endpoint
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
       );
 
@@ -45,9 +45,10 @@ class MemoryService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.delete(
-        Uri.parse('$_baseUrl/voice/memories/$memoryId'),
+        Uri.parse('${_baseUrl}voice/memories/$memoryId'),
         headers: {
           'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
         },
       );
 
@@ -64,10 +65,11 @@ class MemoryService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.put(
-        Uri.parse('$_baseUrl/voice/memories/$memoryId'),
+        Uri.parse('${_baseUrl}voice/memories/$memoryId'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
         body: jsonEncode({'content': content}),
       );
@@ -85,9 +87,10 @@ class MemoryService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.delete(
-        Uri.parse('$_baseUrl/voice/prescriptions/$recordId'),
+        Uri.parse('${_baseUrl}voice/prescriptions/$recordId'),
         headers: {
           'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
         },
       );
 
@@ -104,10 +107,11 @@ class MemoryService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.put(
-        Uri.parse('$_baseUrl/voice/prescriptions/$recordId'),
+        Uri.parse('${_baseUrl}voice/prescriptions/$recordId'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
         body: jsonEncode({'extractedData': data}),
       );

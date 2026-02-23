@@ -178,8 +178,31 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // Update Location
+  Future<bool> updateLocation(double lat, double lng) async {
+    try {
+      final success = await _userService.updateLocation(lat, lng);
+      if (success) {
+        _user['currentLocation'] = {
+          'lat': lat,
+          'lng': lng,
+          'timestamp': DateTime.now().toIso8601String(),
+        };
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      print("Error in updateLocation provider: $e");
+      return false;
+    }
+  }
+
   String _formatProfilePictureUrl(String path) {
+    if (path.isEmpty || path == "null") return '';
     if (path.startsWith('http')) return path;
-    return '${AppConfig.assetBaseUrl}$path';
+    
+    // Ensure the path starts with a slash if needed
+    final formattedPath = path.startsWith('/') ? path : '/$path';
+    return '${AppConfig.assetBaseUrl}$formattedPath';
   }
 }

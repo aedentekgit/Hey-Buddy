@@ -51,3 +51,12 @@ exports.deleteConversation = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+exports.deleteAllConversations = async (req, res) => {
+    try {
+        await Conversation.deleteMany({ userId: req.user._id });
+        res.status(200).json({ success: true, message: 'All conversations deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

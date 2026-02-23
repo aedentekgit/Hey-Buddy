@@ -15,6 +15,7 @@ import { useSettings } from '../context/SettingsContext';
 import voiceService from '../services/voiceService';
 import { requestNotificationPermission } from '../services/notificationService';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { getImageUrl } from '../utils/imageUrl';
 
 const FONTS = [
     { value: "'Inter', sans-serif", label: "Inter (Modern)" },
@@ -484,10 +485,7 @@ const AdminSettings = () => {
                                                     }}>
                                                     {settings.general.logo ? (
                                                         <img
-                                                            src={settings.general.logo.startsWith('http')
-                                                                ? settings.general.logo
-                                                                : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${settings.general.logo}`
-                                                            }
+                                                            src={getImageUrl(settings.general.logo)}
                                                             alt="Logo"
                                                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                                         />
@@ -3030,7 +3028,7 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
                     }}>
                     {value ? (
                         <img
-                            src={value.startsWith('http') ? value : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001'}${value}`}
+                            src={getImageUrl(value)}
                             alt={label}
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         />

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import voiceService from '../services/voiceService';
 import { useNavigate } from 'react-router-dom';
+import { getImageUrl } from '../utils/imageUrl';
 
 const NotifSetting = ({ icon: Icon, title, description, enabled, delay, onToggle, onDelayChange }) => (
     <div style={{
@@ -294,22 +295,7 @@ const UserSettings = () => {
 
     const getProfileImageUrl = () => {
         if (previewImage) return previewImage;
-        if (user?.profilePicture) {
-            // Check if full URL or relative path
-            if (user.profilePicture.startsWith('http')) return user.profilePicture;
-
-            // Construct backend URL (assuming backend is on port 5000 for localhost, or use relative if proxy)
-            // Ideally use import.meta.env.VITE_API_URL but need to strip /api
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
-            const rootUrl = baseUrl.replace('/api', '');
-
-            // Ensure proper slash handling
-            const cleanRoot = rootUrl.endsWith('/') ? rootUrl.slice(0, -1) : rootUrl;
-            const cleanPath = user.profilePicture.startsWith('/') ? user.profilePicture : `/${user.profilePicture}`;
-
-            return `${cleanRoot}${cleanPath}`;
-        }
-        return null;
+        return getImageUrl(user?.profilePicture);
     };
 
     // Listen for Google Auth callback

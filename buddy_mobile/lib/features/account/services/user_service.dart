@@ -3,15 +3,13 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
 
 class UserService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Helper to get base URL (matches other services)
-  String get _baseUrl {
-    if (Platform.isAndroid) return 'http://10.0.2.2:5001/api';
-    return 'http://localhost:5001/api';
-  }
+  // Helper to get base URL
+  String get _baseUrl => AppConfig.baseUrl;
 
   Future<String?> _getToken() async {
     return await _storage.read(key: 'jwt');
@@ -21,7 +19,7 @@ class UserService {
   Future<Map<String, dynamic>> getUserProfile() async {
     try {
       final token = await _getToken();
-      final url = '$_baseUrl/auth/me';
+      final url = '${_baseUrl}auth/me';
 
       final response = await http.get(
         Uri.parse(url),
@@ -52,7 +50,7 @@ class UserService {
     try {
       final token = await _getToken();
       final response = await http.put(
-        Uri.parse('$_baseUrl/users/profile'),
+        Uri.parse('${_baseUrl}users/profile'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -73,7 +71,7 @@ class UserService {
   Future<String?> uploadProfilePicture(File file) async {
     try {
       final token = await _getToken();
-      var request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/users/profile/avatar'));
+      var request = http.MultipartRequest('POST', Uri.parse('${_baseUrl}users/profile/avatar'));
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['x-platform'] = 'mobile';
 
@@ -116,7 +114,7 @@ class UserService {
     try {
       final token = await _getToken();
       final response = await http.delete(
-        Uri.parse('$_baseUrl/users/profile/avatar'),
+        Uri.parse('${_baseUrl}users/profile/avatar'),
         headers: {
           'Authorization': 'Bearer $token',
           'x-platform': 'mobile',
@@ -135,7 +133,7 @@ class UserService {
     try {
       final token = await _getToken();
       final response = await http.delete(
-        Uri.parse('$_baseUrl/users/profile'),
+        Uri.parse('${_baseUrl}users/profile'),
         headers: {
           'Authorization': 'Bearer $token',
           'x-platform': 'mobile',
@@ -154,7 +152,7 @@ class UserService {
     try {
       final token = await _getToken();
       final response = await http.post(
-        Uri.parse('$_baseUrl/users/unlink-calendar'),
+        Uri.parse('${_baseUrl}users/unlink-calendar'),
         headers: {
           'Authorization': 'Bearer $token',
           'x-platform': 'mobile',
@@ -164,6 +162,27 @@ class UserService {
       return response.statusCode == 200;
     } catch (e) {
       print("[UserService] Error unlinking calendar: $e");
+      return false;
+    }
+  }
+
+  // Update Location
+  Future<bool> updateLocation(double lat, double lng) async {
+    try {
+      final token = await _getToken();
+      final response = await http.post(
+        Uri.parse('${_baseUrl}users/location'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'x-platform': 'mobile',
+        },
+        body: jsonEncode({'lat': lat, 'lng': lng}),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("[UserService] Error updating location: $e");
       return false;
     }
   }

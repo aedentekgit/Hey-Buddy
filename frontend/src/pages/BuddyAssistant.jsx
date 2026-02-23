@@ -43,7 +43,7 @@ const BuddyAssistant = () => {
     // Legacy context states simulation for cards that still use them
     const [conversationHistory, setConversationHistory] = useState([]);
     const [currentConversationId, setCurrentConversationId] = useState(null);
-    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, type: 'single' });
     const loadIntoChatRef = useRef(null); // Receives the loader fn from GeminiVoiceAssistant
 
     const handleToolCall = async (name, args) => {
@@ -268,23 +268,47 @@ const BuddyAssistant = () => {
 
     const deleteConversation = async (e, id) => {
         e.stopPropagation();
-        setDeleteModal({ isOpen: true, id });
+        setDeleteModal({ isOpen: true, id, type: 'single' });
+    };
+
+    const deleteAllHistory = async () => {
+        setDeleteModal({ isOpen: true, id: 'all', type: 'all' });
     };
 
     const confirmDeleteConversation = async () => {
-        const id = deleteModal.id;
+        const { id, type } = deleteModal;
         if (!id) return;
+
         try {
-            await api.delete(`/conversations/${id}`);
-            setHistoryList(prev => prev.filter(c => c._id !== id));
-            if (id === currentConversationId) {
+            if (type === 'all') {
+                await api.delete('/conversations');
+                setHistoryList([]);
                 setCurrentConversationId(null);
                 setConversationHistory([]);
                 setChatResponse(null);
+                // Clear the chat bubble view too
+                if (loadIntoChatRef.current) {
+                    loadIntoChatRef.current([], null);
+                }
+                toast.success("All conversations deleted");
+            } else {
+                await api.delete(`/conversations/${id}`);
+                setHistoryList(prev => prev.filter(c => c._id !== id));
+                if (id === currentConversationId) {
+                    setCurrentConversationId(null);
+                    setConversationHistory([]);
+                    setChatResponse(null);
+                    // Clear the chat bubble view too
+                    if (loadIntoChatRef.current) {
+                        loadIntoChatRef.current([], null);
+                    }
+                }
+                toast.success("Conversation deleted");
             }
-            toast.success("Conversation deleted");
         } catch (error) {
             toast.error("Failed to delete");
+        } finally {
+            setDeleteModal({ isOpen: false, id: null, type: 'single' });
         }
     };
 
@@ -440,12 +464,35 @@ const BuddyAssistant = () => {
                         >
                             <div className="history-sidebar-header" style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                    <Clock size={20} className="text-indigo-400" />
                                     <h3 style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>Conversation History</h3>
                                 </div>
-                                <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'var(--bg-lite)', padding: '8px', borderRadius: '50%', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <X size={20} />
-                                </button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {historyList.length > 0 && (
+                                        <button
+                                            onClick={deleteAllHistory}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                color: '#ef4444',
+                                                padding: '6px 12px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                            title="Clear All History"
+                                        >
+                                            <Trash2 size={12} />
+                                            Clear All
+                                        </button>
+                                    )}
+                                    <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'var(--bg-lite)', padding: '8px', borderRadius: '50%', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <X size={20} />
+                                    </button>
+                                </div>
                             </div>
 
                             <div style={{ padding: '24px', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -534,6 +581,7 @@ const BuddyAssistant = () => {
                         onLanguageChange={setPreferredLanguage}
                         user={user}
                         onRegisterLoader={(fn) => { loadIntoChatRef.current = fn; }}
+                        onBack={() => navigate(-1)}
                     />
                 </div>
 
@@ -692,10 +740,12 @@ const BuddyAssistant = () => {
 
             <ConfirmationModal
                 isOpen={deleteModal.isOpen}
-                onClose={() => setDeleteModal({ isOpen: false, id: null })}
+                onClose={() => setDeleteModal({ isOpen: false, id: null, type: 'single' })}
                 onConfirm={confirmDeleteConversation}
-                title="Delete Conversation"
-                message="Are you sure you want to delete this conversation? All messages will be permanently removed."
+                title={deleteModal.type === 'all' ? "Clear All History" : "Delete Conversation"}
+                message={deleteModal.type === 'all'
+                    ? "Are you sure you want to delete ALL conversations? This action cannot be undone."
+                    : "Are you sure you want to delete this conversation? All messages will be permanently removed."}
                 confirmText="Delete"
                 type="danger"
             />

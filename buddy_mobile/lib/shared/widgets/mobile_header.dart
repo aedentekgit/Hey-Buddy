@@ -28,11 +28,20 @@ class _MobileHeaderState extends State<MobileHeader> {
   }
 
   Future<void> _loadLocation() async {
-    final location = await _locationService.getCurrentLocation();
-    if (location != null && mounted) {
+    final locationData = await _locationService.getCurrentLocation();
+    if (locationData != null && mounted) {
       setState(() {
-        _currentLocation = location;
+        _currentLocation = locationData['address'] as String?;
       });
+
+      // Sync with backend via Provider
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      if (locationData['lat'] != null && locationData['lng'] != null) {
+        userProvider.updateLocation(
+          locationData['lat'] as double,
+          locationData['lng'] as double,
+        );
+      }
     }
   }
 
@@ -131,7 +140,7 @@ class _MobileHeaderState extends State<MobileHeader> {
                                   Icon(LucideIcons.mapPin, size: 10, color: primaryColor),
                                   const SizedBox(width: 4),
                                   Text(
-                                    _currentLocation ?? user['address'] ?? "New York, USA", 
+                                    _currentLocation ?? "Locating...", 
                                     style: GoogleFonts.outfit(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,

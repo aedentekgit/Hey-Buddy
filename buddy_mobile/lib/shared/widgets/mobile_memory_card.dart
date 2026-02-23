@@ -278,8 +278,7 @@ class MobileMemoryCard extends StatelessWidget {
       ),
     );
   }
-
-
+}
 
 class _ActionButton extends StatelessWidget {
   final String text;

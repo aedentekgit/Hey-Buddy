@@ -3,57 +3,63 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
 class LocationService {
-  Future<String?> getCurrentLocation() async {
+  Future<Map<String, dynamic>?> getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
     // Test if location services are enabled.
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return null; // Location services are disabled.
+      return null;
     }
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return null; // Permissions are denied
+        return null;
       }
     }
     
     if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately. 
       return null;
     } 
 
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
     try {
-      Position position = await Geolocator.getCurrentPosition();
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
+      
       List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      String address = "Unknown Location";
       
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
-        // Construct address string
-        String address = "";
+        List<String> addressParts = [];
+        
         if (place.locality != null && place.locality!.isNotEmpty) {
-           address += place.locality!;
+           addressParts.add(place.locality!);
         }
         
         if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
-          if (address.isNotEmpty) address += ", ";
-          address += place.administrativeArea!;
+          addressParts.add(place.administrativeArea!);
         }
 
-        if (address.isEmpty && place.name != null) {
-           address = place.name!;
+        if (addressParts.isEmpty && place.name != null) {
+           addressParts.add(place.name!);
         }
 
-        return address.isNotEmpty ? address : "Unknown Location";
+        address = addressParts.join(", ");
       }
-      return null;
+
+      return {
+        'address': address,
+        'lat': position.latitude,
+        'lng': position.longitude,
+      };
     } catch (e) {
-      print("Error getting location: $e");
+      print("Location service error: $e");
       return null;
     }
   }

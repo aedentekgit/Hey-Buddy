@@ -1,8 +1,13 @@
 const mongoose = require('mongoose');
 
 const ConversationSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toHexString(),
+        required: true
+    },
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'User',
         required: true
     },

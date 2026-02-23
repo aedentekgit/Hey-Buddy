@@ -1,8 +1,13 @@
 const mongoose = require('mongoose');
 
 const reminderSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toHexString(),
+        required: true
+    },
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'User',
         required: true
     },
@@ -27,7 +32,7 @@ const reminderSchema = new mongoose.Schema({
         instructions: String
     },
     prescriptionId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'Prescription',
         default: null
     },
@@ -107,11 +112,11 @@ const reminderSchema = new mongoose.Schema({
         default: false
     },
     sharedWith: [{
-        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        user: { type: String, ref: 'User' },
         permissions: { type: String, enum: ['view', 'edit'], default: 'view' }
     }],
     assignedTo: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'User',
         default: null
     },

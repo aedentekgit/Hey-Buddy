@@ -2,7 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import voiceService from '../services/voiceService';
 import { createPcmBlob, decode, decodeAudioData } from '../utils/audio';
-import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sparkles, Brain, Clock, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sparkles, Brain, Clock, X, Image as ImageIcon, Loader2, Zap, History, ArrowLeft } from 'lucide-react';
+import { getImageUrl } from '../utils/imageUrl';
 
 // --- Voice Orbit Component (Interactive Square Visualizer) ---
 const VoiceOrbit = ({ isActive, isThinking, isSpeaking, volume, hasContent }) => {
@@ -114,7 +115,7 @@ const VoiceOrbit = ({ isActive, isThinking, isSpeaking, volume, hasContent }) =>
     );
 };
 
-const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, language = 'en-US', onLanguageChange, user, onRegisterLoader }) => {
+const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBack, language = 'en-US', onLanguageChange, user, onRegisterLoader }) => {
     // --- States ---
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -580,115 +581,62 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
             fontFamily: 'var(--font-family)',
             overflow: 'hidden',
         }}>
-            {/* 1. PROFESSIONAL INTEGRATED HEADER */}
+            {/* 1. FLUTTER-STYLE HEADER */}
             <div style={{
                 height: '64px',
                 width: '100%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '0 24px',
+                padding: '0 20px',
                 zIndex: 50,
                 position: 'relative',
-                background: 'rgba(255, 255, 255, 0.65)',
-                backdropFilter: 'blur(30px) saturate(180%)',
-                borderBottom: '1px solid rgba(0,0,0,0.05)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.01)'
+                background: 'white',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
             }}>
-                {/* Left: History & Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button
-                        onClick={() => onToggleHistory?.(true)}
-                        style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '12px',
-                            background: 'rgba(99, 102, 241, 0.05)',
-                            border: '1px solid rgba(99, 102, 241, 0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'var(--primary-color)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                        }}
-                        className="hover-lift"
-                        title="Conversation History"
-                    >
-                        <Clock size={18} />
-                    </button>
-
-                    <div style={{ height: '24px', width: '1px', background: 'rgba(0,0,0,0.08)', margin: '0 4px' }} />
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            background: isActive ? '#10b981' : '#94a3b8',
-                            boxShadow: isActive ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
-                        }} className={isActive ? "animate-pulse" : ""} />
-                        <span style={{
-                            fontSize: '0.75rem',
-                            fontWeight: '700',
-                            color: 'var(--text-sub)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em'
-                        }}>
-                            {isActive ? (inputMode === 'voice' ? 'Synthesizing voice' : 'Neural Active') : 'System Idle'}
-                        </span>
-                    </div>
-                </div>
-
-
-                {/* Right: Profile Avatar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        border: '2px solid white',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                        background: 'white',
-                        flexShrink: 0
-                    }}>
-                        {user?.profilePicture ? (
-                            <img
-                                src={user.profilePicture.startsWith('http') ? user.profilePicture : `${import.meta.env.VITE_BACKEND_URL}${user.profilePicture}`}
-                                alt={user?.name || 'Profile'}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                            />
-                        ) : (
-                            <div style={{ width: '100%', height: '100%', background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1rem', fontWeight: '700' }}>
-                                {user?.name ? user.name.charAt(0).toUpperCase() : <User size={20} />}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* 2. DYNAMIC VISUALIZER DASHBOARD - only visible when no chat */}
-            {transcripts.length === 0 && (
+                {/* Left: Profile Avatar */}
                 <div style={{
-                    position: 'fixed',
-                    top: '42%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '100%',
-                    maxWidth: '600px',
-                    height: isMobile ? '350px' : '500px',
-                    zIndex: 5,
-                    pointerEvents: 'none',
-                    opacity: 1,
-                    transition: 'all 1.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                    flexShrink: 0,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
-                }}>
-                    <VoiceOrbit isActive={isActive && inputMode === 'voice'} isThinking={isThinking} isSpeaking={isAISpeaking} volume={volume} hasContent={false} />
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+                    transition: 'all 0.2s ease'
+                }} onClick={() => onToggleHistory?.(true)} title="Conversation History" className="hover-lift">
+                    <History size={20} />
                 </div>
-            )}
+
+                <div
+                    onClick={() => onBack ? onBack() : window.history.back()}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                        borderRadius: '20px',
+                        padding: '8px 16px',
+                        cursor: 'pointer',
+                        color: 'white',
+                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+                        transition: 'all 0.2s ease'
+                    }}
+                    title="Go Back"
+                    className="hover-lift"
+                >
+                    <ArrowLeft size={16} strokeWidth={2.5} />
+                    <span style={{
+                        fontSize: '0.82rem',
+                        fontWeight: '800',
+                        letterSpacing: '0.04em'
+                    }}>BACK</span>
+                </div>
+            </div>
 
             {/* 2. CHAT AREA */}
             <div
@@ -701,20 +649,20 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    paddingBottom: isMobile ? '120px' : '160px' // Ensure messages clear the fixed bar
+                    paddingBottom: isMobile ? '140px' : '170px'
                 }}
             >
                 <div style={{
                     width: '100%',
                     maxWidth: '840px',
-                    padding: transcripts.length === 0 ? '0' : '20px 24px 40px 24px',
+                    padding: transcripts.length === 0 ? '0' : '20px 18px 40px 18px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '20px',
+                    gap: '16px',
                     minHeight: transcripts.length === 0 ? 'calc(100% - 72px)' : 'auto'
                 }}>
 
-                    {/* Empty State visualizer */}
+                    {/* Flutter-style Idle Screen */}
                     {transcripts.length === 0 && (
                         <div style={{
                             flex: 1,
@@ -722,141 +670,110 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            padding: '40px 20px',
-                            animation: 'fadeIn 0.8s ease',
-                            zIndex: 10
+                            padding: '40px 20px 20px',
+                            animation: 'fadeIn 0.6s ease',
                         }}>
-                            <div style={{ position: 'relative', marginBottom: '48px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                {/* Soft Background Glow */}
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '50%',
-                                    left: '50%',
-                                    transform: 'translate(-50%, -50%)',
-                                    width: isActive ? '240px' : '160px',
-                                    height: isActive ? '240px' : '160px',
-                                    background: 'var(--primary-gradient)',
-                                    borderRadius: '16px',
-                                    filter: 'blur(60px)',
-                                    boxShadow: '0 0 40px rgba(99, 102, 241, 0.4)',
-                                    opacity: isActive ? 0.5 : 0.2,
-                                    transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1)'
-                                }} />
-
-                                {/* Ultimate Minimalism Dashboard Core */}
-                                <div style={{
-                                    width: '320px',
-                                    height: '320px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    position: 'relative'
-                                }}>
-
-                                    {/* Core Background Glow */}
-                                    <div style={{
-                                        width: isActive ? '280px' : '200px',
-                                        height: isActive ? '280px' : '200px',
-                                        background: 'var(--primary-gradient)',
-                                        borderRadius: '40px',
-                                        filter: 'blur(80px)',
-                                        opacity: isActive ? 0.45 : 0.12,
-                                        transition: 'all 1.5s cubic-bezier(0.4, 0, 0.2, 1)'
-                                    }} />
-                                </div>
+                            {/* Orbital animation on top */}
+                            <div style={{
+                                width: isMobile ? '180px' : '220px',
+                                height: isMobile ? '180px' : '220px',
+                                marginBottom: '28px',
+                                pointerEvents: 'none'
+                            }}>
+                                <VoiceOrbit isActive={isActive && inputMode === 'voice'} isThinking={isThinking} isSpeaking={isAISpeaking} volume={volume} hasContent={false} />
                             </div>
+
+                            {/* "Hey Buddy!" title */}
+                            <h1 style={{
+                                fontSize: isMobile ? '2rem' : '2.4rem',
+                                fontWeight: '800',
+                                color: '#1e293b',
+                                margin: '0 0 10px 0',
+                                textAlign: 'center',
+                                letterSpacing: '-0.02em'
+                            }}>Hey Buddy!</h1>
+
+                            {/* Subtitle */}
+                            <p style={{
+                                fontSize: '1rem',
+                                color: '#94a3b8',
+                                fontWeight: '500',
+                                margin: '0',
+                                textAlign: 'center'
+                            }}>Tap to speak or type below</p>
                         </div>
                     )}
 
-                    {/* Chat Bubble Conversation Flow */}
+                    {/* Flutter-style Chat Messages */}
                     {transcripts.map((t, i) => {
                         const isUser = t.type === 'user';
-                        return (
+                        return isUser ? (
+                            /* USER bubble — right aligned, purple gradient */
                             <div key={t.id} style={{
                                 display: 'flex',
                                 flexDirection: 'column',
-                                alignItems: isUser ? 'flex-end' : 'flex-start',
-                                gap: '4px',
-                                padding: '6px 0',
-                                animation: 'fadeIn 0.4s ease-out'
+                                alignItems: 'flex-end',
+                                animation: 'fadeIn 0.35s ease-out'
                             }}>
-                                {/* Sender label */}
-                                <span style={{
-                                    fontSize: '0.72rem',
-                                    fontWeight: '700',
-                                    color: isUser ? '#6366f1' : '#94a3b8',
-                                    letterSpacing: '0.05em',
-                                    textTransform: 'uppercase',
-                                    paddingLeft: isUser ? 0 : '4px',
-                                    paddingRight: isUser ? '4px' : 0,
-                                }}>
-                                    {isUser ? 'You' : 'Buddy AI'}
-                                </span>
-
-                                {/* Bubble row with avatar */}
                                 <div style={{
-                                    display: 'flex',
-                                    alignItems: 'flex-end',
-                                    gap: '8px',
-                                    flexDirection: isUser ? 'row-reverse' : 'row',
-                                    maxWidth: '75%'
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                    color: 'white',
+                                    padding: '13px 18px',
+                                    borderRadius: '22px 22px 5px 22px',
+                                    fontSize: '0.97rem',
+                                    lineHeight: '1.6',
+                                    fontWeight: '500',
+                                    maxWidth: '78%',
+                                    boxShadow: '0 4px 16px rgba(99,102,241,0.28)',
+                                    wordBreak: 'break-word',
+                                    whiteSpace: 'pre-wrap'
                                 }}>
-                                    {/* Avatar */}
+                                    {t.image && (
+                                        <div style={{ marginBottom: '8px', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <img src={t.image} alt="Visual" style={{ width: '100%', display: 'block', maxWidth: '260px' }} />
+                                        </div>
+                                    )}
+                                    {t.text}
+                                </div>
+                            </div>
+                        ) : (
+                            /* BUDDY card — Flutter-style white card with BUDDY label */
+                            <div key={t.id} style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-start',
+                                animation: 'fadeIn 0.35s ease-out'
+                            }}>
+                                <div style={{
+                                    background: 'white',
+                                    borderRadius: '16px',
+                                    padding: '16px 18px',
+                                    maxWidth: '85%',
+                                    boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+                                    border: '1px solid rgba(0,0,0,0.04)'
+                                }}>
+                                    {/* BUDDY label */}
                                     <div style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        borderRadius: '50%',
-                                        flexShrink: 0,
-                                        background: isUser ? 'rgba(99,102,241,0.1)' : 'var(--primary-gradient)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: isUser ? '#6366f1' : 'white',
-                                        boxShadow: isUser ? 'none' : '0 2px 8px rgba(99,102,241,0.25)',
-                                        fontSize: '0.75rem',
-                                        fontWeight: '700'
-                                    }}>
-                                        {isUser ? <User size={14} /> : <Sparkles size={14} />}
-                                    </div>
-
-                                    {/* Bubble */}
+                                        fontSize: '0.72rem',
+                                        fontWeight: '800',
+                                        color: '#6366f1',
+                                        letterSpacing: '0.08em',
+                                        textTransform: 'uppercase',
+                                        marginBottom: '8px'
+                                    }}>BUDDY</div>
+                                    {t.image && (
+                                        <div style={{ marginBottom: '10px', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <img src={t.image} alt="Visual" style={{ width: '100%', display: 'block', maxWidth: '280px' }} />
+                                        </div>
+                                    )}
                                     <div style={{
-                                        background: isUser
-                                            ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
-                                            : 'white',
-                                        color: isUser ? 'white' : '#1e293b',
-                                        padding: '12px 16px',
-                                        borderRadius: isUser
-                                            ? '20px 20px 4px 20px'
-                                            : '20px 20px 20px 4px',
-                                        fontSize: '0.97rem',
+                                        fontSize: '1rem',
+                                        color: '#1e293b',
                                         lineHeight: '1.65',
                                         fontWeight: '450',
-                                        boxShadow: isUser
-                                            ? '0 4px 14px rgba(99,102,241,0.25)'
-                                            : '0 2px 12px rgba(0,0,0,0.06)',
+                                        whiteSpace: 'pre-wrap',
                                         wordBreak: 'break-word'
-                                    }}>
-                                        {t.image && (
-                                            <div style={{
-                                                marginBottom: '8px',
-                                                borderRadius: '10px',
-                                                overflow: 'hidden',
-                                                maxWidth: '280px'
-                                            }}>
-                                                <img
-                                                    src={t.image}
-                                                    alt="Visual context"
-                                                    style={{ width: '100%', display: 'block' }}
-                                                />
-                                            </div>
-                                        )}
-                                        {t.text && (
-                                            <div style={{ whiteSpace: 'pre-wrap' }}>
-                                                {t.text}
-                                            </div>
-                                        )}
-                                    </div>
+                                    }}>{t.text}</div>
                                 </div>
                             </div>
                         );
@@ -898,7 +815,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
                 </div>
             </div>
 
-            {/* 3. PROFESSIONAL COMMAND CENTER INPUT (SCREENSOT STYLE) */}
+            {/* 3. FLUTTER-STYLE INPUT BAR */}
             <div style={{
                 position: 'fixed',
                 bottom: '0',
@@ -907,16 +824,16 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                padding: '24px 24px 16px 24px',
-                background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
+                padding: '16px 18px 20px 18px',
+                background: 'linear-gradient(to top, white 75%, rgba(255,255,255,0))',
                 zIndex: 100
             }}>
                 <div style={{
                     width: '100%',
-                    maxWidth: transcripts.length === 0 ? '720px' : '840px', // Wider when chatting
+                    maxWidth: '840px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
+                    gap: '10px',
                     transition: 'max-width 0.5s ease'
                 }}>
                     {/* Image Preview Area - Integrated */}
@@ -976,12 +893,11 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
                         <div style={{
                             display: 'flex',
                             gap: '12px',
-                            justifyContent: 'center',
+                            justifyContent: 'flex-start',
                             overflowX: 'auto',
-                            padding: '4px',
-                            maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent 100%)',
-                            WebkitMaskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent 100%)',
-                            scrollbarWidth: 'none'
+                            padding: '4px 12px',
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none',
                         }}>
                             {quickActions.map((cmd, i) => (
                                 <button key={i} onClick={cmd.action} style={{
@@ -1008,20 +924,20 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
                         </div>
                     )}
 
-                    {/* Command Pill */}
+                    {/* Flutter-style pill input */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px',
-                        padding: '12px 20px',
-                        background: 'white',
-                        border: '1px solid rgba(0,0,0,0.12)',
+                        gap: '10px',
+                        padding: '10px 10px 10px 20px',
+                        background: '#f1f5f9',
+                        border: 'none',
                         borderRadius: '100px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
                         width: '100%',
-                        boxSizing: 'border-box'
+                        boxSizing: 'border-box',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
                     }}>
-                        {/* Plus button on left */}
+                        {/* Hidden file input */}
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -1029,81 +945,65 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, langu
                             accept="image/*"
                             onChange={handleImageChange}
                         />
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{
-                                width: '36px',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#94a3b8',
-                                cursor: 'pointer',
-                                transition: 'color 0.2s',
-                                border: 'none',
-                                background: 'none'
-                            }}
-                            className="hover-lift"
-                        >
-                            <Plus size={22} strokeWidth={2.5} />
-                        </button>
 
+                        {/* Text field */}
                         <input
                             style={{
                                 flex: 1,
-                                height: '40px',
+                                height: '36px',
                                 background: 'transparent',
                                 border: 'none',
                                 outline: 'none',
                                 color: '#1e293b',
-                                fontSize: '1.05rem',
+                                fontSize: '1rem',
                                 fontWeight: '500',
                                 width: '100%',
-                                paddingLeft: '4px'
                             }}
-                            placeholder="Ask anything"
+                            placeholder="Ask Buddy anything..."
                             value={textInput}
                             disabled={isActive && inputMode === 'voice'}
                             onChange={(e) => setTextInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
                         />
 
-                        {/* Right Action Stack (Screenshot Style) */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', paddingRight: '8px', borderRight: '1px solid rgba(0,0,0,0.06)', marginRight: '8px' }}>
-                                {/* Attach icon */}
-                                <ImageIcon size={20} style={{ color: '#64748b', cursor: 'pointer' }} className="hover-lift" onClick={() => fileInputRef.current?.click()} />
-                                {/* Mic icon */}
-                                <Mic size={20} style={{ color: '#64748b', cursor: 'pointer' }} className="hover-lift" onClick={() => !isActive && startAssistant(true)} />
-                            </div>
-
-                            {/* Blue Circle Send Button */}
+                        {/* Right icons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {/* Image attach */}
+                            <button onClick={() => fileInputRef.current?.click()} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', padding: '6px' }} className="hover-lift">
+                                <ImageIcon size={20} />
+                            </button>
+                            {/* Mic */}
+                            <button onClick={() => !isActive && startAssistant(true)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', padding: '6px' }} className="hover-lift">
+                                <Mic size={20} />
+                            </button>
+                            {/* Send — Flutter purple paper-plane */}
                             <button
                                 onClick={textInput.trim() ? handleSendText : (isActive && inputMode === 'voice' ? stopAssistant : () => { })}
                                 style={{
                                     width: '42px',
                                     height: '42px',
                                     borderRadius: '50%',
-                                    background: '#3b82f6', // Solid professional blue
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                     border: 'none',
                                     color: 'white',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     cursor: 'pointer',
-                                    boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                    boxShadow: '0 4px 12px rgba(99,102,241,0.35)',
+                                    transition: 'all 0.25s ease',
+                                    flexShrink: 0
                                 }}
                                 className="hover-lift"
                             >
                                 {isActive && inputMode === 'voice' ? (
                                     <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                                        <div style={{ width: '3px', height: '14px', background: 'white', borderRadius: '4px', animation: 'bounce 0.8s infinite' }} />
-                                        <div style={{ width: '3px', height: '14px', background: 'white', borderRadius: '4px', animation: 'bounce 0.8s infinite 0.2s' }} />
-                                        <div style={{ width: '3px', height: '14px', background: 'white', borderRadius: '4px', animation: 'bounce 0.8s infinite 0.4s' }} />
+                                        <div style={{ width: '3px', height: '13px', background: 'white', borderRadius: '4px', animation: 'bounce 0.8s infinite' }} />
+                                        <div style={{ width: '3px', height: '13px', background: 'white', borderRadius: '4px', animation: 'bounce 0.8s infinite 0.2s' }} />
+                                        <div style={{ width: '3px', height: '13px', background: 'white', borderRadius: '4px', animation: 'bounce 0.8s infinite 0.4s' }} />
                                     </div>
                                 ) : (
-                                    <ArrowUp size={22} strokeWidth={3} />
+                                    <Send size={18} strokeWidth={2.5} />
                                 )}
                             </button>
                         </div>

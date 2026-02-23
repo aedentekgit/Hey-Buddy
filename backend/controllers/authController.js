@@ -200,9 +200,72 @@ const getMe = async (req, res) => {
     }
 };
 
+const setupVPS = async (req, res) => {
+    try {
+        // 1. Seed Roles
+        const defaultRoles = [
+            {
+                name: 'admin',
+                description: 'System Administrator with full access',
+                permissions: ['dashboard', 'analytics', 'users', 'roles', 'settings', 'buddy', 'memories', 'reminders', 'management'],
+                allowedPages: ['dashboard', 'users', 'roles', 'settings', 'buddy', 'memories', 'reminders', 'management'],
+                isSystem: true,
+                webAccess: true,
+                mobileAccess: true
+            },
+            {
+                name: 'user',
+                description: 'Standard User',
+                permissions: ['dashboard', 'buddy', 'memories', 'reminders', 'settings'],
+                allowedPages: ['dashboard', 'buddy', 'memories', 'reminders', 'settings'],
+                isSystem: true,
+                webAccess: true,
+                mobileAccess: true
+            }
+        ];
+
+        for (const roleData of defaultRoles) {
+            await Role.findOneAndUpdate(
+                { name: roleData.name },
+                roleData,
+                { upsert: true, new: true }
+            );
+        }
+
+        // 2. Seed Admin User
+        const adminEmail = 'admin@buddy.com';
+        let admin = await User.findOne({ email: adminEmail });
+
+        if (!admin) {
+            admin = await User.create({
+                name: 'Administrator',
+                email: adminEmail,
+                password: 'admin123',
+                role: 'admin'
+            });
+        } else {
+            admin.role = 'admin';
+            admin.password = 'admin123'; // Reset password for easy setup
+            await admin.save();
+        }
+
+        res.json({
+            success: true,
+            message: 'VPS Database Initialized Successfully!',
+            credentials: {
+                email: adminEmail,
+                password: 'admin123'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     login,
     signup,
     googleLogin,
-    getMe
+    getMe,
+    setupVPS
 };

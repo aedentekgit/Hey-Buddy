@@ -1,8 +1,13 @@
 const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toHexString(),
+        required: true
+    },
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'User',
         required: true
     },
@@ -20,7 +25,7 @@ const NotificationSchema = new mongoose.Schema({
         default: 'system'
     },
     relatedId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         refPath: 'onModel'
     },
     onModel: {

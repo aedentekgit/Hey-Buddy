@@ -15,6 +15,7 @@ import MobileUserCard from '../components/MobileUserCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
+import { getImageUrl } from '../utils/imageUrl';
 
 const Users = () => {
     const { user: currentUserData } = useAuth();
@@ -321,7 +322,7 @@ const Users = () => {
                                             }}>
                                                 {user.profilePicture ? (
                                                     <img
-                                                        src={user.profilePicture.startsWith('http') ? user.profilePicture : `${import.meta.env.VITE_BACKEND_URL}${user.profilePicture}`}
+                                                        src={getImageUrl(user.profilePicture)}
                                                         alt={user.name}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     />
@@ -399,7 +400,7 @@ const Users = () => {
                                                     <Edit2 size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => setDeleteConfirm({ isOpen: true, userId: user._id })}
+                                                    onClick={() => setDeleteModal({ isOpen: true, id: user._id })}
                                                     title="Terminate"
                                                     className="btn btn-icon btn-sm"
                                                     style={{
@@ -476,7 +477,7 @@ const Users = () => {
                         }}>
                             {previewImage ? (
                                 <img
-                                    src={previewImage.startsWith('http') || previewImage.startsWith('blob') ? previewImage : `${import.meta.env.VITE_BACKEND_URL}${previewImage}`}
+                                    src={getImageUrl(previewImage)}
                                     alt="Preview"
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />

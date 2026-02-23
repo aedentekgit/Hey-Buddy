@@ -6,12 +6,16 @@ import 'package:google_fonts/google_fonts.dart';
 class BrandingProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
   bool _isLoading = true;
+  bool _hasError = false;
+  String? _errorMessage;
   String _appName = AppConfig.appName;
   Color _primaryColor = const Color(0xFF004D40);
   String? _logoUrl;
   String? _splashUrl;
 
   bool get isLoading => _isLoading;
+  bool get hasError => _hasError;
+  String? get errorMessage => _errorMessage;
   String get appName => _appName;
   Color get primaryColor => _primaryColor;
   String? get logoUrl => _logoUrl;
@@ -19,33 +23,50 @@ class BrandingProvider extends ChangeNotifier {
 
   Future<void> fetchBranding() async {
     _isLoading = true;
+    _hasError = false;
+    _errorMessage = null;
     notifyListeners();
 
-    final result = await _settingsService.getPublicSettings();
-    if (result['success'] == true && result['data'] != null) {
-      final data = result['data'];
-      final mobileApp = data['mobileApp'];
+    try {
+      final result = await _settingsService.getPublicSettings().timeout(const Duration(seconds: 10));
+      if (result['success'] == true) {
+        final data = result['data'];
+        if (data != null) {
+          final mobileApp = data['mobileApp'];
+          if (mobileApp != null) {
 
-      if (mobileApp != null) {
-        _appName = mobileApp['appName'] ?? AppConfig.appName;
-        
-        if (mobileApp['primaryColor'] != null) {
-          _primaryColor = _hexToColor(mobileApp['primaryColor']);
-        }
-        
-        if (mobileApp['appLogo'] != null) {
-          _logoUrl = '${AppConfig.assetBaseUrl}${mobileApp['appLogo']}';
-        }
-        
-        if (mobileApp['splashIcon'] != null) {
-          _splashUrl = '${AppConfig.assetBaseUrl}${mobileApp['splashIcon']}';
-        }
+            _appName = mobileApp['appName'] ?? AppConfig.appName;
+            
+            if (mobileApp['primaryColor'] != null) {
+              _primaryColor = _hexToColor(mobileApp['primaryColor']);
+            }
+            
+            if (mobileApp['appLogo'] != null) {
+              String logoPath = mobileApp['appLogo'];
+              if (logoPath.startsWith('/')) logoPath = logoPath.substring(1);
+              _logoUrl = '${AppConfig.assetBaseUrl}$logoPath';
+            }
+            
+            if (mobileApp['splashIcon'] != null) {
+              String splashPath = mobileApp['splashIcon'];
+              if (splashPath.startsWith('/')) splashPath = splashPath.substring(1);
+              _splashUrl = '${AppConfig.assetBaseUrl}$splashPath';
+            }
 
-        // Update AppConfig for static access where needed
-        AppConfig.appName = _appName;
-        AppConfig.logoUrl = _logoUrl;
-        AppConfig.splashUrl = _splashUrl;
+            // Update AppConfig for static access where needed
+            AppConfig.appName = _appName;
+            AppConfig.logoUrl = _logoUrl;
+            AppConfig.splashUrl = _splashUrl;
+          }
+        }
+        // If data is null, we just keep the default values without setting _hasError
+      } else {
+        // Log error but don't stop the app from opening unless it's critical
+        debugPrint('[Branding] Failed to fetch: ${result['message']}');
       }
+    } catch (e) {
+      debugPrint('[Branding] Unreachable: $e');
+      // We don't set _hasError = true here anymore to allow the app to at least open the login screen
     }
 
     _isLoading = false;

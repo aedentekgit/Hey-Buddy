@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const settingsSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toHexString(),
+        required: true
+    },
     general: {
         logo: String,
         fontFamily: { type: String, default: 'Inter' },
