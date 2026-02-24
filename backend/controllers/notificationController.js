@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const { sendPushNotification } = require('../services/notificationService');
 
 exports.getNotifications = async (req, res) => {
@@ -88,6 +89,41 @@ exports.deleteNotification = async (req, res) => {
         }
 
         res.status(200).json({ success: true, message: 'Notification deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.updatePreferences = async (req, res) => {
+    try {
+        const { mode } = req.body;
+        const userId = req.user._id;
+
+        let update = {};
+        if (mode === 'both') {
+            update = {
+                'notificationPreferences.voice.enabled': true,
+                'notificationPreferences.push.enabled': true
+            };
+        } else if (mode === 'push_only') {
+            update = {
+                'notificationPreferences.voice.enabled': false,
+                'notificationPreferences.push.enabled': true
+            };
+        } else {
+            return res.status(400).json({ success: false, message: 'Invalid mode. Use "both" or "push_only"' });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $set: update },
+            { new: true }
+        ).select('notificationPreferences');
+
+        res.status(200).json({
+            success: true,
+            message: `Mode switched to ${mode}`,
+            data: updatedUser.notificationPreferences
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

@@ -76,7 +76,9 @@ export const SettingsProvider = ({ children }) => {
         if (!data || !data.general) return;
 
         const { companyName, logo } = data.general;
-        const fullLogoUrl = logo ? `${envConfig.BACKEND_URL}${logo}` : null;
+        const backendUrl = (envConfig.BACKEND_URL || '').replace(/\/$/, '');
+        const logoPath = (logo || '').replace(/^\//, '');
+        const fullLogoUrl = logo ? `${backendUrl}/${logoPath}` : null;
 
         // Helper to set meta tag
         const setMetaTag = (property, content) => {

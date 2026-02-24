@@ -3,6 +3,7 @@ const geminiService = require('../services/geminiService');
 const contextService = require('../services/contextService');
 const Reminder = require('../models/Reminder');
 const { createGoogleCalendarEvent } = require('../services/googleCalendarService');
+const GeminiLiveService = require('../services/geminiLiveService');
 
 /**
  * Buddy 2.0 Voice Controller
@@ -106,5 +107,105 @@ exports.saveReminder = async (req, res) => {
     } catch (error) {
         console.error('[SaveReminder] Fatal Error:', error);
         res.status(500).json({ success: false, message: "Failed to save reminder.", error: error.message });
+    }
+};
+
+/**
+ * Preview Voice Assistant Personality
+ */
+exports.previewVoice = async (req, res) => {
+    try {
+        const { gender = 'female', tone = 'soft' } = req.query;
+
+        // Map to voice name
+        let voiceName = 'Aoede'; // Default
+        if (gender === 'male') {
+            if (tone === 'soft') voiceName = 'Charon';
+            else if (tone === 'energetic') voiceName = 'Fenrir';
+            else voiceName = 'Puck';
+        } else {
+            if (tone === 'energetic') voiceName = 'Kore';
+            else voiceName = 'Aoede';
+        }
+
+        console.log(`[Preview] Generating preview for voice: ${voiceName} (${gender}, ${tone})`);
+
+        const ai = new GeminiLiveService(process.env.GEMINI_API_KEY);
+        let audioChunks = [];
+        let isDone = false;
+
+        const cleanup = () => {
+            ai.disconnect();
+            ai.removeAllListeners();
+        };
+
+        const timeout = setTimeout(() => {
+            if (!isDone) {
+                isDone = true;
+                cleanup();
+                res.status(504).json({ success: false, message: "Voice preview timed out." });
+            }
+        }, 15000); // 15s timeout
+
+        ai.on('audio_delta', (base64) => {
+            if (!isDone) {
+                console.log(`[Preview] Received audio chunk: ${base64.length} bytes`);
+                audioChunks.push(Buffer.from(base64, 'base64'));
+            }
+        });
+
+        ai.on('error', (err) => {
+            console.error('[Preview] AI Error:', err);
+            if (!isDone) {
+                isDone = true;
+                clearTimeout(timeout);
+                cleanup();
+                res.status(500).json({ success: false, message: "AI connection error." });
+            }
+        });
+
+        ai.on('response_done', () => {
+            if (!isDone) {
+                isDone = true;
+                clearTimeout(timeout);
+                cleanup();
+
+                // Concatenate buffers and convert back to base64
+                const fullAudio = Buffer.concat(audioChunks).toString('base64');
+
+                res.status(200).json({
+                    success: true,
+                    audio: fullAudio,
+                    voiceName
+                });
+            }
+        });
+
+        ai.on('ready', () => {
+            console.log('[Preview] Socket ready, waiting for setup...');
+        });
+
+        ai.on('setup_complete', () => {
+            console.log('[Preview] Setup complete, sending preview text...');
+            let phrase = "Hi there! I am Buddy, your personal assistant. This is a sample of how I will sound.";
+            if (tone === 'soft') {
+                phrase = "Hello there. I am Buddy, your personal assistant. I will speak softly and calmly. This is a sample of my voice.";
+            } else if (tone === 'energetic') {
+                phrase = "Hi there! I am Buddy, your personal assistant! I'm super excited to help you out! This is a sample of how I'll sound!";
+            }
+            ai.sendText(phrase);
+        });
+
+        let toneRule = "Speak with a balanced, clear, and professional tone.";
+        if (tone === 'soft') {
+            toneRule = "Speak softly, using gentle, empathetic language to convey a comforting and calm presence.";
+        } else if (tone === 'energetic') {
+            toneRule = "Speak energetically, using lively, enthusiastic language with a fast-paced, high-spirited attitude.";
+        }
+        ai.connect(`You are Buddy, a friendly health assistant. ${toneRule} Keep it very short.`, voiceName);
+
+    } catch (error) {
+        console.error('[Preview] Error:', error);
+        res.status(500).json({ success: false, message: "Failed to generate voice preview." });
     }
 };

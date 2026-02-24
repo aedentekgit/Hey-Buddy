@@ -5,10 +5,11 @@ const jwt = require('jsonwebtoken');
 const activeAgents = new Map();
 
 const findAgentByUserId = (userId) => {
-    for (const agent of activeAgents.values()) {
-        if (agent.userId === userId) return agent;
-    }
-    return null;
+    // Return the most recently created agent for this user
+    const agents = Array.from(activeAgents.values())
+        .filter(agent => agent.userId === userId.toString())
+        .sort((a, b) => b.createdAt - a.createdAt);
+    return agents.length > 0 ? agents[0] : null;
 };
 
 const voiceHandler = (io) => {

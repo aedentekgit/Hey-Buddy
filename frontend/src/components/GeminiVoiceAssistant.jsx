@@ -341,24 +341,34 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
             });
 
             socket.on('audio_out', async (base64) => {
-                if (outputAudioCtxRef.current && !shouldMuteResponseRef.current) {
+                if (outputAudioCtxRef.current) {
                     const ctx = outputAudioCtxRef.current;
+
+                    // Resume context if suspended (browser policy)
+                    if (ctx.state === 'suspended') {
+                        await ctx.resume();
+                    }
+
                     nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
 
-                    const audioBuffer = await decodeAudioData(decode(base64), ctx, 24000, 1);
-                    const sourceNode = ctx.createBufferSource();
-                    sourceNode.buffer = audioBuffer;
-                    sourceNode.connect(ctx.destination);
-                    sourceNode.onended = () => {
-                        sourcesRef.current.delete(sourceNode);
-                        if (sourcesRef.current.size === 0) setIsAISpeaking(false);
-                    };
+                    try {
+                        const audioBuffer = await decodeAudioData(decode(base64), ctx, 24000, 1);
+                        const sourceNode = ctx.createBufferSource();
+                        sourceNode.buffer = audioBuffer;
+                        sourceNode.connect(ctx.destination);
+                        sourceNode.onended = () => {
+                            sourcesRef.current.delete(sourceNode);
+                            if (sourcesRef.current.size === 0) setIsAISpeaking(false);
+                        };
 
-                    setIsThinking(false);
-                    setIsAISpeaking(true);
-                    sourceNode.start(nextStartTimeRef.current);
-                    nextStartTimeRef.current += audioBuffer.duration;
-                    sourcesRef.current.add(sourceNode);
+                        setIsThinking(false);
+                        setIsAISpeaking(true);
+                        sourceNode.start(nextStartTimeRef.current);
+                        nextStartTimeRef.current += audioBuffer.duration;
+                        sourcesRef.current.add(sourceNode);
+                    } catch (decodeErr) {
+                        console.error('[Audio] Decoding failed:', decodeErr);
+                    }
                 }
             });
 
@@ -461,7 +471,11 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const handleSendText = async () => {
         if (!textInput.trim() && !selectedImage) return;
 
-        shouldMuteResponseRef.current = true;
+        // Ensure audio context is ready if user interacts
+        if (outputAudioCtxRef.current?.state === 'suspended') {
+            await outputAudioCtxRef.current.resume();
+        }
+
         const text = textInput;
         const img = selectedImage;
         const preview = imagePreview;
@@ -469,11 +483,21 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         setTextInput('');
         clearImage();
 
+        // IF ACTIVE: Use the Live session (Gemini Multimodal Live) for real-time voice output
+        if (isActive && sessionRef.current && sessionRef.current.connected) {
+            console.log('[Assistant] Sending text via Socket.io for voice response');
+            sessionRef.current.emit('text_message', text);
+            addTranscript('user', text, preview);
+            setIsThinking(true);
+            return;
+        }
+
+        // IF NOT ACTIVE: Fallback to REST API (No live voice/multimodal stream)
+        // Note: We could call startAssistant() here, but for now we keep the classic text flow
         addTranscript('user', text, preview);
         setIsThinking(true);
 
         try {
-            // Pass the current conversationId to continue the same thread
             const response = await voiceService.parseVoice(text, img, language, [], conversationIdRef.current);
 
             if (response.success && response.data) {

@@ -25,6 +25,7 @@ const upload = multer({
 // Core Voice Interactions (Step 1-6)
 router.post('/parse', protect, voiceControllerV2.processVoice);
 router.post('/save', protect, voiceControllerV2.saveReminder);
+router.get('/preview-voice', protect, voiceControllerV2.previewVoice);
 
 // Reminder CRUD (Refactored to separate controller)
 router.get('/', protect, reminderController.getReminders);

@@ -78,10 +78,8 @@ const DashboardLayout = ({ children }) => {
                         icon: '🔔'
                     });
 
-                    // Voice Announcement
-                    if (speak) {
-                        speak(`Reminder: ${body}`);
-                    }
+                    // Gemini Voice is now handled globally via RealtimeVoiceContext
+                    // and triggered by the backend's activeAgent.say()
                 });
             }
         };

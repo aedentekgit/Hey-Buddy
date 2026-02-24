@@ -1,13 +1,16 @@
-import { createContext, useContext, useState, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { config as envConfig } from '../config/env';
+import { decode, decodeAudioData } from '../utils/audio';
+import { useSettings } from './SettingsContext';
 
 const RealtimeVoiceContext = createContext();
 
 export const useRealtimeVoice = () => useContext(RealtimeVoiceContext);
 
 export const RealtimeVoiceProvider = ({ children }) => {
+    const { settings } = useSettings();
     const [isConnected, setIsConnected] = useState(false);
     const [isActive, setIsActive] = useState(false);
     const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -15,120 +18,93 @@ export const RealtimeVoiceProvider = ({ children }) => {
 
     const socketRef = useRef(null);
     const audioContextRef = useRef(null);
-    const workletNodeRef = useRef(null);
-    const streamRef = useRef(null);
-
-    // Audio Player for AI Output
     const audioQueueRef = useRef([]);
     const isPlayingRef = useRef(false);
 
-    /**
-     * Start the Realtime Session
-     */
-    const startSession = async () => {
-        setTranscript('');
-        try {
-            // 1. Initialize Socket
+    // Initialize Global Socket for Background Announcements
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const setupGlobalSocket = () => {
+            if (socketRef.current) return;
+
             const backendUrl = envConfig.BACKEND_URL;
             const socket = io(backendUrl, {
-                auth: { token: localStorage.getItem('token') }
+                auth: { token }
             });
 
             socket.on('connect', () => {
-                console.log('[Socket] Connected to backend');
+                console.log('[GlobalSocket] 🟢 Connected for background alerts');
                 setIsConnected(true);
+
+                // Setup agent for this background session with user preferences
+                const language = settings?.general?.language || 'en-US';
+                const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+                socket.emit('setup_agent', { language, timeZone });
             });
 
-            socket.on('connect_error', (err) => {
-                console.error('[Socket] Connection Error:', err.message);
-                setIsConnected(false);
-            });
-
-            socket.on('disconnect', (reason) => {
-                console.warn('[Socket] Disconnected:', reason);
-                setIsConnected(false);
-            });
-
-            // Handle AI Audio Output
             socket.on('audio_out', (base64Audio) => {
-                console.log('[Socket] Received audio chunk');
+                console.log('[GlobalSocket] 🔊 Incoming AI Voice');
                 handleIncomingAudio(base64Audio);
             });
 
-            // Handle Client-side clear queue (interruption)
             socket.on('clear_audio_queue', () => {
-                console.log('[Socket] Clearing audio queue (interruption)');
                 audioQueueRef.current = [];
                 setIsAiSpeaking(false);
             });
 
-            socket.on('caption', (text) => setTranscript(prev => prev + text));
-
             socketRef.current = socket;
+        };
 
-            // 2. Initialize Audio Context & Worklet
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
+        setupGlobalSocket();
+
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+                socketRef.current = null;
             }
-            await audioContext.audioWorklet.addModule('/audio-processor.js');
+        };
+    }, [settings?.general?.language]); // Re-setup if language changes
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
-            });
-
-            const source = audioContext.createMediaStreamSource(stream);
-            const workletNode = new AudioWorkletNode(audioContext, 'buddy-audio-processor');
-
-            workletNode.port.onmessage = (event) => {
-                // Send raw PCM data to backend via Socket
-                if (socket.connected) {
-                    socket.emit('audio_chunk', event.data);
-                }
-            };
-
-            source.connect(workletNode);
-            workletNode.connect(audioContext.destination); // Required for process() to run
-
-            audioContextRef.current = audioContext;
-            workletNodeRef.current = workletNode;
-            streamRef.current = stream;
-            setIsActive(true);
-
-        } catch (error) {
-            console.error('Failed to start realtime session:', error);
-            toast.error("Microphone access or connection failed.");
+    // Ensure AudioContext is ready (must be resumed on user interaction)
+    const resumeAudio = async () => {
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        }
+        if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
         }
     };
 
-    /**
-     * Stop the session
-     */
-    const stopSession = useCallback(() => {
-        socketRef.current?.disconnect();
-        streamRef.current?.getTracks().forEach(track => track.stop());
-        audioContextRef.current?.close();
-        setIsActive(false);
-        setIsConnected(false);
+    // Attach resume to window clicks once
+    useEffect(() => {
+        const handleInteraction = () => {
+            resumeAudio().catch(console.error);
+        };
+        window.addEventListener('click', handleInteraction, { once: true });
+        window.addEventListener('touchstart', handleInteraction, { once: true });
+        return () => {
+            window.removeEventListener('click', handleInteraction);
+            window.removeEventListener('touchstart', handleInteraction);
+        };
     }, []);
 
-    /**
-     * Handle AI Audio Playback
-     */
-    const handleIncomingAudio = (base64) => {
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const handleIncomingAudio = async (base64) => {
+        try {
+            await resumeAudio();
+            const bytes = decode(base64);
+            const buffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
 
-        audioQueueRef.current.push(new Int16Array(bytes.buffer));
-        if (!isPlayingRef.current) playNextInQueue();
+            audioQueueRef.current.push(buffer);
+            if (!isPlayingRef.current) playNextInQueue();
+        } catch (err) {
+            console.error('[GlobalAudio] Decoding failed:', err);
+        }
     };
 
-    const playNextInQueue = async () => {
+    const playNextInQueue = () => {
         if (audioQueueRef.current.length === 0) {
             isPlayingRef.current = false;
             setIsAiSpeaking(false);
@@ -137,14 +113,7 @@ export const RealtimeVoiceProvider = ({ children }) => {
 
         isPlayingRef.current = true;
         setIsAiSpeaking(true);
-        const chunk = audioQueueRef.current.shift();
-
-        // Convert Int16 to Float32 for Web Audio API
-        const float32 = new Float32Array(chunk.length);
-        for (let i = 0; i < chunk.length; i++) float32[i] = chunk[i] / 0x7FFF;
-
-        const buffer = audioContextRef.current.createBuffer(1, float32.length, 24000);
-        buffer.getChannelData(0).set(float32);
+        const buffer = audioQueueRef.current.shift();
 
         const source = audioContextRef.current.createBufferSource();
         source.buffer = buffer;
@@ -160,8 +129,7 @@ export const RealtimeVoiceProvider = ({ children }) => {
             isActive,
             isAiSpeaking,
             transcript,
-            startSession,
-            stopSession
+            socket: socketRef.current
         }}>
             {children}
         </RealtimeVoiceContext.Provider>

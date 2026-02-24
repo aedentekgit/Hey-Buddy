@@ -14,6 +14,27 @@ const getSettings = async (req, res) => {
     }
 };
 
+let publicSettingsCache = null;
+
+const getPublicSettings = async (req, res) => {
+    try {
+        if (publicSettingsCache) {
+            return res.json({ success: true, data: publicSettingsCache });
+        }
+
+        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled');
+        publicSettingsCache = settings;
+        res.json({ success: true, data: settings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const invalidatePublicCache = () => {
+    publicSettingsCache = null;
+};
+
+// Update existing updateSettings to invalidate cache
 const updateSettings = async (req, res) => {
     try {
         let updateData = req.body;
@@ -86,11 +107,11 @@ const updateSettings = async (req, res) => {
                 newSettings.isConfigured = true;
             }
             await newSettings.save();
+            invalidatePublicCache(); // Invalidate on create
             return res.json({ success: true, data: newSettings });
         }
 
         // Build update doc by deep-merging current settings with inbound data.
-        // Using findOneAndUpdate with $set avoids Mongoose version (__v) conflicts entirely.
         const updateDoc = {};
 
         // General
@@ -98,7 +119,7 @@ const updateSettings = async (req, res) => {
             updateDoc['general'] = { ...(currentSettings.general || {}), ...updateData.general };
         }
 
-        // SMTP — keep existing password if no new one provided
+        // SMTP
         if (updateData.smtp) {
             const { password, ...others } = updateData.smtp;
             updateDoc['smtp'] = { ...(currentSettings.smtp || {}), ...others };
@@ -115,7 +136,7 @@ const updateSettings = async (req, res) => {
             updateDoc['socialMedia'] = { ...(currentSettings.socialMedia || {}), ...updateData.socialMedia };
         }
 
-        // Payment Gateways (replace array entirely)
+        // Payment Gateways
         if (updateData.paymentGateways) {
             updateDoc['paymentGateways'] = updateData.paymentGateways;
         }
@@ -130,7 +151,7 @@ const updateSettings = async (req, res) => {
             updateDoc['notification'] = { ...(currentSettings.notification || {}), ...updateData.notification };
         }
 
-        // Storage — deep merge provider sub-objects
+        // Storage
         if (updateData.storage) {
             const mergedStorage = { ...(currentSettings.storage || {}) };
             if (updateData.storage.activeProvider !== undefined) {
@@ -158,14 +179,14 @@ const updateSettings = async (req, res) => {
             updateDoc['appearance'] = { ...(currentSettings.appearance || {}), ...updateData.appearance };
         }
 
-        // Google Auth — protect webClientSecret
+        // Google Auth
         if (updateData.googleAuth) {
             const { webClientSecret, ...others } = updateData.googleAuth;
             updateDoc['googleAuth'] = { ...(currentSettings.googleAuth || {}), ...others };
             if (webClientSecret) updateDoc['googleAuth'].webClientSecret = webClientSecret;
         }
 
-        // Google Calendar — deep merge accounts
+        // Google Calendar
         if (updateData.googleCalendar) {
             const mergedCalendar = { ...(currentSettings.googleCalendar || {}) };
             if (updateData.googleCalendar.activeAccount !== undefined) {
@@ -201,7 +222,6 @@ const updateSettings = async (req, res) => {
             updateDoc['isConfigured'] = true;
         }
 
-        // Use findOneAndUpdate with $set — bypasses __v version conflicts completely
         const updatedSettings = await Settings.findOneAndUpdate(
             {},
             { $set: updateDoc },
@@ -212,6 +232,8 @@ const updateSettings = async (req, res) => {
             }
         ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey');
 
+        invalidatePublicCache(); // Invalidate on update
+
         res.json({ success: true, data: updatedSettings });
     } catch (error) {
         console.error('updateSettings error:', error);
@@ -220,41 +242,32 @@ const updateSettings = async (req, res) => {
 };
 
 const testSMTP = async (req, res) => {
-    const { smtpConfig, testEmail } = req.body;
     try {
-        await sendTestEmail(smtpConfig, testEmail);
+        const { to, subject, body } = req.body;
+        await sendTestEmail(to, subject, body);
         res.json({ success: true, message: 'Test email sent successfully' });
     } catch (error) {
-        res.status(400).json({ success: false, message: `SMTP Test Failed: ${error.message}` });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 const testSMS = async (req, res) => {
-    const { smsConfig, testPhone } = req.body;
     try {
-        const response = await sendTestSMS(smsConfig, testPhone);
-        res.json({ success: true, message: 'Test SMS sent successfully', data: response });
-    } catch (error) {
-        res.status(400).json({ success: false, message: `SMS Test Failed: ${error.message}` });
-    }
-};
-
-const getPublicSettings = async (req, res) => {
-    try {
-        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled');
-        res.json({ success: true, data: settings });
+        const { to, message } = req.body;
+        await sendTestSMS(to, message);
+        res.json({ success: true, message: 'Test SMS sent successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 const testNotification = async (req, res) => {
-    const { token, title, body } = req.body;
     try {
-        await sendPushNotification(token, title || 'Test Notification', body || 'It works!');
+        const { token, title, body } = req.body;
+        await sendPushNotification(token, title, body);
         res.json({ success: true, message: 'Test notification sent successfully' });
     } catch (error) {
-        res.status(400).json({ success: false, message: `Notification Test Failed: ${error.message}` });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 

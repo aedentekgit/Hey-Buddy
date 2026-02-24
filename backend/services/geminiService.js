@@ -229,12 +229,24 @@ const geminiService = {
         try {
             const userContext = context.userContext || {
                 localDate: new Date().toLocaleDateString('en-CA'),
-                timeZone: 'UTC'
+                timeZone: 'UTC',
+                voicePreferences: { tone: 'normal' }
             };
+
+            const tone = userContext.voicePreferences?.tone || 'normal';
+            let toneRule = "Speak with a balanced, clear, and professional tone.";
+            if (tone === 'soft') {
+                toneRule = "Speak softly, using gentle, empathetic language to convey a comforting and calm presence.";
+            } else if (tone === 'energetic') {
+                toneRule = "Speak energetically, using lively, enthusiastic language with a fast-paced, high-spirited attitude.";
+            }
 
             const model = genAI.getGenerativeModel({
                 model: "gemini-2.0-flash",
                 systemInstruction: `You are Buddy, a professional health and personal assistant.
+                
+                VOICE & TONE PROFILE:
+                ${toneRule}
                 
                 USER CONTEXT:
                 - Current User Date: ${userContext.localDate}

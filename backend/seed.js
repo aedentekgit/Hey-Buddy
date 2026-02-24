@@ -62,6 +62,28 @@ const seedData = async () => {
             console.log('Admin user already exists, updated role to admin');
         }
 
+        // 3. Seed Settings
+        const Settings = require('./models/Settings');
+        const settingsExists = await Settings.findOne();
+        if (!settingsExists) {
+            const defaultSettings = new Settings({
+                general: {
+                    companyName: 'Buddy AI',
+                    address: 'Digital India',
+                    phone: '+91 99999 99999',
+                    emails: ['admin@buddy.com'],
+                    timeZone: 'Asia/Kolkata'
+                },
+                appearance: {
+                    themeMode: 'night',
+                    accentColor: '#0075ff'
+                },
+                isConfigured: true
+            });
+            await defaultSettings.save();
+            console.log('Default settings seeded');
+        }
+
         console.log('Seeding completed successfully!');
         process.exit();
     } catch (error) {

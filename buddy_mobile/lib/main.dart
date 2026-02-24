@@ -8,12 +8,18 @@ import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 
-void main() {
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Pre-load SharedPreferences to eliminate hydration lag
+  final prefs = await SharedPreferences.getInstance();
+  
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => BrandingProvider()..fetchBranding()),
+        ChangeNotifierProvider(create: (_) => BrandingProvider(prefs)..fetchBranding()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => MemoriesProvider()),
         ChangeNotifierProvider(create: (_) => TasksProvider()),

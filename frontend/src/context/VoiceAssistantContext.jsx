@@ -138,7 +138,7 @@ export const VoiceAssistantProvider = ({ children }) => {
         return new Promise((resolve) => {
             console.log('[VoiceContext] speak() called:', text);
 
-            // Native Browser TTS fallback for notifications/reminders
+            // Native Browser TTS fallback
             if (window.speechSynthesis) {
                 // Cancel any ongoing speech
                 window.speechSynthesis.cancel();
@@ -147,6 +147,27 @@ export const VoiceAssistantProvider = ({ children }) => {
                 utterance.lang = language;
                 utterance.rate = 1.0;
                 utterance.pitch = 1.0;
+
+                // Attempt to find a suitable voice based on preferences
+                if (user?.voicePreferences) {
+                    const voices = window.speechSynthesis.getVoices();
+                    const gender = user.voicePreferences.gender || 'female';
+
+                    // Look for voice that matches gender in its name (very common for browser voices)
+                    const targetVoice = voices.find(v => {
+                        const name = v.name.toLowerCase();
+                        if (gender === 'female') {
+                            return name.includes('female') || name.includes('samantha') || name.includes('victoria') || name.includes('karen') || name.includes('moira');
+                        } else {
+                            return name.includes('male') || name.includes('daniel') || name.includes('alex') || name.includes('fred');
+                        }
+                    });
+
+                    if (targetVoice) {
+                        utterance.voice = targetVoice;
+                        console.log(`[VoiceContext] Selected browse voice: ${targetVoice.name}`);
+                    }
+                }
 
                 utterance.onend = () => resolve();
                 utterance.onerror = (e) => {

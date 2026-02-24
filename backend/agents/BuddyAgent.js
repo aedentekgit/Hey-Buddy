@@ -14,9 +14,7 @@ class BuddyAgent extends EventEmitter {
         this.socket = socket;
         this.language = language;
         this.isInterrupted = false;
-        this.userContext = null;
-        this.lastInputType = 'voice'; // Default mode
-
+        this.createdAt = Date.now();
         console.log(`[BuddyAgent] 🚀 New Session (Gemini): ${socket.id} (User: ${userId}, Lang: ${language})`);
 
         // Initialize Gemini Live Service
@@ -26,19 +24,48 @@ class BuddyAgent extends EventEmitter {
 
     async initialize(targetLanguage) {
         try {
-            // 1. Fetch User Data for Timezone context
+            // 1. Fetch User Data for Timezone and Voice preferences
             const user = await User.findById(this.userId);
             const timeZone = user?.timezone || 'UTC';
+            const voicePrefs = user?.voicePreferences || { gender: 'female', tone: 'soft' };
 
-            // 2. Fetch Initial Context
+            // 2. Map preferences to Gemini Live voices
+            // Gemini Voices: Aoede (Warm/Female), Kore (Bright/Female), Fenrir (Strong/Male), Charon (Deep/Male), Puck (Friendly/Male)
+            let selectedVoice = 'Aoede'; // Default high quality female
+            const gender = (voicePrefs.gender || 'female').toLowerCase();
+            const tone = (voicePrefs.tone || 'soft').toLowerCase();
+
+            if (gender === 'male') {
+                if (tone === 'soft') selectedVoice = 'Charon';
+                else if (tone === 'energetic') selectedVoice = 'Fenrir';
+                else selectedVoice = 'Puck';
+            } else {
+                // Female options are Aoede and Kore
+                if (tone === 'energetic') selectedVoice = 'Kore';
+                else selectedVoice = 'Aoede';
+            }
+
+            console.log(`[BuddyAgent] Selected voice: ${selectedVoice} for user gender: ${gender}, tone: ${tone}`);
+
+            // 3. Fetch Initial Context
             const context = await contextService.getContext(this.userId, null, timeZone);
             this.userContext = context.userContext;
 
             console.log(`[BuddyAgent] Context Loaded: ${context.memories.length} memories, ${context.reminders.length} reminders`);
 
-            // 3. Setup System Instruction
+            // 4. Setup Tone and System Instruction
+            let toneRule = "Speak with a balanced, clear, and professional tone.";
+            if (tone === 'soft') {
+                toneRule = "Speak softly, using gentle, empathetic language to convey a comforting and calm presence.";
+            } else if (tone === 'energetic') {
+                toneRule = "Speak energetically, using lively, enthusiastic language with a fast-paced, high-spirited attitude.";
+            }
+
             const systemInstruction = `You are Buddy, a professional health and personal assistant.
                 
+                VOICE & TONE PROFILE:
+                ${toneRule}
+
                 USER CONTEXT:
                 - Current User Date: ${this.userContext.localDate}
                 - User Timezone: ${this.userContext.timeZone}
@@ -62,7 +89,7 @@ class BuddyAgent extends EventEmitter {
                    - Always be professional, sympathetic, and concise.`;
 
             this.setupListeners();
-            this.ai.connect(systemInstruction);
+            this.ai.connect(systemInstruction, selectedVoice);
 
         } catch (err) {
             console.error('[BuddyAgent] Initialization failed:', err);
@@ -76,8 +103,8 @@ class BuddyAgent extends EventEmitter {
         });
 
         this.ai.on('audio_delta', (base64) => {
-            // Only send audio back if the last user input was voice
-            if (!this.isInterrupted && this.lastInputType === 'voice') {
+            // Send audio back to client if not interrupted by user speech
+            if (!this.isInterrupted) {
                 this.socket.emit('audio_out', base64);
             }
         });

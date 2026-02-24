@@ -38,6 +38,19 @@ const contextService = {
                 date: { $gte: userDate }
             }).sort({ date: 1, time: 1 }).limit(5);
 
+            // 4. Fetch User Preferences
+            const mongoose = require('mongoose');
+            const User = mongoose.model('User') || require('../models/User');
+            let voicePreferences = { gender: 'female', tone: 'soft' }; // Default
+            try {
+                const userDoc = await User.findById(userId);
+                if (userDoc && userDoc.voicePreferences) {
+                    voicePreferences = userDoc.voicePreferences;
+                }
+            } catch (err) {
+                console.error('[ContextService] Error fetching user preferences:', err);
+            }
+
             return {
                 history: history.map(m => ({ role: m.role, content: m.content })),
                 memories: memories.map(m => m.content),
@@ -48,12 +61,13 @@ const contextService = {
                 })),
                 userContext: { // Pass timezone info for NLU
                     timeZone,
-                    localDate: userDate
+                    localDate: userDate,
+                    voicePreferences
                 }
             };
         } catch (error) {
             console.error('[ContextService] Error fetching context:', error);
-            return { history: [], memories: [], reminders: [] };
+            return { history: [], memories: [], reminders: [], userContext: { voicePreferences: { gender: 'female', tone: 'soft' } } };
         }
     },
 

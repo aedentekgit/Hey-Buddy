@@ -83,6 +83,9 @@ const userSchema = new mongoose.Schema({
         timestamp: Date
     },
     notificationPreferences: {
+        voice: {
+            enabled: { type: Boolean, default: true }
+        },
         push: {
             enabled: { type: Boolean, default: true },
             delay: { type: Number, default: 0 }

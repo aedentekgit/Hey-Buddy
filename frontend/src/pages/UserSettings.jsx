@@ -4,13 +4,14 @@ import { toast, Toaster } from 'react-hot-toast';
 import {
     User, Phone, MapPin, Trash2, AlertTriangle, Save, Loader2, Mail, Calendar,
     CheckCircle, XCircle, Link2, Unlink, Settings, Shield, Eye, EyeOff, LayoutGrid, Camera, ImagePlus,
-    Bell, MessageSquare, Clock, ChevronDown
+    Bell, MessageSquare, Clock, ChevronDown, Mic, Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import voiceService from '../services/voiceService';
 import { useNavigate } from 'react-router-dom';
 import { getImageUrl } from '../utils/imageUrl';
+import { decode, decodeAudioData } from '../utils/audio';
 
 const NotifSetting = ({ icon: Icon, title, description, enabled, delay, onToggle, onDelayChange }) => (
     <div style={{
@@ -68,7 +69,7 @@ const NotifSetting = ({ icon: Icon, title, description, enabled, delay, onToggle
             </div>
         </div>
 
-        {enabled && (
+        {enabled && onDelayChange && (
             <div style={{
                 paddingTop: '16px',
                 borderTop: '1px solid var(--border-color)',
@@ -126,10 +127,17 @@ const UserSettings = () => {
 
     // State for notification preferences
     const [notifPreferences, setNotifPreferences] = useState({
+        voice: { enabled: true },
         push: { enabled: true, delay: 0 },
         sms: { enabled: false, delay: 5 },
         email: { enabled: true, delay: 0 },
         inApp: { enabled: true, delay: 0 }
+    });
+
+    // State for voice assistant personality
+    const [voicePreferences, setVoicePreferences] = useState({
+        gender: 'female',
+        tone: 'soft'
     });
 
     useEffect(() => {
@@ -143,7 +151,16 @@ const UserSettings = () => {
                 timeFormat: user.timeFormat || '12'
             });
             if (user.notificationPreferences) {
-                setNotifPreferences(user.notificationPreferences);
+                setNotifPreferences(prev => ({
+                    ...prev,
+                    ...user.notificationPreferences
+                }));
+            }
+            if (user.voicePreferences) {
+                setVoicePreferences(prev => ({
+                    ...prev,
+                    ...user.voicePreferences
+                }));
             }
         }
     }, [user]);
@@ -152,9 +169,12 @@ const UserSettings = () => {
         if (e) e.preventDefault();
         setLoading(true);
         try {
-            const res = await api.put('/users/profile', { notificationPreferences: notifPreferences });
+            const res = await api.put('/users/profile', {
+                notificationPreferences: notifPreferences,
+                voicePreferences: voicePreferences
+            });
             if (res.data.success) {
-                toast.success('Notification preferences updated');
+                toast.success('Preferences updated');
                 refreshUser();
             }
         } catch (error) {
@@ -167,11 +187,59 @@ const UserSettings = () => {
     // Calendar State
     const [calendarLinking, setCalendarLinking] = useState(false);
     const [calendarUnlinking, setCalendarUnlinking] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const audioContextRef = useRef(null);
     const isCalendarLinked = user?.googleRefreshToken ? true : false;
 
     // Handlers
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handlePreviewVoice = async () => {
+        if (previewLoading) return;
+        setPreviewLoading(true);
+        try {
+            console.log("[Preview] Requesting voice preview...");
+            const response = await api.get('/voice/preview-voice', {
+                params: {
+                    gender: voicePreferences.gender,
+                    tone: voicePreferences.tone
+                }
+            });
+
+            if (response.data.success && response.data.audio) {
+                console.log("[Preview] Audio data received, size:", response.data.audio.length);
+
+                if (!audioContextRef.current) {
+                    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                }
+                const ctx = audioContextRef.current;
+                if (ctx.state === 'suspended') await ctx.resume();
+
+                const audioData = decode(response.data.audio);
+                const buffer = await decodeAudioData(audioData, ctx, 24000, 1);
+
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+
+                source.onended = () => {
+                    console.log("[Preview] Playback complete");
+                    setPreviewLoading(false);
+                };
+
+                source.start();
+                toast.success("Playing sample...");
+            } else {
+                toast.error("Failed to generate preview.");
+                setPreviewLoading(false);
+            }
+        } catch (error) {
+            console.error("Preview failed:", error);
+            toast.error(error.response?.data?.message || "Voice preview failed.");
+            setPreviewLoading(false);
+        }
     };
 
     const handleUpdateProfile = async (e) => {
@@ -552,6 +620,17 @@ const UserSettings = () => {
 
                                     <div style={{ maxWidth: '600px' }}>
                                         <NotifSetting
+                                            icon={Mic}
+                                            title="AI Voice Reminders"
+                                            description="Receive audible reminders from Buddy AI when you are in an active voice session."
+                                            enabled={notifPreferences.voice?.enabled}
+                                            onToggle={() => setNotifPreferences({
+                                                ...notifPreferences,
+                                                voice: { ...notifPreferences.voice, enabled: !notifPreferences.voice?.enabled }
+                                            })}
+                                        />
+
+                                        <NotifSetting
                                             icon={Bell}
                                             title="Push Notifications"
                                             description="Receive instant alerts on your mobile or desktop device."
@@ -614,6 +693,94 @@ const UserSettings = () => {
                                                 inApp: { ...notifPreferences.inApp, delay: val }
                                             })}
                                         />
+
+                                        <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
+                                            <SectionTitle label="Voice Assistant Personality" icon={Mic} color="var(--primary-color)" />
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', gap: '20px' }}>
+                                                <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: '0.9rem', flex: 1 }}>
+                                                    Customize Buddy's voice output style. Select the gender and tone that feels most natural to you.
+                                                </p>
+                                                <button
+                                                    onClick={handlePreviewVoice}
+                                                    disabled={previewLoading}
+                                                    style={{
+                                                        background: 'var(--bg-lite)',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: '12px',
+                                                        padding: '10px 20px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '10px',
+                                                        cursor: 'pointer',
+                                                        color: 'var(--primary-color)',
+                                                        fontWeight: '700',
+                                                        fontSize: '0.85rem',
+                                                        transition: 'all 0.2s ease',
+                                                        whiteSpace: 'nowrap',
+                                                        boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                                                    }}
+                                                >
+                                                    {previewLoading ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} fill="currentColor" />}
+                                                    {previewLoading ? 'Generating...' : 'Test Voice'}
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '2rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>Voice Gender</label>
+                                                    <div style={{ display: 'flex', gap: '10px', background: 'var(--bg-lite)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                                        {['female', 'male'].map(g => (
+                                                            <button
+                                                                key={g}
+                                                                onClick={() => setVoicePreferences({ ...voicePreferences, gender: g })}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    padding: '8px',
+                                                                    borderRadius: '8px',
+                                                                    border: 'none',
+                                                                    background: voicePreferences.gender === g ? 'var(--primary-color)' : 'transparent',
+                                                                    color: voicePreferences.gender === g ? 'white' : 'var(--text-main)',
+                                                                    fontSize: '0.85rem',
+                                                                    fontWeight: '600',
+                                                                    textTransform: 'capitalize',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s ease'
+                                                                }}
+                                                            >
+                                                                {g}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>Voice Tone</label>
+                                                    <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-lite)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                                        {['soft', 'normal', 'energetic'].map(t => (
+                                                            <button
+                                                                key={t}
+                                                                onClick={() => setVoicePreferences({ ...voicePreferences, tone: t })}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    padding: '8px 4px',
+                                                                    borderRadius: '8px',
+                                                                    border: 'none',
+                                                                    background: voicePreferences.tone === t ? 'var(--primary-color)' : 'transparent',
+                                                                    color: voicePreferences.tone === t ? 'white' : 'var(--text-main)',
+                                                                    fontSize: '0.8rem',
+                                                                    fontWeight: '600',
+                                                                    textTransform: 'capitalize',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s ease'
+                                                                }}
+                                                            >
+                                                                {t}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
                                         <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
                                             <button

@@ -72,48 +72,72 @@ const startReminderWorker = (io) => {
                 if (isPastDueCurrentDay || isOverduePastDay) {
                     console.log(`[Worker] TRIGGERED: "${reminder.title}" for ${user.name}`);
 
-                    // 1. Create Internal Notification (for Bell Icon)
-                    const notification = await Notification.create({
-                        userId: user._id,
-                        title: `Reminder: ${reminder.intent ? reminder.intent.toUpperCase() : 'ALERT'}`,
-                        message: reminder.title,
-                        type: 'reminder',
-                        relatedId: reminder._id,
-                        onModel: 'Reminder',
-                        actionUrl: '/admin/reminders'
-                    });
+                    // 1. Create Internal Notification & Emit (if In-App enabled)
+                    let notification = null;
+                    if (user.notificationPreferences?.inApp?.enabled !== false) {
+                        notification = await Notification.create({
+                            userId: user._id,
+                            title: `Reminder: ${reminder.intent ? reminder.intent.toUpperCase() : 'ALERT'}`,
+                            message: reminder.title,
+                            type: 'reminder',
+                            relatedId: reminder._id,
+                            onModel: 'Reminder',
+                            actionUrl: '/admin/reminders'
+                        });
 
-                    // 2. Clear real-time update to Frontend Bell Icon
-                    if (io) {
-                        io.to(user._id.toString()).emit('notification', notification);
-                        console.log(`[Worker] Emitted real-time notification to user: ${user._id}`);
+                        if (io) {
+                            io.to(user._id.toString()).emit('notification', notification);
+                            console.log(`[Worker] Emitted real-time notification to user: ${user._id}`);
+                        }
+                    } else {
+                        console.log(`[Worker] Skipping Internal Notification for ${user.name} (Preference Disabled)`);
                     }
 
-                    // 3. Trigger AI Assistant Voice Reminder (if session active)
-                    const activeAgent = findAgentByUserId(user._id.toString());
-                    if (activeAgent) {
-                        const voiceMessage = `Pardon the interruption, but I have a reminder for you: ${reminder.title}.`;
-                        activeAgent.say(voiceMessage);
-                        console.log(`[Worker] Triggered AI Voice-over for session: ${activeAgent.socket.id}`);
+                    // 3. Trigger AI Assistant Voice Reminder (if session active AND voice enabled)
+                    if (user.notificationPreferences?.voice?.enabled !== false) {
+                        const activeAgent = findAgentByUserId(user._id.toString());
+                        if (activeAgent) {
+                            const voiceMessage = `Pardon the interruption, but I have a reminder for you: ${reminder.title}.`;
+                            activeAgent.say(voiceMessage);
+                            console.log(`[Worker] Triggered AI Voice-over for session: ${activeAgent.socket.id}`);
+                        }
+                    } else {
+                        console.log(`[Worker] Skipping AI Voice for ${user.name} (Preference Disabled)`);
                     }
 
-                    // 4. Send Push Notifications (Firebase)
-                    if (reminder.alerts?.push !== false) {
+                    // 4. Send Push Notifications (Firebase) - check both reminder alert bit and user global preference
+                    if (reminder.alerts?.push !== false && user.notificationPreferences?.push?.enabled !== false) {
                         if (user.fcmTokens && user.fcmTokens.length > 0) {
+                            const tokensToRemove = [];
                             const notificationPromises = user.fcmTokens.map(token =>
                                 sendPushNotification(
                                     token,
-                                    notification.title,
-                                    notification.message,
+                                    notification?.title || `Reminder: ${reminder.title}`,
+                                    notification?.message || reminder.title,
                                     {
                                         reminderId: reminder._id.toString(),
                                         type: 'reminder_alert',
-                                        notificationId: notification._id.toString()
+                                        notificationId: notification?._id.toString() || ''
                                     }
-                                ).catch(err => console.error(`[Worker] Push fail:`, err.message))
+                                ).catch(err => {
+                                    console.error(`[Worker] Push fail for ${user.name}:`, err.message);
+                                    if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-registration-token') {
+                                        tokensToRemove.push(token);
+                                    }
+                                })
                             );
                             await Promise.all(notificationPromises);
+
+                            // Clean up stale tokens
+                            if (tokensToRemove.length > 0) {
+                                await User.findByIdAndUpdate(user._id, {
+                                    $pull: { fcmTokens: { $in: tokensToRemove } }
+                                });
+                                console.log(`[Worker] Cleaned up ${tokensToRemove.length} stale tokens for ${user.name}`);
+                            }
                         }
+                    } else {
+                        console.log(`[Worker] Skipping Push Notification for ${user.name} (Preference or Alert Disabled)`);
                     }
 
                     // Mark as notified

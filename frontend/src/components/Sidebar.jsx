@@ -77,6 +77,14 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
         }
     ].filter(group => group.items.length > 0);
 
+    const getLogoUrl = () => {
+        if (!branding.logo) return null;
+        if (branding.logo.startsWith('http')) return branding.logo;
+        const backendUrl = (envConfig.BACKEND_URL || '').replace(/\/$/, '');
+        const logoPath = branding.logo.replace(/^\//, '');
+        return `${backendUrl}/${logoPath}`;
+    };
+
     return (
         <>
             <AnimatePresence>
@@ -108,7 +116,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                         }}>
                             {branding.logo ? (
                                 <img
-                                    src={branding.logo.startsWith('http') ? branding.logo : `${envConfig.BACKEND_URL}${branding.logo}`}
+                                    src={getLogoUrl()}
                                     alt="Logo"
                                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                 />

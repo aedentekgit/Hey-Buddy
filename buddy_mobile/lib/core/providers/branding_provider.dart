@@ -3,17 +3,42 @@ import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:buddy_mobile/core/services/settings_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class BrandingProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
+  final SharedPreferences prefs;
+  
   bool _isLoading = true;
   bool _hasError = false;
   String? _errorMessage;
-  String _appName = AppConfig.appName;
-  Color _primaryColor = AppConfig.primaryColor.startsWith('#') 
-      ? Color(int.parse(AppConfig.primaryColor.replaceAll('#', 'FF'), radix: 16))
-      : const Color(0xFF6366F1); // Indigo default from AppConfig
+  late String _appName;
+  late Color _primaryColor;
   String? _logoUrl;
   String? _splashUrl;
+
+  BrandingProvider(this.prefs) {
+    _hydrateFromLocal();
+  }
+
+  void _hydrateFromLocal() {
+    // Load from local storage for immediate render
+    _appName = prefs.getString('branding_app_name') ?? AppConfig.appName;
+    
+    final colorHex = prefs.getString('branding_primary_color') ?? AppConfig.primaryColor;
+    _primaryColor = _hexToColor(colorHex);
+    
+    _logoUrl = prefs.getString('branding_logo_url');
+    _splashUrl = prefs.getString('branding_splash_url');
+    
+    // Sync to AppConfig for static access
+    AppConfig.appName = _appName;
+    AppConfig.primaryColor = colorHex;
+    AppConfig.logoUrl = _logoUrl;
+    AppConfig.splashUrl = _splashUrl;
+    
+    _isLoading = true; // Still loading fresh data from backend
+  }
 
   bool get isLoading => _isLoading;
   bool get hasError => _hasError;
@@ -24,11 +49,8 @@ class BrandingProvider extends ChangeNotifier {
   String? get splashUrl => _splashUrl;
 
   Future<void> fetchBranding() async {
-    _isLoading = true;
-    _hasError = false;
-    _errorMessage = null;
-    notifyListeners();
-
+    // Don't set _isLoading = true here if we already have local data to show
+    // only if we want to show a spinner. But the user wants NO flash.
     try {
       final result = await _settingsService.getPublicSettings().timeout(const Duration(seconds: 10));
       if (result['success'] == true) {
@@ -38,49 +60,58 @@ class BrandingProvider extends ChangeNotifier {
           final appearance = data['appearance'];
           
           if (mobileApp != null) {
-            _appName = mobileApp['appName'] ?? AppConfig.appName;
+            final newAppName = mobileApp['appName'] ?? AppConfig.appName;
             
-            // 1. Prioritize Mobile Specific Color
+            Color newPrimaryColor = _primaryColor;
             if (mobileApp['primaryColor'] != null && mobileApp['primaryColor'].toString().isNotEmpty) {
-              _primaryColor = _hexToColor(mobileApp['primaryColor']);
-            } 
-            // 2. Fallback to Global Theme Accent Color
-            else if (appearance != null && appearance['accentColor'] != null) {
-              _primaryColor = _hexToColor(appearance['accentColor']);
+              newPrimaryColor = _hexToColor(mobileApp['primaryColor']);
+            } else if (appearance != null && appearance['accentColor'] != null) {
+              newPrimaryColor = _hexToColor(appearance['accentColor']);
             }
             
+            String? newLogoUrl;
             if (mobileApp['appLogo'] != null) {
               String logoPath = mobileApp['appLogo'];
               if (logoPath.startsWith('/')) logoPath = logoPath.substring(1);
-              _logoUrl = '${AppConfig.assetBaseUrl}$logoPath';
+              newLogoUrl = '${AppConfig.assetBaseUrl}$logoPath';
             }
             
+            String? newSplashUrl;
             if (mobileApp['splashIcon'] != null) {
               String splashPath = mobileApp['splashIcon'];
               if (splashPath.startsWith('/')) splashPath = splashPath.substring(1);
-              _splashUrl = '${AppConfig.assetBaseUrl}$splashPath';
+              newSplashUrl = '${AppConfig.assetBaseUrl}$splashPath';
             }
 
-            // Update AppConfig for static access where needed
+            // Update variables
+            _appName = newAppName;
+            _primaryColor = newPrimaryColor;
+            _logoUrl = newLogoUrl;
+            _splashUrl = newSplashUrl;
+
+            // Persist for next run
+            await prefs.setString('branding_app_name', _appName);
+            await prefs.setString('branding_primary_color', '#${_primaryColor.value.toRadixString(16).substring(2)}');
+            if (_logoUrl != null) await prefs.setString('branding_logo_url', _logoUrl!);
+            if (_splashUrl != null) await prefs.setString('branding_splash_url', _splashUrl!);
+
+            // Update AppConfig
             AppConfig.appName = _appName;
             AppConfig.primaryColor = '#${_primaryColor.value.toRadixString(16).substring(2)}';
             AppConfig.logoUrl = _logoUrl;
             AppConfig.splashUrl = _splashUrl;
-          } else if (appearance != null && appearance['accentColor'] != null) {
-            // Even if mobileApp config is missing, try to follow global theme
-            _primaryColor = _hexToColor(appearance['accentColor']);
-            AppConfig.primaryColor = '#${_primaryColor.value.toRadixString(16).substring(2)}';
           }
         }
       } else {
         _hasError = true;
         _errorMessage = result['message'] ?? 'Failed to fetch branding settings';
-        debugPrint('[Branding] Failed to fetch: $_errorMessage');
       }
     } catch (e) {
-      _hasError = true;
-      _errorMessage = e.toString();
-      debugPrint('[Branding] Error fetching branding: $e');
+      // Don't show error if we have local data as fallback
+      if (_appName == AppConfig.appName && _logoUrl == null) {
+        _hasError = true;
+        _errorMessage = e.toString();
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -95,8 +126,7 @@ class BrandingProvider extends ChangeNotifier {
       }
       return Color(int.parse(hex, radix: 16));
     } catch (e) {
-      debugPrint('[Branding] Hex color parsing failed for "$hex": $e');
-      return const Color(0xFF6366F1); // Return default indigo on error
+      return const Color(0xFF6366F1);
     }
   }
 
@@ -126,8 +156,8 @@ class BrandingProvider extends ChangeNotifier {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: _primaryColor, // Changed from ghostly to solid primary
-        foregroundColor: Colors.white,   // Better contrast for theme color
+        backgroundColor: _primaryColor,
+        foregroundColor: Colors.white,
         elevation: 2,
         minimumSize: const Size(double.infinity, 48),
         shape: RoundedRectangleBorder(

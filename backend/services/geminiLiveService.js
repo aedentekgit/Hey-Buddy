@@ -11,12 +11,13 @@ class GeminiLiveService extends EventEmitter {
         this.apiKey = apiKey;
         this.ws = null;
         this.isConnected = false;
-        this.model = "models/gemini-2.0-flash";
+        this.model = "models/gemini-2.0-flash-exp-image-generation";
     }
 
-    connect(systemInstruction = null) {
-        console.log('[Gemini Live] Connecting...');
+    connect(systemInstruction = null, voice = 'Aoede') {
+        console.log(`[Gemini Live] Connecting with voice: ${voice}...`);
         this.systemInstructionOverride = systemInstruction;
+        this.voiceOverride = voice;
         // Standard URL for Gemini Multimodal Live WebSocket
         const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
 
@@ -32,7 +33,7 @@ class GeminiLiveService extends EventEmitter {
         this.ws.on('message', (data) => {
             try {
                 const response = JSON.parse(data);
-                // console.log('[Gemini Live] 📥 Message:', JSON.stringify(response).substring(0, 100));
+                console.log('[Gemini Live] 📥 Message:', JSON.stringify(response));
                 this.handleResponse(response);
             } catch (err) {
                 console.error('[Gemini Live] ❌ Error parsing message:', err, data.toString());
@@ -50,12 +51,8 @@ class GeminiLiveService extends EventEmitter {
     }
 
     sendSetup() {
-        console.log('[Gemini Live] 📤 Sending setup...');
+        console.log(`[Gemini Live] 📤 Sending setup with model: ${this.model}, voice: ${this.voiceOverride}...`);
 
-        // Transform tools to use function_declarations (snake_case) as required by the Live API JSON protocol
-        const liveTools = buddyTools.map(tool => ({
-            function_declarations: tool.functionDeclarations || tool.function_declarations
-        }));
 
         const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant.
                 You have access to the user's memories and health reminders.
@@ -65,15 +62,18 @@ class GeminiLiveService extends EventEmitter {
             setup: {
                 model: this.model,
                 generation_config: {
-                    response_modalities: ["AUDIO", "TEXT"], // Support both
+                    response_modalities: ["AUDIO"],
                     speech_config: {
-                        voice_config: { prebuilt_voice_config: { voice_name: "Aoede" } }
+                        voice_config: {
+                            prebuilt_voice_config: {
+                                voice_name: this.voiceOverride || "Aoede"
+                            }
+                        }
                     }
                 },
                 system_instruction: {
                     parts: [{ text: systemInstruction }]
-                },
-                tools: liveTools
+                }
             }
         };
         this.ws.send(JSON.stringify(setupMessage));
@@ -82,6 +82,12 @@ class GeminiLiveService extends EventEmitter {
     handleResponse(response) {
         if (response.setupComplete || response.setup_complete) {
             console.log('[Gemini Live] 🆗 Setup complete');
+            this.emit('setup_complete');
+        }
+
+        if (response.error) {
+            console.error('[Gemini Live] ❌ Gemini Server Error:', JSON.stringify(response.error, null, 2));
+            this.emit('error', response.error);
         }
 
         // Handle Server Content (Audio/Interim Transcripts)

@@ -7,33 +7,58 @@ import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class ReminderCreateScreen extends StatefulWidget {
-  const ReminderCreateScreen({super.key});
+  final Map<String, dynamic>? task;
+  const ReminderCreateScreen({super.key, this.task});
 
   @override
   State<ReminderCreateScreen> createState() => _ReminderCreateScreenState();
 }
 
 class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
-  final TextEditingController titleController = TextEditingController();
-  final TextEditingController dateController = TextEditingController(text: DateTime.now().toString().split('T')[0]);
-  final TextEditingController timeController = TextEditingController(text: "10:00");
-  final TextEditingController locationController = TextEditingController();
+  late TextEditingController titleController;
+  late TextEditingController dateController;
+  late TextEditingController timeController;
+  late TextEditingController locationController;
 
-  Future<void> _createReminder() async {
+  @override
+  void initState() {
+    super.initState();
+    titleController = TextEditingController(text: widget.task?['title'] ?? '');
+    
+    String initialDate = DateTime.now().toString().split(' ')[0];
+    if (widget.task?['date'] != null) {
+      initialDate = widget.task!['date'].toString().split('T')[0];
+    }
+    dateController = TextEditingController(text: initialDate);
+    
+    timeController = TextEditingController(text: widget.task?['time'] ?? "10:00");
+    locationController = TextEditingController(text: widget.task?['location'] ?? '');
+  }
+
+  Future<void> _handleSave() async {
     if (titleController.text.isEmpty) {
       ToastUtils.showErrorToast("Please enter a title");
       return;
     }
 
-    final success = await Provider.of<TasksProvider>(context, listen: false).createTask({
+    final data = {
       'title': titleController.text,
       'date': dateController.text,
       'time': timeController.text,
       'location': locationController.text,
-    });
+    };
+
+    final provider = Provider.of<TasksProvider>(context, listen: false);
+    bool success;
+    
+    if (widget.task != null) {
+      success = await provider.updateTask(widget.task!['_id'], data);
+    } else {
+      success = await provider.createTask(data);
+    }
 
     if (success && mounted) {
-      ToastUtils.showSuccessToast("Reminder created");
+      ToastUtils.showSuccessToast(widget.task != null ? "Reminder updated" : "Reminder created");
       Navigator.pop(context);
     }
   }
@@ -44,7 +69,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          "New Reminder",
+          widget.task != null ? "Edit Reminder" : "New Reminder",
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: Colors.white,
@@ -76,7 +101,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _createReminder,
+                onPressed: _handleSave,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
@@ -84,7 +109,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
                   elevation: 0,
                 ),
                 child: Text(
-                  "Create Reminder",
+                  widget.task != null ? "Save Changes" : "Create Reminder",
                   style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
