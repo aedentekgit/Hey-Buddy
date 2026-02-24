@@ -116,8 +116,8 @@ const VoiceOrbit = ({ isActive, isThinking, isSpeaking, volume, hasContent }) =>
     );
 };
 
-const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBack, language = 'auto', onLanguageChange, user, onRegisterLoader }) => {
-    // ... (rest of the initial states)
+const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBack, language = 'en-US', onLanguageChange, user, onRegisterLoader }) => {
+    // --- States ---
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [transcripts, setTranscripts] = useState([]);
@@ -131,25 +131,26 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // ... (wake word states)
+    // Wake Word is OFF by default. User must start conversation to enable it (or we can add a toggle)
+    // However, per user request "No background listening without user consent", we default to false.
     const [isWakeWordEnabled, setIsWakeWordEnabled] = useState(false);
     const [isWakeWordListening, setIsWakeWordListening] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [inputMode, setInputMode] = useState('idle'); // 'idle' | 'voice' | 'text'
-    const [selectedImage, setSelectedImage] = useState(null);
+    const [selectedImage, setSelectedImage] = useState(null); // { inlineData: { data: string, mimeType: string } }
     const [imagePreview, setImagePreview] = useState(null);
-    const imagePreviewRef = useRef(null);
+    const imagePreviewRef = useRef(null); // Added to track preview for callbacks
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [isThinking, setIsThinking] = useState(false);
     const [isAISpeaking, setIsAISpeaking] = useState(false);
     const fileInputRef = useRef(null);
 
-    // --- Refs ---
+    // --- Refs for managing session & audio ---
     const sessionRef = useRef(null);
-    const connectingRef = useRef(false);
-    const isMicPausedLocal = useRef(false);
-    const shouldMuteResponseRef = useRef(false);
-    const conversationIdRef = useRef(null);
+    const connectingRef = useRef(false); // New lock ref
+    const isMicPausedLocal = useRef(false); // Pauses mic stream without stopping tracks
+    const shouldMuteResponseRef = useRef(false); // Mutes AI audio if input was text
+    const conversationIdRef = useRef(null); // Persists the current conversation thread ID
     const inputAudioCtxRef = useRef(null);
     const outputAudioCtxRef = useRef(null);
     const streamRef = useRef(null);
@@ -158,6 +159,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const scriptProcessorRef = useRef(null);
     const analyserRef = useRef(null);
 
+    // Transcriptions are built up iteratively
     const currentInputTranscription = useRef('');
     const currentOutputTranscription = useRef('');
     const manualStopRef = useRef(false);
@@ -177,9 +179,11 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         ]);
     }, []);
 
+    // Expose a function to BuddyAssistant so it can load history into the chat view
     useEffect(() => {
         if (onRegisterLoader) {
             onRegisterLoader((messages, convId) => {
+                // messages: [{role: 'user'|'assistant', content: string}]
                 const mapped = messages.map((m) => ({
                     id: Math.random().toString(36).substr(2, 9),
                     type: m.role === 'user' ? 'user' : 'ai',
@@ -205,38 +209,58 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         setIsActive(false);
         setIsConnecting(false);
         connectingRef.current = false;
+
+        // 1. Disconnect audio graph
         if (scriptProcessorRef.current) {
             scriptProcessorRef.current.disconnect();
             scriptProcessorRef.current = null;
         }
+
+        // 2. Stop all MediaStream tracks (RELEASES MIC)
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current.getTracks().forEach((track) => {
+                track.stop();
+                console.log('[Media] Track stopped:', track.label);
+            });
             streamRef.current = null;
         }
+
+        // 3. Stop all playing AI audio
         stopAllAudio();
+
+        // 4. Close Backend Socket
         if (sessionRef.current) {
-            try { sessionRef.current.disconnect(); } catch (e) { }
+            try {
+                sessionRef.current.disconnect();
+                console.log('[Socket] Session disconnected.');
+            } catch (e) { }
             sessionRef.current = null;
         }
     }, [stopAllAudio]);
 
     const connectMicrophone = async () => {
         if (!sessionRef.current || streamRef.current) return;
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
+
             const source = inputAudioCtxRef.current.createMediaStreamSource(stream);
             const analyser = inputAudioCtxRef.current.createAnalyser();
             analyser.fftSize = 256;
             source.connect(analyser);
             analyserRef.current = analyser;
+
             const scriptProcessor = inputAudioCtxRef.current.createScriptProcessor(4096, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
                 if (isMicPausedLocal.current) return;
+
                 const inputData = e.inputBuffer.getChannelData(0);
+                // Volume calc
                 let sum = 0;
                 for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
                 setVolume(Math.sqrt(sum / inputData.length));
+
                 if (sessionRef.current && sessionRef.current.connected) {
                     const int16Buffer = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
@@ -248,6 +272,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputAudioCtxRef.current.destination);
             scriptProcessorRef.current = scriptProcessor;
+
             setInputMode('voice');
             shouldMuteResponseRef.current = false;
         } catch (err) {
@@ -258,31 +283,59 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
     const startAssistant = async (enableMic = true) => {
         if (connectingRef.current) return;
+
         if (isActive && sessionRef.current) {
-            if (enableMic && !streamRef.current) await connectMicrophone();
+            if (enableMic && !streamRef.current) {
+                await connectMicrophone();
+            }
             return;
         }
+
         connectingRef.current = true;
         setIsConnecting(true);
         setError(null);
         if (enableMic) setTranscripts([]);
+        if (!isActive) setTranscripts([]);
+
         manualStopRef.current = false;
+
         try {
-            if (!inputAudioCtxRef.current) inputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-            if (!outputAudioCtxRef.current) outputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            // 1. Setup Audio Contexts
+            if (!inputAudioCtxRef.current) {
+                inputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            }
+            if (!outputAudioCtxRef.current) {
+                outputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            }
+
             await inputAudioCtxRef.current.resume();
             await outputAudioCtxRef.current.resume();
+
             if (enableMic) setIsWakeWordEnabled(true);
+
+            // Connect to Backend Socket.io
             const token = localStorage.getItem('token');
             const backendUrl = config.BACKEND_URL;
-            const socket = io(backendUrl, { auth: { token }, transports: ['websocket'] });
+
+            const socket = io(backendUrl, {
+                auth: { token },
+                transports: ['websocket']
+            });
 
             socket.on('connect', async () => {
+                console.log('[Socket] Connected to Backend');
                 setIsActive(true);
                 setIsConnecting(false);
                 connectingRef.current = false;
-                socket.emit('setup_agent', { language: 'auto' });
-                if (enableMic) await connectMicrophone();
+
+                // Configure the agent with selected language
+                socket.emit('setup_agent', { language });
+
+                if (enableMic) {
+                    await connectMicrophone();
+                }
+
+                setInputMode(prev => prev === 'voice' ? 'voice' : 'text');
                 setIsThinking(false);
                 setIsAISpeaking(false);
             });
@@ -291,6 +344,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 if (outputAudioCtxRef.current && !shouldMuteResponseRef.current) {
                     const ctx = outputAudioCtxRef.current;
                     nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
+
                     const audioBuffer = await decodeAudioData(decode(base64), ctx, 24000, 1);
                     const sourceNode = ctx.createBufferSource();
                     sourceNode.buffer = audioBuffer;
@@ -299,6 +353,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                         sourcesRef.current.delete(sourceNode);
                         if (sourcesRef.current.size === 0) setIsAISpeaking(false);
                     };
+
                     setIsThinking(false);
                     setIsAISpeaking(true);
                     sourceNode.start(nextStartTimeRef.current);
@@ -312,7 +367,16 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 currentOutputTranscription.current += text;
             });
 
+            socket.on('user_caption', (text) => {
+                setIsThinking(false);
+                currentInputTranscription.current = text;
+            });
+
             socket.on('response_done', () => {
+                if (currentInputTranscription.current) {
+                    addTranscript('user', currentInputTranscription.current);
+                    currentInputTranscription.current = '';
+                }
                 if (currentOutputTranscription.current) {
                     addTranscript('ai', currentOutputTranscription.current);
                     currentOutputTranscription.current = '';
@@ -327,15 +391,22 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
             });
 
             socket.on('connect_error', (err) => {
+                console.error('[Socket] Connection error:', err);
                 setError('Failed to connect to assistant service.');
                 setIsConnecting(false);
                 connectingRef.current = false;
                 cleanup();
             });
 
-            socket.on('disconnect', () => cleanup());
+            socket.on('disconnect', () => {
+                console.log('[Socket] Disconnected');
+                cleanup();
+            });
+
             sessionRef.current = socket;
+
         } catch (err) {
+            console.error('Failed to start assistant:', err);
             setError(err.message || 'Failed to start. Check your connection.');
             setIsConnecting(false);
             connectingRef.current = false;
@@ -344,7 +415,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
     const stopAssistant = () => {
         manualStopRef.current = true;
-        setIsWakeWordEnabled(false);
+        setIsWakeWordEnabled(false); // KILL SWITCH: Disable wake word loop
         setIsWakeWordListening(false);
         cleanup();
     };
@@ -352,16 +423,29 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+
         if (!file.type.startsWith('image/')) {
-            setError("Please select a valid image file.");
+            setError("Please select a valid image file (JPG, PNG, WEBP).");
             return;
         }
+
         setIsProcessingImage(true);
         const reader = new FileReader();
         reader.onload = (event) => {
             const base64 = event.target.result.split(',')[1];
-            setSelectedImage({ data: base64, mimeType: file.type });
+            setSelectedImage({
+                data: base64,
+                mimeType: file.type
+            });
             setImagePreview(event.target.result);
+            imagePreviewRef.current = event.target.result;
+            setIsProcessingImage(false);
+
+            // Note: In backend mode, we don't sync the image immediately over socket.
+            // It will be sent with the next text command.
+        };
+        reader.onerror = () => {
+            setError("Failed to read image file.");
             setIsProcessingImage(false);
         };
         reader.readAsDataURL(file);
@@ -370,37 +454,37 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const clearImage = () => {
         setSelectedImage(null);
         setImagePreview(null);
+        imagePreviewRef.current = null;
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleSendText = async () => {
         if (!textInput.trim() && !selectedImage) return;
 
+        shouldMuteResponseRef.current = true;
         const text = textInput;
         const img = selectedImage;
         const preview = imagePreview;
 
         setTextInput('');
         clearImage();
+
         addTranscript('user', text, preview);
         setIsThinking(true);
 
-        // If real-time session is active, send via socket
-        if (sessionRef.current?.connected) {
-            setInputMode('text');
-            shouldMuteResponseRef.current = true; // Mode detection: user typed, so mute voice output
-            sessionRef.current.emit('text_message', text);
-            return;
-        }
-
-        // Fallback to REST API
         try {
-            const response = await voiceService.parseVoice(text, img, 'auto', [], conversationIdRef.current);
+            // Pass the current conversationId to continue the same thread
+            const response = await voiceService.parseVoice(text, img, language, [], conversationIdRef.current);
+
             if (response.success && response.data) {
                 addTranscript('ai', response.data.reply);
-                if (response.meta?.conversationId) conversationIdRef.current = response.meta.conversationId;
+                // Save the conversation ID for the next message
+                if (response.meta?.conversationId) {
+                    conversationIdRef.current = response.meta.conversationId;
+                }
             }
         } catch (err) {
+            console.error("Text interaction failed:", err);
             setError("Failed to send message.");
         } finally {
             setIsThinking(false);
@@ -517,10 +601,39 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 padding: '0 20px',
                 zIndex: 50,
                 position: 'relative',
-                background: 'white',
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
+                background: 'transparent',
             }}>
-                {/* Left: Profile Avatar */}
+                {/* Left side: Back Button (Mobile only) */}
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {isMobile && (
+                        <div
+                            onClick={() => onBack ? onBack() : window.history.back()}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                borderRadius: '20px',
+                                padding: '8px 16px',
+                                cursor: 'pointer',
+                                color: 'white',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+                                transition: 'all 0.2s ease'
+                            }}
+                            title="Go Back"
+                            className="hover-lift"
+                        >
+                            <ArrowLeft size={16} strokeWidth={2.5} />
+                            <span style={{
+                                fontSize: '0.82rem',
+                                fontWeight: '800',
+                                letterSpacing: '0.04em'
+                            }}>BACK</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right side: History button */}
                 <div style={{
                     width: '42px',
                     height: '42px',
@@ -536,31 +649,6 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                     transition: 'all 0.2s ease'
                 }} onClick={() => onToggleHistory?.(true)} title="Conversation History" className="hover-lift">
                     <History size={20} />
-                </div>
-
-                <div
-                    onClick={() => onBack ? onBack() : window.history.back()}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                        borderRadius: '20px',
-                        padding: '8px 16px',
-                        cursor: 'pointer',
-                        color: 'white',
-                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
-                        transition: 'all 0.2s ease'
-                    }}
-                    title="Go Back"
-                    className="hover-lift"
-                >
-                    <ArrowLeft size={16} strokeWidth={2.5} />
-                    <span style={{
-                        fontSize: '0.82rem',
-                        fontWeight: '800',
-                        letterSpacing: '0.04em'
-                    }}>BACK</span>
                 </div>
             </div>
 
@@ -743,7 +831,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
             {/* 3. FLUTTER-STYLE INPUT BAR */}
             <div style={{
-                position: 'fixed',
+                position: 'absolute',
                 bottom: '0',
                 left: '0',
                 right: '0',
@@ -751,7 +839,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 flexDirection: 'column',
                 alignItems: 'center',
                 padding: '16px 18px 20px 18px',
-                background: 'linear-gradient(to top, white 75%, rgba(255,255,255,0))',
+                background: 'linear-gradient(to top, var(--bg-color) 75%, transparent)',
                 zIndex: 100
             }}>
                 <div style={{
@@ -816,34 +904,37 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
                     {/* Suggestions Chips - Premium Minimalist Chips */}
                     {!isActive && quickActions && quickActions.length > 0 && transcripts.length === 0 && (
-                        <div style={{
+                        <div className="quick-actions-scroll" style={{
                             display: 'flex',
                             gap: '12px',
-                            justifyContent: 'flex-start',
+                            justifyContent: isMobile ? 'flex-start' : 'center',
                             overflowX: 'auto',
-                            padding: '4px 12px',
+                            padding: isMobile ? '8px 18px' : '4px 12px',
+                            margin: isMobile ? '0 -18px' : '0',
+                            width: isMobile ? 'calc(100% + 36px)' : '100%',
                             scrollbarWidth: 'none',
                             msOverflowStyle: 'none',
+                            WebkitOverflowScrolling: 'touch',
                         }}>
                             {quickActions.map((cmd, i) => (
                                 <button key={i} onClick={cmd.action} style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
-                                    padding: '12px 20px',
+                                    gap: isMobile ? '8px' : '10px',
+                                    padding: isMobile ? '8px 14px' : '12px 20px',
                                     background: 'rgba(255, 255, 255, 0.85)',
                                     border: '1px solid rgba(0,0,0,0.04)',
-                                    borderRadius: '16px',
+                                    borderRadius: isMobile ? '12px' : '16px',
                                     whiteSpace: 'nowrap',
                                     cursor: 'pointer',
                                     color: '#1e293b',
-                                    fontSize: '0.9rem',
+                                    fontSize: isMobile ? '0.8rem' : '0.9rem',
                                     fontWeight: '700',
                                     boxShadow: '0 4px 15px rgba(0,0,0,0.04)',
                                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                                     flexShrink: 0
                                 }} className="hover-lift">
-                                    <span style={{ color: 'var(--primary-color)', background: 'rgba(99, 102, 241, 0.08)', padding: '6px', borderRadius: '8px', display: 'flex' }}>{cmd.icon}</span>
+                                    <span style={{ color: 'var(--primary-color)', background: 'rgba(99, 102, 241, 0.08)', padding: isMobile ? '4px' : '6px', borderRadius: '8px', display: 'flex', transform: isMobile ? 'scale(0.9)' : 'scale(1)' }}>{cmd.icon}</span>
                                     {cmd.text}
                                 </button>
                             ))}
@@ -854,14 +945,14 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 10px 10px 20px',
-                        background: '#f1f5f9',
-                        border: 'none',
+                        gap: isMobile ? '6px' : '10px',
+                        padding: isMobile ? '6px 6px 6px 16px' : '10px 10px 10px 20px',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        border: '1px solid rgba(0,0,0,0.04)',
                         borderRadius: '100px',
                         width: '100%',
                         boxSizing: 'border-box',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.04)'
                     }}>
                         {/* Hidden file input */}
                         <input
@@ -906,8 +997,8 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                             <button
                                 onClick={textInput.trim() ? handleSendText : (isActive && inputMode === 'voice' ? stopAssistant : () => { })}
                                 style={{
-                                    width: '42px',
-                                    height: '42px',
+                                    width: isMobile ? '36px' : '42px',
+                                    height: isMobile ? '36px' : '42px',
                                     borderRadius: '50%',
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                     border: 'none',

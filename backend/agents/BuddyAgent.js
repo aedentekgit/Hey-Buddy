@@ -91,6 +91,11 @@ class BuddyAgent extends EventEmitter {
             this.socket.emit('user_transcript', text); // Real-time feedback of what user said
         });
 
+        this.ai.on('user_transcript', (text) => {
+            console.log(`[BuddyAgent] 🎙️ User Transcription: ${text}`);
+            this.socket.emit('user_caption', text);
+        });
+
         this.ai.on('response_done', () => {
             console.log(`[BuddyAgent] 🏁 Turn complete`);
             this.socket.emit('response_done');
@@ -98,6 +103,15 @@ class BuddyAgent extends EventEmitter {
 
         this.ai.on('speech_started', () => {
             console.log(`[BuddyAgent] 👄 Speech detected`);
+        });
+
+        this.ai.on('turn_started', () => {
+            this.isInterrupted = false;
+        });
+
+        this.ai.on('interrupted', () => {
+            console.log(`[BuddyAgent] 🛑 Audio generation interrupted by Gemini (User Voice Activity Detected)`);
+            this.interrupt();
         });
 
         this.ai.on('call_tool', async (toolCall) => {
@@ -172,6 +186,12 @@ class BuddyAgent extends EventEmitter {
         this.isInterrupted = true;
         this.ai.cancelResponse();
         this.socket.emit('clear_audio_queue');
+    }
+
+    say(text) {
+        console.log(`[BuddyAgent] 🎙️ AI Injecting Speech: ${text}`);
+        this.isInterrupted = false;
+        this.ai.sendText(text);
     }
 
     cleanup() {

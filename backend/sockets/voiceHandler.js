@@ -1,9 +1,17 @@
 const BuddyAgent = require('../agents/BuddyAgent');
 const jwt = require('jsonwebtoken');
 
+// Map to track active agents per socket
+const activeAgents = new Map();
+
+const findAgentByUserId = (userId) => {
+    for (const agent of activeAgents.values()) {
+        if (agent.userId === userId) return agent;
+    }
+    return null;
+};
+
 const voiceHandler = (io) => {
-    // Map to track active agents per socket
-    const activeAgents = new Map();
 
     io.use((socket, next) => {
         const token = socket.handshake.auth.token;
@@ -20,6 +28,9 @@ const voiceHandler = (io) => {
 
     io.on('connection', (socket) => {
         console.log(`[Socket] 📞 New Voice Session: ${socket.id} (User: ${socket.userId})`);
+
+        // Join a private room for this user to receive targeted notifications
+        socket.join(socket.userId);
 
         socket.on('setup_agent', (config) => {
             const { language = 'en-US' } = config || {};
@@ -66,3 +77,5 @@ const voiceHandler = (io) => {
 };
 
 module.exports = voiceHandler;
+module.exports.activeAgents = activeAgents;
+module.exports.findAgentByUserId = findAgentByUserId;

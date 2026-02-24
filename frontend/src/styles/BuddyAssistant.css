@@ -11,9 +11,7 @@
     color: var(--text-main);
     position: relative;
     /* Essential for absolute child */
-    max-width: 1200px;
-    margin: 0 auto;
-    /* overflow: hidden; Removed to prevent clipping of shadows/glows */
+    width: 100%;
 }
 
 /* Center Interaction Area */

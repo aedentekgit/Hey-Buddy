@@ -324,7 +324,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Center(child: Icon(LucideIcons.mapPin, size: 32, color: Color(0xFF6366F1))),
+                child: Center(child: Icon(LucideIcons.mapPin, size: 32, color: Theme.of(context).primaryColor)),
               ),
               const SizedBox(height: 16),
               Row(
@@ -333,7 +333,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   Expanded(
                     child: Text("Geofence Radius", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                   ),
-                  Text("${geofenceRadius.toInt()}m", style: GoogleFonts.outfit(color: const Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+                  Text("${geofenceRadius.toInt()}m", style: GoogleFonts.outfit(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
                 ],
               ),
               Slider(
@@ -381,7 +381,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[200]!)),
                       child: Row(
                         children: [
-                          CircleAvatar(backgroundColor: const Color(0xFF6366F1), radius: 16, child: Text(c['name']?[0] ?? '?', style: const TextStyle(color: Colors.white, fontSize: 12))),
+                          CircleAvatar(backgroundColor: Theme.of(context).primaryColor, radius: 16, child: Text(c['name']?[0] ?? '?', style: const TextStyle(color: Colors.white, fontSize: 12))),
                           const SizedBox(width: 12),
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(c['name'] ?? '', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)), Text(c['phone'] ?? '', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[500]))])),
                           if (isEditing) IconButton(icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.red), onPressed: () => setState(() => backupContacts.remove(c))),
@@ -414,7 +414,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                     groupValue: escalationTime,
                     title: Text(opt['label'] as String, style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                     subtitle: Text(opt['sub'] as String, style: GoogleFonts.outfit(fontSize: 12)),
-                    activeColor: const Color(0xFF6366F1),
+                    activeColor: Theme.of(context).primaryColor,
                     onChanged: isEditing ? (v) => setState(() => escalationTime = v!) : null,
                   )),
             ],

@@ -7,68 +7,44 @@ import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class ReminderCreateScreen extends StatefulWidget {
-  final Map<String, dynamic>? task;
-  const ReminderCreateScreen({super.key, this.task});
+  const ReminderCreateScreen({super.key});
 
   @override
   State<ReminderCreateScreen> createState() => _ReminderCreateScreenState();
 }
 
 class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
-  late TextEditingController titleController;
-  late TextEditingController dateController;
-  late TextEditingController timeController;
-  late TextEditingController locationController;
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController dateController = TextEditingController(text: DateTime.now().toString().split('T')[0]);
+  final TextEditingController timeController = TextEditingController(text: "10:00");
+  final TextEditingController locationController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    titleController = TextEditingController(text: widget.task?['title'] ?? '');
-    dateController = TextEditingController(text: widget.task?['date']?.toString().split('T')[0] ?? DateTime.now().toString().split('T')[0]);
-    timeController = TextEditingController(text: widget.task?['time'] ?? "10:00");
-    locationController = TextEditingController(text: widget.task?['location'] ?? '');
-  }
-
-  Future<void> _handleSave() async {
+  Future<void> _createReminder() async {
     if (titleController.text.isEmpty) {
       ToastUtils.showErrorToast("Please enter a title");
       return;
     }
 
-    final provider = Provider.of<TasksProvider>(context, listen: false);
-    bool success;
-
-    final data = {
+    final success = await Provider.of<TasksProvider>(context, listen: false).createTask({
       'title': titleController.text,
       'date': dateController.text,
       'time': timeController.text,
       'location': locationController.text,
-    };
-
-    if (widget.task != null) {
-      // Edit Mode
-      success = await provider.updateTask(widget.task!['_id'], data);
-    } else {
-      // Create Mode
-      success = await provider.createTask(data);
-    }
+    });
 
     if (success && mounted) {
-      ToastUtils.showSuccessToast(widget.task != null ? "Reminder updated" : "Reminder created");
+      ToastUtils.showSuccessToast("Reminder created");
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.primaryColor;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          widget.task != null ? "Edit Reminder" : "New Reminder",
+          "New Reminder",
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: Colors.white,
@@ -77,41 +53,38 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
           icon: const Icon(LucideIcons.arrowLeft, color: Color(0xFF1E293B)),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.grey[200], height: 1),
-        ),
+        shape: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildField("Title", titleController, hint: "What do you need to do?", primaryColor: primaryColor),
+            _buildField("Title", titleController, hint: "What do you need to do?"),
             const SizedBox(height: 20),
             Row(
               children: [
-                Expanded(child: _buildField("Date", dateController, icon: LucideIcons.calendar, primaryColor: primaryColor)),
+                Expanded(child: _buildField("Date", dateController, icon: LucideIcons.calendar)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildField("Time", timeController, icon: LucideIcons.clock, primaryColor: primaryColor)),
+                Expanded(child: _buildField("Time", timeController, icon: LucideIcons.clock)),
               ],
             ),
             const SizedBox(height: 20),
-            _buildField("Location", locationController, icon: LucideIcons.mapPin, hint: "Where? (Optional)", primaryColor: primaryColor),
+            _buildField("Location", locationController, icon: LucideIcons.mapPin, hint: "Where? (Optional)"),
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _handleSave,
+                onPressed: _createReminder,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
+                  backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
                 child: Text(
-                  widget.task != null ? "Update Reminder" : "Create Reminder",
+                  "Create Reminder",
                   style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -122,7 +95,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller, {IconData? icon, String? hint, required Color primaryColor}) {
+  Widget _buildField(String label, TextEditingController controller, {IconData? icon, String? hint}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -143,7 +116,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
           style: GoogleFonts.outfit(fontSize: 15),
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: icon != null ? Icon(icon, size: 18, color: primaryColor) : null,
+            prefixIcon: icon != null ? Icon(icon, size: 18, color: Theme.of(context).primaryColor) : null,
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.all(16),
@@ -157,7 +130,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: primaryColor, width: 2),
+              borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
             ),
           ),
         ),

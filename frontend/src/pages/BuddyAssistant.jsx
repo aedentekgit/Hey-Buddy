@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
+import { useSettings } from '../context/SettingsContext';
 import toast from 'react-hot-toast';
 import { requestNotificationPermission, saveTokenToServer } from '../services/notificationService';
 import { TableContainerStyle } from '../styles/tableStyles';
@@ -23,6 +24,7 @@ const BuddyAssistant = () => {
     const navigate = useNavigate();
     const { user, refreshUser } = useAuth();
     const { setPreventProcessing } = useVoiceAssistant() || {};
+    const { settings } = useSettings();
 
     const [parsedReminder, setParsedReminder] = useState(null);
     const [saveDestination, setSaveDestination] = useState('both');
@@ -38,7 +40,13 @@ const BuddyAssistant = () => {
     const chatEndRef = useRef(null);
     const [autoSavedId, setAutoSavedId] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-    const [preferredLanguage, setPreferredLanguage] = useState('auto');
+    const [preferredLanguage, setPreferredLanguage] = useState(settings?.general?.language || 'en-US');
+
+    useEffect(() => {
+        if (settings?.general?.language) {
+            setPreferredLanguage(settings.general.language);
+        }
+    }, [settings?.general?.language]);
 
     // Legacy context states simulation for cards that still use them
     const [conversationHistory, setConversationHistory] = useState([]);

@@ -65,7 +65,7 @@ const MobileHeader = () => {
     return (
         <div className="mobile-header-global" style={{
             padding: isSearchVisible ? '12px 16px 4px 16px' : '12px 16px 0 16px',
-            background: 'var(--header-bg)',
+            background: 'var(--bg-color)',
             backdropFilter: 'blur(10px)',
             WebkitBackdropFilter: 'blur(10px)',
             color: 'var(--text-main)',

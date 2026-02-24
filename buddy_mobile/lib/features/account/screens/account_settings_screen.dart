@@ -604,19 +604,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             icon: LucideIcons.bell,
             title: "Notifications",
             onTap: () => setState(() => _currentView = _SettingsView.notifications),
-            primaryColor: primaryColor,
           ),
           _buildSettingsTile(
             icon: LucideIcons.plug,
             title: "Integrations",
             onTap: () => setState(() => _currentView = _SettingsView.integrations),
-            primaryColor: primaryColor,
           ),
           _buildSettingsTile(
             icon: LucideIcons.lock,
             title: "Privacy & Security",
             onTap: () {}, 
-            primaryColor: primaryColor,
           ),
 
           const SizedBox(height: 28),
@@ -628,13 +625,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             icon: LucideIcons.helpCircle,
             title: "Help Center",
             onTap: () {},
-            primaryColor: primaryColor,
           ),
           _buildSettingsTile(
             icon: LucideIcons.fileText,
             title: "Terms of Service",
             onTap: () {},
-            primaryColor: primaryColor,
           ),
 
           const SizedBox(height: 28),
@@ -689,10 +684,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     required String title,
     required VoidCallback onTap,
     Color? color,
-    Color? primaryColor,
     bool isDestructive = false,
   }) {
-    final themeColor = color ?? primaryColor ?? const Color(0xFF6366F1);
+    final themeColor = color ?? Theme.of(context).primaryColor;
     
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

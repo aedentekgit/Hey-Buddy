@@ -22,7 +22,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getImageUrl } from '../utils/imageUrl';
+import { config as envConfig } from '../config/env';
 
 const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
     const { user, logout } = useAuth();
@@ -108,7 +108,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                         }}>
                             {branding.logo ? (
                                 <img
-                                    src={getImageUrl(branding.logo)}
+                                    src={branding.logo.startsWith('http') ? branding.logo : `${envConfig.BACKEND_URL}${branding.logo}`}
                                     alt="Logo"
                                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                 />
@@ -164,7 +164,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                     left: 20px;
                     top: 20px;
                     bottom: 20px;
-                    background: var(--sidebar-bg);
+                    background: var(--bg-color);
                     border: 1px solid var(--border-color);
                     border-radius: var(--radius-lg);
                     display: flex;
@@ -203,7 +203,6 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                 .logo-icon-box {
                     width: 32px;
                     height: 32px;
-                    background: var(--primary-color);
                     border-radius: var(--radius-sm);
                     display: flex;
                     align-items: center;
@@ -275,14 +274,14 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                 }
 
                 .nav-link:hover {
-                    background: var(--bg-lite);
+                    background: rgba(0, 0, 0, 0.03);
                     color: var(--primary-color);
                 }
                 
                 .nav-link.active {
-                    background: color-mix(in srgb, var(--primary-color) 10%, transparent); 
+                    background: white; 
                     color: var(--primary-color) !important;
-                    box-shadow: none;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
                 }
 
                 .nav-icon-wrapper {

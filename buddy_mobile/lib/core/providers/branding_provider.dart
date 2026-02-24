@@ -9,7 +9,9 @@ class BrandingProvider extends ChangeNotifier {
   bool _hasError = false;
   String? _errorMessage;
   String _appName = AppConfig.appName;
-  Color _primaryColor = const Color(0xFF004D40);
+  Color _primaryColor = AppConfig.primaryColor.startsWith('#') 
+      ? Color(int.parse(AppConfig.primaryColor.replaceAll('#', 'FF'), radix: 16))
+      : const Color(0xFF6366F1); // Indigo default from AppConfig
   String? _logoUrl;
   String? _splashUrl;
 
@@ -33,12 +35,18 @@ class BrandingProvider extends ChangeNotifier {
         final data = result['data'];
         if (data != null) {
           final mobileApp = data['mobileApp'];
+          final appearance = data['appearance'];
+          
           if (mobileApp != null) {
-
             _appName = mobileApp['appName'] ?? AppConfig.appName;
             
-            if (mobileApp['primaryColor'] != null) {
+            // 1. Prioritize Mobile Specific Color
+            if (mobileApp['primaryColor'] != null && mobileApp['primaryColor'].toString().isNotEmpty) {
               _primaryColor = _hexToColor(mobileApp['primaryColor']);
+            } 
+            // 2. Fallback to Global Theme Accent Color
+            else if (appearance != null && appearance['accentColor'] != null) {
+              _primaryColor = _hexToColor(appearance['accentColor']);
             }
             
             if (mobileApp['appLogo'] != null) {
@@ -55,30 +63,41 @@ class BrandingProvider extends ChangeNotifier {
 
             // Update AppConfig for static access where needed
             AppConfig.appName = _appName;
+            AppConfig.primaryColor = '#${_primaryColor.value.toRadixString(16).substring(2)}';
             AppConfig.logoUrl = _logoUrl;
             AppConfig.splashUrl = _splashUrl;
+          } else if (appearance != null && appearance['accentColor'] != null) {
+            // Even if mobileApp config is missing, try to follow global theme
+            _primaryColor = _hexToColor(appearance['accentColor']);
+            AppConfig.primaryColor = '#${_primaryColor.value.toRadixString(16).substring(2)}';
           }
         }
-        // If data is null, we just keep the default values without setting _hasError
       } else {
-        // Log error but don't stop the app from opening unless it's critical
-        debugPrint('[Branding] Failed to fetch: ${result['message']}');
+        _hasError = true;
+        _errorMessage = result['message'] ?? 'Failed to fetch branding settings';
+        debugPrint('[Branding] Failed to fetch: $_errorMessage');
       }
     } catch (e) {
-      debugPrint('[Branding] Unreachable: $e');
-      // We don't set _hasError = true here anymore to allow the app to at least open the login screen
+      _hasError = true;
+      _errorMessage = e.toString();
+      debugPrint('[Branding] Error fetching branding: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   Color _hexToColor(String hex) {
-    hex = hex.replaceAll('#', '');
-    if (hex.length == 6) {
-      hex = 'FF$hex';
+    try {
+      hex = hex.replaceAll('#', '');
+      if (hex.length == 6) {
+        hex = 'FF$hex';
+      }
+      return Color(int.parse(hex, radix: 16));
+    } catch (e) {
+      debugPrint('[Branding] Hex color parsing failed for "$hex": $e');
+      return const Color(0xFF6366F1); // Return default indigo on error
     }
-    return Color(int.parse(hex, radix: 16));
   }
 
   ThemeData get themeData => ThemeData(
@@ -107,45 +126,39 @@ class BrandingProvider extends ChangeNotifier {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: _primaryColor.withOpacity(0.05),
-        foregroundColor: _primaryColor,
-        elevation: 0,
-        side: BorderSide(color: _primaryColor.withOpacity(0.2), width: 1.2),
-        minimumSize: const Size(double.infinity, 46),
+        backgroundColor: _primaryColor, // Changed from ghostly to solid primary
+        foregroundColor: Colors.white,   // Better contrast for theme color
+        elevation: 2,
+        minimumSize: const Size(double.infinity, 48),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
         ),
         textStyle: GoogleFonts.outfit(
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        backgroundColor: const Color(0xFFF1F5F9),
-        foregroundColor: const Color(0xFF64748B),
-        elevation: 0,
-        side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
-        minimumSize: const Size(double.infinity, 46),
+        foregroundColor: _primaryColor,
+        side: BorderSide(color: _primaryColor, width: 1.2),
+        minimumSize: const Size(double.infinity, 48),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
         ),
         textStyle: GoogleFonts.outfit(
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
       ),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return Colors.white;
-        return Colors.white;
-      }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) return _primaryColor;
-        return const Color(0xFF94A3B8); // Distinct ash gray
+        return const Color(0xFFE2E8F0);
       }),
+      thumbColor: WidgetStateProperty.all(Colors.white),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
     ),
     dropdownMenuTheme: DropdownMenuThemeData(

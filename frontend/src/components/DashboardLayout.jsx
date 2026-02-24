@@ -20,8 +20,8 @@ const DashboardLayout = ({ children }) => {
     });
     const location = useLocation();
 
-    const isBuddyPage = location.pathname === '/admin/buddy';
-    const isMorePage = location.pathname === '/admin/more';
+    const isBuddyPage = location.pathname.includes('/admin/buddy');
+    const isMorePage = location.pathname.includes('/admin/more');
 
     const getPageTitle = (path) => {
         if (path.includes('/admin/dashboard')) return 'Overview';
@@ -110,29 +110,35 @@ const DashboardLayout = ({ children }) => {
                 isCollapsed={isCollapsed}
             />
 
-            <div
-                className="main-content"
-                style={{
-                    marginLeft: window.innerWidth >= 1024 ? (isCollapsed ? '100px' : '280px') : '0',
-                    paddingRight: window.innerWidth >= 1024 ? '20px' : '0'
-                }}
-            >
-                {/* Mobile Header - Global */}
-                {!isBuddyPage && <MobileHeader />}
-
-                {!isBuddyPage && !isMorePage && (
-                    <Header
-                        onMenuClick={toggleSidebar}
-                        title={title}
-                        hideSearch={isBuddyPage}
-                    />
-                )}
-                <main
-                    className={`content-container ${isBuddyPage ? 'buddy-content-override' : ''}`}
-                >
+            {isBuddyPage ? (
+                <div style={{ flex: 1, minHeight: '100vh', position: 'relative' }}>
                     {children}
-                </main>
-            </div>
+                </div>
+            ) : (
+                <div
+                    className="main-content"
+                    style={{
+                        marginLeft: window.innerWidth >= 1024 ? (isCollapsed ? '100px' : '280px') : '0',
+                        paddingRight: window.innerWidth >= 1024 ? '20px' : '0'
+                    }}
+                >
+                    {/* Mobile Header - Global */}
+                    {!isBuddyPage && <MobileHeader />}
+
+                    {!isBuddyPage && !isMorePage && (
+                        <Header
+                            onMenuClick={toggleSidebar}
+                            title={title}
+                            hideSearch={isBuddyPage}
+                        />
+                    )}
+                    <main
+                        className={`content-container ${isBuddyPage ? 'buddy-content-override' : ''}`}
+                    >
+                        {children}
+                    </main>
+                </div>
+            )}
 
             {!isBuddyPage && <MobileNavbar />}
             {!isBuddyPage && <FloatingVoiceIndicator />}
@@ -155,28 +161,8 @@ const DashboardLayout = ({ children }) => {
                         }
                     }
 
-                    ${isBuddyPage ? `
-                    /* Buddy Page Specific Styles injected dynamically */
-                    .buddy-content-override {
-                        padding: 0 !important;
-                        max-width: 100% !important;
-                        overflow: hidden !important;
-                        height: calc(100vh - 20px) !important;
-                    }
-
-                    @media (max-width: 768px) {
-                        .buddy-content-override {
-                            height: 100vh !important;
-                            padding: 0 !important;
-                        }
-                        .main-content {
-                            padding-bottom: 0 !important;
-                            margin-left: 0 !important;
-                        }
-                    }
-                    ` : ''}
-
-                    ${isMorePage ? `
+                    
+                ${isMorePage ? `
                     .content-container {
                         padding: 0 !important;
                         max-width: 100% !important;

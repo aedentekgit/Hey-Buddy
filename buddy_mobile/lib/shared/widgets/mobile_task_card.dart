@@ -152,20 +152,20 @@ class MobileTaskCard extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF6366F1).withOpacity(0.1),
+                                color: primaryColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
+                                border: Border.all(color: primaryColor.withOpacity(0.2)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(LucideIcons.shieldAlert, size: 10, color: Color(0xFF6366F1)),
+                                  Icon(LucideIcons.shieldAlert, size: 10, color: primaryColor),
                                   const SizedBox(width: 4),
                                   Text(
                                     "PROACTIVE",
                                     style: GoogleFonts.outfit(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF6366F1),
+                                      color: primaryColor,
                                       letterSpacing: 0.5,
                                     ),
                                   ),

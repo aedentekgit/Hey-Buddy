@@ -1,19 +1,23 @@
 const cron = require('node-cron');
 const Reminder = require('../models/Reminder');
+const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { sendPushNotification } = require('./notificationService');
+const { findAgentByUserId } = require('../sockets/voiceHandler');
 
-const startReminderWorker = () => {
+const startReminderWorker = (io) => {
     // Run every minute
     cron.schedule('* * * * *', async () => {
         try {
-            console.log('Checking reminders (Timezone Aware)...');
+            console.log('--- [Reminder Worker] Checking Reminders ---');
 
             // Find all pending reminders that haven't been notified
             const pendingReminders = await Reminder.find({
                 status: 'pending',
                 notified: false
             }).populate('userId');
+
+            if (pendingReminders.length === 0) return;
 
             for (const reminder of pendingReminders) {
                 const user = reminder.userId;
@@ -36,7 +40,10 @@ const startReminderWorker = () => {
 
                 // Parse Reminder Date (YYYY-MM-DD)
                 if (!reminder.date) continue;
-                const [rYear, rMonth, rDay] = reminder.date.split('-').map(Number);
+                const dateParts = reminder.date.split('-');
+                if (dateParts.length !== 3) continue;
+                const [rYear, rMonth, rDay] = dateParts.map(Number);
+                const rMonthAdjusted = rMonth - 1;
 
                 // Parse Reminder Time
                 let rHour, rMin;
@@ -58,44 +65,60 @@ const startReminderWorker = () => {
                 const reminderTargetMinutes = (rHour * 60) + rMin;
 
                 // Check if Date matches
-                const isToday = (rYear === userYear && rMonth === userMonth && rDay === userDay);
+                const isToday = (rYear === userYear && rMonthAdjusted === userMonth && rDay === userDay);
                 const isPastDueCurrentDay = isToday && (reminderTargetMinutes <= userNowMinutes);
-                const isOverduePastDay = (rYear < userYear) || (rYear === userYear && rMonth < userMonth) || (rYear === userYear && rMonth === userMonth && rDay < userDay);
+                const isOverduePastDay = (rYear < userYear) || (rYear === userYear && rMonthAdjusted < userMonth) || (rYear === userYear && rMonthAdjusted === userMonth && rDay < userDay);
 
                 if (isPastDueCurrentDay || isOverduePastDay) {
-                    // Check if this reminder has push alerts enabled
-                    if (reminder.alerts && !reminder.alerts.push) {
-                        console.log(`[Worker] Skipping "${reminder.title}" - push disabled.`);
-                        reminder.notified = true;
-                        await reminder.save();
-                        continue;
+                    console.log(`[Worker] TRIGGERED: "${reminder.title}" for ${user.name}`);
+
+                    // 1. Create Internal Notification (for Bell Icon)
+                    const notification = await Notification.create({
+                        userId: user._id,
+                        title: `Reminder: ${reminder.intent ? reminder.intent.toUpperCase() : 'ALERT'}`,
+                        message: reminder.title,
+                        type: 'reminder',
+                        relatedId: reminder._id,
+                        onModel: 'Reminder',
+                        actionUrl: '/admin/reminders'
+                    });
+
+                    // 2. Clear real-time update to Frontend Bell Icon
+                    if (io) {
+                        io.to(user._id.toString()).emit('notification', notification);
+                        console.log(`[Worker] Emitted real-time notification to user: ${user._id}`);
                     }
 
-                    if (user.fcmTokens && user.fcmTokens.length > 0) {
-                        console.log(`[Worker] Sending: "${reminder.title}" to ${user.name} (${userTimezone})`);
-
-                        const notificationPromises = user.fcmTokens.map(token =>
-                            sendPushNotification(
-                                token,
-                                `Buddy Reminder: ${reminder.intent ? reminder.intent.toUpperCase() : 'ALERT'}`,
-                                reminder.title,
-                                {
-                                    reminderId: reminder._id.toString(),
-                                    type: 'reminder_alert',
-                                    intent: reminder.intent || 'generic'
-                                }
-                            ).catch(err => console.error(`[Worker] Push failed for ${user.name}:`, err.message))
-                        );
-
-                        await Promise.all(notificationPromises);
-                    } else {
-                        console.warn(`[Worker] User ${user.name} has no FCM tokens registered.`);
+                    // 3. Trigger AI Assistant Voice Reminder (if session active)
+                    const activeAgent = findAgentByUserId(user._id.toString());
+                    if (activeAgent) {
+                        const voiceMessage = `Pardon the interruption, but I have a reminder for you: ${reminder.title}.`;
+                        activeAgent.say(voiceMessage);
+                        console.log(`[Worker] Triggered AI Voice-over for session: ${activeAgent.socket.id}`);
                     }
 
-                    // Mark as notified to ensure it's only sent once
+                    // 4. Send Push Notifications (Firebase)
+                    if (reminder.alerts?.push !== false) {
+                        if (user.fcmTokens && user.fcmTokens.length > 0) {
+                            const notificationPromises = user.fcmTokens.map(token =>
+                                sendPushNotification(
+                                    token,
+                                    notification.title,
+                                    notification.message,
+                                    {
+                                        reminderId: reminder._id.toString(),
+                                        type: 'reminder_alert',
+                                        notificationId: notification._id.toString()
+                                    }
+                                ).catch(err => console.error(`[Worker] Push fail:`, err.message))
+                            );
+                            await Promise.all(notificationPromises);
+                        }
+                    }
+
+                    // Mark as notified
                     reminder.notified = true;
                     await reminder.save();
-                    console.log(`[Worker] Done: "${reminder.title}"`);
                 }
             }
         } catch (error) {
