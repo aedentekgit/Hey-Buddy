@@ -7,7 +7,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import {
     Settings, Mail, MessageSquare, CreditCard, Share2, Palette, Save, Plus, Trash2, Send, Upload, ChevronRight, Globe,
     Facebook, Instagram, Twitter, Linkedin, Youtube, ExternalLink, RefreshCw, CheckCircle2, ShieldCheck, Zap, Eye, EyeOff, Lock, ChevronDown, Bell, Database, Calendar, Link2,
-    Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image
+    Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image, MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -91,6 +91,10 @@ const AdminSettings = () => {
             iosClientId: '',
             enabled: false
         },
+        googleMaps: {
+            apiKey: '',
+            enabled: false
+        },
         mobileApp: { appName: '', appLogo: '', splashIcon: '', androidPackageName: '', iosBundleId: '', appVersion: '1.0.0', primaryColor: '#0075ff', secondaryColor: '#ffffff', supportEmail: '', supportPhone: '' }
     });
 
@@ -137,6 +141,7 @@ const AdminSettings = () => {
                         ai: { ...settings.ai, ...(data.ai || {}) },
                         googleCalendar: { ...settings.googleCalendar, ...(data.googleCalendar || {}) },
                         googleAuth: { ...settings.googleAuth, ...(data.googleAuth || {}) },
+                        googleMaps: { ...settings.googleMaps, ...(data.googleMaps || {}) },
                         paymentGateways: settings.paymentGateways.map(dg => {
                             const eg = (data.paymentGateways || []).find(g => g.name === dg.name);
                             return eg ? { ...dg, ...eg } : dg;
@@ -364,6 +369,7 @@ const AdminSettings = () => {
         { id: 'social', label: 'Social', icon: Share2, color: 'var(--primary-color)' },
         { id: 'appearance', label: 'Appearance', icon: Palette, color: 'var(--primary-color)' },
         { id: 'ai', label: 'AI Engine', icon: Zap, color: 'var(--primary-color)' },
+        { id: 'googleMaps', label: 'Google Maps', icon: MapPin, color: 'var(--primary-color)' },
         { id: 'integrations', label: 'Integrations', icon: Link2, color: 'var(--primary-color)' },
         { id: 'auth', label: 'Authentication', icon: ShieldCheck, color: 'var(--primary-color)' },
         { id: 'mobile', label: 'Mobile App', icon: Smartphone, color: 'var(--primary-color)' }
@@ -1348,7 +1354,13 @@ const AdminSettings = () => {
                             )}
 
                             {activeTab === 'integrations' && (
-                                <GoogleCalendarSettings settings={settings} setSettings={setSettings} user={user} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                    <GoogleCalendarSettings settings={settings} setSettings={setSettings} user={user} />
+                                </div>
+                            )}
+
+                            {activeTab === 'googleMaps' && (
+                                <GoogleMapsSettings settings={settings} setSettings={setSettings} />
                             )}
 
                             {activeTab === 'auth' && (
@@ -2017,6 +2029,74 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
 };
 
 
+
+const GoogleMapsSettings = ({ settings, setSettings }) => {
+    return (
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <SectionTitle label="Google Maps Setup" icon={MapPin} color="#34A853" />
+            <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginBottom: '2rem' }}>
+                Configure your Google Maps API key to enable location-based reminders and live distance calculations.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <label style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>API Key</label>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: settings?.googleMaps?.enabled ? 'color-mix(in srgb, var(--success-color) 15%, transparent)' : 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            border: `1px solid ${settings?.googleMaps?.enabled ? 'color-mix(in srgb, var(--success-color) 30%, transparent)' : 'color-mix(in srgb, var(--text-sub) 20%, transparent)'}`,
+                            cursor: 'pointer'
+                        }} onClick={() => setSettings(prev => ({ ...prev, googleMaps: { ...prev.googleMaps, enabled: !prev.googleMaps?.enabled } }))}>
+                            <div style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: settings?.googleMaps?.enabled ? 'var(--success-color)' : 'var(--text-sub)'
+                            }} />
+                            <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                color: settings?.googleMaps?.enabled ? 'var(--success-color)' : 'var(--text-sub)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                            }}>
+                                {settings?.googleMaps?.enabled ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                    </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '16px' }}>Provide the API key to activate Google Maps services.</p>
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type="password"
+                            value={settings?.googleMaps?.apiKey || ''}
+                            onChange={(e) => setSettings(prev => ({ ...prev, googleMaps: { ...prev.googleMaps, apiKey: e.target.value } }))}
+                            placeholder="AIzaSy..."
+                            style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                paddingRight: '40px',
+                                background: 'var(--bg-lite)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '12px',
+                                color: 'var(--text-main)',
+                                fontSize: '0.9rem',
+                                outline: 'none',
+                                fontFamily: 'monospace'
+                            }}
+                        />
+                        <Lock size={16} color="var(--text-sub)" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    );
+};
 
 const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
     const [subTab, setSubTab] = useState('accounts');

@@ -61,17 +61,17 @@ class GeminiLiveService extends EventEmitter {
         const setupMessage = {
             setup: {
                 model: this.model,
-                generation_config: {
-                    response_modalities: ["AUDIO"],
-                    speech_config: {
-                        voice_config: {
-                            prebuilt_voice_config: {
-                                voice_name: this.voiceOverride || "Aoede"
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: {
+                                voiceName: this.voiceOverride || "Aoede"
                             }
                         }
                     }
                 },
-                system_instruction: {
+                systemInstruction: {
                     parts: [{ text: systemInstruction }]
                 }
             }
@@ -134,11 +134,11 @@ class GeminiLiveService extends EventEmitter {
     sendAudio(base64Chunk) {
         if (!this.isConnected) return;
         const message = {
-            realtime_input: {
-                media_chunks: [
+            realtimeInput: {
+                mediaChunks: [
                     {
                         data: base64Chunk,
-                        mime_type: "audio/pcm"
+                        mimeType: "audio/pcm"
                     }
                 ]
             }
@@ -149,14 +149,14 @@ class GeminiLiveService extends EventEmitter {
     sendText(text) {
         if (!this.isConnected) return;
         const message = {
-            client_content: {
+            clientContent: {
                 turns: [
                     {
                         role: "user",
                         parts: [{ text: text }]
                     }
                 ],
-                turn_complete: true
+                turnComplete: true
             }
         };
         this.ws.send(JSON.stringify(message));
@@ -165,8 +165,8 @@ class GeminiLiveService extends EventEmitter {
     sendToolResponse(functionResponses) {
         if (!this.isConnected) return;
         const message = {
-            tool_response: {
-                function_responses: functionResponses
+            toolResponse: {
+                functionResponses: functionResponses
             }
         };
         this.ws.send(JSON.stringify(message));

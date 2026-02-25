@@ -14,6 +14,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 
 class BuddyAssistantPage extends StatefulWidget {
   const BuddyAssistantPage({super.key});
@@ -38,9 +39,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   void initState() {
     super.initState();
     _initSpeech();
-    _initTts();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<BuddyProvider>(context, listen: false).fetchHistory();
+      _initTts();
     });
   }
 
@@ -65,9 +66,17 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   Future<void> _initTts() async {
     try {
       await _flutterTts.setLanguage(_selectedLanguage);
-      await _flutterTts.setSpeechRate(0.5);
+      
+      // Use pre-resolved voice configurations from backend payload
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final resolvedConfig = userProvider.user['resolvedVoiceConfig'] as Map<String, dynamic>? ?? {};
+      
+      double pitch = (resolvedConfig['pitch'] as num?)?.toDouble() ?? 1.0;
+      double speechRate = (resolvedConfig['speechRate'] as num?)?.toDouble() ?? 0.5;
+
+      await _flutterTts.setSpeechRate(speechRate);
       await _flutterTts.setVolume(1.0);
-      await _flutterTts.setPitch(1.0);
+      await _flutterTts.setPitch(pitch);
     } catch (e) {
       if (kDebugMode) print('Error initializing TTS: $e');
     }

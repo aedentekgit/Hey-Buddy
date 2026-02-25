@@ -204,7 +204,26 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                             onMouseLeave={e => !showNotifications && (e.target.style.color = 'var(--text-sub)')}
                         />
                         {unreadCount > 0 && (
-                            <span style={{ position: 'absolute', top: '-2px', right: '-2px', width: '8px', height: '8px', background: 'var(--primary-color)', borderRadius: '50%', border: '2px solid var(--bg-color)', boxShadow: '0 0 10px rgba(var(--primary-rgb), 0.5)' }} />
+                            <span style={{
+                                position: 'absolute',
+                                top: '-6px',
+                                right: '-6px',
+                                background: 'var(--primary-color)',
+                                color: 'white',
+                                fontSize: '0.65rem',
+                                fontWeight: 'bold',
+                                padding: '0 4px',
+                                minWidth: '16px',
+                                height: '16px',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '2px solid var(--bg-color)',
+                                boxShadow: '0 0 10px rgba(var(--primary-rgb), 0.5)'
+                            }}>
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
                         )}
 
                         <AnimatePresence>

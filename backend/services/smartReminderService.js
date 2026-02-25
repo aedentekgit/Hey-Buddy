@@ -2,6 +2,7 @@ const Reminder = require('../models/Reminder');
 const User = require('../models/User');
 const { sendPushNotification } = require('./notificationService');
 const Notification = require('../models/Notification');
+const Settings = require('../models/Settings');
 const axios = require('axios');
 
 /**
@@ -36,13 +37,77 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 /**
+ * Geocode an address string to coordinates
+ * @param {string} address - Address or location name
+ * @returns {Promise<object|null>} {lat, lng} or null
+ */
+async function geocodeAddress(address) {
+    if (!address) return null;
+
+    let apiKey = GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+        const settings = await Settings.findOne();
+        console.log('[Geocode] Checking settings for API key...');
+        if (settings?.googleMaps?.apiKey) {
+            apiKey = settings.googleMaps.apiKey;
+            console.log('[Geocode] Using API key from settings.');
+
+            // Log warning if not enabled but we have a key
+            if (!settings.googleMaps.enabled) {
+                console.warn('[Geocode] Warning: Google Maps is not explicitly enabled in settings, but an API key was found. Proceeding with geocoding.');
+            }
+        } else {
+            console.error('[Geocode] No Google Maps API key found in .env or settings.');
+        }
+    }
+
+    if (!apiKey) return null;
+
+    try {
+        const url = `https://maps.googleapis.com/maps/api/geocode/json`;
+        console.log(`[Geocode] Requesting: ${address}`);
+        const response = await axios.get(url, {
+            params: {
+                address: address,
+                key: apiKey
+            }
+        });
+
+        if (response.data.status === 'OK' && response.data.results.length > 0) {
+            const loc = response.data.results[0].geometry.location;
+            console.log(`[Geocode] Success: ${loc.lat}, ${loc.lng}`);
+            return loc;
+        } else {
+            console.warn(`[Geocode] Google API returned status: ${response.data.status}`);
+            if (response.data.error_message) {
+                console.error(`[Geocode] Error Message: ${response.data.error_message}`);
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('[Geocode] Axios Error:', error.message);
+        return null;
+    }
+}
+
+/**
  * Get traffic-aware travel time from Google Maps Distance Matrix API
  * @param {object} origin - {lat, lng}
  * @param {object} destination - {lat, lng}
  * @returns {Promise<object>} {duration: seconds, durationInTraffic: seconds, distance: meters}
  */
 async function getTrafficAwareTravelTime(origin, destination) {
-    if (!GOOGLE_MAPS_API_KEY) {
+    let apiKey = GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+        const settings = await Settings.findOne();
+        if (settings?.googleMaps?.enabled && settings?.googleMaps?.apiKey) {
+            apiKey = settings.googleMaps.apiKey;
+        }
+    }
+
+    if (!apiKey) {
         console.warn('Google Maps API key not configured. Using fallback calculation.');
         // Fallback: estimate based on distance (assuming 40 km/h average speed)
         const distance = calculateDistance(origin.lat, origin.lng, destination.lat, destination.lng);
@@ -62,7 +127,7 @@ async function getTrafficAwareTravelTime(origin, destination) {
                 destinations: `${destination.lat},${destination.lng}`,
                 departure_time: 'now',
                 traffic_model: 'best_guess',
-                key: GOOGLE_MAPS_API_KEY
+                key: apiKey
             }
         });
 
@@ -298,20 +363,27 @@ async function adjustReminderTimesForTraffic() {
 /**
  * Item Exit Guards
  * Reminds users about items they need to bring when leaving a location
+ * @param {string} specificUserId - Optional userId to check only for one user
  */
-async function checkItemExitGuards() {
+async function checkItemExitGuards(specificUserId = null) {
     try {
-        // Find reminders with item exit guards enabled
-        const reminders = await Reminder.find({
+        const query = {
             'smartFeatures.itemExitGuards': true,
             status: 'pending',
             location: { $ne: null },
             'coordinates.lat': { $exists: true },
             'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation previousLocation');
+        };
+
+        if (specificUserId) {
+            query.userId = specificUserId;
+        }
+
+        const reminders = await Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation');
 
         for (const reminder of reminders) {
             const user = reminder.userId;
+            if (!user) continue;
 
             // Check if user has location data
             if (!user.currentLocation?.lat || !user.previousLocation?.lat) {
@@ -326,21 +398,32 @@ async function checkItemExitGuards() {
                 reminder.coordinates.lng
             );
 
-            const previousDistanceFromReminder = calculateDistance(
+            const previousDistanceFromReminder = user.previousLocation?.lat ? calculateDistance(
                 user.previousLocation.lat,
                 user.previousLocation.lng,
                 reminder.coordinates.lat,
                 reminder.coordinates.lng
-            );
+            ) : null;
 
-            // User was near the location and is now moving away
-            const wasNearby = previousDistanceFromReminder <= (reminder.geofenceRadius || 500);
-            const isLeavingArea = distanceFromReminder > previousDistanceFromReminder;
-            const isNowFarAway = distanceFromReminder > (reminder.geofenceRadius || 500);
+            // Check if already notified specifically for this exit event
+            const alreadyNotifiedExit = reminder.timeline?.some(t => t.action === 'Exit Guard Alert');
 
-            if (wasNearby && isLeavingArea && isNowFarAway) {
-                const message = `📦 Don't forget: "${reminder.title}" - Make sure you have everything you need!`;
+            const radius = reminder.geofenceRadius || 500;
+            const isNowFarAway = distanceFromReminder > radius;
 
+            // Logic A: Standard Exit (Was nearby, now moved away)
+            const wasNearby = previousDistanceFromReminder !== null && previousDistanceFromReminder <= radius;
+            const isMovingAway = previousDistanceFromReminder !== null && distanceFromReminder > previousDistanceFromReminder;
+            const standardExit = wasNearby && isMovingAway && isNowFarAway;
+
+            // Logic B: Immediate Alert (If turned on while already outside and never notified)
+            const immediateAlertNeeded = isNowFarAway && !alreadyNotifiedExit;
+
+            if (standardExit || immediateAlertNeeded) {
+                const notesPart = reminder.notes ? `\nNote: ${reminder.notes}` : '';
+                const message = `📦 Don't forget: "${reminder.title}" - Make sure you have everything you need!${notesPart}`;
+
+                // 1. Create Internal Notification
                 await Notification.create({
                     userId: user._id,
                     title: '📦 Item Exit Guard',
@@ -351,6 +434,18 @@ async function checkItemExitGuards() {
                     actionUrl: '/admin/reminders'
                 });
 
+                // 2. Add to Reminder Timeline to prevent double-alerting
+                await Reminder.findByIdAndUpdate(reminder._id, {
+                    $push: {
+                        timeline: {
+                            action: 'Exit Guard Alert',
+                            timestamp: new Date(),
+                            icon: 'zap'
+                        }
+                    }
+                });
+
+                // 3. Send Push Notification
                 if (user.fcmTokens && user.fcmTokens.length > 0) {
                     const pushPromises = user.fcmTokens.map(token =>
                         sendPushNotification(token, '📦 Item Exit Guard', message, {
@@ -361,7 +456,7 @@ async function checkItemExitGuards() {
                     await Promise.all(pushPromises);
                 }
 
-                console.log(`Exit guard triggered for reminder: ${reminder.title}`);
+                console.log(`Exit guard triggered for user ${user.email} (Type: ${immediateAlertNeeded ? 'Immediate' : 'Standard'})`);
             }
         }
     } catch (error) {
@@ -389,5 +484,6 @@ module.exports = {
     adjustReminderTimesForTraffic,
     checkItemExitGuards,
     getTrafficAwareTravelTime,
+    geocodeAddress,
     calculateDistance
 };

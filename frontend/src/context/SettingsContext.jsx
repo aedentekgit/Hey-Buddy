@@ -11,6 +11,12 @@ export const SettingsProvider = ({ children }) => {
     const [publicSettings, setPublicSettings] = useState(null);
 
     const fetchSettings = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setLoading(false);
+            return;
+        }
+
         try {
             const res = await api.get('/settings');
             if (res.data.success) {
@@ -18,8 +24,7 @@ export const SettingsProvider = ({ children }) => {
                 updateDocumentBranding(res.data.data);
             }
         } catch (error) {
-            // If not logged in, we expect this to fail.
-            // We should have fetched public settings anyway.
+            // Error handled by intereptor if token expires
         } finally {
             setLoading(false);
         }

@@ -3,6 +3,7 @@ const paginate = require('../utils/paginate');
 const fs = require('fs');
 const path = require('path');
 const { uploadFileToFirebase } = require('../services/fileService');
+const { checkItemExitGuards } = require('../services/smartReminderService');
 
 // Get all users
 const getUsers = async (req, res) => {
@@ -16,10 +17,20 @@ const getUsers = async (req, res) => {
             }
         }
         const results = await paginate(User, query, req.query);
-        // Remove passwords from results
+        // Remove passwords and add resolved properties
         results.data = results.data.map(u => {
             const user = u.toObject();
             delete user.password;
+
+            // Resolve voice configuration
+            const prefs = user.voicePreferences || { gender: 'female', tone: 'soft' };
+            let pitch = 1.0;
+            let speechRate = 0.5;
+            if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+            if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
+            else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+            user.resolvedVoiceConfig = { pitch, speechRate };
+
             return user;
         });
         res.json({ success: true, ...results });
@@ -39,6 +50,15 @@ const createUser = async (req, res) => {
         const user = await User.create({ name, email, password, phone, role });
         const userResponse = user.toObject();
         delete userResponse.password;
+
+        const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
+        let pitch = 1.0;
+        let speechRate = 0.5;
+        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
+        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+        userResponse.resolvedVoiceConfig = { pitch, speechRate };
+
         res.status(201).json({ success: true, data: userResponse });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -84,6 +104,15 @@ const updateUser = async (req, res) => {
         await user.save();
         const userResponse = user.toObject();
         delete userResponse.password;
+
+        const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
+        let pitch = 1.0;
+        let speechRate = 0.5;
+        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
+        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+        userResponse.resolvedVoiceConfig = { pitch, speechRate };
+
         res.json({ success: true, data: userResponse });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -173,6 +202,14 @@ const updateProfile = async (req, res) => {
         const userResponse = user.toObject();
         delete userResponse.password;
 
+        const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
+        let pitch = 1.0;
+        let speechRate = 0.5;
+        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
+        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+        userResponse.resolvedVoiceConfig = { pitch, speechRate };
+
         console.log('[UserController] Profile updated successfully for:', user.email);
         res.json({
             success: true,
@@ -252,6 +289,9 @@ const updateLocation = async (req, res) => {
         };
 
         await user.save();
+
+        // Trigger smart checks immediately (non-blocking) for this specific user
+        checkItemExitGuards(req.user._id).catch(err => console.error('Immediate exit guard check failed:', err));
 
         res.json({ success: true, message: 'Location updated successfully' });
     } catch (error) {

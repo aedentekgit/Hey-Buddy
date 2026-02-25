@@ -29,6 +29,13 @@ const login = async (req, res) => {
                 }
             }
 
+            const prefs = user.voicePreferences || { gender: 'female', tone: 'soft' };
+            let pitch = 1.0;
+            let speechRate = 0.5;
+            if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+            if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
+            else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+
             res.json({
                 success: true,
                 data: {
@@ -37,6 +44,8 @@ const login = async (req, res) => {
                     name: user.name,
                     role: user.role,
                     profilePicture: user.profilePicture,
+                    voicePreferences: user.voicePreferences,
+                    resolvedVoiceConfig: { pitch, speechRate },
                     permissions: role ? role.permissions : [],
                     allowedPages: role ? role.allowedPages : [],
                     webAccess: role ? role.webAccess : true,
@@ -123,6 +132,13 @@ const googleLogin = async (req, res) => {
             }
         }
 
+        const prefs = user.voicePreferences || { gender: 'female', tone: 'soft' };
+        let pitch = 1.0;
+        let speechRate = 0.5;
+        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
+        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+
         res.json({
             success: true,
             data: {
@@ -131,6 +147,8 @@ const googleLogin = async (req, res) => {
                 name: user.name,
                 role: user.role,
                 profilePicture: user.profilePicture,
+                voicePreferences: user.voicePreferences,
+                resolvedVoiceConfig: { pitch, speechRate },
                 permissions: role ? role.permissions : [],
                 allowedPages: role ? role.allowedPages : [],
                 webAccess: role ? role.webAccess : true,
@@ -193,6 +211,14 @@ const getMe = async (req, res) => {
         const userData = user.toObject();
         userData.permissions = role ? role.permissions : [];
         userData.allowedPages = role ? role.allowedPages : [];
+
+        const prefs = userData.voicePreferences || { gender: 'female', tone: 'soft' };
+        let pitch = 1.0;
+        let speechRate = 0.5;
+        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
+        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+        userData.resolvedVoiceConfig = { pitch, speechRate };
 
         res.json({ success: true, data: userData });
     } catch (error) {

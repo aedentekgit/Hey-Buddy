@@ -79,7 +79,11 @@ const Login = () => {
             toast.success('Welcome back!');
             navigate('/admin/dashboard');
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Invalid credentials');
+            if (!error.response) {
+                toast.error('Cannot connect to the server. Please try again later.');
+            } else {
+                toast.error(error.response?.data?.message || 'Invalid credentials');
+            }
         } finally {
             setLoading(false);
         }
@@ -433,7 +437,7 @@ const Login = () => {
 
                 .toggle-item.active {
                     background: var(--card-bg);
-                    color: #1e293b;
+                    color: var(--text-main);
                     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
                 }
 

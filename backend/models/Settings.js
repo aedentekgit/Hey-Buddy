@@ -169,6 +169,10 @@ const settingsSchema = new mongoose.Schema({
             }
         }
     },
+    googleMaps: {
+        apiKey: String,
+        enabled: { type: Boolean, default: false }
+    },
     appearance: {
         themeMode: { type: String, default: 'night' },
         accentColor: { type: String, default: '#0075ff' }

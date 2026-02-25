@@ -1,6 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Reminder = require('../models/Reminder');
 const Memory = require('../models/Memory');
+const { geocodeAddress } = require('./smartReminderService');
 
 // Configuration
 const apiKey = process.env.GEMINI_API_KEY;
@@ -12,18 +13,49 @@ const genAI = new GoogleGenerativeAI(apiKey);
 // Tool Implementation Logic
 const toolHandlers = {
     create_reminder: async (userId, args, userContext) => {
-        const { title, time, notes, date } = args;
+        const { title, time, notes, date, location } = args;
         const reminderDate = date || userContext.localDate;
+
+        // Automatically geocode location if provided to get coordinates
+        let coordinates = { lat: null, lng: null };
+        if (location) {
+            const result = await geocodeAddress(location);
+            if (result) {
+                coordinates = result;
+            }
+        }
+
+        // Map intent based on title keywords
+        let intent = 'generic';
+        const titleLower = title.toLowerCase();
+        if (titleLower.includes('medicine') || titleLower.includes('pill') || titleLower.includes('dosage')) intent = 'medicine';
+        else if (titleLower.includes('meet') || titleLower.includes('call')) intent = 'meeting';
+        else if (titleLower.includes('pickup') || titleLower.includes('drop')) intent = 'pickup';
+        else if (titleLower.includes('bill') || titleLower.includes('pay')) intent = 'bill';
+
         const reminder = await Reminder.create({
             userId,
             title,
             time,
+            location: location || '',
+            coordinates,
             notes: notes || '',
             date: reminderDate,
-            intent: 'generic',
-            source: 'buddy'
+            intent: intent,
+            source: 'buddy',
+            smartFeatures: {
+                earlyWarning: !!(location && coordinates.lat),
+                trafficAware: !!(location && coordinates.lat),
+                itemExitGuards: false
+            }
         });
-        return { status: 'success', message: 'Reminder created.', data: reminder };
+
+        let message = `Reminder created${location ? ` for ${location}` : ''}.`;
+        if (location && !coordinates.lat) {
+            message += " Note: I couldn't find the exact map coordinates for this location. Please check if your Google Maps Geocoding API is enabled.";
+        }
+
+        return { status: 'success', message: message, data: reminder };
     },
     get_user_info: async (userId) => {
         return {
@@ -130,6 +162,7 @@ const buddyTools = [
                     properties: {
                         title: { type: 'STRING', description: 'The title or medication name' },
                         time: { type: 'STRING', description: 'The time (e.g. 08:00 PM)' },
+                        location: { type: 'STRING', description: 'Address or place name for location-based alerts' },
                         notes: { type: 'STRING', description: 'Additional instructions' },
                         date: { type: 'STRING', description: 'The date (YYYY-MM-DD)' }
                     },
@@ -269,8 +302,9 @@ const geminiService = {
                    - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: "You have no reminders scheduled for today."
                    - NEVER infer reminders or facts exist if neither the context nor the tools show them.
                 
-                3. DATE SENSITIVITY:
+                3. DATE & LOCATION SENSITIVITY:
                    - "Today" is ${userContext.localDate}.
+                   - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
                 
                 4. Always be professional, sympathetic, and concise. ${targetLanguage === 'auto' ? "Detect the user's language and respond in that same language." : `Respond in ${targetLanguage}.`}`,
                 tools: buddyTools

@@ -8,8 +8,9 @@ import {
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import GlobalSlideOver from './GlobalSlideOver';
-import { formatTime, formatDate } from '../utils/dateUtils';
+import { formatTime, formatDate, formatTimeForInput } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
+import GoogleMapPicker from './GoogleMapPicker';
 
 const DetailCard = ({ title, children, className = '' }) => (
     <div className={`detail-card ${className}`} style={{
@@ -77,6 +78,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
     const [location, setLocation] = useState('');
+    const [coordinates, setCoordinates] = useState({ lat: null, lng: null });
 
     const [bufferTime, setBufferTime] = useState(15);
     const [geofenceRadius, setGeofenceRadius] = useState(500);
@@ -95,8 +97,9 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
             setCachedReminder(reminder);
             setTitle(reminder.title || '');
             setDate(reminder.date ? new Date(reminder.date).toISOString().split('T')[0] : '');
-            setTime(reminder.time || '');
+            setTime(formatTimeForInput(reminder.time) || '');
             setLocation(reminder.location || '');
+            setCoordinates(reminder.coordinates || { lat: null, lng: null });
             setBufferTime(reminder.bufferTime || 15);
             setGeofenceRadius(reminder.geofenceRadius || 500);
             setAlerts(reminder.alerts || { push: true, sms: false, email: false });
@@ -123,6 +126,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                 date,
                 time,
                 location,
+                coordinates,
                 bufferTime,
                 geofenceRadius,
                 alerts,
@@ -309,9 +313,24 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                             <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-sub)' }}>Adjusted Notification Time</div>
                             <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--primary-glow)' }}>
                                 {activeReminder.time ? (() => {
-                                    const [hours, mins] = activeReminder.time.split(':');
-                                    const formatted = formatTime(`${hours}:${parseInt(mins) - bufferTime}`, user?.timeFormat);
-                                    return formatted;
+                                    try {
+                                        // Use formatTimeForInput to ensure we have a standard HH:mm (24h) string
+                                        const time24 = formatTimeForInput(activeReminder.time);
+                                        const [h, m] = time24.split(':').map(Number);
+
+                                        // Create a date object to handle math accurately
+                                        const dateObj = new Date();
+                                        dateObj.setHours(h, m, 0, 0);
+
+                                        // Subtract buffer
+                                        dateObj.setMinutes(dateObj.getMinutes() - bufferTime);
+
+                                        // Format back for display
+                                        return formatTime(dateObj, user?.timeFormat);
+                                    } catch (err) {
+                                        console.error("Time math error:", err);
+                                        return '--:--';
+                                    }
                                 })() : '--:--'}
                             </div>
                         </div>
@@ -320,23 +339,14 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
 
                 {/* Location Settings */}
                 <DetailCard title={<><Navigation size={20} /> Location Settings</>}>
-                    <div style={{
-                        height: '180px',
-                        background: 'var(--bg-lite)',
-                        borderRadius: '16px',
-                        marginBottom: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        position: 'relative',
-                        overflow: 'hidden'
-                    }}>
-                        {/* Mock Map View */}
-                        <div style={{ position: 'absolute', inset: 0, opacity: 0.3, background: 'radial-gradient(circle, var(--text-sub) 1px, transparent 1px)', backgroundSize: '10px 10px' }} />
-                        <MapPin size={32} color="var(--primary-color)" />
-                        <div style={{ position: 'absolute', width: '120px', height: '120px', border: '2px solid var(--primary-color)', borderRadius: '50%', background: 'rgba(0, 117, 255, 0.1)' }} />
-                        <div style={{ position: 'absolute', bottom: '12px', right: '12px', background: 'var(--card-bg)', padding: '4px 8px', borderRadius: '8px', fontSize: '0.7rem' }}>Map Preview</div>
-                    </div>
+                    <GoogleMapPicker
+                        location={location}
+                        setLocation={setLocation}
+                        coordinates={coordinates}
+                        setCoordinates={setCoordinates}
+                        isEditing={isEditing}
+                        radius={geofenceRadius}
+                    />
 
                     <div style={{ marginBottom: '16px' }}>
                         <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontWeight: '600', fontSize: '0.9rem' }}>
@@ -739,16 +749,6 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                 </div>
                             </div>
                             <ToggleSwitch checked={alerts.push} onChange={(v) => isEditing && setAlerts({ ...alerts, push: v })} />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ padding: '8px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px', color: '#8b5cf6' }}><MessageSquare size={18} /></div>
-                                <div>
-                                    <div style={{ fontWeight: '600' }}>SMS Backup</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Text message for critical alerts</div>
-                                </div>
-                            </div>
-                            <ToggleSwitch checked={alerts.sms} onChange={(v) => isEditing && setAlerts({ ...alerts, sms: v })} />
                         </div>
                     </div>
                 </DetailCard>

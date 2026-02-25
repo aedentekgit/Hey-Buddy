@@ -303,6 +303,35 @@ label {
   overflow: hidden;
 }
 
+/* Fix Google Maps Autocomplete Z-Index */
+.pac-container {
+  z-index: 9999 !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--border-color) !important;
+  margin-top: 4px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+  background-color: var(--card-bg) !important;
+}
+
+.pac-item {
+  padding: 8px 12px !important;
+  border-top: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+  cursor: pointer !important;
+}
+
+.pac-item:hover {
+  background-color: var(--row-hover) !important;
+}
+
+.pac-item-query {
+  color: var(--text-main) !important;
+}
+
+.pac-matched {
+  color: var(--primary-color) !important;
+}
+
 .table-wrapper {
   width: 100%;
 }

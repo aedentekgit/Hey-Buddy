@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.41.0",
+    "@react-google-maps/api": "^2.20.8",
     "@vitejs/plugin-react": "^5.1.2",
     "axios": "^1.13.2",
     "cobe": "^0.6.5",

@@ -145,8 +145,14 @@ export const VoiceAssistantProvider = ({ children }) => {
 
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = language;
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
+
+                if (user?.resolvedVoiceConfig) {
+                    utterance.rate = user.resolvedVoiceConfig.speechRate;
+                    utterance.pitch = user.resolvedVoiceConfig.pitch;
+                } else {
+                    utterance.rate = 1.0;
+                    utterance.pitch = 1.0;
+                }
 
                 // Attempt to find a suitable voice based on preferences
                 if (user?.voicePreferences) {

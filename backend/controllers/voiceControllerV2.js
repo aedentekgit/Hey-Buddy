@@ -4,6 +4,7 @@ const contextService = require('../services/contextService');
 const Reminder = require('../models/Reminder');
 const { createGoogleCalendarEvent } = require('../services/googleCalendarService');
 const GeminiLiveService = require('../services/geminiLiveService');
+const { geocodeAddress } = require('../services/smartReminderService');
 
 /**
  * Buddy 2.0 Voice Controller
@@ -70,7 +71,7 @@ exports.processVoice = async (req, res) => {
  */
 exports.saveReminder = async (req, res) => {
     try {
-        const { reminderData, saveTo } = req.body;
+        let { reminderData, saveTo } = req.body;
         const userId = req.user?._id;
 
         console.log('--- [SaveReminder Request] ---');
@@ -80,6 +81,20 @@ exports.saveReminder = async (req, res) => {
         if (!userId) {
             console.warn('[SaveReminder] No userId found in request!');
             return res.status(401).json({ success: false, message: "User not authenticated." });
+        }
+
+        // AUTO-GEOCODE: If location is provided but coordinates are missing, 
+        // try to geocode it on the backend as a safety net
+        if (reminderData.location && (!reminderData.coordinates?.lat || !reminderData.coordinates?.lng)) {
+            try {
+                const coords = await geocodeAddress(reminderData.location);
+                if (coords) {
+                    reminderData.coordinates = coords;
+                    console.log('[SaveReminder] Auto-geocoded location:', coords);
+                }
+            } catch (err) {
+                console.warn('[SaveReminder] Auto-geocoding failed:', err.message);
+            }
         }
 
         let googleEventId = null;
@@ -115,10 +130,12 @@ exports.saveReminder = async (req, res) => {
  */
 exports.previewVoice = async (req, res) => {
     try {
-        const { gender = 'female', tone = 'soft' } = req.query;
+        const userPrefs = req.user?.voicePreferences || {};
+        const gender = req.query.gender || userPrefs.gender || 'female';
+        const tone = req.query.tone || userPrefs.tone || 'soft';
 
         // Map to voice name
-        let voiceName = 'Aoede'; // Default
+        let voiceName = 'Aoede';
         if (gender === 'male') {
             if (tone === 'soft') voiceName = 'Charon';
             else if (tone === 'energetic') voiceName = 'Fenrir';

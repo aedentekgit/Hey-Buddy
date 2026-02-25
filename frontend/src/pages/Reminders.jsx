@@ -13,7 +13,9 @@ import {
 } from '../styles/tableStyles';
 import MobileTaskCard from '../components/MobileTaskCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
-import { formatTime, formatDate } from '../utils/dateUtils';
+import { formatTime, formatDate, formatTimeForInput } from '../utils/dateUtils';
+import GoogleMapPicker from '../components/GoogleMapPicker';
+import CustomSelect from '../components/CustomSelect';
 
 const Reminders = () => {
     const { user } = useAuth();
@@ -24,7 +26,7 @@ const Reminders = () => {
     const [selectedReminder, setSelectedReminder] = useState(null);
     const [isDetailsEditing, setIsDetailsEditing] = useState(false);
     const [editModal, setEditModal] = useState({ isOpen: false, reminder: null, isCreate: false });
-    const [editForm, setEditForm] = useState({ title: '', date: '', time: '', location: '' });
+    const [editForm, setEditForm] = useState({ title: '', date: '', time: '', location: '', coordinates: { lat: null, lng: null } });
     const [pagination, setPagination] = useState({
         currentPage: 1,
         totalPages: 1,
@@ -111,7 +113,7 @@ const Reminders = () => {
     };
 
     const handleCreateClick = () => {
-        setEditForm({ title: '', date: '', time: '', location: '', alerts: { push: true, sms: false, email: false } });
+        setEditForm({ title: '', date: '', time: '', location: '', coordinates: { lat: null, lng: null }, alerts: { push: true, sms: false, email: false } });
         setEditModal({ isOpen: true, reminder: null, isCreate: true });
     };
 
@@ -287,14 +289,6 @@ const Reminders = () => {
                                                     <Eye size={16} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleEditClick(reminder)}
-                                                    title="Edit"
-                                                    className="btn btn-icon btn-sm"
-                                                    style={{ color: 'var(--success-color)', background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--success-color) 20%, transparent)' }}
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button
                                                     onClick={() => setShareModal({ isOpen: true, reminder, email: '', permissions: 'view', loading: false })}
                                                     title="Share"
                                                     className="btn btn-icon btn-sm"
@@ -334,10 +328,12 @@ const Reminders = () => {
                                 if (!reminder.date) return { isOverdue: false, timeDiff: '' };
                                 const reminderDate = new Date(reminder.date);
                                 if (reminder.time && reminder.time.includes(':')) {
-                                    const [h, m] = reminder.time.split(':');
-                                    reminderDate.setHours(parseInt(h), parseInt(m));
+                                    // Use formatTimeForInput to handle AM/PM and 24h formats correctly
+                                    const time24 = formatTimeForInput(reminder.time);
+                                    const [h, m] = time24.split(':').map(Number);
+                                    reminderDate.setHours(h, m, 0, 0);
                                 } else {
-                                    reminderDate.setHours(23, 59); // End of day if no time
+                                    reminderDate.setHours(23, 59, 59); // End of day if no time
                                 }
                                 const now = new Date();
                                 const diffMs = now - reminderDate;
@@ -443,16 +439,14 @@ const Reminders = () => {
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Permissions</label>
-                                    <div className="custom-select-wrapper">
-                                        <select
-                                            className="input"
-                                            value={shareModal.permissions}
-                                            onChange={(e) => setShareModal({ ...shareModal, permissions: e.target.value })}
-                                        >
-                                            <option value="view">View Only</option>
-                                            <option value="edit">Can Edit</option>
-                                        </select>
-                                    </div>
+                                    <CustomSelect
+                                        options={[
+                                            { value: 'view', label: 'View Only' },
+                                            { value: 'edit', label: 'Can Edit' }
+                                        ]}
+                                        value={shareModal.permissions}
+                                        onChange={(e) => setShareModal({ ...shareModal, permissions: e.target.value })}
+                                    />
                                 </div>
                             </div>
                             <div className="modal-footer">
@@ -555,22 +549,13 @@ const Reminders = () => {
                         </div>
                         <div className="form-group" style={{ marginBottom: '20px' }}>
                             <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Location (Optional)</label>
-                            <input
-                                type="text"
-                                value={editForm.location}
-                                onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                                className="input"
-                                placeholder="Add a location..."
-                                style={{
-                                    width: '100%',
-                                    background: 'var(--bg-lite)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: 'var(--radius-md)',
-                                    color: 'var(--text-main)',
-                                    padding: '12px',
-                                    fontSize: '0.9rem',
-                                    outline: 'none'
-                                }}
+                            <GoogleMapPicker
+                                location={editForm.location}
+                                setLocation={(loc) => setEditForm(prev => ({ ...prev, location: loc }))}
+                                coordinates={editForm.coordinates}
+                                setCoordinates={(coords) => setEditForm(prev => ({ ...prev, coordinates: coords }))}
+                                isEditing={true}
+                                radius={500}
                             />
                         </div>
                         <div className="form-group" style={{ marginTop: '12px' }}>

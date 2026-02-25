@@ -210,6 +210,11 @@ const updateSettings = async (req, res) => {
             updateDoc['googleCalendar'] = mergedCalendar;
         }
 
+        // Google Maps
+        if (updateData.googleMaps) {
+            updateDoc['googleMaps'] = { ...(currentSettings.googleMaps || {}), ...updateData.googleMaps };
+        }
+
         // Mobile App
         if (updateData.mobileApp && Object.keys(updateData.mobileApp).length > 0) {
             updateDoc['mobileApp'] = { ...(currentSettings.mobileApp || {}), ...updateData.mobileApp };

@@ -39,7 +39,8 @@ exports.createReminder = async (req, res) => {
     try {
         const {
             title, description, date, time, location, intent, priority,
-            bufferTime, alerts, smartFeatures, syncToGoogle
+            bufferTime, alerts, smartFeatures, syncToGoogle,
+            coordinates, geofenceRadius
         } = req.body;
 
         const userId = req.user._id;
@@ -61,6 +62,8 @@ exports.createReminder = async (req, res) => {
             date,
             time,
             location,
+            coordinates,
+            geofenceRadius: geofenceRadius || 500,
             intent: intent || 'generic',
             priority: priority || 'medium',
             bufferTime: bufferTime || 15,

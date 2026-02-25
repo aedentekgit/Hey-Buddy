@@ -156,6 +156,29 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // Update Voice Preferences
+  Future<bool> updateVoicePreferences(Map<String, dynamic> prefs) async {
+    notifyListeners();
+    try {
+      final currentPrefs = _user['voicePreferences'] as Map<String, dynamic>? ?? {};
+      final newPrefs = {...currentPrefs, ...prefs};
+      
+      final success = await _userService.updateProfile({
+        'voicePreferences': newPrefs
+      });
+
+      if (success) {
+        _user['voicePreferences'] = newPrefs;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    }
+  }
+
   // Unlink Google Calendar
   Future<bool> unlinkCalendar() async {
     _isLoading = true;

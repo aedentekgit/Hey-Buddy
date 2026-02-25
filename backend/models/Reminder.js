@@ -111,6 +111,10 @@ const reminderSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    escalated: {
+        type: Boolean,
+        default: false
+    },
     sharedWith: [{
         user: { type: String, ref: 'User' },
         permissions: { type: String, enum: ['view', 'edit'], default: 'view' }

@@ -22,9 +22,19 @@ export const formatTime = (timeInput, format = '12') => {
                 h = d.getHours();
                 mins = d.getMinutes().toString().padStart(2, '0');
             } else if (timeInput.includes(':')) {
-                const parts = timeInput.split(':');
-                h = parseInt(parts[0]);
-                mins = parts[1].substring(0, 2);
+                // Check if it has AM/PM
+                const ampmMatch = timeInput.match(/(\d+):(\d+)\s*(am|pm)/i);
+                if (ampmMatch) {
+                    h = parseInt(ampmMatch[1]);
+                    mins = ampmMatch[2].padStart(2, '0');
+                    const period = ampmMatch[3].toLowerCase();
+                    if (period === 'pm' && h < 12) h += 12;
+                    if (period === 'am' && h === 12) h = 0;
+                } else {
+                    const parts = timeInput.split(':');
+                    h = parseInt(parts[0]);
+                    mins = parts[1].substring(0, 2).padStart(2, '0');
+                }
             } else {
                 return timeInput;
             }
@@ -71,3 +81,27 @@ export const formatDate = (date, format = 'DD/MM/YYYY') => {
             return `${day}/${month}/${year}`;
     }
 };
+
+/**
+ * Formats any time string into 24-hour HH:mm string for HTML <input type="time" />
+ * @param {string} timeInput 
+ */
+export const formatTimeForInput = (timeInput) => {
+    if (!timeInput || typeof timeInput !== 'string') return '';
+    const ampmMatch = timeInput.match(/(\d+):(\d+)\s*(am|pm)/i);
+    if (ampmMatch) {
+        let h = parseInt(ampmMatch[1]);
+        const m = parseInt(ampmMatch[2]);
+        const period = ampmMatch[3].toLowerCase();
+        if (period === 'pm' && h < 12) h += 12;
+        if (period === 'am' && h === 12) h = 0;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+    // Already in 24 hour or other format, ensure padding
+    if (timeInput.includes(':')) {
+        const parts = timeInput.split(':');
+        return `${parts[0].padStart(2, '0')}:${parts[1].substring(0, 2)}`;
+    }
+    return timeInput;
+};
+
