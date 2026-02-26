@@ -56,6 +56,11 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_cache_manager: ^3.4.1
   shared_preferences: ^2.5.4
+  socket_io_client: ^3.0.0
+  firebase_core: ^3.10.1
+  firebase_messaging: ^15.2.10
+  audioplayers: ^6.1.0
+  google_maps_flutter: ^2.10.0
 
 dev_dependencies:
   flutter_test:

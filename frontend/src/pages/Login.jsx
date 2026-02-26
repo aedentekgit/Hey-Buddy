@@ -12,7 +12,7 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const { login, googleLogin } = useAuth();
-    const { publicSettings } = useSettings();
+    const { publicSettings, refreshSettings } = useSettings();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -45,6 +45,7 @@ const Login = () => {
                 setLoading(true);
                 try {
                     await googleLogin(response.credential);
+                    refreshSettings();
                     toast.success('Welcome back!');
                     navigate('/admin/dashboard');
                 } catch (error) {
@@ -76,6 +77,7 @@ const Login = () => {
         setLoading(true);
         try {
             await login(email, password);
+            refreshSettings();
             toast.success('Welcome back!');
             navigate('/admin/dashboard');
         } catch (error) {

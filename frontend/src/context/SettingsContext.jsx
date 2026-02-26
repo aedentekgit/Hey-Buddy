@@ -17,6 +17,15 @@ export const SettingsProvider = ({ children }) => {
             return;
         }
 
+        // Don't fetch if we're on the login or signup page and have no intent to use the token
+        if (window.location.pathname === '/login' || window.location.pathname === '/signup') {
+            const tempUser = localStorage.getItem('user');
+            if (!tempUser) {
+                setLoading(false);
+                return;
+            }
+        }
+
         try {
             const res = await api.get('/settings');
             if (res.data.success) {

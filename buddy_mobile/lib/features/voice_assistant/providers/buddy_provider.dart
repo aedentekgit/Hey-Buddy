@@ -2,15 +2,56 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
+import 'package:buddy_mobile/core/services/socket_service.dart';
 
 class BuddyProvider with ChangeNotifier {
   final BuddyService _buddyService = BuddyService();
+  final SocketService socketService = SocketService();
 
   List<Map<String, dynamic>> _messages = [];
   List<dynamic> _historyList = [];
   String? _currentConversationId;
   bool _isLoading = false;
   bool _isThinking = false;
+  bool _isRealtimeEnabled = false;
+
+  BuddyProvider() {
+    _setupSocketListeners();
+  }
+
+  bool get isRealtimeEnabled => _isRealtimeEnabled;
+
+  void _setupSocketListeners() {
+    socketService.captionStream.listen((text) {
+      if (_messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
+        _messages.last['text'] += text;
+      } else {
+        _messages.add({
+          'id': 'socket_${DateTime.now().millisecondsSinceEpoch}',
+          'type': 'ai',
+          'text': text,
+          'isPartial': true,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+      notifyListeners();
+    });
+
+    socketService.statusStream.listen((isConnected) {
+      _isRealtimeEnabled = isConnected;
+      notifyListeners();
+    });
+  }
+
+  void toggleRealtime(bool enable) {
+    if (enable) {
+      socketService.connect();
+    } else {
+      socketService.dispose();
+      _isRealtimeEnabled = false;
+    }
+    notifyListeners();
+  }
 
   List<Map<String, dynamic>> get messages => _messages;
   List<dynamic> get historyList => _historyList;
@@ -73,6 +114,13 @@ class BuddyProvider with ChangeNotifier {
         'data': base64String,
         'mimeType': mimeType,
       };
+    }
+
+    if (_isRealtimeEnabled) {
+      socketService.sendText(text);
+      _isThinking = false;
+      notifyListeners();
+      return;
     }
 
     final response = await _buddyService.parseVoice(

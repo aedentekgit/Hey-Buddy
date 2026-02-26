@@ -5,6 +5,7 @@ import 'package:buddy_mobile/shared/widgets/mobile_navbar.dart';
 import 'package:buddy_mobile/features/voice_assistant/screens/buddy_assistant_page.dart';
 import 'package:buddy_mobile/shared/widgets/mobile_memory_card.dart';
 import 'package:buddy_mobile/shared/widgets/mobile_header.dart';
+import 'package:buddy_mobile/features/maps/screens/main_map_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -34,7 +35,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 3; // Default to Memory Screen
 
   final List<Widget> _pages = [
-    const Center(child: Text("Home Page Placeholder")),
+    const MainMapScreen(),
     const TaskScreen(),
     const SizedBox.shrink(), // Placeholder for BuddyAssistant (now pushed as route)
     const MemoryScreenPlaceholder(),

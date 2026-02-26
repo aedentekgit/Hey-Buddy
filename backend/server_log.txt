@@ -33,7 +33,7 @@ Checking reminders (Timezone Aware)...
 [AUTH] User admin@buddy.com authorized on platform: web
 Checking reminders (Timezone Aware)...
 [AUTH] Checking token for GET /
-[AUTH] User admin@buddy.com authorized on platform: web
+[AUTH] User a authorized on platform: web
 [AUTH] Checking token for GET /
 [AUTH] User admin@buddy.com authorized on platform: web
 [AUTH] Checking token for GET /

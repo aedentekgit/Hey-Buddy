@@ -11,7 +11,7 @@ class GeminiLiveService extends EventEmitter {
         this.apiKey = apiKey;
         this.ws = null;
         this.isConnected = false;
-        this.model = "models/gemini-2.0-flash-exp-image-generation";
+        this.model = "models/gemini-2.0-flash-exp";
     }
 
     connect(systemInstruction = null, voice = 'Aoede') {
@@ -33,7 +33,9 @@ class GeminiLiveService extends EventEmitter {
         this.ws.on('message', (data) => {
             try {
                 const response = JSON.parse(data);
-                console.log('[Gemini Live] 📥 Message:', JSON.stringify(response));
+                if (!response.serverContent && !response.server_content) {
+                    console.log('[Gemini Live] 📥 Control Message:', JSON.stringify(response));
+                }
                 this.handleResponse(response);
             } catch (err) {
                 console.error('[Gemini Live] ❌ Error parsing message:', err, data.toString());
@@ -51,12 +53,9 @@ class GeminiLiveService extends EventEmitter {
     }
 
     sendSetup() {
-        console.log(`[Gemini Live] 📤 Sending setup with model: ${this.model}, voice: ${this.voiceOverride}...`);
+        console.log(`[Gemini Live] 📤 Sending setup with tools and model: ${this.model}...`);
 
-
-        const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant.
-                You have access to the user's memories and health reminders.
-                STRICT RULE: Only answer based on provided tools result. Do NOT hallucinate.`;
+        const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant.`;
 
         const setupMessage = {
             setup: {
@@ -73,7 +72,8 @@ class GeminiLiveService extends EventEmitter {
                 },
                 systemInstruction: {
                     parts: [{ text: systemInstruction }]
-                }
+                },
+                tools: buddyTools
             }
         };
         this.ws.send(JSON.stringify(setupMessage));

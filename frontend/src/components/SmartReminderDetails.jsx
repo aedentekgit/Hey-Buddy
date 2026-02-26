@@ -117,6 +117,28 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
 
     const activeReminder = reminder || cachedReminder;
 
+    const [travelStats, setTravelStats] = useState(null);
+    const [loadingStats, setLoadingStats] = useState(false);
+
+    useEffect(() => {
+        const fetchTravelStats = async () => {
+            if (!activeReminder?._id || !activeReminder?.coordinates?.lat) return;
+            try {
+                setLoadingStats(true);
+                const res = await api.get(`/reminders/${activeReminder._id}/travel-stats`);
+                if (res.data.success) {
+                    setTravelStats(res.data.data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch travel stats", err);
+            } finally {
+                setLoadingStats(false);
+            }
+        };
+
+        fetchTravelStats();
+    }, [activeReminder?._id, coordinates]);
+
     if (!activeReminder) return null;
 
     const handleSave = async () => {
@@ -346,6 +368,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                         setCoordinates={setCoordinates}
                         isEditing={isEditing}
                         radius={geofenceRadius}
+                        userLocation={user?.currentLocation}
                     />
 
                     <div style={{ marginBottom: '16px' }}>
@@ -369,6 +392,36 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                             }}
                         />
                     </div>
+
+                    {travelStats && (
+                        <div style={{
+                            marginTop: '4px',
+                            padding: '16px',
+                            background: 'var(--bg-lite)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-sub)', fontSize: '0.85rem' }}>
+                                    <Activity size={14} /> Current Distance
+                                </div>
+                                <div style={{ fontWeight: '700', color: 'var(--text-main)' }}>
+                                    {(travelStats.distance / 1000).toFixed(2)} km
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-sub)', fontSize: '0.85rem' }}>
+                                    <Car size={14} /> Est. Travel Time
+                                </div>
+                                <div style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
+                                    {Math.round(travelStats.durationInTraffic / 60)} mins
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </DetailCard>
 
                 {/* Family Backup Section */}

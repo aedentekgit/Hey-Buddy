@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:io';
+import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dar
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
@@ -30,6 +32,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   final ImagePicker _picker = ImagePicker();
   final SpeechToText _speechToText = SpeechToText();
   final FlutterTts _flutterTts = FlutterTts();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   
   bool _isListening = false;
   String _selectedLanguage = "en-US";
@@ -40,8 +43,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     super.initState();
     _initSpeech();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<BuddyProvider>(context, listen: false).fetchHistory();
+      final provider = Provider.of<BuddyProvider>(context, listen: false);
+      provider.fetchHistory();
       _initTts();
+
+      // Setup Realtime Audio Listener
+      provider.socketService.audioStream.listen((base64Audio) async {
+        if (base64Audio.isNotEmpty) {
+          // Play the audio chunk (Gemini Live sends PCM often, but here we assume the backend might send something playable or we need a converter. For simplicity, we'll try raw play or note it needs a buffer)
+          // In a production app, you'd use a dedicated PCM player or wav header.
+          // For now, we'll use SourceBytes for the base64.
+          await _audioPlayer.play(BytesSource(base64Decode(base64Audio)));
+        }
+      });
     });
   }
 
@@ -235,37 +249,33 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             ),
           ),
 
-          // Back Button
+          // Real-time Toggle
           InkWell(
-            onTap: () => Navigator.pop(context),
+            onTap: () => provider.toggleRealtime(!provider.isRealtimeEnabled),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [branding.primaryColor, branding.primaryColor.withOpacity(0.8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: branding.primaryColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                color: provider.isRealtimeEnabled ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: provider.isRealtimeEnabled ? Colors.green : Colors.grey.withOpacity(0.3)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(LucideIcons.arrowLeft, size: 14, color: Colors.white),
-                  SizedBox(width: 6),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: provider.isRealtimeEnabled ? Colors.green : Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Text(
-                    "BACK",
+                    provider.isRealtimeEnabled ? "LIVE" : "Standard",
                     style: TextStyle(
+                      fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
+                      color: provider.isRealtimeEnabled ? Colors.green : Colors.grey[600],
                     ),
                   ),
                 ],
@@ -315,6 +325,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Container(
       width: 180,
       height: 180,
+      
       decoration: BoxDecoration(
         color: branding.primaryColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(20),

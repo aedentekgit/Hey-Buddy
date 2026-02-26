@@ -43,6 +43,10 @@ exports.createReminder = async (req, res) => {
             coordinates, geofenceRadius
         } = req.body;
 
+        if (!title || !date || !time) {
+            return res.status(400).json({ success: false, message: 'Title, date, and time are required' });
+        }
+
         const userId = req.user._id;
         let googleEventId = null;
 
@@ -376,5 +380,31 @@ exports.googleCallback = async (req, res) => {
     } catch (error) {
         console.error("Callback Error:", error);
         res.status(500).send("Authentication failed.");
+    }
+};
+
+exports.getTravelStats = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const reminder = await Reminder.findById(id);
+        if (!reminder) {
+            return res.status(404).json({ success: false, message: 'Reminder not found' });
+        }
+
+        const user = await User.findById(req.user._id);
+        if (!user || !user.currentLocation?.lat || !user.currentLocation?.lng) {
+            return res.status(400).json({ success: false, message: 'User location not available' });
+        }
+
+        if (!reminder.coordinates?.lat || !reminder.coordinates?.lng) {
+            return res.status(400).json({ success: false, message: 'Reminder location coordinates not found' });
+        }
+
+        const { getTrafficAwareTravelTime } = require('../services/smartReminderService');
+        const stats = await getTrafficAwareTravelTime(user.currentLocation, reminder.coordinates);
+
+        res.status(200).json({ success: true, data: stats });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };

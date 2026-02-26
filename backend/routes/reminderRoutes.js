@@ -8,12 +8,14 @@ const {
     deleteReminder,
     batchDeleteReminders,
     shareReminder,
-    unshareReminder
+    unshareReminder,
+    getTravelStats
 } = require('../controllers/reminderController');
 
 router.use(protect);
 
 router.get('/', getReminders);
+router.get('/:id/travel-stats', getTravelStats);
 router.post('/', createReminder);
 router.post('/batch-delete', batchDeleteReminders);
 router.post('/:id/share', shareReminder);

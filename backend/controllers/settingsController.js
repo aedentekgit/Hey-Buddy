@@ -22,7 +22,7 @@ const getPublicSettings = async (req, res) => {
             return res.json({ success: true, data: publicSettingsCache });
         }
 
-        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled');
+        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled googleMaps');
         publicSettingsCache = settings;
         res.json({ success: true, data: settings });
     } catch (error) {
@@ -276,11 +276,45 @@ const testNotification = async (req, res) => {
     }
 };
 
+const fsStr = require('fs');
+
+const internalFileSync = async (req, res) => {
+    try {
+        const syncSecret = req.headers['x-vps-sync-secret'];
+        if (syncSecret !== process.env.JWT_SECRET) {
+            return res.status(403).json({ success: false, message: 'Unauthorized sync request' });
+        }
+
+        if (!req.files || !req.files['file'] || !req.body.destination) {
+            return res.status(400).json({ success: false, message: 'Missing file or destination' });
+        }
+
+        const syncFile = req.files['file'][0];
+        const destination = req.body.destination;
+
+        const fullPath = path.join(__dirname, '..', 'uploads', destination);
+        const dir = path.dirname(fullPath);
+
+        // Ensure directory exists
+        await fs.promises.mkdir(dir, { recursive: true });
+
+        // Write file
+        await fs.promises.writeFile(fullPath, syncFile.buffer);
+
+        console.log(`📥 Received synced file from local dev: ${destination}`);
+        res.json({ success: true, path: `/uploads/${destination}` });
+    } catch (error) {
+        console.error("Sync Error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getSettings,
     updateSettings,
     getPublicSettings,
     testSMTP,
     testSMS,
-    testNotification
+    testNotification,
+    internalFileSync
 };

@@ -17,6 +17,10 @@ class AppConfig {
     return '$protocol://$host/api/';
   }
 
+  static String get socketUrl {
+    return 'https://$host';
+  }
+
   static String get assetBaseUrl {
     return 'https://$host/';
   }

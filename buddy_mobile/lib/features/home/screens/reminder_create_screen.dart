@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
+import 'package:buddy_mobile/shared/widgets/mobile_map_picker.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class ReminderCreateScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
   late TextEditingController dateController;
   late TextEditingController timeController;
   late TextEditingController locationController;
+  Map<String, dynamic>? selectedCoordinates;
 
   @override
   void initState() {
@@ -33,6 +35,10 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
     
     timeController = TextEditingController(text: widget.task?['time'] ?? "10:00");
     locationController = TextEditingController(text: widget.task?['location'] ?? '');
+    
+    if (widget.task?['coordinates'] != null) {
+      selectedCoordinates = Map<String, dynamic>.from(widget.task!['coordinates']);
+    }
   }
 
   Future<void> _handleSave() async {
@@ -46,6 +52,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
       'date': dateController.text,
       'time': timeController.text,
       'location': locationController.text,
+      'coordinates': selectedCoordinates,
     };
 
     final provider = Provider.of<TasksProvider>(context, listen: false);
@@ -95,6 +102,17 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
               ],
             ),
             const SizedBox(height: 20),
+            MobileMapPicker(
+              initialCoordinates: selectedCoordinates,
+              onLocationSelected: (coords, addr) {
+                setState(() {
+                  selectedCoordinates = coords;
+                  if (locationController.text.isEmpty) {
+                    locationController.text = addr;
+                  }
+                });
+              },
+            ),
             _buildField("Location", locationController, icon: LucideIcons.mapPin, hint: "Where? (Optional)"),
             const SizedBox(height: 40),
             SizedBox(

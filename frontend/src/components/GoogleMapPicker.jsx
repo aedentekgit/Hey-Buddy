@@ -1,16 +1,20 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, Autocomplete, Circle } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Autocomplete, Circle, DirectionsService, DirectionsRenderer } from '@react-google-maps/api';
 import { useSettings } from '../context/SettingsContext';
-import { MapPin, Target } from 'lucide-react';
+import { MapPin, Target, AlertTriangle } from 'lucide-react';
 
-const libraries = ['places'];
+const libraries = ['places', 'geometry'];
 const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '16px' };
 const defaultCenter = { lat: 37.7749, lng: -122.4194 }; // SF Default
 
-const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, isEditing, radius }) => {
-    const { settings } = useSettings();
-    const apiKey = settings?.googleMaps?.apiKey;
-    const enabled = settings?.googleMaps?.enabled;
+const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, isEditing, radius, userLocation }) => {
+    const { settings, publicSettings, loading: settingsLoading } = useSettings();
+    const [mapError, setMapError] = useState(null);
+
+    // Check both private and public settings for the key
+    const currentSettings = settings || publicSettings;
+    const apiKey = currentSettings?.googleMaps?.apiKey;
+    const enabled = currentSettings?.googleMaps?.enabled;
 
     const { isLoaded, loadError } = useJsApiLoader({
         googleMapsApiKey: apiKey || '',
@@ -18,14 +22,50 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
     });
 
     const [map, setMap] = useState(null);
+    const [directionsResponse, setDirectionsResponse] = useState(null);
     const autocompleteRef = useRef(null);
 
     // Initial centering and radius sync
     useEffect(() => {
-        if (map && coordinates?.lat && coordinates?.lng) {
-            map.panTo(coordinates);
+        if (map) {
+            if (directionsResponse) {
+                const bounds = new window.google.maps.LatLngBounds();
+                const route = directionsResponse.routes[0];
+                route.overview_path.forEach(point => bounds.extend(point));
+                map.fitBounds(bounds, 50);
+            } else if (coordinates?.lat && coordinates?.lng) {
+                map.panTo(coordinates);
+            } else if (userLocation?.lat && userLocation?.lng) {
+                map.panTo(userLocation);
+                map.setZoom(15);
+            }
         }
-    }, [map, coordinates, radius]);
+    }, [map, coordinates, radius, directionsResponse, userLocation]);
+
+    const directionsCallback = useCallback((res) => {
+        if (res !== null) {
+            console.log('Directions Service Callback Status:', res.status);
+            if (res.status === 'OK') {
+                setDirectionsResponse(res);
+                setMapError(null);
+            } else {
+                console.error('Directions request failed:', res.status);
+                if (res.status === 'REQUEST_DENIED') {
+                    setMapError('Directions API not enabled in Google Cloud Console');
+                } else if (res.status === 'ZERO_RESULTS') {
+                    setMapError('No driving route found between these points');
+                } else {
+                    setMapError(`Map Error: ${res.status}`);
+                }
+            }
+        }
+    }, []);
+
+    // Reset directions when locations change significantly
+    useEffect(() => {
+        setDirectionsResponse(null);
+        setMapError(null);
+    }, [coordinates?.lat, coordinates?.lng, userLocation?.lat, userLocation?.lng]);
 
     const onLoad = useCallback(function callback(map) {
         setMap(map);
@@ -76,6 +116,14 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
         }
     };
 
+    if (settingsLoading) {
+        return (
+            <div style={{ height: '180px', background: 'var(--bg-lite)', borderRadius: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>Syncing settings...</span>
+            </div>
+        );
+    }
+
     if (!enabled || !apiKey) {
         return (
             <div style={{
@@ -99,10 +147,32 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
     if (loadError) return <div>Error loading maps</div>;
     if (!isLoaded) return <div>Loading Maps...</div>;
 
-    const center = coordinates?.lat ? coordinates : defaultCenter;
+    const center = coordinates?.lat ? coordinates : (userLocation?.lat ? userLocation : defaultCenter);
 
     return (
         <div style={{ position: 'relative', height: '240px', marginBottom: '20px' }}>
+            {/* Error Overlay for Developers */}
+            {mapError && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    left: '10px',
+                    right: '10px',
+                    zIndex: 10,
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    border: '1px solid #fee2e2',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                    <AlertTriangle size={16} color="#ef4444" />
+                    <span style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600 }}>{mapError}</span>
+                </div>
+            )}
+
             {isEditing && (
                 <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', zIndex: 1, display: 'flex', gap: '8px' }}>
                     <Autocomplete onLoad={(auto) => autocompleteRef.current = auto} onPlaceChanged={onPlaceChanged} style={{ flex: 1 }}>
@@ -147,33 +217,87 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
             <GoogleMap
                 mapContainerStyle={mapContainerStyle}
                 center={center}
-                zoom={coordinates?.lat ? 14 : 2}
+                zoom={coordinates?.lat ? 14 : 15}
                 onLoad={onLoad}
                 onUnmount={onUnmount}
                 onClick={handleMapClick}
                 options={{
                     disableDefaultUI: true,
                     zoomControl: true,
-                    clickableIcons: false
+                    clickableIcons: false,
+                    styles: [
+                        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }
+                    ]
                 }}
             >
+                {/* Route Rendering */}
+                {enabled && apiKey && userLocation?.lat && coordinates?.lat && !directionsResponse && !mapError && (
+                    <DirectionsService
+                        key={`${userLocation.lat}-${userLocation.lng}-${coordinates.lat}-${coordinates.lng}`}
+                        options={{
+                            origin: { lat: Number(userLocation.lat), lng: Number(userLocation.lng) },
+                            destination: { lat: Number(coordinates.lat), lng: Number(coordinates.lng) },
+                            travelMode: 'DRIVING'
+                        }}
+                        callback={directionsCallback}
+                    />
+                )}
+
+                {directionsResponse && (
+                    <DirectionsRenderer
+                        directions={directionsResponse}
+                        options={{
+                            suppressMarkers: true,
+                            polylineOptions: {
+                                strokeColor: "#4285F4",
+                                strokeOpacity: 1,
+                                strokeWeight: 6,
+                            },
+                        }}
+                    />
+                )}
+
+                {/* Always show User Location (Blue Dot) */}
+                {userLocation?.lat && (
+                    <Marker
+                        position={{ lat: Number(userLocation.lat), lng: Number(userLocation.lng) }}
+                        zIndex={10}
+                        icon={{
+                            path: window.google ? window.google.maps.SymbolPath.CIRCLE : 0,
+                            scale: 8,
+                            fillColor: "#4285F4",
+                            fillOpacity: 1,
+                            strokeColor: "#FFFFFF",
+                            strokeWeight: 2,
+                        }}
+                    />
+                )}
+
+                {/* Destination Marker */}
                 {coordinates?.lat && (
-                    <>
-                        <Marker position={coordinates} />
-                        {radius && (
-                            <Circle
-                                center={coordinates}
-                                radius={Number(radius)}
-                                options={{
-                                    strokeColor: 'var(--primary-color)',
-                                    strokeOpacity: 0.8,
-                                    strokeWeight: 2,
-                                    fillColor: 'var(--primary-color)',
-                                    fillOpacity: 0.2,
-                                }}
-                            />
-                        )}
-                    </>
+                    <Marker
+                        position={{ lat: Number(coordinates.lat), lng: Number(coordinates.lng) }}
+                        zIndex={5}
+                        icon={{
+                            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                        }}
+                    />
+                )}
+
+                {/* Geofence Circle (Always visible if destination exists) */}
+                {coordinates?.lat && radius && (
+                    <Circle
+                        center={{ lat: Number(coordinates.lat), lng: Number(coordinates.lng) }}
+                        radius={Number(radius)}
+                        options={{
+                            strokeColor: 'var(--primary-color)',
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            fillColor: 'var(--primary-color)',
+                            fillOpacity: 0.1,
+                            clickable: false
+                        }}
+                    />
                 )}
             </GoogleMap>
         </div>

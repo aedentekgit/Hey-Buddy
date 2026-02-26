@@ -12,7 +12,9 @@ const generateToken = (id) => {
 
 const login = async (req, res) => {
     const { email, password } = req.body;
-
+    if (!email || !password) {
+        return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
     try {
         const user = await User.findOne({ email });
 
@@ -164,6 +166,10 @@ const googleLogin = async (req, res) => {
 
 const signup = async (req, res) => {
     const { name, email, password, phone } = req.body;
+
+    if (!name || !email || !password) {
+        return res.status(400).json({ success: false, message: 'Name, email and password are required' });
+    }
 
     try {
         const userExists = await User.findOne({ email });

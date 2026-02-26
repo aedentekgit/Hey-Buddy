@@ -4,11 +4,38 @@ const fs = require('fs').promises;
 const Settings = require('../models/Settings');
 const { initFirebase } = require('./notificationService');
 
+const axios = require('axios');
+const FormData = require('form-data');
+
 /**
- * Saves a file buffer locally to the server
+ * Saves a file buffer locally to the server (or forwards to VPS if in local dev)
  */
 const saveFileLocally = async (fileBuffer, destination) => {
     try {
+        // If we are testing locally, forward the file to the active VPS
+        if (process.env.NODE_ENV === 'development' && process.env.VITE_API_URL !== 'http://localhost:5001/api') {
+            try {
+                const form = new FormData();
+                form.append('file', fileBuffer, { filename: path.basename(destination) });
+                form.append('destination', destination);
+
+                // We use a dedicated internal endpoint on staging to receive it
+                const response = await axios.post(`https://staging.ayuskart.com/api/settings/internal-file-sync`, form, {
+                    headers: {
+                        ...form.getHeaders(),
+                        'x-vps-sync-secret': process.env.JWT_SECRET
+                    }
+                });
+                if (response.data.success) {
+                    console.log(`☁️ Synced ${destination} to VPS Staging!`);
+                    return `/uploads/${destination}`;
+                }
+            } catch (syncError) {
+                console.log(`⚠️ VPS Sync failed, falling back to local: ${syncError.message}`);
+                // Proceed to local save fallback
+            }
+        }
+
         const fullPath = path.join(__dirname, '..', 'uploads', destination);
         const dir = path.dirname(fullPath);
 

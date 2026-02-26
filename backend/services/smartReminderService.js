@@ -4,6 +4,7 @@ const { sendPushNotification } = require('./notificationService');
 const Notification = require('../models/Notification');
 const Settings = require('../models/Settings');
 const axios = require('axios');
+const { findAgentByUserId } = require('../sockets/voiceHandler');
 
 /**
  * Smart Reminder Service
@@ -171,7 +172,7 @@ async function checkEarlyWarnings() {
             location: { $ne: null },
             'coordinates.lat': { $exists: true },
             'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation timezone');
+        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences');
 
         for (const reminder of reminders) {
             const user = reminder.userId;
@@ -256,6 +257,14 @@ async function checkEarlyWarnings() {
                     await Promise.all(pushPromises);
                 }
 
+                // AI Voice Announcement
+                if (user.notificationPreferences?.voice?.enabled !== false) {
+                    const activeAgent = findAgentByUserId(user._id.toString());
+                    if (activeAgent) {
+                        activeAgent.say(`[SYSTEM NOTIFICATION]: This is an Early Warning for the user. Please announce: "${message}"`);
+                    }
+                }
+
                 console.log(`Early warning sent for reminder: ${reminder.title}`);
             }
         }
@@ -276,7 +285,7 @@ async function adjustReminderTimesForTraffic() {
             location: { $ne: null },
             'coordinates.lat': { $exists: true },
             'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation timezone');
+        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences');
 
         for (const reminder of reminders) {
             const user = reminder.userId;
@@ -352,6 +361,14 @@ async function adjustReminderTimesForTraffic() {
                     await Promise.all(pushPromises);
                 }
 
+                // AI Voice Announcement
+                if (reminder.userId.notificationPreferences?.voice?.enabled !== false) {
+                    const activeAgent = findAgentByUserId(reminder.userId._id.toString());
+                    if (activeAgent) {
+                        activeAgent.say(`[SYSTEM NOTIFICATION]: This is a Traffic Alert. Please announce: "${message}"`);
+                    }
+                }
+
                 console.log(`Traffic alert sent for reminder: ${reminder.title}`);
             }
         }
@@ -362,7 +379,7 @@ async function adjustReminderTimesForTraffic() {
 
 /**
  * Item Exit Guards
- * Reminds users about items they need to bring when leaving a location
+ * Reminders users about items they need to bring when leaving a location
  * @param {string} specificUserId - Optional userId to check only for one user
  */
 async function checkItemExitGuards(specificUserId = null) {
@@ -379,7 +396,7 @@ async function checkItemExitGuards(specificUserId = null) {
             query.userId = specificUserId;
         }
 
-        const reminders = await Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation');
+        const reminders = await Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation notificationPreferences');
 
         for (const reminder of reminders) {
             const user = reminder.userId;
@@ -454,6 +471,14 @@ async function checkItemExitGuards(specificUserId = null) {
                         }).catch(err => console.error('Push failed:', err.message))
                     );
                     await Promise.all(pushPromises);
+                }
+
+                // AI Voice Announcement
+                if (user.notificationPreferences?.voice?.enabled !== false) {
+                    const activeAgent = findAgentByUserId(user._id.toString());
+                    if (activeAgent) {
+                        activeAgent.say(`[SYSTEM NOTIFICATION]: This is an Item Exit Guard alert. Please announce: "${message}"`);
+                    }
                 }
 
                 console.log(`Exit guard triggered for user ${user.email} (Type: ${immediateAlertNeeded ? 'Immediate' : 'Standard'})`);
