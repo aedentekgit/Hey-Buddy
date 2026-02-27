@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import CustomSelect from '../components/CustomSelect';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import {
     UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Mail, Phone, ShieldCheck, Eye, EyeOff, Save, Camera
 } from 'lucide-react';
@@ -250,9 +250,7 @@ const AdminManagement = () => {
 
     return (
         <div style={{ color: 'var(--text-main)' }} className="admin-management-page">
-            <Toaster position="top-right" />
-
-            <div className="table-container">
+                        <div className="table-container">
                 <div className="search-management-header">
                     <div className="buddy-search-box hide-on-mobile">
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />

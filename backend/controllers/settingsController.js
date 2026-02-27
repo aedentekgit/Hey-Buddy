@@ -276,7 +276,7 @@ const testNotification = async (req, res) => {
     }
 };
 
-const fsStr = require('fs');
+const fs = require('fs');
 
 const internalFileSync = async (req, res) => {
     try {
@@ -309,6 +309,38 @@ const internalFileSync = async (req, res) => {
     }
 };
 
+const internalFileDeleteSync = async (req, res) => {
+    try {
+        const syncSecret = req.headers['x-vps-sync-secret'];
+        if (syncSecret !== process.env.JWT_SECRET) {
+            return res.status(403).json({ success: false, message: 'Unauthorized sync request' });
+        }
+
+        const { fileUrl } = req.body;
+        if (!fileUrl) {
+            return res.status(400).json({ success: false, message: 'Missing fileUrl' });
+        }
+
+        // Expected format: /uploads/filename.ext
+        if (fileUrl.startsWith('/uploads/')) {
+            const relativePath = fileUrl.replace('/uploads/', '');
+            const fullPath = path.join(__dirname, '..', 'uploads', relativePath);
+            try {
+                await fs.promises.unlink(fullPath);
+                console.log(`🗑️ Synced DELETION from local dev: ${relativePath}`);
+            } catch (err) {
+                // Ignore if not found
+                console.log(`🗑️ Sync DELETION failed (not found/ignore): ${relativePath}`);
+            }
+        }
+
+        res.json({ success: true, message: 'Deleted' });
+    } catch (error) {
+        console.error("Delete Sync Error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getSettings,
     updateSettings,
@@ -316,5 +348,6 @@ module.exports = {
     testSMTP,
     testSMS,
     testNotification,
-    internalFileSync
+    internalFileSync,
+    internalFileDeleteSync
 };

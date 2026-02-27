@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Reminder = require('../models/Reminder');
 const Memory = require('../models/Memory');
-const { geocodeAddress } = require('./smartReminderService');
+// const { geocodeAddress } = require('./smartReminderService'); // Moved inside tool handler to avoid circular dependency
 
 // Configuration
 const apiKey = process.env.GEMINI_API_KEY;
@@ -13,49 +13,70 @@ const genAI = new GoogleGenerativeAI(apiKey);
 // Tool Implementation Logic
 const toolHandlers = {
     create_reminder: async (userId, args, userContext) => {
-        const { title, time, notes, date, location } = args;
-        const reminderDate = date || userContext.localDate;
+        console.log(`[GeminiTools] Executing create_reminder for user ${userId}`);
+        try {
+            const { title, time, notes, date, location } = args;
+            const reminderDate = date || userContext.localDate || new Date().toLocaleDateString('en-CA');
 
-        // Automatically geocode location if provided to get coordinates
-        let coordinates = { lat: null, lng: null };
-        if (location) {
-            const result = await geocodeAddress(location);
-            if (result) {
-                coordinates = result;
+            // Automatically geocode location if provided to get coordinates
+            let coordinates = { lat: null, lng: null };
+            if (location) {
+                try {
+                    const { geocodeAddress } = require('./smartReminderService');
+                    const User = require('../models/User'); // Import here if not available globally
+                    const user = await User.findById(userId);
+
+                    // Geocode with user's current location to bias results (e.g., finding Anna Nagar in Madurai instead of Chennai)
+                    const result = await geocodeAddress(location, user?.currentLocation);
+                    if (result) {
+                        coordinates = result;
+                    }
+                } catch (geoErr) {
+                    console.error('[GeminiTools] Geocoding failed:', geoErr.message);
+                }
             }
-        }
 
-        // Map intent based on title keywords
-        let intent = 'generic';
-        const titleLower = title.toLowerCase();
-        if (titleLower.includes('medicine') || titleLower.includes('pill') || titleLower.includes('dosage')) intent = 'medicine';
-        else if (titleLower.includes('meet') || titleLower.includes('call')) intent = 'meeting';
-        else if (titleLower.includes('pickup') || titleLower.includes('drop')) intent = 'pickup';
-        else if (titleLower.includes('bill') || titleLower.includes('pay')) intent = 'bill';
+            // Map intent based on title keywords
+            let intent = 'generic';
+            const titleLower = title.toLowerCase();
+            if (titleLower.includes('medicine') || titleLower.includes('pill') || titleLower.includes('dosage')) intent = 'medicine';
+            else if (titleLower.includes('meet') || titleLower.includes('call')) intent = 'meeting';
+            else if (titleLower.includes('pickup') || titleLower.includes('drop')) intent = 'pickup';
+            else if (titleLower.includes('bill') || titleLower.includes('pay')) intent = 'bill';
 
-        const reminder = await Reminder.create({
-            userId,
-            title,
-            time,
-            location: location || '',
-            coordinates,
-            notes: notes || '',
-            date: reminderDate,
-            intent: intent,
-            source: 'buddy',
-            smartFeatures: {
-                earlyWarning: !!(location && coordinates.lat),
-                trafficAware: !!(location && coordinates.lat),
-                itemExitGuards: false
+            const reminderData = {
+                userId,
+                title,
+                time,
+                location: location || '',
+                coordinates,
+                date: reminderDate,
+                intent: intent,
+                source: 'buddy',
+                smartFeatures: {
+                    earlyWarning: !!(location && coordinates.lat),
+                    trafficAware: !!(location && coordinates.lat),
+                    itemExitGuards: false
+                }
+            };
+
+            // Only add notes if the schema has it (we'll add it to schema next)
+            if (notes) reminderData.notes = notes;
+
+            console.log('[GeminiTools] Creating reminder in DB:', JSON.stringify(reminderData));
+            const reminder = await Reminder.create(reminderData);
+
+            let message = `Reminder created${location ? ` for ${location}` : ''}.`;
+            if (location && !coordinates.lat) {
+                message += " Note: I couldn't find the exact map coordinates for this location. Please check your Google Maps settings.";
             }
-        });
 
-        let message = `Reminder created${location ? ` for ${location}` : ''}.`;
-        if (location && !coordinates.lat) {
-            message += " Note: I couldn't find the exact map coordinates for this location. Please check if your Google Maps Geocoding API is enabled.";
+            console.log(`[GeminiTools] Reminder created successfully: ${reminder._id}`);
+            return { status: 'success', message: message, data: reminder };
+        } catch (err) {
+            console.error('[GeminiTools] create_reminder error:', err);
+            throw err; // Re-throw so the caller can handle it
         }
-
-        return { status: 'success', message: message, data: reminder };
     },
     get_user_info: async (userId) => {
         return {
@@ -254,6 +275,8 @@ const buddyTools = [
     }
 ];
 
+const { getPersonality } = require('../utils/personality');
+
 const geminiService = {
     /**
      * Entry point for processing text via Gemini with Tools
@@ -263,23 +286,22 @@ const geminiService = {
             const userContext = context.userContext || {
                 localDate: new Date().toLocaleDateString('en-CA'),
                 timeZone: 'UTC',
-                voicePreferences: { tone: 'normal' }
+                voicePreferences: { gender: 'female', tone: 'normal' }
             };
 
-            const tone = userContext.voicePreferences?.tone || 'normal';
-            let toneRule = "Speak with a balanced, clear, and professional tone.";
-            if (tone === 'soft') {
-                toneRule = "Speak softly, using gentle, empathetic language to convey a comforting and calm presence.";
-            } else if (tone === 'energetic') {
-                toneRule = "Speak energetically, using lively, enthusiastic language with a fast-paced, high-spirited attitude.";
-            }
+            const personality = getPersonality(
+                userContext.voicePreferences?.gender || 'female',
+                userContext.voicePreferences?.tone || 'normal'
+            );
 
             const model = genAI.getGenerativeModel({
                 model: "gemini-2.0-flash",
-                systemInstruction: `You are Buddy, a professional health and personal assistant.
+                systemInstruction: `SYSTEM IDENTITY:
+                - Your name is Buddy.
+                - PERSONALITY: ${personality.description}
+                - WRITING STYLE: ${personality.writingStyle}
                 
-                VOICE & TONE PROFILE:
-                ${toneRule}
+                VOICE CONTEXT: You are communicating with the user using the '${personality.voice}' voice. Your written responses MUST reflect this persona's tone.
                 
                 USER CONTEXT:
                 - Current User Date: ${userContext.localDate}
@@ -306,7 +328,7 @@ const geminiService = {
                    - "Today" is ${userContext.localDate}.
                    - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
                 
-                4. Always be professional, sympathetic, and concise. ${targetLanguage === 'auto' ? "Detect the user's language and respond in that same language." : `Respond in ${targetLanguage}.`}`,
+                4. MULTILINGUAL SUPPORT: You are fully proficient in multiple languages including Tamil, Hindi, Spanish, French, etc. You MUST respond in the language the user speaks or requests. Do NOT refuse to speak or translate into other languages. Be professional, sympathetic, and concise.`,
                 tools: buddyTools
             });
 

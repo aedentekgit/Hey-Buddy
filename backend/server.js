@@ -110,5 +110,5 @@ server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Backend fully initialized at ${new Date().toISOString()}`);
     startReminderWorker(io);
-    startSmartReminderScheduler(); // Start AI-powered reminder features
+    startSmartReminderScheduler(io); // Start AI-powered reminder features
 });

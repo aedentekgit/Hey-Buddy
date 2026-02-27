@@ -14,12 +14,13 @@ class GeminiLiveService extends EventEmitter {
         this.model = "models/gemini-2.0-flash-exp";
     }
 
-    connect(systemInstruction = null, voice = 'Aoede') {
-        console.log(`[Gemini Live] Connecting with voice: ${voice}...`);
+    connect(systemInstruction = null, voice = 'Aoede', useTools = true) {
+        console.log(`[Gemini Live] Connecting with voice: ${voice} (Tools: ${useTools})...`);
         this.systemInstructionOverride = systemInstruction;
         this.voiceOverride = voice;
+        this.useTools = useTools;
         // Standard URL for Gemini Multimodal Live WebSocket
-        const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
+        const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
 
         this.ws = new WebSocket(url);
 
@@ -49,6 +50,7 @@ class GeminiLiveService extends EventEmitter {
         this.ws.on('close', (code, reason) => {
             console.log(`[Gemini Live] 🛑 Connection closed: ${code} - ${reason}`);
             this.isConnected = false;
+            this.emit('close', code, reason);
         });
     }
 
@@ -73,7 +75,7 @@ class GeminiLiveService extends EventEmitter {
                 systemInstruction: {
                     parts: [{ text: systemInstruction }]
                 },
-                tools: buddyTools
+                tools: this.useTools ? buddyTools : []
             }
         };
         this.ws.send(JSON.stringify(setupMessage));

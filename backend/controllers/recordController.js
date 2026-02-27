@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { OpenAI } = require('openai');
 const paginate = require('../utils/paginate');
-const { uploadFile } = require('../services/fileService');
+const { uploadFile, deleteFile } = require('../services/fileService');
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -77,8 +77,9 @@ const recordController = {
         const prescription = await Prescription.findOne({ _id: req.params.id, userId: req.user._id });
         if (!prescription) return res.status(404).json({ success: false });
 
-        // Since files are now in Firebase, we don't handle local deletion here for now.
-        // We could add Firebase deletion later if needed.
+        if (prescription.fileUrl) {
+            await deleteFile(prescription.fileUrl);
+        }
 
         await Reminder.deleteMany({ prescriptionId: prescription._id });
         await Prescription.deleteOne({ _id: req.params.id });
@@ -121,24 +122,63 @@ const recordController = {
     },
 
     updateMemory: async (req, res) => {
-        const doc = await Memory.findOneAndUpdate({ _id: req.params.id, userId: req.user._id }, req.body, { new: true });
-        res.json({ success: true, data: doc });
+        try {
+            const memoryId = req.params.id;
+            const userId = req.user._id;
+
+            let updateData = { ...req.body };
+
+            if (req.file) {
+                // Delete old file if exists
+                const existing = await Memory.findOne({ _id: memoryId, userId });
+                if (existing && existing.fileUrl) {
+                    await deleteFile(existing.fileUrl).catch(e => console.warn('Old file delete failed:', e));
+                }
+
+                const destination = `memories/${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
+                const publicUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
+                updateData.fileUrl = publicUrl;
+                updateData.fileName = req.file.originalname;
+            }
+
+            const doc = await Memory.findOneAndUpdate({ _id: memoryId, userId }, updateData, { new: true });
+            res.json({ success: true, data: doc });
+        } catch (error) {
+            console.error('Update Memory Error:', error);
+            res.status(500).json({ success: false, message: "Update failed" });
+        }
     },
 
     deleteMemory: async (req, res) => {
-        await Memory.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+        const memory = await Memory.findOne({ _id: req.params.id, userId: req.user._id });
+        if (memory && memory.fileUrl) {
+            await deleteFile(memory.fileUrl).catch(e => console.warn('File delete failed:', e));
+        }
+        await Memory.deleteOne({ _id: req.params.id, userId: req.user._id });
         res.json({ success: true, message: "Deleted." });
     },
 
     createMemory: async (req, res) => {
         try {
             const { content, category } = req.body;
+            const userId = req.user._id;
             if (!content) return res.status(400).json({ success: false, message: "Content is required" });
 
+            let fileUrl = null;
+            let fileName = null;
+
+            if (req.file) {
+                const destination = `memories/${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
+                fileUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
+                fileName = req.file.originalname;
+            }
+
             const memory = await Memory.create({
-                userId: req.user._id,
+                userId,
                 content,
-                category: category || 'general'
+                category: category || 'general',
+                fileUrl,
+                fileName
             });
 
             res.status(201).json({ success: true, data: memory });

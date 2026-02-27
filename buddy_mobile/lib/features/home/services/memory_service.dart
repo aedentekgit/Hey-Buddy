@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'package:http_parser/http_parser.dart';
+import 'dart:io' show Platform, File;
 
 import 'package:buddy_mobile/core/config/app_config.dart';
 
@@ -60,21 +61,41 @@ class MemoryService {
   }
 
   // Update Memory
-  Future<bool> updateMemory(String memoryId, String content) async {
+  Future<bool> updateMemory(String memoryId, String content, {File? file}) async {
     try {
       final token = await _storage.read(key: 'jwt');
+      final uri = Uri.parse('${_baseUrl}voice/memories/$memoryId');
 
-      final response = await http.put(
-        Uri.parse('${_baseUrl}voice/memories/$memoryId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'x-platform': 'mobile',
-        },
-        body: jsonEncode({'content': content}),
-      );
+      if (file != null) {
+        var request = http.MultipartRequest('PUT', uri);
+        request.headers['Authorization'] = 'Bearer $token';
+        request.headers['x-platform'] = 'mobile';
 
-      return response.statusCode == 200;
+        String extension = file.path.split('.').last.toLowerCase();
+        MediaType mediaType = (extension == 'png') ? MediaType('image', 'png') : MediaType('image', 'jpeg');
+        if (extension == 'pdf') mediaType = MediaType('application', 'pdf');
+
+        request.files.add(await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          contentType: mediaType,
+        ));
+        request.fields['content'] = content;
+
+        var streamedResponse = await request.send();
+        return streamedResponse.statusCode == 200;
+      } else {
+        final response = await http.put(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+            'x-platform': 'mobile',
+          },
+          body: jsonEncode({'content': content}),
+        );
+        return response.statusCode == 200;
+      }
     } catch (e) {
       print("Error updating memory: $e");
       return false;

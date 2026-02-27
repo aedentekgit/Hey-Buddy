@@ -290,10 +290,10 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
                         center={{ lat: Number(coordinates.lat), lng: Number(coordinates.lng) }}
                         radius={Number(radius)}
                         options={{
-                            strokeColor: 'var(--primary-color)',
+                            strokeColor: '#6366f1', // Fixed: Google Maps can't resolve CSS variables
                             strokeOpacity: 0.8,
                             strokeWeight: 2,
-                            fillColor: 'var(--primary-color)',
+                            fillColor: '#6366f1',
                             fillOpacity: 0.1,
                             clickable: false
                         }}

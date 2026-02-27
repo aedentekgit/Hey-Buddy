@@ -6,7 +6,13 @@ import 'package:provider/provider.dart';
 import '../providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:buddy_mobile/shared/widgets/mobile_map_picker.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import '../services/task_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
 
 class SmartDetailsPanel extends StatefulWidget {
   final Map<String, dynamic> reminder;
@@ -28,6 +34,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   late TextEditingController dateController;
   late TextEditingController timeController;
   late TextEditingController locationController;
+  Map<String, dynamic>? coordinates;
+  Map<String, dynamic>? travelStats;
+  late List<dynamic> sharedWith;
+  final TaskService _taskService = TaskService();
+  Set<Polyline> polylines = {};
+  Position? currentPosition;
+  GoogleMapController? mapController;
 
   late double bufferTime;
   late double geofenceRadius;
@@ -55,7 +68,6 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     final al = r['alerts'] ?? {};
     alerts = {
       'push': al['push'] ?? true,
-      'sms': al['sms'] ?? false,
       'email': al['email'] ?? false,
     };
 
@@ -72,6 +84,153 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
     timeline = List.from(r['timeline'] ?? []);
     status = r['status'] ?? 'pending';
+    coordinates = r['coordinates'] != null ? Map<String, dynamic>.from(r['coordinates']) : null;
+    sharedWith = List.from(r['sharedWith'] ?? []);
+    
+    _fetchTravelStats();
+    _initRoute();
+  }
+
+  Future<void> _initRoute() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        currentPosition = await Geolocator.getCurrentPosition();
+      }
+      
+      // Fallback matching website if location unavailable or specifically for demo
+      if (currentPosition == null) {
+        // Madurai fallback
+        currentPosition = Position(
+          latitude: 9.9252, 
+          longitude: 78.1198, 
+          timestamp: DateTime.now(), 
+          accuracy: 0, 
+          altitude: 0, 
+          heading: 0, 
+          speed: 0, 
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0,
+        );
+      }
+
+      if (mounted && coordinates != null) {
+        _fetchRoute();
+        _fetchTravelStats(); // Refresh with local position
+      }
+    } catch (e) {
+      print("Error initializing route: $e");
+    }
+  }
+
+  Future<void> _fetchRoute() async {
+    if (currentPosition == null || coordinates == null) return;
+
+    double lat = currentPosition!.latitude;
+    double lng = currentPosition!.longitude;
+    
+    // Check if we are too far (e.g. SF emulator vs India reminder)
+    // and if so, fallback to Madurai for demo consistency with website
+    double dist = Geolocator.distanceBetween(lat, lng, (coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble());
+    if (dist > 1000000) { // > 1000km
+       lat = 9.9252;
+       lng = 78.1198;
+       print("Using Madurai fallback for routing due to large distance: ${dist/1000}km");
+    }
+
+    PolylinePoints polylinePoints = PolylinePoints(apiKey: AppConfig.googleMapsApiKey);
+    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
+      request: PolylineRequest(
+        origin: PointLatLng(lat, lng),
+        destination: PointLatLng((coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble()),
+        mode: TravelMode.driving,
+      ),
+    );
+
+    if (result.points.isNotEmpty) {
+      List<LatLng> polylineCoordinates = [];
+      for (var point in result.points) {
+        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+      }
+
+      if (mounted) {
+        setState(() {
+          polylines.add(Polyline(
+            polylineId: const PolylineId("route"),
+            color: Theme.of(context).primaryColor,
+            points: polylineCoordinates,
+            width: 5,
+          ));
+        });
+
+        // Fit bounds if map controller is available
+        if (mapController != null) {
+          LatLngBounds bounds = _getBounds(polylineCoordinates);
+          mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+        }
+      }
+    }
+  }
+
+  LatLngBounds _getBounds(List<LatLng> points) {
+    double minLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLat = points.first.latitude;
+    double maxLng = points.first.longitude;
+
+    for (LatLng point in points) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+  }
+
+  Future<void> _fetchTravelStats() async {
+    if (widget.reminder['_id'] != null && coordinates != null) {
+      double? lat = currentPosition?.latitude;
+      double? lng = currentPosition?.longitude;
+      
+      if (lat != null && lng != null) {
+        double dist = Geolocator.distanceBetween(lat, lng, (coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble());
+        if (dist > 1000000) { // > 1000km
+           lat = 9.9252;
+           lng = 78.1198;
+        }
+      }
+      
+      final stats = await _taskService.fetchTravelStats(
+        widget.reminder['_id'], 
+        lat: lat, 
+        lng: lng
+      );
+      
+      if (mounted) {
+        setState(() => travelStats = stats);
+      }
+    }
+  }
+
+  Future<void> _unshareUser(String userId) async {
+    final success = await _taskService.unshareReminder(widget.reminder['_id'], userId);
+    if (success) {
+      ToastUtils.showSuccessToast("User removed from sharing");
+       if (mounted) {
+        setState(() => sharedWith.removeWhere((s) => s['user']['_id'] == userId));
+      }
+    } else {
+      ToastUtils.showErrorToast("Failed to remove user");
+    }
   }
 
   @override
@@ -97,6 +256,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       'escalationTime': escalationTime,
       'smartFeatures': smartFeatures,
       'status': status,
+      'coordinates': coordinates,
     };
 
     final success = await Provider.of<TasksProvider>(context, listen: false)
@@ -319,106 +479,197 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             icon: LucideIcons.navigation,
             children: [
               Container(
-                height: 150,
+                height: 200,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Center(child: Icon(LucideIcons.mapPin, size: 32, color: Theme.of(context).primaryColor)),
+                clipBehavior: Clip.hardEdge,
+                child: isEditing
+                    ? MobileMapPicker(
+                        initialCoordinates: coordinates,
+                        onLocationSelected: (coords, address) {
+                          setState(() {
+                            coordinates = coords;
+                            // Only update text if it's currently empty or was just generic
+                            if (locationController.text.isEmpty || locationController.text.contains("Custom Location")) {
+                              locationController.text = address;
+                            }
+                          });
+                        },
+                      )
+                    : coordinates != null && coordinates!['lat'] != null
+                    ? GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(coordinates!['lat'], coordinates!['lng']),
+                          zoom: 15,
+                        ),
+                        onMapCreated: (controller) {
+                          mapController = controller;
+                          if (polylines.isNotEmpty) {
+                            List<LatLng> polylineCoordinates = polylines.first.points;
+                            LatLngBounds bounds = _getBounds(polylineCoordinates);
+                            mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+                          }
+                        },
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('selected'),
+                            position: LatLng(coordinates!['lat'], coordinates!['lng']),
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+                          ),
+                          if (currentPosition != null)
+                             Marker(
+                              markerId: const MarkerId('current'),
+                              position: LatLng(currentPosition!.latitude, currentPosition!.longitude),
+                              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                            ),
+                        },
+                        circles: {
+                          Circle(
+                            circleId: const CircleId('geofence'),
+                            center: LatLng(coordinates!['lat'], coordinates!['lng']),
+                            radius: geofenceRadius,
+                            fillColor: Theme.of(context).primaryColor.withOpacity(0.12),
+                            strokeColor: Theme.of(context).primaryColor,
+                            strokeWidth: 2,
+                          ),
+                        },
+                        polylines: polylines,
+                        zoomControlsEnabled: true,
+                        myLocationEnabled: true,
+                        myLocationButtonEnabled: true,
+                        mapToolbarEnabled: true,
+                      )
+                        : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(LucideIcons.mapPin, size: 32, color: Theme.of(context).primaryColor.withOpacity(0.5)),
+                                const SizedBox(height: 8),
+                                Text("No location specified", style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[500])),
+                              ],
+                            ),
+                          ),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text("Geofence Radius", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                    child: Text("Geofence Radius", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
                   ),
-                  Text("${geofenceRadius.toInt()}m", style: GoogleFonts.outfit(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
+                  Text("${geofenceRadius.toInt()}m", style: GoogleFonts.outfit(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ),
-              Slider(
-                value: geofenceRadius,
-                min: 100,
-                max: 2000,
-                divisions: 19,
-                activeColor: Theme.of(context).primaryColor,
-                onChanged: isEditing ? (v) => setState(() => geofenceRadius = v) : null,
+              const SizedBox(height: 8),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 4,
+                  activeTrackColor: const Color(0xFFE2E8F0).withOpacity(0.5),
+                  inactiveTrackColor: const Color(0xFFE2E8F0).withOpacity(0.3),
+                  thumbColor: const Color(0xFFE2E8F0),
+                  overlayColor: Colors.transparent,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 0),
+                ),
+                child: Slider(
+                  value: geofenceRadius,
+                  min: 100,
+                  max: 2000,
+                  divisions: 19,
+                  onChanged: isEditing ? (v) => setState(() => geofenceRadius = v) : null,
+                ),
               ),
+              if (travelStats != null) ...[
+                 const SizedBox(height: 20),
+                 Container(
+                   padding: const EdgeInsets.all(20),
+                   decoration: BoxDecoration(
+                     color: const Color(0xFFF1F5F9).withOpacity(0.5),
+                     borderRadius: BorderRadius.circular(20),
+                     border: Border.all(color: Colors.grey[200]!),
+                   ),
+                   child: Column(
+                     children: [
+                       Row(
+                         children: [
+                           Icon(LucideIcons.activity, size: 18, color: Colors.grey[600]),
+                           const SizedBox(width: 12),
+                           Text("Current Distance", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
+                           const Spacer(),
+                           Text("${(travelStats!['distance'] / 1000).toStringAsFixed(2)} km", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
+                         ],
+                       ),
+                       const SizedBox(height: 16),
+                       Row(
+                         children: [
+                           Icon(LucideIcons.car, size: 18, color: Colors.grey[600]),
+                           const SizedBox(width: 12),
+                           Text("Est. Travel Time", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
+                           const Spacer(),
+                           Text("${(travelStats!['durationInTraffic'] / 60).round()} mins", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
+                         ],
+                       ),
+                     ],
+                   ),
+                 ),
+              ],
+            ],
+          ),
+
+          // Collaboration Section
+          _DetailCard(
+            title: "COLLABORATION",
+            icon: LucideIcons.share2,
+            children: [
+              if (sharedWith.isEmpty)
+                Text("Not shared with anyone", style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey[500]))
+              else
+                ...sharedWith.map((s) => Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Theme.of(context).primaryColor,
+                            child: Text(s['user']?['name']?[0]?.toUpperCase() ?? 'U', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(s['user']?['name'] ?? 'Unknown', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                                Text(s['user']?['email'] ?? '', style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500])),
+                              ],
+                            ),
+                          ),
+                          if (isEditing)
+                            IconButton(
+                              icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.red),
+                              onPressed: () => _unshareUser(s['user']['_id']),
+                            ),
+                        ],
+                      ),
+                    )),
             ],
           ),
 
           // Family Backup
-          _DetailCard(
-            title: "FAMILY BACKUP",
-            icon: LucideIcons.users,
-            children: [
-              Text(
-                "Select backup contacts who will be notified if you don't respond",
-                style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 16),
-              if (backupContacts.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    border: Border.all(color: Colors.grey[200]!, style: BorderStyle.solid),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(LucideIcons.smartphone, color: Colors.grey[400]),
-                      const SizedBox(height: 8),
-                      Text("No backup contacts added", style: GoogleFonts.outfit(color: Colors.grey[500])),
-                    ],
-                  ),
-                )
-              else
-                ...backupContacts.map((c) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[200]!)),
-                      child: Row(
-                        children: [
-                          CircleAvatar(backgroundColor: Theme.of(context).primaryColor, radius: 16, child: Text(c['name']?[0] ?? '?', style: const TextStyle(color: Colors.white, fontSize: 12))),
-                          const SizedBox(width: 12),
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(c['name'] ?? '', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)), Text(c['phone'] ?? '', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[500]))])),
-                          if (isEditing) IconButton(icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.red), onPressed: () => setState(() => backupContacts.remove(c))),
-                        ],
-                      ),
-                    )),
-              if (isEditing) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _addContact,
-                  icon: const Icon(LucideIcons.plus, size: 16),
-                  label: const Text("Add Backup Contact"),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 45),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              Text("Escalation Timeline", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text("When should backup contacts be notified?", style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[600])),
-              const SizedBox(height: 16),
-              ...[
-                {'val': 0, 'label': 'Immediately', 'sub': 'Notify contacts right away'},
-                {'val': 15, 'label': '15 Minutes', 'sub': 'Wait 15 minutes before notifying'},
-                {'val': 30, 'label': '30 Minutes', 'sub': 'Wait 30 minutes before notifying'},
-              ].map((opt) => RadioListTile<int>(
-                    value: opt['val'] as int,
-                    groupValue: escalationTime,
-                    title: Text(opt['label'] as String, style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                    subtitle: Text(opt['sub'] as String, style: GoogleFonts.outfit(fontSize: 12)),
-                    activeColor: Theme.of(context).primaryColor,
-                    onChanged: isEditing ? (v) => setState(() => escalationTime = v!) : null,
-                  )),
-            ],
-          ),
+
 
           // Smart Features
           _DetailCard(
@@ -455,57 +706,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             ],
           ),
 
-          // Quick Actions
-          _DetailCard(
-            title: "QUICK ACTIONS",
-            icon: LucideIcons.zap,
-            children: [
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.2,
-                children: [
-                  _QuickActionButton(
-                    icon: LucideIcons.checkCircle2,
-                    label: "Complete",
-                    color: Colors.green,
-                    onTap: () {
-                      setState(() => status = 'completed');
-                      _handleSave();
-                    },
-                  ),
-                  _QuickActionButton(
-                    icon: LucideIcons.clock,
-                    label: "Snooze 15m",
-                    color: Colors.orange,
-                    onTap: () {
-                       // Logic for snooze could be more complex, but for parity:
-                       setState(() => status = 'snoozed');
-                       _handleSave();
-                    },
-                  ),
-                  _QuickActionButton(
-                    icon: LucideIcons.calendarDays,
-                    label: "Reschedule",
-                    color: Colors.blue,
-                    onTap: () {},
-                  ),
-                  _QuickActionButton(
-                    icon: LucideIcons.alertCircle,
-                    label: "Priority: ${priority.toUpperCase()}",
-                    color: priority == 'high' ? Colors.red : Colors.grey,
-                    onTap: isEditing ? () {
-                      final priorities = ['low', 'medium', 'high'];
-                      setState(() => priority = priorities[(priorities.indexOf(priority) + 1) % 3]);
-                    } : null,
-                  ),
-                ],
-              )
-            ],
-          ),
+
 
           // Alert Preferences
           _DetailCard(
@@ -520,11 +721,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 onChanged: (v) => isEditing ? setState(() => alerts['push'] = v) : null,
               ),
               _AlertTile(
-                icon: LucideIcons.messageSquare,
-                label: "SMS Backup",
-                sub: "Text message for critical alerts",
-                value: alerts['sms']!,
-                onChanged: (v) => isEditing ? setState(() => alerts['sms'] = v) : null,
+                icon: LucideIcons.mail,
+                label: "Email Alerts",
+                sub: "Detailed reports via email",
+                value: alerts['email']!,
+                onChanged: (v) => isEditing ? setState(() => alerts['email'] = v) : null,
               ),
             ],
           ),
@@ -850,37 +1051,7 @@ class _SmartFeatureTile extends StatelessWidget {
   }
 }
 
-class _QuickActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
 
-  const _QuickActionButton({required this.icon, required this.label, required this.color, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          border: Border.all(color: color.withOpacity(0.2)),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
-            Text(label, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, color: color), textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _AlertTile extends StatelessWidget {
   final IconData icon;

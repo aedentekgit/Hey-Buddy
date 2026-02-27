@@ -143,6 +143,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [isThinking, setIsThinking] = useState(false);
     const [isAISpeaking, setIsAISpeaking] = useState(false);
+    const [streamingResponse, setStreamingResponse] = useState('');
     const fileInputRef = useRef(null);
 
     // --- Refs for managing session & audio ---
@@ -328,8 +329,11 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 setIsConnecting(false);
                 connectingRef.current = false;
 
-                // Configure the agent with selected language
-                socket.emit('setup_agent', { language });
+                // Configure the agent with selected language and conversation context
+                socket.emit('setup_agent', {
+                    language,
+                    conversationId: conversationIdRef.current
+                });
 
                 if (enableMic) {
                     await connectMicrophone();
@@ -375,6 +379,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
             socket.on('caption', (text) => {
                 setIsThinking(false);
                 currentOutputTranscription.current += text;
+                setStreamingResponse(currentOutputTranscription.current);
             });
 
             socket.on('user_caption', (text) => {
@@ -390,8 +395,15 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 if (currentOutputTranscription.current) {
                     addTranscript('ai', currentOutputTranscription.current);
                     currentOutputTranscription.current = '';
+                    setStreamingResponse('');
                 }
                 setIsThinking(false);
+            });
+
+            socket.on('conversation_updated', (data) => {
+                if (data && data.conversationId) {
+                    conversationIdRef.current = data.conversationId;
+                }
             });
 
             socket.on('clear_audio_queue', () => {
@@ -505,6 +517,30 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 // Save the conversation ID for the next message
                 if (response.meta?.conversationId) {
                     conversationIdRef.current = response.meta.conversationId;
+                }
+
+                // Play returned audio for personality consistency
+                if (response.data.audio && outputAudioCtxRef.current) {
+                    try {
+                        const ctx = outputAudioCtxRef.current;
+                        if (ctx.state === 'suspended') await ctx.resume();
+
+                        const audioBuffer = await decodeAudioData(decode(response.data.audio), ctx, 24000, 1);
+                        const sourceNode = ctx.createBufferSource();
+                        sourceNode.buffer = audioBuffer;
+                        sourceNode.connect(ctx.destination);
+
+                        sourceNode.onended = () => {
+                            sourcesRef.current.delete(sourceNode);
+                            if (sourcesRef.current.size === 0) setIsAISpeaking(false);
+                        };
+
+                        setIsAISpeaking(true);
+                        sourceNode.start(0);
+                        sourcesRef.current.add(sourceNode);
+                    } catch (audioErr) {
+                        console.error('[Assistant] Failed to play response audio:', audioErr);
+                    }
                 }
             }
         } catch (err) {
@@ -816,6 +852,42 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                             </div>
                         );
                     })}
+
+                    {/* Streaming AI Response */}
+                    {streamingResponse && (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            animation: 'fadeIn 0.2s ease-out'
+                        }}>
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '16px',
+                                padding: '16px 18px',
+                                maxWidth: '85%',
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+                                border: '1px solid rgba(0,0,0,0.04)'
+                            }}>
+                                <div style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: '800',
+                                    color: '#6366f1',
+                                    letterSpacing: '0.08em',
+                                    textTransform: 'uppercase',
+                                    marginBottom: '8px'
+                                }}>BUDDY</div>
+                                <div style={{
+                                    fontSize: '1rem',
+                                    color: '#1e293b',
+                                    lineHeight: '1.65',
+                                    fontWeight: '450',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word'
+                                }}>{streamingResponse}</div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Typing Animation */}
                     {isActive && inputMode === 'text' && isMicPausedLocal.current && (

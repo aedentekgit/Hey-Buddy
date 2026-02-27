@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import CustomSelect from '../components/CustomSelect'; // Import CustomSelectDropdown
 import api from '../services/api';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import {
     Settings, Mail, MessageSquare, CreditCard, Share2, Palette, Save, Plus, Trash2, Send, Upload, ChevronRight, Globe,
     Facebook, Instagram, Twitter, Linkedin, Youtube, ExternalLink, RefreshCw, CheckCircle2, ShieldCheck, Zap, Eye, EyeOff, Lock, ChevronDown, Bell, Database, Calendar, Link2,
@@ -129,6 +129,7 @@ const AdminSettings = () => {
                 const res = await api.get('/settings');
                 if (res.data.data) {
                     const data = res.data.data;
+                    console.log("Loaded Settings Data:", data);
 
                     const mergedSettings = {
                         general: { ...settings.general, ...(data.general || {}) },
@@ -201,9 +202,9 @@ const AdminSettings = () => {
                     setSettings(prev => ({
                         ...prev,
                         ...data,
-                        smtp: { ...prev.smtp, ...(data.smtp || {}), password: prev.smtp.password }, // Keep current pw in field
-                        ai: { ...prev.ai, ...(data.ai || {}), geminiApiKey: prev.ai.geminiApiKey }, // Keep current key in field
-                        googleAuth: { ...prev.googleAuth, ...(data.googleAuth || {}), webClientSecret: prev.googleAuth.webClientSecret } // Keep secret
+                        smtp: { ...prev.smtp, ...(data.smtp || {}), password: prev.smtp?.password || data.smtp?.password || '' }, // Keep current pw in field
+                        ai: { ...prev.ai, ...(data.ai || {}), geminiApiKey: prev.ai?.geminiApiKey || data.ai?.geminiApiKey || '' }, // Keep current key in field
+                        googleAuth: { ...prev.googleAuth, ...(data.googleAuth || {}), webClientSecret: prev.googleAuth?.webClientSecret || data.googleAuth?.webClientSecret || '' } // Keep secret
                     }));
                 }
             }
@@ -417,11 +418,6 @@ const AdminSettings = () => {
 
     return (
         <div style={{ color: 'var(--text-main)' }}>
-            <Toaster position="top-right" />
-
-
-
-
             <div className="settings-container">
                 <div className="settings-tabs">
                     <div className="tabs-header" style={{ padding: '8px 12px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px', opacity: 0.8 }}>
@@ -482,7 +478,7 @@ const AdminSettings = () => {
                                                         width: '64px',
                                                         height: '64px',
                                                         borderRadius: '12px',
-                                                        background: 'var(--bg-color)',
+                                                        background: settings.general.logo ? 'transparent' : 'var(--bg-lite)',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
@@ -1810,52 +1806,52 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
             case 'msg91':
                 return (
                     <div className="settings-grid">
-                        <InputGroup label="Msg91 Auth Key" value={currentConfig.authKey || ''} onChange={v => handleUpdate('authKey', v)} />
-                        <InputGroup label="Msg91 Sender ID" value={currentConfig.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
-                        <InputGroup label="Msg91 Template ID" value={currentConfig.templateId || ''} onChange={v => handleUpdate('templateId', v)} />
-                        <InputGroup label="Msg91 Template Variable" value={currentConfig.templateVariable || ''} onChange={v => handleUpdate('templateVariable', v)} placeholder="OTP" />
+                        <InputGroup label="Msg91 Auth Key" value={currentConfig?.authKey || ''} onChange={v => handleUpdate('authKey', v)} />
+                        <InputGroup label="Msg91 Sender ID" value={currentConfig?.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
+                        <InputGroup label="Msg91 Template ID" value={currentConfig?.templateId || ''} onChange={v => handleUpdate('templateId', v)} />
+                        <InputGroup label="Msg91 Template Variable" value={currentConfig?.templateVariable || ''} onChange={v => handleUpdate('templateVariable', v)} placeholder="OTP" />
                     </div>
                 );
             case 'twilio':
                 return (
                     <div className="settings-grid">
-                        <InputGroup label="Account SID" value={currentConfig.accountSid || ''} onChange={v => handleUpdate('accountSid', v)} />
-                        <InputGroup label="Auth Token" type="password" value={currentConfig.authToken || ''} onChange={v => handleUpdate('authToken', v)} />
-                        <InputGroup label="From Phone Number" value={currentConfig.fromPhone || ''} onChange={v => handleUpdate('fromPhone', v)} />
+                        <InputGroup label="Account SID" value={currentConfig?.accountSid || ''} onChange={v => handleUpdate('accountSid', v)} />
+                        <InputGroup label="Auth Token" type="password" value={currentConfig?.authToken || ''} onChange={v => handleUpdate('authToken', v)} />
+                        <InputGroup label="From Phone Number" value={currentConfig?.fromPhone || ''} onChange={v => handleUpdate('fromPhone', v)} />
                     </div>
                 );
             case 'nexmo':
                 return (
                     <div className="settings-grid">
-                        <InputGroup label="API Key" value={currentConfig.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
-                        <InputGroup label="API Secret" type="password" value={currentConfig.apiSecret || ''} onChange={v => handleUpdate('apiSecret', v)} />
-                        <InputGroup label="From" value={currentConfig.from || ''} onChange={v => handleUpdate('from', v)} />
+                        <InputGroup label="API Key" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
+                        <InputGroup label="API Secret" type="password" value={currentConfig?.apiSecret || ''} onChange={v => handleUpdate('apiSecret', v)} />
+                        <InputGroup label="From" value={currentConfig?.from || ''} onChange={v => handleUpdate('from', v)} />
                     </div>
                 );
             case 'bulksms':
                 return (
                     <div className="settings-grid">
-                        <InputGroup label="Username" value={currentConfig.username || ''} onChange={v => handleUpdate('username', v)} />
-                        <InputGroup label="Password" type="password" value={currentConfig.password || ''} onChange={v => handleUpdate('password', v)} />
+                        <InputGroup label="Username" value={currentConfig?.username || ''} onChange={v => handleUpdate('username', v)} />
+                        <InputGroup label="Password" type="password" value={currentConfig?.password || ''} onChange={v => handleUpdate('password', v)} />
                     </div>
                 );
             case 'bulksmsbd':
                 return (
                     <div className="settings-grid">
-                        <InputGroup label="API Key" value={currentConfig.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
-                        <InputGroup label="Sender ID" value={currentConfig.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
+                        <InputGroup label="API Key" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
+                        <InputGroup label="Sender ID" value={currentConfig?.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
                     </div>
                 );
             case 'telesign':
                 return (
                     <div className="settings-grid">
-                        <InputGroup label="Customer ID" value={currentConfig.customerId || ''} onChange={v => handleUpdate('customerId', v)} />
-                        <InputGroup label="API Key" type="password" value={currentConfig.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
+                        <InputGroup label="Customer ID" value={currentConfig?.customerId || ''} onChange={v => handleUpdate('customerId', v)} />
+                        <InputGroup label="API Key" type="password" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
                     </div>
                 );
             default:
                 return (
-                    <InputGroup label="API Key" value={currentConfig.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
+                    <InputGroup label="API Key" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
                 );
         }
     };

@@ -89,11 +89,16 @@ const voiceService = {
         return response;
     },
 
-    createMemory: async (content, category = 'general') => {
+    createMemory: async (data) => {
         const token = localStorage.getItem('token');
-        const response = await axios.post(`${API_URL}/voice/memories`, { content, category }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const headers = { Authorization: `Bearer ${token}` };
+
+        // If data is FormData, set correct Content-Type
+        if (data instanceof FormData) {
+            headers['Content-Type'] = 'multipart/form-data';
+        }
+
+        const response = await axios.post(`${API_URL}/voice/memories`, data, { headers });
         return response.data;
     },
 
@@ -107,9 +112,13 @@ const voiceService = {
 
     updateMemory: async (id, data) => {
         const token = localStorage.getItem('token');
-        const response = await axios.put(`${API_URL}/voice/memories/${id}`, data, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const headers = { Authorization: `Bearer ${token}` };
+
+        if (data instanceof FormData) {
+            headers['Content-Type'] = 'multipart/form-data';
+        }
+
+        const response = await axios.put(`${API_URL}/voice/memories/${id}`, data, { headers });
         return response.data;
     },
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Trash2, Search, Clock, Loader2, Eye, Edit2, Save, Mic, MicOff, FileText, ExternalLink, Info } from 'lucide-react';
+import { Brain, Trash2, Search, Clock, Loader2, Eye, Edit2, Save, Mic, MicOff, FileText, ExternalLink, Info, Upload, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
@@ -31,6 +31,8 @@ const Memories = () => {
     // --- Edit Forms State ---
     const [memoryEditContent, setMemoryEditContent] = useState('');
     const [recordEditForm, setRecordEditForm] = useState({ patientName: '', doctorName: '', notes: '' });
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [filePreview, setFilePreview] = useState(null);
 
     const API_URL = envConfig.API_URL;
 
@@ -126,7 +128,12 @@ const Memories = () => {
         try {
             let res;
             if (editModal.item.type === 'memory') {
-                res = await voiceService.updateMemory(editModal.item._id, { content: memoryEditContent });
+                const formData = new FormData();
+                formData.append('content', memoryEditContent);
+                if (selectedFile) {
+                    formData.append('file', selectedFile);
+                }
+                res = await voiceService.updateMemory(editModal.item._id, formData);
             } else {
                 res = await voiceService.updatePrescription(editModal.item._id, {
                     extractedData: { ...editModal.item.extractedData, ...recordEditForm }
@@ -137,10 +144,29 @@ const Memories = () => {
                 toast.success("Updated successfully");
                 fetchAllItems(pagination.currentPage);
                 setEditModal({ isOpen: false, item: null });
+                setSelectedFile(null);
+                setFilePreview(null);
             }
         } catch (err) {
             toast.error("Failed to update item");
         }
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSelectedFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFilePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeFile = () => {
+        setSelectedFile(null);
+        setFilePreview(null);
     };
 
     const openEditModal = (item) => {
@@ -426,6 +452,59 @@ const Memories = () => {
                                         onChange={(e) => { setMemoryEditContent(e.target.value); if (!isListening) setBaseContent(e.target.value); }}
                                         style={{ width: '100%', minHeight: '150px', background: 'var(--bg-lite)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '16px', borderRadius: '12px' }}
                                     />
+                                </DetailCard>
+
+                                <DetailCard title="Attachments">
+                                    <div style={{
+                                        border: '2px dashed var(--border-color)',
+                                        borderRadius: '12px',
+                                        padding: '20px',
+                                        textAlign: 'center',
+                                        background: 'rgba(0,0,0,0.02)',
+                                        position: 'relative'
+                                    }}>
+                                        {filePreview || editModal.item.fileUrl ? (
+                                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                                                <img
+                                                    src={filePreview || getFileUrl(editModal.item.fileUrl)}
+                                                    alt="Memory attachment"
+                                                    style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px' }}
+                                                />
+                                                <button
+                                                    onClick={removeFile}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '-10px',
+                                                        right: '-10px',
+                                                        background: 'var(--danger-color)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '50%',
+                                                        width: '24px',
+                                                        height: '24px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <label style={{ cursor: 'pointer', display: 'block' }}>
+                                                <Upload size={32} color="var(--primary-color)" style={{ margin: '0 auto 10px' }} />
+                                                <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-main)' }}>Upload an image or document</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>Click to browse</div>
+                                                <input
+                                                    type="file"
+                                                    onChange={handleFileChange}
+                                                    style={{ display: 'none' }}
+                                                    accept="image/*,application/pdf"
+                                                />
+                                            </label>
+                                        )}
+                                    </div>
                                 </DetailCard>
                             </>
                         ) : (

@@ -3,10 +3,16 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:http/http.dart' as http;
 
 class BuddyProvider with ChangeNotifier {
   final BuddyService _buddyService = BuddyService();
   final SocketService socketService = SocketService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final _storage = const FlutterSecureStorage();
 
   List<Map<String, dynamic>> _messages = [];
   List<dynamic> _historyList = [];
@@ -40,6 +46,35 @@ class BuddyProvider with ChangeNotifier {
     socketService.statusStream.listen((isConnected) {
       _isRealtimeEnabled = isConnected;
       notifyListeners();
+    });
+
+    // Handle Background Voice Alerts (e.g. Traffic, Proximity)
+    socketService.voiceAlertStream.listen((data) async {
+      final text = data['text'] as String?;
+      if (text == null) return;
+
+      final gender = data['gender'] ?? 'female';
+      final tone = data['tone'] ?? 'soft';
+
+      try {
+        final token = await _storage.read(key: 'token');
+        final baseUrl = AppConfig.baseUrl;
+        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(text)}&gender=$gender&tone=$tone');
+        
+        final response = await http.get(url, headers: {
+          'Authorization': 'Bearer $token',
+        });
+
+        if (response.statusCode == 200) {
+          final body = json.decode(response.body);
+          if (body['success'] == true && body['audio'] != null) {
+            final audioBytes = base64Decode(body['audio']);
+            await _audioPlayer.play(BytesSource(audioBytes));
+          }
+        }
+      } catch (e) {
+        print('Error playing voice alert: $e');
+      }
     });
   }
 
@@ -132,9 +167,22 @@ class BuddyProvider with ChangeNotifier {
 
     if (response['success'] == true) {
       final reply = response['data']['reply'];
+      final audioBase64 = response['data']['audio'];
+      
       addMessage('ai', reply);
+      
       if (response['meta'] != null && response['meta']['conversationId'] != null) {
         _currentConversationId = response['meta']['conversationId'];
+      }
+
+      // Play audio response if available (for character consistency)
+      if (audioBase64 != null) {
+        try {
+          final audioBytes = base64Decode(audioBase64);
+          await _audioPlayer.play(BytesSource(audioBytes));
+        } catch (e) {
+          print('Error playing response audio: $e');
+        }
       }
     } else {
       addMessage('ai', "Error: ${response['message']}");

@@ -4,7 +4,11 @@ const contextService = require('../services/contextService');
 const Reminder = require('../models/Reminder');
 const { createGoogleCalendarEvent } = require('../services/googleCalendarService');
 const GeminiLiveService = require('../services/geminiLiveService');
-const { geocodeAddress } = require('../services/smartReminderService');
+const ttsService = require('../services/ttsService');
+const User = require('../models/User');
+// const { geocodeAddress } = require('../services/smartReminderService'); // Moved inside function to avoid circular dependency
+
+const { getPersonality } = require('../utils/personality');
 
 /**
  * Buddy 2.0 Voice Controller
@@ -38,22 +42,33 @@ exports.processVoice = async (req, res) => {
         const aiResponse = await geminiService.generateResponse(text, userId, context, language, image);
         console.log(`[VoiceV2] AI response generated in ${Date.now() - aiStartTime}ms`);
 
-        // 3. Save Context (Step 5)
-        const saveStartTime = Date.now();
-        const updatedConversationId = await contextService.saveInteraction(
-            userId,
-            conversationId,
-            text,
-            aiResponse.reply
-        );
-        console.log(`[VoiceV2] Interaction saved in ${Date.now() - saveStartTime}ms`);
+        // 3. Save Context & Generate Audio in Parallel
+        const processingStartTime = Date.now();
+        const [updatedConversationId, ttsResult] = await Promise.all([
+            contextService.saveInteraction(userId, conversationId, text, aiResponse.reply),
+            (async () => {
+                const voicePrefs = context.userContext?.voicePreferences || { gender: 'female', tone: 'soft' };
+                try {
+                    return await ttsService.generateAudio(aiResponse.reply, voicePrefs.gender, voicePrefs.tone);
+                } catch (err) {
+                    console.warn('[VoiceV2] TTS Generation failed:', err.message);
+                    return { audio: null };
+                }
+            })()
+        ]);
+
+        const audio = ttsResult?.audio || null;
+        console.log(`[VoiceV2] Post-AI processing (Save + TTS) completed in ${Date.now() - processingStartTime}ms`);
 
         console.log(`[VoiceV2] TOTAL processing time: ${Date.now() - startTime}ms`);
 
-        // 4. Return result (ready for Steps 7 & 8 on frontend)
+        // 5. Return result (ready for Steps 7 & 8 on frontend)
         res.status(200).json({
             success: true,
-            data: aiResponse,
+            data: {
+                ...aiResponse,
+                audio: audio
+            },
             meta: {
                 conversationId: updatedConversationId,
                 language: language
@@ -87,6 +102,7 @@ exports.saveReminder = async (req, res) => {
         // try to geocode it on the backend as a safety net
         if (reminderData.location && (!reminderData.coordinates?.lat || !reminderData.coordinates?.lng)) {
             try {
+                const { geocodeAddress } = require('../services/smartReminderService');
                 const coords = await geocodeAddress(reminderData.location);
                 if (coords) {
                     reminderData.coordinates = coords;
@@ -133,96 +149,18 @@ exports.previewVoice = async (req, res) => {
         const userPrefs = req.user?.voicePreferences || {};
         const gender = req.query.gender || userPrefs.gender || 'female';
         const tone = req.query.tone || userPrefs.tone || 'soft';
+        const text = req.query.text || "Hi! I am Buddy. I am ready to help you.";
 
-        // Map to voice name
-        let voiceName = 'Aoede';
-        if (gender === 'male') {
-            if (tone === 'soft') voiceName = 'Charon';
-            else if (tone === 'energetic') voiceName = 'Fenrir';
-            else voiceName = 'Puck';
-        } else {
-            if (tone === 'energetic') voiceName = 'Kore';
-            else voiceName = 'Aoede';
-        }
+        const result = await ttsService.generateAudio(text, gender, tone);
 
-        console.log(`[Preview] Generating preview for voice: ${voiceName} (${gender}, ${tone})`);
-
-        const ai = new GeminiLiveService(process.env.GEMINI_API_KEY);
-        let audioChunks = [];
-        let isDone = false;
-
-        const cleanup = () => {
-            ai.disconnect();
-            ai.removeAllListeners();
-        };
-
-        const timeout = setTimeout(() => {
-            if (!isDone) {
-                isDone = true;
-                cleanup();
-                res.status(504).json({ success: false, message: "Voice preview timed out." });
-            }
-        }, 15000); // 15s timeout
-
-        ai.on('audio_delta', (base64) => {
-            if (!isDone) {
-                console.log(`[Preview] Received audio chunk: ${base64.length} bytes`);
-                audioChunks.push(Buffer.from(base64, 'base64'));
-            }
+        res.status(200).json({
+            success: true,
+            audio: result.audio,
+            voiceName: result.voiceName
         });
-
-        ai.on('error', (err) => {
-            console.error('[Preview] AI Error:', err);
-            if (!isDone) {
-                isDone = true;
-                clearTimeout(timeout);
-                cleanup();
-                res.status(500).json({ success: false, message: "AI connection error." });
-            }
-        });
-
-        ai.on('response_done', () => {
-            if (!isDone) {
-                isDone = true;
-                clearTimeout(timeout);
-                cleanup();
-
-                // Concatenate buffers and convert back to base64
-                const fullAudio = Buffer.concat(audioChunks).toString('base64');
-
-                res.status(200).json({
-                    success: true,
-                    audio: fullAudio,
-                    voiceName
-                });
-            }
-        });
-
-        ai.on('ready', () => {
-            console.log('[Preview] Socket ready, waiting for setup...');
-        });
-
-        ai.on('setup_complete', () => {
-            console.log('[Preview] Setup complete, sending preview text...');
-            let phrase = "Hi there! I am Buddy, your personal assistant. This is a sample of how I will sound.";
-            if (tone === 'soft') {
-                phrase = "Hello there. I am Buddy, your personal assistant. I will speak softly and calmly. This is a sample of my voice.";
-            } else if (tone === 'energetic') {
-                phrase = "Hi there! I am Buddy, your personal assistant! I'm super excited to help you out! This is a sample of how I'll sound!";
-            }
-            ai.sendText(phrase);
-        });
-
-        let toneRule = "Speak with a balanced, clear, and professional tone.";
-        if (tone === 'soft') {
-            toneRule = "Speak softly, using gentle, empathetic language to convey a comforting and calm presence.";
-        } else if (tone === 'energetic') {
-            toneRule = "Speak energetically, using lively, enthusiastic language with a fast-paced, high-spirited attitude.";
-        }
-        ai.connect(`You are Buddy, a friendly health assistant. ${toneRule} Keep it very short.`, voiceName);
 
     } catch (error) {
         console.error('[Preview] Error:', error);
-        res.status(500).json({ success: false, message: "Failed to generate voice preview." });
+        res.status(500).json({ success: false, message: error.message || "Failed to generate voice preview." });
     }
 };

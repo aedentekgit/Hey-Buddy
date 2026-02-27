@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import {
     Plus, Edit2, Trash2, Search, X, Loader2, Eye, Save, Globe, Smartphone
 } from 'lucide-react';
@@ -165,9 +165,7 @@ const Roles = () => {
 
     return (
         <div style={{ color: 'var(--text-main)' }} className="roles-page">
-            <Toaster position="top-right" />
-
-            <div className="table-container">
+                        <div className="table-container">
                 <div className="search-management-header">
                     <div className="buddy-search-box hide-on-mobile">
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />

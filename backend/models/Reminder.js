@@ -15,6 +15,14 @@ const reminderSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    notes: {
+        type: String,
+        default: ''
+    },
+    description: {
+        type: String,
+        default: ''
+    },
     intent: {
         type: String,
         enum: ['meeting', 'medicine', 'pickup', 'bill', 'personal', 'generic', 'manual_creation', 'api_test'],

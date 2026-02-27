@@ -11,6 +11,7 @@ import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.d
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:buddy_mobile/core/services/notification_service.dart';
 
 void main() async {
@@ -19,6 +20,10 @@ void main() async {
   // Initialize Firebase in the background without blocking the splash screen
   unawaited(Firebase.initializeApp().then((_) async {
     print("Firebase initialized successfully");
+    
+    // Register background handler
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
     final notificationService = NotificationService();
     await notificationService.initialize();
   }).catchError((e) {

@@ -678,3 +678,27 @@
 .animate-bounce {
     animation: bounce 1s infinite;
 }
+
+/* ========== CUSTOM PICKERS ========== */
+.custom-time-picker-overlay {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.picker-column-btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.picker-column-btn:hover {
+    background: var(--bg-lite);
+    color: var(--primary-color);
+    transform: translateY(2px);
+}
+
+.picker-column-btn:active {
+    transform: scale(0.95);
+}
+
+.picker-value-display {
+    text-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}

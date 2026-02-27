@@ -100,4 +100,50 @@ class TaskService {
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> fetchTravelStats(String id, {double? lat, double? lng}) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+      String url = '${_baseUrl}reminders/$id/travel-stats';
+      if (lat != null && lng != null) {
+        url += '?lat=$lat&lng=$lng';
+      }
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true) {
+          return body['data'];
+        }
+      }
+      return null;
+    } catch (e) {
+      print("Error fetching travel stats: $e");
+      return null;
+    }
+  }
+
+  Future<bool> unshareReminder(String reminderId, String userId) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+      final response = await http.delete(
+        Uri.parse('${_baseUrl}reminders/$reminderId/unshare/$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
+        },
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error unsharing reminder: $e");
+      return false;
+    }
+  }
 }

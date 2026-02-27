@@ -88,7 +88,7 @@ const MobileHeader = () => {
                         width: '40px',
                         height: '40px',
                         borderRadius: '12px',
-                        background: 'var(--primary-gradient)',
+                        background: (branding.logo || getProfileImageUrl()) ? 'transparent' : 'var(--primary-gradient)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

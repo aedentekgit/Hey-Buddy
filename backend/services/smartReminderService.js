@@ -40,40 +40,62 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 /**
  * Geocode an address string to coordinates
  * @param {string} address - Address or location name
+ * @param {object} biasLocation - Optional {lat, lng} to bias search results
  * @returns {Promise<object|null>} {lat, lng} or null
  */
-async function geocodeAddress(address) {
+async function geocodeAddress(address, biasLocation = null) {
     if (!address) return null;
 
     let apiKey = GOOGLE_MAPS_API_KEY;
 
     if (!apiKey) {
         const settings = await Settings.findOne();
-        console.log('[Geocode] Checking settings for API key...');
         if (settings?.googleMaps?.apiKey) {
             apiKey = settings.googleMaps.apiKey;
-            console.log('[Geocode] Using API key from settings.');
-
-            // Log warning if not enabled but we have a key
-            if (!settings.googleMaps.enabled) {
-                console.warn('[Geocode] Warning: Google Maps is not explicitly enabled in settings, but an API key was found. Proceeding with geocoding.');
-            }
-        } else {
-            console.error('[Geocode] No Google Maps API key found in .env or settings.');
         }
     }
 
     if (!apiKey) return null;
 
     try {
-        const url = `https://maps.googleapis.com/maps/api/geocode/json`;
-        console.log(`[Geocode] Requesting: ${address}`);
-        const response = await axios.get(url, {
-            params: {
-                address: address,
-                key: apiKey
+        let enhancedAddress = address;
+
+        // Force local context by reverse-geocoding the bias location to get the user's city
+        if (biasLocation?.lat && biasLocation?.lng) {
+            try {
+                const reverseUrl = `https://maps.googleapis.com/maps/api/geocode/json`;
+                const reverseRes = await axios.get(reverseUrl, {
+                    params: { latlng: `${biasLocation.lat},${biasLocation.lng}`, key: apiKey }
+                });
+
+                if (reverseRes.data.status === 'OK' && reverseRes.data.results.length > 0) {
+                    let cityName = '';
+                    for (const res of reverseRes.data.results) {
+                        const locality = res.address_components.find(c => c.types.includes('locality') || c.types.includes('administrative_area_level_2'));
+                        if (locality) {
+                            cityName = locality.long_name;
+                            break;
+                        }
+                    }
+                    if (cityName && !enhancedAddress.toLowerCase().includes(cityName.toLowerCase())) {
+                        enhancedAddress = `${enhancedAddress}, ${cityName}`;
+                        console.log(`[Geocode] City identified: ${cityName}. Enhanced search to: "${enhancedAddress}"`);
+                    }
+                }
+            } catch (err) {
+                console.error('[Geocode] Reverse geocoding failed:', err.message);
             }
-        });
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/geocode/json`;
+        console.log(`[Geocode] Requesting: ${enhancedAddress}`);
+        const params = {
+            address: enhancedAddress,
+            key: apiKey,
+            region: 'in' // Bias towards India
+        };
+
+        const response = await axios.get(url, { params });
 
         if (response.data.status === 'OK' && response.data.results.length > 0) {
             const loc = response.data.results[0].geometry.location;
@@ -159,7 +181,7 @@ async function getTrafficAwareTravelTime(origin, destination) {
  * Early Warning System
  * Checks if user is at risk of being late and sends proactive alerts
  */
-async function checkEarlyWarnings() {
+async function checkEarlyWarnings(io) {
     try {
         const now = new Date();
         const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); // HH:MM
@@ -172,7 +194,7 @@ async function checkEarlyWarnings() {
             location: { $ne: null },
             'coordinates.lat': { $exists: true },
             'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences');
+        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences');
 
         for (const reminder of reminders) {
             const user = reminder.userId;
@@ -259,9 +281,13 @@ async function checkEarlyWarnings() {
 
                 // AI Voice Announcement
                 if (user.notificationPreferences?.voice?.enabled !== false) {
-                    const activeAgent = findAgentByUserId(user._id.toString());
-                    if (activeAgent) {
-                        activeAgent.say(`[SYSTEM NOTIFICATION]: This is an Early Warning for the user. Please announce: "${message}"`);
+                    const voiceMsg = `This is an Early Warning. You should leave in ${minutesToLeave} minutes for "${reminder.title}".`;
+                    if (io) {
+                        io.to(user._id.toString()).emit('voice_alert', {
+                            text: voiceMsg,
+                            gender: user.voicePreferences?.gender || 'female',
+                            tone: user.voicePreferences?.tone || 'soft'
+                        });
                     }
                 }
 
@@ -277,7 +303,7 @@ async function checkEarlyWarnings() {
  * Traffic-Aware ETA Adjustment
  * Dynamically adjusts reminder notification times based on real-time traffic
  */
-async function adjustReminderTimesForTraffic() {
+async function adjustReminderTimesForTraffic(io) {
     try {
         const reminders = await Reminder.find({
             'smartFeatures.trafficAware': true,
@@ -285,7 +311,7 @@ async function adjustReminderTimesForTraffic() {
             location: { $ne: null },
             'coordinates.lat': { $exists: true },
             'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences');
+        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences');
 
         for (const reminder of reminders) {
             const user = reminder.userId;
@@ -363,9 +389,13 @@ async function adjustReminderTimesForTraffic() {
 
                 // AI Voice Announcement
                 if (reminder.userId.notificationPreferences?.voice?.enabled !== false) {
-                    const activeAgent = findAgentByUserId(reminder.userId._id.toString());
-                    if (activeAgent) {
-                        activeAgent.say(`[SYSTEM NOTIFICATION]: This is a Traffic Alert. Please announce: "${message}"`);
+                    const voiceMsg = `Traffic Alert: Heavy traffic detected for "${reminder.title}". Current delay is +${delayMinutes} minutes. Consider leaving earlier!`;
+                    if (io) {
+                        io.to(reminder.userId._id.toString()).emit('voice_alert', {
+                            text: voiceMsg,
+                            gender: reminder.userId.voicePreferences?.gender || 'female',
+                            tone: reminder.userId.voicePreferences?.tone || 'soft'
+                        });
                     }
                 }
 
@@ -382,7 +412,7 @@ async function adjustReminderTimesForTraffic() {
  * Reminders users about items they need to bring when leaving a location
  * @param {string} specificUserId - Optional userId to check only for one user
  */
-async function checkItemExitGuards(specificUserId = null) {
+async function checkItemExitGuards(specificUserId = null, io) {
     try {
         const query = {
             'smartFeatures.itemExitGuards': true,
@@ -396,7 +426,7 @@ async function checkItemExitGuards(specificUserId = null) {
             query.userId = specificUserId;
         }
 
-        const reminders = await Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation notificationPreferences');
+        const reminders = await Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation timezone notificationPreferences voicePreferences');
 
         for (const reminder of reminders) {
             const user = reminder.userId;
@@ -475,9 +505,13 @@ async function checkItemExitGuards(specificUserId = null) {
 
                 // AI Voice Announcement
                 if (user.notificationPreferences?.voice?.enabled !== false) {
-                    const activeAgent = findAgentByUserId(user._id.toString());
-                    if (activeAgent) {
-                        activeAgent.say(`[SYSTEM NOTIFICATION]: This is an Item Exit Guard alert. Please announce: "${message}"`);
+                    const voiceMsg = `Don't forget: "${reminder.title}" - Make sure you have everything you need!`;
+                    if (io) {
+                        io.to(user._id.toString()).emit('voice_alert', {
+                            text: voiceMsg,
+                            gender: user.voicePreferences?.gender || 'female',
+                            tone: user.voicePreferences?.tone || 'soft'
+                        });
                     }
                 }
 
@@ -493,12 +527,12 @@ async function checkItemExitGuards(specificUserId = null) {
  * Main function to run all smart reminder checks
  * Should be called periodically (e.g., every 5 minutes)
  */
-async function runSmartReminderChecks() {
+async function runSmartReminderChecks(io) {
     console.log('Running smart reminder checks...');
     await Promise.all([
-        checkEarlyWarnings(),
-        adjustReminderTimesForTraffic(),
-        checkItemExitGuards()
+        checkEarlyWarnings(io),
+        adjustReminderTimesForTraffic(io),
+        checkItemExitGuards(null, io)
     ]);
     console.log('Smart reminder checks completed.');
 }

@@ -353,12 +353,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             "push", 
             prefs['push']
           ),
-          _buildNotificationItem(
-            "SMS Notifications", 
-            "Get critical alerts directly via SMS.", 
-            "sms", 
-            prefs['sms']
-          ),
+
           _buildNotificationItem(
             "Email Notifications", 
             "Receive summaries and reminders via email.", 
@@ -409,7 +404,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             ),
             child: Icon(
               key == 'push' ? LucideIcons.bell : 
-              key == 'sms' ? LucideIcons.messageSquare : 
               key == 'email' ? LucideIcons.mail : LucideIcons.appWindow, 
               size: 24, 
               color: Theme.of(context).primaryColor

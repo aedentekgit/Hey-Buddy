@@ -123,10 +123,17 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const user = await User.findByIdAndDelete(id);
+        const user = await User.findById(id);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+
+        if (user.profilePicture) {
+            await deleteFile(user.profilePicture);
+        }
+
+        await User.findByIdAndDelete(id);
+
         res.json({ success: true, message: 'User deleted successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -230,11 +237,17 @@ const deleteMyAccount = async (req, res) => {
         const userId = req.user._id;
         console.log('[UserController] Deleting account for user:', userId);
 
-        const user = await User.findByIdAndDelete(userId);
+        const user = await User.findById(userId);
         if (!user) {
             console.error('[UserController] User not found for deletion:', userId);
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+
+        if (user.profilePicture) {
+            await deleteFile(user.profilePicture);
+        }
+
+        await User.findByIdAndDelete(userId);
 
         console.log('[UserController] Account deleted successfully:', userId);
         res.json({ success: true, message: 'Account deleted successfully' });
@@ -298,8 +311,7 @@ const updateLocation = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-const { uploadFile } = require('../services/fileService');
-
+const { uploadFile, deleteFile } = require('../services/fileService');
 // ... (existing code)
 
 // ... (existing code)
@@ -376,6 +388,10 @@ const adminDeleteProfilePicture = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
+        if (user.profilePicture) {
+            await deleteFile(user.profilePicture);
+        }
+
         user.profilePicture = undefined;
         await user.save();
 
@@ -396,6 +412,7 @@ const deleteProfilePicture = async (req, res) => {
         }
 
         if (user.profilePicture) {
+            await deleteFile(user.profilePicture);
             user.profilePicture = null;
             await user.save();
         }

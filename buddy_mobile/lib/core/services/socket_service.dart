@@ -12,10 +12,12 @@ class SocketService {
   final _audioStreamController = StreamController<String>.broadcast();
   final _captionStreamController = StreamController<String>.broadcast();
   final _statusStreamController = StreamController<bool>.broadcast();
+  final _voiceAlertStreamController = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<String> get audioStream => _audioStreamController.stream;
   Stream<String> get captionStream => _captionStreamController.stream;
   Stream<bool> get statusStream => _statusStreamController.stream;
+  Stream<Map<String, dynamic>> get voiceAlertStream => _voiceAlertStreamController.stream;
 
   void connect() async {
     final token = await _storage.read(key: 'token');
@@ -54,6 +56,15 @@ class SocketService {
     socket?.on('error', (err) {
       print('Socket Error: $err');
     });
+    
+    socket?.on('voice_alert', (data) {
+      print('Background Voice Alert: $data');
+      if (data is String) {
+        _voiceAlertStreamController.add({'text': data});
+      } else if (data is Map) {
+        _voiceAlertStreamController.add(Map<String, dynamic>.from(data));
+      }
+    });
   }
 
   void sendText(String text) {
@@ -73,5 +84,6 @@ class SocketService {
     _audioStreamController.close();
     _captionStreamController.close();
     _statusStreamController.close();
+    _voiceAlertStreamController.close();
   }
 }

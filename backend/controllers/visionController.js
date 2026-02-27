@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const Reminder = require('../models/Reminder');
 const Notification = require('../models/Notification');
-const { uploadFileToFirebase } = require('../services/fileService');
+const { uploadFile } = require('../services/fileService');
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -14,7 +14,7 @@ exports.analyzeImage = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No image uploaded' });
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         // Helper to convert memory buffer to GoogleGenerativeAI.Part object
         function bufferToGenerativePart(buffer, mimeType) {
@@ -57,9 +57,9 @@ exports.analyzeImage = async (req, res) => {
         const jsonStr = text.replace(/```json|```/g, "").trim();
         const analysis = JSON.parse(jsonStr);
 
-        // Upload to Firebase for history
+        // Upload for history via unified service
         const destination = `vision/${req.user._id}-${Date.now()}${path.extname(req.file.originalname)}`;
-        const publicUrl = await uploadFileToFirebase(req.file.buffer, destination, req.file.mimetype);
+        const publicUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
 
         res.status(200).json({
             success: true,

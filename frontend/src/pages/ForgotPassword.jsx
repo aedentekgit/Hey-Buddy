@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { Mail, Loader2, Bot, ArrowLeft, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../services/api';
@@ -26,9 +26,7 @@ const ForgotPassword = () => {
 
     return (
         <div className="forgot-password-container">
-            <Toaster position="top-center" />
-
-            <motion.div
+                        <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}

@@ -11,6 +11,8 @@ import GlobalSlideOver from './GlobalSlideOver';
 import { formatTime, formatDate, formatTimeForInput } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import GoogleMapPicker from './GoogleMapPicker';
+import CustomTimePicker from './CustomTimePicker';
+import CustomDurationPicker from './CustomDurationPicker';
 
 const DetailCard = ({ title, children, className = '' }) => (
     <div className={`detail-card ${className}`} style={{
@@ -273,19 +275,9 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                             fontSize: '0.9rem'
                                         }}
                                     />
-                                    <input
-                                        type="time"
+                                    <CustomTimePicker
                                         value={time}
-                                        onChange={(e) => setTime(e.target.value)}
-                                        style={{
-                                            flex: 1,
-                                            background: 'var(--bg-lite)',
-                                            border: '1px solid var(--border-color)',
-                                            borderRadius: '8px',
-                                            color: 'var(--text-main)',
-                                            padding: '8px',
-                                            fontSize: '0.9rem'
-                                        }}
+                                        onChange={(newTime) => setTime(newTime)}
                                     />
                                 </div>
                             ) : (
@@ -302,24 +294,13 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                             <span>Safety Buffer Time</span>
                             <span style={{ color: 'var(--primary-color)' }}>{bufferTime}m</span>
                         </label>
-                        <input
-                            type="range"
-                            min="5"
-                            max="120"
-                            step="5"
+                        <CustomDurationPicker
                             value={bufferTime}
-                            disabled={!isEditing}
-                            onChange={(e) => setBufferTime(parseInt(e.target.value))}
-                            style={{
-                                width: '100%',
-                                accentColor: 'var(--primary-color)',
-                                opacity: !isEditing ? 0.5 : 1,
-                                cursor: !isEditing ? 'not-allowed' : 'pointer'
-                            }}
+                            onChange={(val) => isEditing && setBufferTime(val)}
+                            min={0}
+                            max={120}
+                            step={5}
                         />
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginTop: '8px' }}>
-                            Add extra time before your reminder to ensure you're never late.
-                        </p>
                     </div>
 
                     <div style={{
@@ -361,6 +342,23 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
 
                 {/* Location Settings */}
                 <DetailCard title={<><Navigation size={20} /> Location Settings</>}>
+                    {location && (!coordinates?.lat || !coordinates?.lng) && !isEditing && (
+                        <div style={{
+                            marginBottom: '12px',
+                            padding: '10px 14px',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            border: '1px solid rgba(245, 158, 11, 0.2)'
+                        }}>
+                            <AlertCircle size={18} color="#f59e0b" />
+                            <span style={{ fontSize: '0.8rem', color: '#d97706', fontWeight: '600' }}>
+                                Destination not plotted. Enter Edit mode to set coordinates.
+                            </span>
+                        </div>
+                    )}
                     <GoogleMapPicker
                         location={location}
                         setLocation={setLocation}
@@ -368,7 +366,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                         setCoordinates={setCoordinates}
                         isEditing={isEditing}
                         radius={geofenceRadius}
-                        userLocation={user?.currentLocation}
+                        userLocation={user?.currentLocation || { lat: 9.9252, lng: 78.1198 }} // Fallback to Madurai coords if missing
                     />
 
                     <div style={{ marginBottom: '16px' }}>
@@ -716,50 +714,33 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                 </p>
                             </div>
                         </div>
+
+                        <div style={{ height: '1px', background: 'var(--border-color)', opacity: 0.5 }} />
+
+                        {/* Push Notifications */}
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                            <div style={{ padding: '10px', background: 'rgba(0, 117, 255, 0.1)', borderRadius: '12px', color: 'var(--primary-color)' }}>
+                                <Bell size={20} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <span style={{ fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        Push Notifications
+                                    </span>
+                                    <ToggleSwitch
+                                        checked={alerts.push}
+                                        onChange={(v) => isEditing && setAlerts({ ...alerts, push: v })}
+                                    />
+                                </div>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', lineHeight: '1.4' }}>
+                                    Receive alerts on your device
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </DetailCard>
 
-                {/* Quick Actions */}
-                <h4 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '700' }}>Quick Actions</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '30px' }}>
-                    <button onClick={() => { handleAction('complete'); handleSave(); }} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', borderColor: 'var(--success-color)', color: 'var(--success-color)', background: 'color-mix(in srgb, var(--success-color) 5%, transparent)' }}>
-                        <CheckCircle2 size={24} />
-                        Complete
-                    </button>
-                    <button onClick={() => { handleAction('snooze'); handleSave(); }} className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', borderColor: 'var(--warning-color)', color: 'var(--warning-color)', background: 'color-mix(in srgb, var(--warning-color) 5%, transparent)' }}>
-                        <Clock size={24} />
-                        Snooze
-                    </button>
-                    <button className="btn-outline" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', background: 'var(--bg-lite)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
-                        <CalendarDays size={24} color="var(--primary-color)" />
-                        Reschedule
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (!isEditing) return;
-                            const priorities = ['low', 'medium', 'high'];
-                            const next = priorities[(priorities.indexOf(priority) + 1) % 3];
-                            setPriority(next);
-                            // Only auto-save if in editing mode
-                        }}
-                        className="btn-outline"
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '16px',
-                            background: 'var(--bg-lite)',
-                            borderColor: 'var(--border-color)',
-                            color: 'var(--text-main)',
-                            cursor: isEditing ? 'pointer' : 'default',
-                            opacity: isEditing ? 1 : 0.8
-                        }}
-                    >
-                        <AlertCircle size={24} color={priority === 'high' ? 'var(--danger-color)' : priority === 'medium' ? 'var(--warning-color)' : 'var(--text-sub)'} />
-                        Priority: {priority.toUpperCase()}
-                    </button>
-                </div>
+
 
 
                 {/* Save Button */}
@@ -790,21 +771,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                     </div>
                 )}
 
-                {/* Alert Preferences */}
-                <DetailCard title={<><BellRing size={20} /> Alert Preferences</>}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ padding: '8px', background: 'rgba(0, 117, 255, 0.1)', borderRadius: '8px', color: 'var(--primary-color)' }}><Bell size={18} /></div>
-                                <div>
-                                    <div style={{ fontWeight: '600' }}>Push Notifications</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Receive alerts on your device</div>
-                                </div>
-                            </div>
-                            <ToggleSwitch checked={alerts.push} onChange={(v) => isEditing && setAlerts({ ...alerts, push: v })} />
-                        </div>
-                    </div>
-                </DetailCard>
+
 
                 {/* Timeline */}
                 <div style={{ paddingLeft: '24px' }}>

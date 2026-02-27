@@ -14,8 +14,12 @@ const initFirebase = async () => {
         }
 
         // The path stored is like /uploads/filename.json
-        // We need the full absolute path
-        const jsonPath = path.join(__dirname, '..', settings.notification.serviceAccountJson);
+        // We need the full absolute path. Remove leading slash for correct joining.
+        const relativePath = settings.notification.serviceAccountJson.startsWith('/')
+            ? settings.notification.serviceAccountJson.substring(1)
+            : settings.notification.serviceAccountJson;
+
+        const jsonPath = path.join(__dirname, '..', relativePath);
 
         const serviceAccount = require(jsonPath);
 
@@ -38,7 +42,17 @@ const sendPushNotification = async (token, title, body, data = {}) => {
         const message = {
             notification: { title, body },
             data: data,
-            token: token
+            token: token,
+            android: {
+                priority: 'high',
+            },
+            apns: {
+                payload: {
+                    aps: {
+                        'content-available': 1,
+                    }
+                }
+            }
         };
 
         const response = await admin.messaging().send(message);

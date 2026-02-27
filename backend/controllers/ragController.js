@@ -1,7 +1,7 @@
 const Document = require('../models/Document');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require('fs');
-const { uploadFileToFirebase } = require('../services/fileService');
+const { uploadFile } = require('../services/fileService');
 const path = require('path');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -12,7 +12,7 @@ exports.uploadDocument = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         const imagePart = {
             inlineData: {
@@ -25,9 +25,9 @@ exports.uploadDocument = async (req, res) => {
         const result = await model.generateContent([prompt, imagePart]);
         const extractedText = result.response.text();
 
-        // Upload to Firebase
+        // Upload via unified service
         const destination = `documents/${req.user._id}-${Date.now()}${path.extname(req.file.originalname)}`;
-        const publicUrl = await uploadFileToFirebase(req.file.buffer, destination, req.file.mimetype);
+        const publicUrl = await uploadFile(req.file.buffer, destination, req.file.mimetype);
 
         const doc = await Document.create({
             userId: req.user._id,

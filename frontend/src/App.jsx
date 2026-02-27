@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -42,6 +43,7 @@ const App = () => {
                         <NotificationProvider>
                             <VoiceAssistantProvider>
                                 <RealtimeVoiceProvider>
+                                    <Toaster position="top-right" />
                                     <Routes>
                                         <Route path="/login" element={<Login />} />
                                         <Route path="/signup" element={<Signup />} />

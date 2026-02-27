@@ -16,6 +16,7 @@ import GlobalSlideOver from '../components/GlobalSlideOver';
 import { formatTime, formatDate, formatTimeForInput } from '../utils/dateUtils';
 import GoogleMapPicker from '../components/GoogleMapPicker';
 import CustomSelect from '../components/CustomSelect';
+import CustomTimePicker from '../components/CustomTimePicker';
 
 const Reminders = () => {
     const { user } = useAuth();
@@ -181,8 +182,6 @@ const Reminders = () => {
 
     return (
         <div style={{ color: 'var(--text-main)' }} className="reminders-page">
-            <Toaster position="top-right" />
-
             <div className="table-container">
                 <div className="search-management-header">
                     <div className="buddy-search-box hide-on-mobile">
@@ -527,25 +526,11 @@ const Reminders = () => {
                                     }}
                                 />
                             </div>
-                            <div className="form-group" style={{ width: '100%' }}>
-                                <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Time</label>
-                                <input
-                                    type="time"
-                                    value={editForm.time}
-                                    onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                                    className="input"
-                                    style={{
-                                        width: '100%',
-                                        background: 'var(--bg-lite)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '12px',
-                                        color: 'var(--text-main)',
-                                        padding: '12px',
-                                        fontSize: '1rem',
-                                        outline: 'none'
-                                    }}
-                                />
-                            </div>
+                            <CustomTimePicker
+                                label="Time"
+                                value={editForm.time}
+                                onChange={(newTime) => setEditForm({ ...editForm, time: newTime })}
+                            />
                         </div>
                         <div className="form-group" style={{ marginBottom: '20px' }}>
                             <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Location (Optional)</label>

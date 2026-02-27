@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "358398871801",
+    "project_id": "heybuddy-8abaf",
+    "storage_bucket": "heybuddy-8abaf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:358398871801:android:895ad3b6ca39a087a2fa28",
+        "android_client_info": {
+          "package_name": "com.aedentek.heybuddy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_0Ml9MPS4uw3nhfz8cUbgNvCFNUTQexY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

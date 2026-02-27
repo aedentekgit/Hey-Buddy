@@ -89,20 +89,7 @@ const DashboardLayout = ({ children }) => {
 
     return (
         <div className="layout-wrapper">
-            <Toaster
-                position="top-right"
-                toastOptions={{
-                    duration: 4000,
-                    style: {
-                        background: 'var(--toast-bg)',
-                        backdropFilter: 'blur(10px)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--toast-text)',
-                        borderRadius: '15px'
-                    }
-                }}
-            />
-            <Sidebar
+                        <Sidebar
                 isOpen={sidebarOpen}
                 setIsOpen={setSidebarOpen}
                 isCollapsed={isCollapsed}

@@ -10,6 +10,7 @@ const { sendTestSMS } = require('./smsService');
 const Settings = require('../models/Settings');
 
 const triggerNotification = async (reminder, user, io) => {
+    console.log(`[Worker] Triggering notification for reminder: ${reminder.title} (User: ${user.email})`);
     // 1. Create Internal Notification & Emit (if In-App enabled)
     let notification = null;
     if (user.notificationPreferences?.inApp?.enabled !== false) {
@@ -26,17 +27,26 @@ const triggerNotification = async (reminder, user, io) => {
         if (io) {
             io.to(user._id.toString()).emit('notification', notification);
             console.log(`[Worker] Emitted real-time notification to user: ${user._id}`);
+
+            if (user.notificationPreferences?.voice?.enabled !== false) {
+                const voiceAlertStr = `Pardon the interruption, but I have a reminder for you: ${reminder.title}.`;
+                io.to(user._id.toString()).emit('voice_alert', {
+                    text: voiceAlertStr,
+                    gender: user.voicePreferences?.gender || 'female',
+                    tone: user.voicePreferences?.tone || 'soft'
+                });
+            }
         }
     }
 
-    // 2. Trigger AI Assistant Voice Reminder
-    if (user.notificationPreferences?.voice?.enabled !== false) {
-        const activeAgent = findAgentByUserId(user._id.toString());
-        if (activeAgent) {
-            const voiceMessage = `[SYSTEM NOTIFICATION]: A scheduled reminder just triggered. Please immediately announce to the user out loud exactly this: "Pardon the interruption, but I have a reminder for you: ${reminder.title}." Do not add any conversational filler.`;
-            activeAgent.say(voiceMessage);
-        }
-    }
+    // 2. Trigger AI Assistant Voice Reminder (REMOVED: Now handled by global voice_alert)
+    // if (user.notificationPreferences?.voice?.enabled !== false) {
+    //     const activeAgent = findAgentByUserId(user._id.toString());
+    //     if (activeAgent) {
+    //         const voiceMessage = `[SYSTEM NOTIFICATION]: A scheduled reminder just triggered. Please immediately announce to the user out loud exactly this: "Pardon the interruption, but I have a reminder for you: ${reminder.title}." Do not add any conversational filler.`;
+    //         activeAgent.say(voiceMessage);
+    //     }
+    // }
 
     // 3. Send Push Notifications
     if (reminder.alerts?.push !== false && user.notificationPreferences?.push?.enabled !== false) {
@@ -66,10 +76,18 @@ const triggerNotification = async (reminder, user, io) => {
                 });
             }
         }
+        // Voice announcement for push notification (REMOVED: Handled by global trigger)
+        // if (user.notificationPreferences?.voice?.enabled !== false) {
+        //     const activeAgent = findAgentByUserId(user._id.toString());
+        //     if (activeAgent) {
+        //         const voiceMsg = `[SYSTEM NOTIFICATION]: Push notification sent for reminder "${reminder.title}".`;
+        //         activeAgent.say(voiceMsg);
+        //     }
+        // }
     }
 };
 
-const notifyBackupContacts = async (reminder, user) => {
+const notifyBackupContacts = async (reminder, user, io) => {
     if (!reminder.backupContacts || reminder.backupContacts.length === 0) return;
 
     const message = `URGENT: ${user.name} has an unacknowledged reminder: "${reminder.title}". Please check on them.`;
@@ -90,6 +108,17 @@ const notifyBackupContacts = async (reminder, user) => {
         }
 
         // Email (if we had email for backup contacts, but schema says name/phone only)
+
+        // Voice announcement for backup contact alert
+        if (user.notificationPreferences?.voice?.enabled !== false) {
+            if (io) {
+                io.to(user._id.toString()).emit('voice_alert', {
+                    text: `Backup contact alert sent for reminder "${reminder.title}" to ${contact.name}.`,
+                    gender: user.voicePreferences?.gender || 'female',
+                    tone: user.voicePreferences?.tone || 'soft'
+                });
+            }
+        }
     }
 };
 
@@ -226,7 +255,7 @@ const startReminderWorker = (io) => {
                 const minutesPassed = userNowMinutes - reminderTargetMinutes;
 
                 if (minutesPassed >= (reminder.escalationTime || 0)) {
-                    await notifyBackupContacts(reminder, user);
+                    await notifyBackupContacts(reminder, user, io);
                     reminder.escalated = true;
                     await reminder.save();
                 }
@@ -237,4 +266,4 @@ const startReminderWorker = (io) => {
     });
 };
 
-module.exports = { startReminderWorker };
+module.exports = { startReminderWorker, triggerNotification };

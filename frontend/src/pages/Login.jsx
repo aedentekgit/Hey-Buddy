@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { Lock, Mail, Loader2, Bot, Eye, EyeOff, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
@@ -93,9 +93,7 @@ const Login = () => {
 
     return (
         <div className="login-container">
-            <Toaster position="top-center" />
-
-            {/* Animated Background Elements */}
+                        {/* Animated Background Elements */}
             <div className="bg-blobs">
                 <div className="blob blob-1"></div>
                 <div className="blob blob-2"></div>

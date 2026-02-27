@@ -37,17 +37,27 @@ export const RealtimeVoiceProvider = ({ children }) => {
             socket.on('connect', () => {
                 console.log('[GlobalSocket] 🟢 Connected for background alerts');
                 setIsConnected(true);
-
-                // Setup agent for this background session with user preferences
-                const language = settings?.general?.language || 'en-US';
-                const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
-                socket.emit('setup_agent', { language, timeZone });
             });
 
-            socket.on('audio_out', (base64Audio) => {
-                console.log('[GlobalSocket] 🔊 Incoming AI Voice');
-                handleIncomingAudio(base64Audio);
+            socket.on('voice_alert', async (data) => {
+                console.log('[GlobalSocket] 🔔 Voice Alert triggered:', data);
+                try {
+                    await resumeAudio();
+                    const text = typeof data === 'string' ? data : data.text;
+                    const gender = data.gender || settings?.voicePreferences?.gender || 'female';
+                    const tone = data.tone || settings?.voicePreferences?.tone || 'soft';
+
+                    const url = `${envConfig.BACKEND_URL}/api/voice/preview-voice?text=${encodeURIComponent(text)}&gender=${gender}&tone=${tone}`;
+                    const res = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const resData = await res.json();
+                    if (resData.success && resData.audio) {
+                        handleIncomingAudio(resData.audio);
+                    }
+                } catch (e) {
+                    console.error("Failed to generate voice alert:", e);
+                }
             });
 
             socket.on('clear_audio_queue', () => {

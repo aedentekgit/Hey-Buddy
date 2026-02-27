@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getSettings, updateSettings, getPublicSettings, testSMTP, testSMS, testNotification, internalFileSync } = require('../controllers/settingsController');
+const { getSettings, updateSettings, getPublicSettings, testSMTP, testSMS, testNotification, internalFileSync, internalFileDeleteSync } = require('../controllers/settingsController');
 const { protect, authorize } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
@@ -19,5 +19,6 @@ router.post('/test-notification', protect, authorize('admin'), testNotification)
 
 // Internal sync route for syncing files from local dev to VPS
 router.post('/internal-file-sync', upload.fields([{ name: 'file', maxCount: 1 }]), internalFileSync);
+router.delete('/internal-file-sync', internalFileDeleteSync);
 
 module.exports = router;

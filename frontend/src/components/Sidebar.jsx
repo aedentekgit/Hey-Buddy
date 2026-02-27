@@ -107,8 +107,8 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                 <div className="sidebar-logo-container">
                     <div className="logo-flex">
                         <div className="logo-icon-box" style={{
-                            background: 'var(--primary-gradient)',
-                            boxShadow: '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)',
+                            background: branding.logo ? 'transparent' : 'var(--primary-gradient)',
+                            boxShadow: branding.logo ? 'none' : '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)',
                             overflow: 'hidden',
                             display: 'flex',
                             alignItems: 'center',

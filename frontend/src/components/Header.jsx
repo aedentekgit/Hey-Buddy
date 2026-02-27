@@ -304,7 +304,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                                 width: '26px',
                                 height: '26px',
                                 borderRadius: '50%',
-                                background: 'var(--primary-glow)',
+                                background: getProfileImageUrl() ? 'transparent' : 'var(--primary-glow)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',

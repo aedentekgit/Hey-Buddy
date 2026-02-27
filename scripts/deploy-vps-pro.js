@@ -23,11 +23,9 @@ const projectRoot = path.join(__dirname, '..');
 process.chdir(projectRoot);
 
 try {
-    // Check if dist folder exists (user must build before deploying)
-    if (!fs.existsSync(path.join(projectRoot, 'frontend', 'dist'))) {
-        console.error('❌ Error: frontend/dist folder not found. Please run "npm run build" in the frontend directory first.');
-        process.exit(1);
-    }
+    // 0. Build Frontend
+    console.log(`🏗️  Building Frontend for ${TITLE}...`);
+    execSync(`cd frontend && npm install && npm run build -- --mode ${environment}`, { stdio: 'inherit' });
 
     // 1. Package Front-end
     console.log('📦 Packaging Frontend...');
@@ -52,24 +50,31 @@ try {
             cd ${REMOTE_PATH} &&
             mkdir -p frontend/dist &&
             tar -xzf frontend.tar.gz -C frontend/dist &&
+            mkdir -p backend/uploads &&
             cd backend &&
             tar -xzf ../backend.tar.gz &&
             npm install --omit=dev &&
-            pm2 restart ${PM2_NAME} &&
+            pm2 restart ${PM2_NAME} || pm2 start server.js --name ${PM2_NAME} --cwd ${REMOTE_PATH}/backend &&
             cd .. &&
             rm frontend.tar.gz backend.tar.gz
         `;
     } else {
+        const releaseName = new Date().toISOString().replace(/[:.]/g, '-');
         remoteCommands = `
             cd ${REMOTE_PATH} &&
-            mkdir -p current/frontend/dist &&
-            tar -xzf frontend.tar.gz -C current/frontend/dist &&
-            mkdir -p current/backend &&
-            tar -xzf backend.tar.gz -C current/backend &&
-            cd current/backend &&
+            mkdir -p releases/${releaseName}/frontend/dist &&
+            mkdir -p releases/${releaseName}/backend &&
+            mkdir -p shared/uploads &&
+            tar -xzf frontend.tar.gz -C releases/${releaseName}/frontend/dist &&
+            tar -xzf backend.tar.gz -C releases/${releaseName}/backend &&
+            cd releases/${releaseName}/backend &&
             npm install --omit=dev &&
-            pm2 restart ${PM2_NAME} &&
-            cd ../.. &&
+            ln -sfn ${REMOTE_PATH}/shared/.env .env &&
+            ln -sfn ${REMOTE_PATH}/shared/uploads uploads &&
+            cd ../../../ &&
+            ln -sfn releases/${releaseName} current &&
+            pm2 delete ${PM2_NAME} || true &&
+            pm2 start server.js --name ${PM2_NAME} --cwd ${REMOTE_PATH}/current/backend &&
             rm frontend.tar.gz backend.tar.gz
         `;
     }

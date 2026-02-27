@@ -386,14 +386,22 @@ exports.googleCallback = async (req, res) => {
 exports.getTravelStats = async (req, res) => {
     try {
         const { id } = req.params;
+        const { lat, lng } = req.query;
+
         const reminder = await Reminder.findById(id);
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Reminder not found' });
         }
 
-        const user = await User.findById(req.user._id);
-        if (!user || !user.currentLocation?.lat || !user.currentLocation?.lng) {
-            return res.status(400).json({ success: false, message: 'User location not available' });
+        let origin;
+        if (lat && lng) {
+            origin = { lat: parseFloat(lat), lng: parseFloat(lng) };
+        } else {
+            const user = await User.findById(req.user._id);
+            if (!user || !user.currentLocation?.lat || !user.currentLocation?.lng) {
+                return res.status(400).json({ success: false, message: 'User location not available' });
+            }
+            origin = user.currentLocation;
         }
 
         if (!reminder.coordinates?.lat || !reminder.coordinates?.lng) {
@@ -401,7 +409,7 @@ exports.getTravelStats = async (req, res) => {
         }
 
         const { getTrafficAwareTravelTime } = require('../services/smartReminderService');
-        const stats = await getTrafficAwareTravelTime(user.currentLocation, reminder.coordinates);
+        const stats = await getTrafficAwareTravelTime(origin, reminder.coordinates);
 
         res.status(200).json({ success: true, data: stats });
     } catch (error) {

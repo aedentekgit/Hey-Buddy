@@ -15,40 +15,42 @@ const contextService = {
         let recentReminders = [];
 
         try {
-            // 1. Fetch History
-            if (conversationId) {
-                const conversation = await Conversation.findOne({ _id: conversationId, userId });
-                if (conversation) {
-                    history = conversation.messages.slice(-5); // Get last 5 messages for context
-                }
-            }
+            // 1. Define all queries
+            const historyPromise = conversationId
+                ? Conversation.findOne({ _id: conversationId, userId })
+                : Promise.resolve(null);
 
-            // 2. Fetch Memories
-            memories = await Memory.find({ userId }).sort({ createdAt: -1 }).limit(10);
+            const memoriesPromise = Memory.find({ userId }).sort({ createdAt: -1 }).limit(10);
 
-            // 3. Fetch Recent Reminders (Using User's Timezone)
             const now = new Date();
-            // Get YYYY-MM-DD in the user's timezone
             const userDate = now.toLocaleDateString('en-CA', { timeZone: timeZone });
-
-            console.log(`[ContextService] Fetching reminders for user ${userId} from date: ${userDate} (${timeZone})`);
-
-            recentReminders = await Reminder.find({
+            const remindersPromise = Reminder.find({
                 userId,
                 date: { $gte: userDate }
             }).sort({ date: 1, time: 1 }).limit(5);
 
-            // 4. Fetch User Preferences
             const mongoose = require('mongoose');
             const User = mongoose.model('User') || require('../models/User');
-            let voicePreferences = { gender: 'female', tone: 'soft' }; // Default
-            try {
-                const userDoc = await User.findById(userId);
-                if (userDoc && userDoc.voicePreferences) {
-                    voicePreferences = userDoc.voicePreferences;
-                }
-            } catch (err) {
-                console.error('[ContextService] Error fetching user preferences:', err);
+            const userPromise = User.findById(userId).select('voicePreferences');
+
+            // 2. Execute all in parallel
+            const [conversation, memoriesDocs, recentRemindersDocs, userDoc] = await Promise.all([
+                historyPromise,
+                memoriesPromise,
+                remindersPromise,
+                userPromise
+            ]);
+
+            // 3. Process results
+            if (conversation) {
+                history = conversation.messages.slice(-5);
+            }
+            memories = memoriesDocs || [];
+            recentReminders = recentRemindersDocs || [];
+
+            let voicePreferences = { gender: 'female', tone: 'soft' };
+            if (userDoc && userDoc.voicePreferences) {
+                voicePreferences = userDoc.voicePreferences;
             }
 
             return {
@@ -59,7 +61,7 @@ const contextService = {
                     time: r.time,
                     date: r.date
                 })),
-                userContext: { // Pass timezone info for NLU
+                userContext: {
                     timeZone,
                     localDate: userDate,
                     voicePreferences

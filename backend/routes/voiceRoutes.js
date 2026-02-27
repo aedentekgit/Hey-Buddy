@@ -42,10 +42,10 @@ router.put('/prescriptions/:id', protect, recordController.updatePrescription);
 router.delete('/prescriptions/:id', protect, recordController.deletePrescription);
 
 // Memory routes
-router.post('/memories', protect, recordController.createMemory);
+router.post('/memories', protect, upload.single('file'), recordController.createMemory);
 router.get('/memories', protect, recordController.getMemories);
 router.get('/memories/mix', protect, recordController.getAllRecords);
-router.put('/memories/:id', protect, recordController.updateMemory);
+router.put('/memories/:id', protect, upload.single('file'), recordController.updateMemory);
 router.delete('/memories/:id', protect, recordController.deleteMemory);
 
 // Google Calendar OAuth

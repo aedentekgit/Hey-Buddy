@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import {
     User, Phone, MapPin, Trash2, AlertTriangle, Save, Loader2, Mail, Calendar,
     CheckCircle, XCircle, Link2, Unlink, Settings, Shield, Eye, EyeOff, LayoutGrid, Camera, ImagePlus,
@@ -387,8 +387,6 @@ const UserSettings = () => {
 
     return (
         <div style={{ color: 'var(--text-main)' }}>
-            <Toaster position="top-right" />
-
             {/* Layout Grid */}
             <div className="settings-container">
                 {/* Sidebar Tabs */}
@@ -433,7 +431,7 @@ const UserSettings = () => {
                                                 width: '100px',
                                                 height: '100px',
                                                 borderRadius: '50%',
-                                                background: 'var(--bg-lite)',
+                                                background: getProfileImageUrl() ? 'transparent' : 'var(--bg-lite)',
                                                 border: '2px solid var(--border-color)',
                                                 overflow: 'hidden',
                                                 display: 'flex',

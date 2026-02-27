@@ -4,17 +4,22 @@ const { toolHandlers } = require('../services/geminiService');
 const User = require('../models/User');
 const contextService = require('../services/contextService');
 
+const { getPersonality } = require('../utils/personality');
+
 /**
  * BuddyAgent: The core state machine for a real-time voice session.
  */
 class BuddyAgent extends EventEmitter {
-    constructor(userId, socket, language = 'auto') {
+    constructor(userId, socket, language = 'auto', conversationId = null) {
         super();
         this.userId = userId;
         this.socket = socket;
         this.language = language;
+        this.conversationId = conversationId;
         this.isInterrupted = false;
         this.createdAt = Date.now();
+        this.currentInputText = '';
+        this.currentOutputText = '';
         console.log(`[BuddyAgent] 🚀 New Session (Gemini): ${socket.id} (User: ${userId}, Lang: ${language})`);
 
         // Initialize Gemini Live Service
@@ -24,51 +29,35 @@ class BuddyAgent extends EventEmitter {
 
     async initialize(targetLanguage) {
         try {
-            // 1. Fetch User Data for Timezone and Voice preferences
-            const user = await User.findById(this.userId);
+            // 1. Start DB fetches in parallel
+            const contextStartTime = Date.now();
+            const contextPromise = contextService.getContext(this.userId, this.conversationId, 'UTC');
+            const userPromise = User.findById(this.userId).select('timezone voicePreferences');
+
+            this.setupListeners();
+
+            // 2. Wait for user data to determine personality
+            const [user, context] = await Promise.all([userPromise, contextPromise]);
+            console.log(`[BuddyAgent] Context & User data fetched in ${Date.now() - contextStartTime}ms`);
+
             const timeZone = user?.timezone || 'UTC';
             const voicePrefs = user?.voicePreferences || { gender: 'female', tone: 'soft' };
+            const personality = getPersonality(voicePrefs.gender || 'female', voicePrefs.tone || 'soft');
 
-            // 2. Map preferences to Gemini Live voices
-            // Gemini Voices: Aoede (Warm/Female), Kore (Bright/Female), Fenrir (Strong/Male), Charon (Deep/Male), Puck (Friendly/Male)
-            let selectedVoice = 'Aoede'; // Default high quality female
-            const gender = (voicePrefs.gender || 'female').toLowerCase();
-            const tone = (voicePrefs.tone || 'soft').toLowerCase();
-
-            if (gender === 'male') {
-                if (tone === 'soft') selectedVoice = 'Charon';
-                else if (tone === 'energetic') selectedVoice = 'Fenrir';
-                else selectedVoice = 'Puck';
-            } else {
-                // Female options are Aoede and Kore
-                if (tone === 'energetic') selectedVoice = 'Kore';
-                else selectedVoice = 'Aoede';
-            }
-
-            console.log(`[BuddyAgent] Selected voice: ${selectedVoice} for user gender: ${gender}, tone: ${tone}`);
-
-            // 3. Fetch Initial Context
-            const context = await contextService.getContext(this.userId, null, timeZone);
             this.userContext = context.userContext;
+            this.userContext.timeZone = timeZone; // Ensure consistency
 
-            console.log(`[BuddyAgent] Context Loaded: ${context.memories.length} memories, ${context.reminders.length} reminders`);
-
-            // 4. Setup Tone and System Instruction
-            let toneRule = "Speak with a balanced, clear, and professional tone.";
-            if (tone === 'soft') {
-                toneRule = "Speak softly, using gentle, empathetic language to convey a comforting and calm presence.";
-            } else if (tone === 'energetic') {
-                toneRule = "Speak energetically, using lively, enthusiastic language with a fast-paced, high-spirited attitude.";
-            }
-
-            const systemInstruction = `You are Buddy, a professional health and personal assistant.
+            // 3. Build System Instruction
+            const systemInstruction = `SYSTEM IDENTITY:
+                - Your name is Buddy.
+                - PERSONALITY: ${personality.description}
+                - WRITING STYLE: ${personality.writingStyle}
                 
-                VOICE & TONE PROFILE:
-                ${toneRule}
+                VOICE CONTEXT: You are communicating with the user using the '${personality.voice}' voice. Your responses MUST reflect this persona's tone.
 
                 USER CONTEXT:
                 - Current User Date: ${this.userContext.localDate}
-                - User Timezone: ${this.userContext.timeZone}
+                - User Timezone: ${timeZone}
                 
                 RECENT MEMORIES (Facts/Notes):
                 ${context.memories.length > 0 ? context.memories.join('\n') : 'No recent memories found.'}
@@ -77,19 +66,22 @@ class BuddyAgent extends EventEmitter {
                 ${context.reminders.length > 0 ? context.reminders.map(r => `- ${r.title} at ${r.time} (${r.date})`).join('\n') : 'No upcoming reminders found.'}
                 
                 STRICT RULES:
-                1. REMINDERS vs MEMORIES are separated.
-                   - Schedule/Tasks -> Use 'list_reminders'.
+                1. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
+                   - Schedule/Tasks -> Use 'list_reminders' with date="today" if not in UPCOMING list.
                    - Facts/Notes/History -> Use 'search_memories' or 'list_memories'.
                 
                 2. NO HALLUCINATION: If the tool result is empty, say so. Do NOT invent data.
                 
-                3. MULTILINGUAL & MULTIMODAL:
-                   - DETECT the user's language automatically. Respond in the SAME language they used.
-                   - If the user types, respond with text. If the user speaks, respond naturally.
-                   - Always be professional, sympathetic, and concise.`;
+                3. MULTILINGUAL & CONCISE:
+                   - Respond in the SAME language the user used.
+                   - Be professional, sympathetic, and concise.`;
 
-            this.setupListeners();
-            this.ai.connect(systemInstruction, selectedVoice);
+            // 4. Connect with instruction and voice
+            const aiConnectStart = Date.now();
+            this.ai.connect(systemInstruction, personality.voice);
+            this.ai.on('ready', () => {
+                console.log(`[BuddyAgent] AI Ready in ${Date.now() - aiConnectStart}ms (Total init: ${Date.now() - contextStartTime}ms)`);
+            });
 
         } catch (err) {
             console.error('[BuddyAgent] Initialization failed:', err);
@@ -111,21 +103,49 @@ class BuddyAgent extends EventEmitter {
 
         this.ai.on('text_delta', (text) => {
             // console.log(`[BuddyAgent] 💬 AI Delta: ${text}`);
+            this.currentOutputText += text;
             this.socket.emit('caption', text); // caption = AI speaking or typing
         });
 
-        this.ai.on('user_transcript', (text) => {
-            this.socket.emit('user_transcript', text); // Real-time feedback of what user said
-        });
-
+        // Combine the duplicate user_transcript handlers
         this.ai.on('user_transcript', (text) => {
             console.log(`[BuddyAgent] 🎙️ User Transcription: ${text}`);
+            this.currentInputText = text;
+            this.socket.emit('user_transcript', text);
             this.socket.emit('user_caption', text);
         });
 
-        this.ai.on('response_done', () => {
-            console.log(`[BuddyAgent] 🏁 Turn complete`);
+        this.ai.on('turn_started', () => {
+            this.isInterrupted = false;
+            this.turnStartTime = Date.now();
+            console.log('[BuddyAgent] AI started thinking...');
+        });
+
+        this.ai.on('response_done', async () => {
+            console.log(`[BuddyAgent] 🏁 Turn complete in ${Date.now() - this.turnStartTime}ms`);
             this.socket.emit('response_done');
+
+            // Save conversation history
+            if (this.currentOutputText || this.currentInputText) {
+                const input = this.currentInputText.trim() || '[Voice Input]';
+                const output = this.currentOutputText.trim() || '[Audio Response]';
+
+                try {
+                    this.conversationId = await contextService.saveInteraction(
+                        this.userId,
+                        this.conversationId,
+                        input,
+                        output
+                    );
+                    this.socket.emit('conversation_updated', { conversationId: this.conversationId });
+                } catch (e) {
+                    console.error('[BuddyAgent] Failed to save conversation history', e);
+                }
+
+                // Reset for next turn
+                this.currentInputText = '';
+                this.currentOutputText = '';
+            }
         });
 
         this.ai.on('speech_started', () => {
@@ -200,6 +220,7 @@ class BuddyAgent extends EventEmitter {
         if (!this.ai.isConnected) return;
         this.isInterrupted = false;
         this.lastInputType = 'text';
+        this.currentInputText = text;
 
         console.log(`[BuddyAgent] ⌨️ Handling text input: ${text}`);
         this.ai.sendText(text);

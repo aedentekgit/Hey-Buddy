@@ -1,42 +1,15 @@
-const axios = require('axios');
+require('dotenv').config();
+const mongoose = require('mongoose');
+const User = require('./models/User');
+const jwt = require('jsonwebtoken');
 
-const API_URL = 'http://localhost:5000/api';
-
-const testApi = async () => {
-    try {
-        console.log("1. Logging in...");
-        const loginRes = await axios.post(`${API_URL}/auth/login`, {
-            email: "admin@example.com",
-            password: "adminpassword123"
-        });
-
-        const token = loginRes.data.data.token;
-        console.log("Login successful. Token:", token ? "YES" : "NO");
-
-        console.log("2. Saving Reminder...");
-        const saveRes = await axios.post(`${API_URL}/voice/save`, {
-            saveTo: 'buddy',
-            reminderData: {
-                title: "API Test Reminder",
-                intent: "api_test",
-                condition: "none"
-            }
-        }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        console.log("Save Response Status:", saveRes.status);
-        console.log("Save Response Data:", JSON.stringify(saveRes.data, null, 2));
-
-    } catch (error) {
-        console.error("API Test Failed:");
-        if (error.response) {
-            console.error("Status:", error.response.status);
-            console.error("Data:", JSON.stringify(error.response.data, null, 2));
-        } else {
-            console.error(error.message);
-        }
-    }
-};
-
-testApi();
+(async () => {
+    await mongoose.connect(process.env.MONGODB_URI);
+    const user = await User.findOne({ email: 'admin@buddy.com' });
+    if (!user) { console.log("No user"); process.exit(1); }
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const axios = require('axios');
+    const res = await axios.get('http://localhost:5001/api/settings', { headers: { Authorization: 'Bearer ' + token } });
+    console.log(JSON.stringify(res.data, null, 2));
+    process.exit(0);
+})();

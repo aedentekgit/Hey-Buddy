@@ -122,9 +122,12 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     if (text.isEmpty && _selectedImage == null) return;
 
     final provider = Provider.of<BuddyProvider>(context, listen: false);
+
+    // Capture image path before clearing
+    final imagePath = _selectedImage?.path;
     
     // Add user message locally
-    provider.addMessage('user', text, image: _selectedImage?.path);
+    provider.addMessage('user', text, image: imagePath);
     _inputController.clear();
     setState(() {
       _selectedImage = null;
@@ -132,16 +135,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     _scrollToBottom();
 
     // Send to API
-    final imagePath = _selectedImage?.path;
     await provider.sendMessage(text, imagePath: imagePath, language: _selectedLanguage);
     
-    // Speak response
-    if (provider.messages.isNotEmpty && provider.messages.last['type'] == 'ai') {
-      final lastMsg = provider.messages.last['text'];
-      if (lastMsg != null && lastMsg.isNotEmpty) {
-          await _flutterTts.speak(lastMsg);
-      }
-    }
     _scrollToBottom();
   }
 
@@ -249,39 +244,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             ),
           ),
 
-          // Real-time Toggle
-          InkWell(
-            onTap: () => provider.toggleRealtime(!provider.isRealtimeEnabled),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: provider.isRealtimeEnabled ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: provider.isRealtimeEnabled ? Colors.green : Colors.grey.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: provider.isRealtimeEnabled ? Colors.green : Colors.grey,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    provider.isRealtimeEnabled ? "LIVE" : "Standard",
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: provider.isRealtimeEnabled ? Colors.green : Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -295,8 +257,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-            _buildPixelAnimation(branding),
-            const SizedBox(height: 28),
             Text(
               "Hey Buddy!",
               style: GoogleFonts.outfit(

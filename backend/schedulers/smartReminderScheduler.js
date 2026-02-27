@@ -12,7 +12,7 @@ let schedulerRunning = false;
  * Start the smart reminder scheduler
  * Runs checks every 5 minutes
  */
-function startSmartReminderScheduler() {
+function startSmartReminderScheduler(io) {
     if (schedulerRunning) {
         console.log('Smart reminder scheduler is already running.');
         return;
@@ -22,7 +22,7 @@ function startSmartReminderScheduler() {
     cron.schedule('*/5 * * * *', async () => {
         console.log('🤖 Smart Reminder Scheduler triggered at:', new Date().toISOString());
         try {
-            await runSmartReminderChecks();
+            await runSmartReminderChecks(io);
         } catch (error) {
             console.error('Error in smart reminder scheduler:', error);
         }
@@ -35,7 +35,7 @@ function startSmartReminderScheduler() {
     setTimeout(async () => {
         console.log('🚀 Running initial smart reminder check...');
         try {
-            await runSmartReminderChecks();
+            await runSmartReminderChecks(io);
         } catch (error) {
             console.error('Error in initial smart reminder check:', error);
         }

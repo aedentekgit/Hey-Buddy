@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 const { protect } = require('../middlewares/auth');
 const { uploadDocument, queryKnowledge, getDocuments } = require('../controllers/ragController');
-
-const upload = multer({ dest: 'uploads/' });
 
 router.use(protect);
 

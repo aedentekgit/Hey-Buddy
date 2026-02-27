@@ -13,7 +13,7 @@ const FormData = require('form-data');
 const saveFileLocally = async (fileBuffer, destination) => {
     try {
         // If we are testing locally, forward the file to the active VPS
-        if (process.env.NODE_ENV === 'development' && process.env.VITE_API_URL !== 'http://localhost:5001/api') {
+        if (process.env.NODE_ENV === 'development') {
             try {
                 const form = new FormData();
                 form.append('file', fileBuffer, { filename: path.basename(destination) });
@@ -118,9 +118,94 @@ const uploadFile = async (fileBuffer, destination, contentType) => {
     }
 };
 
+const deleteFileLocally = async (fileUrl) => {
+    try {
+        if (!fileUrl) return;
+
+        // If we are testing locally, forward the deletion request to the active VPS
+        if (process.env.NODE_ENV === 'development') {
+            try {
+                const response = await axios.delete(`https://staging.ayuskart.com/api/settings/internal-file-sync`, {
+                    headers: {
+                        'x-vps-sync-secret': process.env.JWT_SECRET,
+                        'Content-Type': 'application/json'
+                    },
+                    data: { fileUrl }
+                });
+                if (response.data.success) {
+                    console.log(`☁️ Synced deletion of ${fileUrl} to VPS Staging!`);
+                    return;
+                }
+            } catch (syncError) {
+                console.log(`⚠️ VPS Sync Deletion failed, falling back to local: ${syncError.message}`);
+                // Proceed to local deletion fallback
+            }
+        }
+
+        if (fileUrl.startsWith('/uploads/')) {
+            const relativePath = fileUrl.replace('/uploads/', '');
+            const fullPath = path.join(__dirname, '..', 'uploads', relativePath);
+            try {
+                await fs.unlink(fullPath);
+                console.log(`🗑️ Deleted local file: ${fullPath}`);
+            } catch (err) {
+                console.log(`⚠️ Failed to delete local file or file not found: ${fullPath}`);
+            }
+        }
+    } catch (error) {
+        console.error("Local Delete Error:", error);
+    }
+};
+
+const deleteFileFromFirebase = async (fileUrl) => {
+    try {
+        if (!fileUrl) return;
+
+        // Example url: https://storage.googleapis.com/bucket-name/folder/file.ext
+        const bucket = await getStorageBucket();
+        const urlObj = new URL(fileUrl);
+        const pathParts = urlObj.pathname.split('/');
+
+        // Usually, the first part is empty, the second is bucket name, rest is file path
+        if (pathParts.length > 2) {
+            const destination = pathParts.slice(2).join('/');
+            const file = bucket.file(destination);
+            try {
+                await file.delete();
+                console.log(`🗑️ Deleted Firebase file: ${destination}`);
+            } catch (err) {
+                console.log(`⚠️ Failed to delete Firebase file (or not found): ${destination}`);
+            }
+        }
+    } catch (error) {
+        console.error("Firebase Delete Error:", error);
+    }
+};
+
+const deleteFile = async (fileUrl) => {
+    if (!fileUrl) return;
+
+    try {
+        const settings = await Settings.findOne();
+        const provider = settings?.storage?.activeProvider || 'local';
+
+        if (fileUrl.includes('storage.googleapis.com')) {
+            return await deleteFileFromFirebase(fileUrl);
+        } else {
+            return await deleteFileLocally(fileUrl);
+        }
+    } catch (error) {
+        console.error("Unified Delete Error:", error);
+        // Fallback
+        return await deleteFileLocally(fileUrl);
+    }
+};
+
 module.exports = {
     uploadFile,
+    deleteFile,
     uploadFileToFirebase,
     getStorageBucket,
-    saveFileLocally
+    saveFileLocally,
+    deleteFileLocally
 };

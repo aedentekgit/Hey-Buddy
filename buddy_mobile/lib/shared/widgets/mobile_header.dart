@@ -42,6 +42,9 @@ class _MobileHeaderState extends State<MobileHeader> {
           locationData['lng'] as double,
         );
       }
+      
+      // Start background updates
+      _locationService.startLiveTracking();
     }
   }
 

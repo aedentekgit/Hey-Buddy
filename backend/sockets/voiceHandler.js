@@ -34,16 +34,16 @@ const voiceHandler = (io) => {
         socket.join(socket.userId);
 
         socket.on('setup_agent', (config) => {
-            const { language = 'en-US' } = config || {};
+            const { language = 'en-US', conversationId = null } = config || {};
 
             // Cleanup existing agent if any
             if (activeAgents.has(socket.id)) {
                 activeAgents.get(socket.id).cleanup();
             }
 
-            const agent = new BuddyAgent(socket.userId, socket, language);
+            const agent = new BuddyAgent(socket.userId, socket, language, conversationId);
             activeAgents.set(socket.id, agent);
-            console.log(`[Socket] Agent configured for ${socket.id} with language: ${language}`);
+            console.log(`[Socket] Agent configured for ${socket.id} with language: ${language}, conversationId: ${conversationId}`);
         });
 
         socket.on('audio_chunk', (data) => {

@@ -61,6 +61,7 @@ dependencies:
   firebase_messaging: ^15.2.10
   audioplayers: ^6.1.0
   google_maps_flutter: ^2.10.0
+  flutter_polyline_points: ^3.1.0
 
 dev_dependencies:
   flutter_test:

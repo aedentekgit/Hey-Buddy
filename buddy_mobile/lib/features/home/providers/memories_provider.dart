@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/services/memory_service.dart';
+import 'dart:io';
 
 class MemoriesProvider extends ChangeNotifier {
   final MemoryService _memoryService = MemoryService();
@@ -49,9 +50,9 @@ class MemoriesProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateMemory(String id, String content) async {
+  Future<bool> updateMemory(String id, String content, {File? file}) async {
     try {
-      final success = await _memoryService.updateMemory(id, content);
+      final success = await _memoryService.updateMemory(id, content, file: file);
       if (success) {
         await loadMemories(); // Refresh
       }

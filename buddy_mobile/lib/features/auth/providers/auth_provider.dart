@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:buddy_mobile/core/services/notification_service.dart';
 import '../services/auth_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
+  final NotificationService _notificationService = NotificationService();
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     webOptions: WebOptions(
       dbName: 'BuddyStore',
@@ -30,6 +32,10 @@ class AuthProvider with ChangeNotifier {
         
         if (_token != null) {
           await _storage.write(key: 'jwt', value: _token);
+          
+          // Trigger FCM Token update now that we have the auth token
+          _notificationService.updateToken();
+
           _isLoading = false;
           notifyListeners();
           return true;
@@ -69,6 +75,9 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> tryAutoLogin() async {
     _token = await _storage.read(key: 'jwt');
+    if (_token != null) {
+      _notificationService.updateToken();
+    }
     notifyListeners();
   }
 }
