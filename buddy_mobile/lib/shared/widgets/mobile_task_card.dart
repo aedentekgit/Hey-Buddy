@@ -6,6 +6,7 @@ class MobileTaskCard extends StatelessWidget {
   final String title;
   final String status;
   final String variant; // 'green', 'orange', 'danger'
+  final String? date;
   final String time;
   final String location;
   final String? distance;
@@ -22,6 +23,7 @@ class MobileTaskCard extends StatelessWidget {
     required this.title,
     required this.status,
     required this.variant,
+    this.date,
     required this.time,
     required this.location,
     this.distance,
@@ -221,12 +223,14 @@ class MobileTaskCard extends StatelessWidget {
                         children: [
                           const Icon(LucideIcons.clock, size: 18, color: Color(0xFF1E293B)),
                           const SizedBox(width: 12),
-                          Text(
-                            time,
-                            style: GoogleFonts.outfit(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF1E293B),
+                          Expanded(
+                            child: Text(
+                              date != null ? "$date • $time" : time,
+                              style: GoogleFonts.outfit(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF1E293B),
+                              ),
                             ),
                           ),
                         ],

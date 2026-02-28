@@ -69,6 +69,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                     title: task['title'] ?? 'Untitled',
                     status: isOverdue ? 'Risk Alert' : 'ON TRACK',
                     variant: isOverdue ? 'danger' : 'green',
+                    date: dateStr != null ? TaskUtils.formatDate(dateStr) : null,
                     time: task['time'] ?? 'All day',
                     location: loc ?? 'No Location',
                     distance: hasLocation ? '2.3 miles' : null,
