@@ -102,19 +102,24 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                 final List<Map<String, dynamic>> reminders = provider.tasks.map((t) => {
                   'title': t['title'] ?? 'Task',
                   'icon': TaskUtils.getTaskIcon(t['title'], t['intent']),
-                  'color': Colors.indigo,
+                  'color': TaskUtils.getTaskColor(t['title'], t['intent']),
                   'task': t,
                 }).toList();
 
                 // Add placeholders if no real reminders
                 if (reminders.isEmpty) {
-                  reminders.addAll([
-                    {'title': 'Meeting with the team', 'icon': LucideIcons.briefcase, 'color': Colors.indigo},
-                    {'title': 'Pickup girlfriend', 'icon': LucideIcons.heart, 'color': Colors.pinkAccent},
-                    {'title': 'Doctor appointment', 'icon': LucideIcons.activity, 'color': Colors.red},
-                    {'title': 'Go to the gym', 'icon': LucideIcons.dumbbell, 'color': Colors.orange},
-                    {'title': 'Read a book', 'icon': LucideIcons.book, 'color': Colors.brown},
-                  ]);
+                  const placeholders = [
+                    'Meeting with the team',
+                    'Pickup girlfriend',
+                    'Doctor appointment',
+                    'Go to the gym',
+                    'Read a book',
+                  ];
+                  reminders.addAll(placeholders.map((title) => {
+                    'title': title,
+                    'icon': TaskUtils.getTaskIcon(title, null),
+                    'color': TaskUtils.getTaskColor(title, null),
+                  }));
                 }
 
                 // Create variations of the reminders list so the rows don't look identical
