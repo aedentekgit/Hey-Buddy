@@ -11,7 +11,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const { login, googleLogin } = useAuth();
+    const { login, googleLogin, continueAsGuest } = useAuth();
     const { publicSettings, refreshSettings } = useSettings();
     const navigate = useNavigate();
 
@@ -72,6 +72,23 @@ const Login = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, [publicSettings, googleLogin, navigate]);
 
+    const handleGuestLogin = async () => {
+        setLoading(true);
+        try {
+            const res = await continueAsGuest();
+            if (res.success) {
+                toast.success('Welcome! Exploring as guest.');
+                navigate('/admin/buddy');
+            } else {
+                toast.error(res.message);
+            }
+        } catch (error) {
+            toast.error('Failed to start guest session');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -93,7 +110,7 @@ const Login = () => {
 
     return (
         <div className="login-container">
-                        {/* Animated Background Elements */}
+            {/* Animated Background Elements */}
             <div className="bg-blobs">
                 <div className="blob blob-1"></div>
                 <div className="blob blob-2"></div>
@@ -240,11 +257,9 @@ const Login = () => {
                             <div className="social-grid">
                                 <div id="google-btn-wrapper" className="google-btn-container"></div>
 
-                                <button type="button" className="social-btn apple-btn">
-                                    <svg viewBox="0 0 384 512" width="18" height="18" fill="currentColor">
-                                        <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
-                                    </svg>
-                                    <span>Apple</span>
+                                <button type="button" onClick={handleGuestLogin} className="social-btn guest-btn">
+                                    <Sparkles size={18} />
+                                    <span>Explore as Guest</span>
                                 </button>
                             </div>
                         </motion.div>
@@ -346,7 +361,7 @@ const Login = () => {
                     backdrop-filter: blur(25px);
                     -webkit-backdrop-filter: blur(25px);
                     border: 1px solid var(--border-color);
-                    border-radius: 24px;
+                    border-radius: 12px;
                     overflow: hidden;
                     box-shadow: var(--card-shadow);
                     position: relative;
@@ -392,7 +407,7 @@ const Login = () => {
                     position: absolute;
                     inset: 0;
                     background: var(--primary-color);
-                    border-radius: 16px;
+                    border-radius: 8px;
                     filter: blur(15px);
                     opacity: 0.2;
                     animation: pulse-glow 3s infinite;
@@ -525,7 +540,7 @@ const Login = () => {
                     padding: 10px 16px 10px 44px !important;
                     background: var(--bg-lite) !important;
                     border: 1px solid var(--border-color) !important;
-                    border-radius: 12px !important;
+                    border-radius: 8px !important;
                     color: var(--text-main) !important;
                     font-size: 0.95rem !important;
                     font-weight: 500 !important;
@@ -581,7 +596,7 @@ const Login = () => {
                     background: var(--primary-color);
                     background-image: var(--primary-gradient);
                     border: none;
-                    border-radius: 12px;
+                    border-radius: 8px;
                     color: white;
                     font-weight: 700;
                     font-size: 0.95rem;
@@ -666,11 +681,11 @@ const Login = () => {
                     transition: all 0.3s;
                 }
 
-                .apple-btn {
-                    border-radius: 20px !important;
-                    background: white !important;
-                    border: 1px solid #dadce0 !important;
-                    color: #3c4043 !important;
+                .guest-btn {
+                    border-radius: 8px !important;
+                    background: var(--bg-lite) !important;
+                    border: 1px solid var(--border-color) !important;
+                    color: var(--text-main) !important;
                     padding: 0 16px !important;
                     cursor: pointer;
                     font-size: 14px;
@@ -682,10 +697,10 @@ const Login = () => {
                     transition: all 0.2s;
                 }
 
-                .apple-btn:hover {
-                    background: #f7f8f8 !important;
-                    border-color: #d2dce0 !important;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                .guest-btn:hover {
+                    background: var(--card-bg) !important;
+                    border-color: var(--primary-color) !important;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
                 }
 
                 .apple-btn svg {
@@ -735,7 +750,7 @@ const Login = () => {
                 /* Mobile Optimization */
                 @media (max-width: 480px) {
                     .login-card {
-                        border-radius: 20px;
+                        border-radius: 12px;
                         max-width: 100%;
                     }
                     .login-content {

@@ -39,15 +39,10 @@ class _SplashScreenState extends State<SplashScreen> {
     
     if (!mounted) return;
     
-    if (auth.token == null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
-    }
+    // Always go to MainScreen; it will handle showing the Assistant by default for guest users
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const MainScreen()),
+    );
   }
 
   @override
@@ -58,34 +53,82 @@ class _SplashScreenState extends State<SplashScreen> {
           return _buildErrorScreen(branding);
         }
         return Scaffold(
-          backgroundColor: branding.primaryColor,
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (branding.splashUrl != null)
-                  CachedNetworkImage(
-                    imageUrl: branding.splashUrl!,
-                    height: 120,
-                    placeholder: (context, url) => const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    errorWidget: (context, url, error) => _buildPlaceholderLogo(),
-                  )
-                else
-                  _buildPlaceholderLogo(),
-                const SizedBox(height: 24),
-                Text(
-                  branding.appName,
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+          backgroundColor: const Color(0xFFF9FAFF),
+          body: Stack(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (branding.splashUrl != null)
+                      CachedNetworkImage(
+                        imageUrl: branding.splashUrl!,
+                        height: 100,
+                        placeholder: (context, url) => const CircularProgressIndicator(color: Color(0xFF6366F1), strokeWidth: 2),
+                        errorWidget: (context, url, error) => _buildPlaceholderLogo(branding),
+                      )
+                    else
+                      _buildPlaceholderLogo(branding),
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          "Dialogue",
+                          style: GoogleFonts.outfit(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1E293B),
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Text(
+                            "AI",
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: branding.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                bottom: 60,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Column(
+                    children: [
+                      const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF94A3B8),
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Starting your assistant...",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                const CircularProgressIndicator(color: Colors.white70, strokeWidth: 2),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -164,14 +207,21 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 
-  Widget _buildPlaceholderLogo() {
+  Widget _buildPlaceholderLogo(BrandingProvider branding) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white, width: 2),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: branding.primaryColor.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      child: const Icon(Icons.eco, size: 80, color: Colors.white),
+      child: Icon(Icons.auto_awesome, size: 48, color: branding.primaryColor),
     );
   }
 }

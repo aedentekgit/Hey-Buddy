@@ -6,8 +6,8 @@ class AppConfig {
   static const String productionHost = 'ayuskart.com';
   // STAGING HOST (For Testing)
   static const String stagingHost = 'staging.ayuskart.com';
-  // LOCAL HOST (For Device Debugging - change to your IP if using physical device)
-  static const String localhostHost = '10.0.2.2:5001'; 
+  // LOCAL HOST (For Device Debugging - using discovered local IP)
+  static const String localhostHost = '10.0.2.2:5001'; // 10.0.2.2 is local loopback for Android Emulator
 
   static String get host {
     // Toggling: Set this flag to true for Localhost, false for Staging.
@@ -45,4 +45,23 @@ class AppConfig {
   static String? splashUrl;
 
   static const String googleMapsApiKey = "AIzaSyDys6Q4lVtZkq6hqR5kl8ZAfCDzpWXJ1zA";
+
+  static String? formatImageUrl(String? path) {
+    if (path == null || path.isEmpty || path == "null") return null;
+    
+    String finalUrl = path;
+    if (!finalUrl.startsWith('http')) {
+      final cleanPath = finalUrl.startsWith('/') ? finalUrl.substring(1) : finalUrl;
+      finalUrl = '$assetBaseUrl$cleanPath';
+    }
+    
+    // Fix localhost issue for Android Emulator
+    if (finalUrl.contains('localhost')) {
+      finalUrl = finalUrl.replaceAll('localhost:5001', host);
+      finalUrl = finalUrl.replaceAll('localhost', '10.0.2.2');
+    }
+    
+    return finalUrl;
+  }
 }
+

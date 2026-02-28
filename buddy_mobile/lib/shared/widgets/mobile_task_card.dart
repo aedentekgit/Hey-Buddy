@@ -15,6 +15,7 @@ class MobileTaskCard extends StatelessWidget {
   final VoidCallback? onView;
   final VoidCallback? onShare;
   final bool earlyWarningActive;
+  final IconData? headerIcon;
 
   const MobileTaskCard({
     super.key,
@@ -30,6 +31,7 @@ class MobileTaskCard extends StatelessWidget {
     this.onView,
     this.onShare,
     this.earlyWarningActive = false,
+    this.headerIcon,
   });
 
   @override
@@ -87,7 +89,7 @@ class MobileTaskCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
@@ -113,7 +115,7 @@ class MobileTaskCard extends StatelessWidget {
                     color: iconBgColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(LucideIcons.helpCircle, size: 20, color: iconColor),
+                  child: Icon(headerIcon ?? LucideIcons.bell, size: 20, color: iconColor),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -136,7 +138,7 @@ class MobileTaskCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                             decoration: BoxDecoration(
                               color: badgeColor,
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               status,
@@ -153,7 +155,7 @@ class MobileTaskCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(4), // Reduced from 6 to 4
                                 border: Border.all(color: primaryColor.withOpacity(0.2)),
                               ),
                               child: Row(
@@ -191,14 +193,6 @@ class MobileTaskCard extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    if (onEdit != null)
-                      IconButton(
-                        onPressed: onEdit,
-                        icon: Icon(LucideIcons.edit2, size: 16, color: primaryColor),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    const SizedBox(width: 12),
                     IconButton(
                       onPressed: onDelete,
                       icon: const Icon(LucideIcons.trash2, size: 16, color: Color(0xFFEF4444)),
@@ -215,7 +209,7 @@ class MobileTaskCard extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18), bottom: Radius.circular(18)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(12)),
             ),
             child: Column(
               children: [
@@ -237,23 +231,25 @@ class MobileTaskCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Icon(LucideIcons.mapPin, size: 18, color: Color(0xFF1E293B)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              location,
-                              style: GoogleFonts.outfit(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF1E293B),
+                      if (location != 'No Location' && location.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Icon(LucideIcons.mapPin, size: 18, color: Color(0xFF1E293B)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                location,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF1E293B),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -261,65 +257,65 @@ class MobileTaskCard extends StatelessWidget {
                 // Stats Box (Distance & ETA)
                 if (distance != null && eta != null)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFDBEAFE)),
+                        color: const Color(0xFFF1F5F9), // Light grayish-blue background
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
                           Expanded(
                             child: Column(
                               children: [
-                                Icon(LucideIcons.helpCircle, size: 14, color: Colors.blueGrey[200]),
+                                const Icon(LucideIcons.mapPin, size: 22, color: Color(0xFF94A3B8)),
+                                const SizedBox(height: 6),
                                 Text(
-                                  "DISTANCE",
+                                  "Distance",
                                   style: GoogleFonts.outfit(
-                                    color: const Color(0xFF64748B),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
+                                    color: const Color(0xFF0F172A),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
                                   distance!,
                                   style: GoogleFonts.outfit(
-                                    color: const Color(0xFF1E293B),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF0F172A),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            width: 1,
-                            height: 32,
-                            color: const Color(0xFFCBD5E1),
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            width: 1.5,
+                            height: 34,
+                            color: const Color(0xFF0F172A),
                           ),
                           Expanded(
                             child: Column(
                               children: [
-                                const Icon(LucideIcons.car, size: 16, color: Color(0xFF3B82F6)),
+                                const Icon(Icons.directions_car, size: 22, color: Color(0xFF2563EB)),
+                                const SizedBox(height: 6),
                                 Text(
                                   "ETA",
                                   style: GoogleFonts.outfit(
-                                    color: const Color(0xFF64748B),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
+                                    color: const Color(0xFF0F172A),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
                                   eta!,
                                   style: GoogleFonts.outfit(
-                                    color: const Color(0xFF1E293B),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF0F172A),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],

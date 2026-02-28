@@ -157,9 +157,13 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
                 <div className="sidebar-footer">
                     <button onClick={logout} className="logout-button">
                         <div className="logout-icon">
-                            <LogOut size={16} />
+                            {user?.isGuest ? <X size={16} /> : <LogOut size={16} />}
                         </div>
-                        {!isCollapsed && <span className="logout-label">Sign Out</span>}
+                        {!isCollapsed && (
+                            <span className="logout-label">
+                                {user?.isGuest ? 'Exit Guest Mode' : 'Sign Out'}
+                            </span>
+                        )}
                     </button>
                 </div>
             </aside>

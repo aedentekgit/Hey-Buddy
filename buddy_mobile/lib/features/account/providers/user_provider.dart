@@ -201,6 +201,19 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // Get Google Auth URL
+  Future<String?> getGoogleAuthUrl() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final url = await _userService.getGoogleAuthUrl();
+      return url;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // Update Location
   Future<bool> updateLocation(double lat, double lng) async {
     try {
@@ -220,12 +233,10 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  String _formatProfilePictureUrl(String path) {
-    if (path.isEmpty || path == "null") return '';
-    if (path.startsWith('http')) return path;
-    
-    // Ensure the path starts with a slash if needed
-    final formattedPath = path.startsWith('/') ? path : '/$path';
-    return '${AppConfig.assetBaseUrl}$formattedPath';
+  String? _formatProfilePictureUrl(String path) {
+    return AppConfig.formatImageUrl(path);
   }
 }
+
+
+

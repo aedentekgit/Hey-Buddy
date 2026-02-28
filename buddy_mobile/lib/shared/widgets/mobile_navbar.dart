@@ -41,11 +41,10 @@ class MobileNavbar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _buildNavItem(context, 0, LucideIcons.home, "Home"),
-                _buildNavItem(context, 1, LucideIcons.bell, "Reminder"),
-                _buildCenterLabel(context), // Center label "Buddy"
-                _buildNavItem(context, 3, LucideIcons.brain, "Memory"),
-                _buildNavItem(context, 4, LucideIcons.moreHorizontal, "More"),
+                _buildNavItem(context, 0, LucideIcons.bell, "Reminder"),
+                _buildCenterLabel(context), // Center label "Buddy" (index 1)
+                _buildNavItem(context, 2, LucideIcons.brain, "Memory"),
+                _buildNavItem(context, 3, LucideIcons.moreHorizontal, "More"),
               ],
             ),
           ),
@@ -67,7 +66,7 @@ class MobileNavbar extends StatelessWidget {
     return InkWell(
       onTap: () => onTap(index),
       child: SizedBox(
-        width: 65,
+        width: 70, // Slightly wider since we have fewer items
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -89,11 +88,11 @@ class MobileNavbar extends StatelessWidget {
   }
 
   Widget _buildCenterLabel(BuildContext context) {
-    final bool isSelected = currentIndex == 2;
+    final bool isSelected = currentIndex == 1; // 1 is now Buddy
     return GestureDetector(
-      onTap: () => onTap(2),
+      onTap: () => onTap(1),
       child: SizedBox(
-        width: 65,
+        width: 70, // Consistent width
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -116,7 +115,7 @@ class MobileNavbar extends StatelessWidget {
   Widget _buildFloatingButton(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
     return GestureDetector(
-      onTap: () => onTap(2),
+      onTap: () => onTap(1), // 1 is now Buddy
       child: Container(
         height: 56,
         width: 56,

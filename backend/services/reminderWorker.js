@@ -76,14 +76,42 @@ const triggerNotification = async (reminder, user, io) => {
                 });
             }
         }
-        // Voice announcement for push notification (REMOVED: Handled by global trigger)
-        // if (user.notificationPreferences?.voice?.enabled !== false) {
-        //     const activeAgent = findAgentByUserId(user._id.toString());
-        //     if (activeAgent) {
-        //         const voiceMsg = `[SYSTEM NOTIFICATION]: Push notification sent for reminder "${reminder.title}".`;
-        //         activeAgent.say(voiceMsg);
-        //     }
-        // }
+    }
+
+    // 4. Send SMS Notifications
+    if (reminder.alerts?.sms !== false && user.notificationPreferences?.sms?.enabled !== false && user.phone) {
+        try {
+            const settings = await Settings.findOne();
+            if (settings?.sms?.enabled) {
+                console.log(`[Worker] Sending SMS reminder to ${user.phone}`);
+                await sendTestSMS(settings.sms, user.phone);
+            }
+        } catch (err) {
+            console.error(`[Worker] SMS failed: ${err.message}`);
+        }
+    }
+
+    // 5. Send Email Notifications
+    if (reminder.alerts?.email !== false && user.notificationPreferences?.email?.enabled !== false && user.email) {
+        try {
+            console.log(`[Worker] Sending Email reminder to ${user.email}`);
+            await sendEmail({
+                to: user.email,
+                subject: `Reminder: ${reminder.title}`,
+                text: `Hello ${user.name},\n\nThis is a reminder for: ${reminder.title}\n\nTime: ${reminder.time}\nDate: ${reminder.date}\nNotes: ${reminder.notes || 'None'}`,
+                html: `<div style="font-family: sans-serif; padding: 20px;">
+                    <h2>Reminder Alert</h2>
+                    <p><strong>Title:</strong> ${reminder.title}</p>
+                    <p><strong>Time:</strong> ${reminder.time}</p>
+                    <p><strong>Date:</strong> ${reminder.date}</p>
+                    ${reminder.notes ? `<p><strong>Notes:</strong> ${reminder.notes}</p>` : ''}
+                    <hr />
+                    <p>Sent via Buddy AI Assistant</p>
+                </div>`
+            });
+        } catch (err) {
+            console.error(`[Worker] Email failed: ${err.message}`);
+        }
     }
 };
 
@@ -212,54 +240,7 @@ const startReminderWorker = (io) => {
                 }
             }
 
-            // --- ESCALATION CHECK ---
-            // Find non-completed reminders that were notified but not acknowledged (stayed pending)
-            // and have reached their escalation time
-            const escalationPending = await Reminder.find({
-                status: 'pending',
-                notified: true,
-                escalated: { $ne: true },
-                backupContacts: { $exists: true, $ne: [] }
-            }).populate('userId');
 
-            for (const reminder of escalationPending) {
-                const user = reminder.userId;
-                if (!user) continue;
-
-                const userTimezone = user.timezone || 'UTC';
-                const now = new Date();
-
-                // Get robust user local time components
-                const userHour = parseInt(now.toLocaleTimeString('en-GB', { timeZone: userTimezone, hour: '2-digit', hour12: false }));
-                const userMinute = parseInt(now.toLocaleTimeString('en-GB', { timeZone: userTimezone, minute: '2-digit' }));
-                const userNowMinutes = (userHour * 60) + userMinute;
-
-                // Parse Reminder Time
-                let rHour, rMin;
-                const timeStr = reminder.time || '00:00';
-                const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i);
-
-                if (ampmMatch) {
-                    rHour = parseInt(ampmMatch[1]);
-                    rMin = parseInt(ampmMatch[2]);
-                    const period = ampmMatch[3].toLowerCase();
-                    if (period === 'pm' && rHour < 12) rHour += 12;
-                    if (period === 'am' && rHour === 12) rHour = 0;
-                } else {
-                    const parts = timeStr.split(':');
-                    rHour = parseInt(parts[0]);
-                    rMin = parseInt(parts[1]) || 0;
-                }
-                const reminderTargetMinutes = (rHour * 60) + rMin;
-
-                const minutesPassed = userNowMinutes - reminderTargetMinutes;
-
-                if (minutesPassed >= (reminder.escalationTime || 0)) {
-                    await notifyBackupContacts(reminder, user, io);
-                    reminder.escalated = true;
-                    await reminder.save();
-                }
-            }
         } catch (error) {
             console.error("Reminder Worker Error:", error);
         }

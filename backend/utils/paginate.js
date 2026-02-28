@@ -15,7 +15,7 @@ const paginate = async (model, query = {}, reqQuery = {}) => {
 
     if (search) {
         const searchRegex = { $regex: search, $options: 'i' };
-        const possibleFields = ['name', 'email', 'title', 'content', 'fileName', 'extractedData.patientName'];
+        const possibleFields = ['name', 'email', 'title', 'content', 'fileName', 'description', 'location', 'extractedData.patientName'];
         const orConditions = [];
 
         possibleFields.forEach(field => {
@@ -26,7 +26,15 @@ const paginate = async (model, query = {}, reqQuery = {}) => {
         });
 
         if (orConditions.length > 0) {
-            finalQuery.$or = orConditions;
+            const searchOr = { $or: orConditions };
+            if (finalQuery.$or) {
+                // If we already have an $or (e.g. from permission checks), we must combine them with $and
+                const originalOr = { $or: finalQuery.$or };
+                delete finalQuery.$or;
+                finalQuery.$and = [originalOr, searchOr];
+            } else {
+                finalQuery.$or = orConditions;
+            }
         }
     }
 

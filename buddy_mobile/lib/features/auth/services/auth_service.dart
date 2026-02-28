@@ -31,4 +31,15 @@ class AuthService {
       return {'success': false, 'message': e.response?.data['message'] ?? 'Registration failed'};
     }
   }
+
+  Future<Map<String, dynamic>> googleLogin(String idToken) async {
+    try {
+      final response = await _dio.post('auth/google-login', data: {
+        'idToken': idToken,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      return {'success': false, 'message': e.response?.data['message'] ?? 'Google Login failed'};
+    }
+  }
 }

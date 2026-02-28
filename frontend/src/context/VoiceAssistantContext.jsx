@@ -5,6 +5,8 @@ import { useSettings } from './SettingsContext';
 import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
 import { playWakeSound, initAudio } from '../utils/wakeSound';
+import { decode, decodeAudioData } from '../utils/audio';
+
 
 const VoiceAssistantContext = createContext();
 
@@ -85,15 +87,34 @@ export const VoiceAssistantProvider = ({ children }) => {
             const results = Array.from(event.results);
             const currentTranscript = results
                 .map(result => result[0].transcript)
-                .join('');
+                .join('').toLowerCase().trim();
 
             setTranscript(currentTranscript);
 
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = setTimeout(() => {
-                if (currentTranscript.trim()) {
-                    processInteraction(currentTranscript);
+                if (!currentTranscript) return;
+
+                // Wake Word Detection Logic
+                const WAKE_WORD = 'hey buddy';
+                const hasWakeWord = currentTranscript.startsWith(WAKE_WORD) || currentTranscript.includes('hey body');
+
+                if (hasWakeWord) {
+                    console.log('[VoiceContext] 🧠 Wake word detected globally:', currentTranscript);
+
+                    // Strip the wake word to get the actual command
+                    let command = currentTranscript.replace(/^(hey buddy|hey body|buddy)/i, '').trim();
+                    if (!command) {
+                        // If it was just the wake word, maybe prompt the user or just navigate
+                        speak("I'm listening!");
+                        navigate('/admin/buddy');
+                    } else {
+                        processInteraction(command);
+                    }
                     recognition.stop();
+                } else {
+                    // Not for us. Clear and keep listening.
+                    setTranscript('');
                 }
             }, 1200);
         };
@@ -106,6 +127,24 @@ export const VoiceAssistantProvider = ({ children }) => {
     // State for external components to inhibit voice processing
     const [preventProcessing, setPreventProcessing] = useState(false);
 
+    // Effect to start/stop recognition based on inhibitors
+    useEffect(() => {
+        if (!recognitionRef.current) return;
+
+        if (preventProcessing) {
+            console.log('[VoiceContext] ✋ Inhibiting global recognition');
+            isIntentionalStop.current = true;
+            recognitionRef.current.stop();
+        } else {
+            console.log('[VoiceContext] 🎧 Resuming global recognition');
+            isIntentionalStop.current = false;
+            try {
+                // Only start if not already active
+                recognitionRef.current.start();
+            } catch (e) { }
+        }
+    }, [preventProcessing]);
+
     // Turn-taking logic with inhibit check
     const processInteraction = async (text) => {
         // Mute/Disable if we have preventProcessing (e.g. on Buddy page)
@@ -114,23 +153,48 @@ export const VoiceAssistantProvider = ({ children }) => {
             return;
         }
         try {
-            const result = await voiceService.parseVoice(text, 'auto', conversationHistory, conversationId);
+            // Correct argument order for voiceService.parseVoice (text, image, language, history, conversationId)
+            const result = await voiceService.parseVoice(text, null, language, conversationHistory, conversationId);
             if (result.success) {
-                const { reply, voice_reply, type, data } = result.data;
+                const { reply, voice_reply, type, data, audio } = result.data;
                 setConversationId(result.meta.conversationId);
 
-                await speak(voice_reply || reply);
+                // Use high-quality audio if available, otherwise fallback to native TTS
+                if (audio) {
+                    await handleApiAudio(audio);
+                } else {
+                    await speak(voice_reply || reply);
+                }
 
                 if (type === 'reminder') {
                     navigate('/admin/reminders', { state: { parsedReminder: data } });
                 }
             }
         } catch (error) {
+            console.error('[VoiceContext] Error:', error);
             toast.error("I couldn't process that.");
         } finally {
-            setStatus('IDLE'); // Ensure we ALWAYS go back to IDLE
+            setStatus('IDLE');
             setTranscript('');
         }
+    };
+
+    const handleApiAudio = async (base64) => {
+        return new Promise(async (resolve) => {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                const bytes = decode(base64);
+                const buffer = await decodeAudioData(bytes, audioContext, 24000, 1);
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+                source.onended = () => resolve();
+                source.start(0);
+            } catch (err) {
+                console.error("API Audio playback failed:", err);
+                resolve();
+            }
+        });
     };
 
     // Step 7 & 8: Convert text to speech and Play

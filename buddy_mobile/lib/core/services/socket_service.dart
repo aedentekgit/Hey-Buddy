@@ -13,11 +13,13 @@ class SocketService {
   final _captionStreamController = StreamController<String>.broadcast();
   final _statusStreamController = StreamController<bool>.broadcast();
   final _voiceAlertStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  final _wakeWordStreamController = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<String> get audioStream => _audioStreamController.stream;
   Stream<String> get captionStream => _captionStreamController.stream;
   Stream<bool> get statusStream => _statusStreamController.stream;
   Stream<Map<String, dynamic>> get voiceAlertStream => _voiceAlertStreamController.stream;
+  Stream<Map<String, dynamic>> get wakeWordStream => _wakeWordStreamController.stream;
 
   void connect() async {
     final token = await _storage.read(key: 'token');
@@ -35,8 +37,11 @@ class SocketService {
     socket?.onConnect((_) {
       print('Socket Connected');
       _statusStreamController.add(true);
-      // Initialize agent
-      socket?.emit('setup_agent', {'language': 'en-US'});
+      // Initialize agent in standby mode so it listens for wake word
+      socket?.emit('setup_agent', {
+        'language': 'en-US',
+        'standby': true
+      });
     });
 
     socket?.onDisconnect((_) {
@@ -65,6 +70,15 @@ class SocketService {
         _voiceAlertStreamController.add(Map<String, dynamic>.from(data));
       }
     });
+
+    socket?.on('wake_word_detected', (data) {
+      print('Wake Word Detected in Backend: $data');
+      if (data is Map) {
+        _wakeWordStreamController.add(Map<String, dynamic>.from(data));
+      } else {
+        _wakeWordStreamController.add({'transcript': 'hey buddy'});
+      }
+    });
   }
 
   void sendText(String text) {
@@ -85,5 +99,6 @@ class SocketService {
     _captionStreamController.close();
     _statusStreamController.close();
     _voiceAlertStreamController.close();
+    _wakeWordStreamController.close();
   }
 }

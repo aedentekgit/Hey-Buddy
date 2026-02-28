@@ -3,7 +3,7 @@ const router = express.Router();
 const voiceControllerV2 = require('../controllers/voiceControllerV2');
 const recordController = require('../controllers/recordController');
 const reminderController = require('../controllers/reminderController');
-const { protect } = require('../middlewares/auth');
+const { protect, protectOptional } = require('../middlewares/auth');
 const multer = require('multer');
 const path = require('path');
 
@@ -23,9 +23,10 @@ const upload = multer({
 });
 
 // Core Voice Interactions (Step 1-6)
-router.post('/parse', protect, voiceControllerV2.processVoice);
+router.post('/parse', protectOptional, voiceControllerV2.processVoice);
 router.post('/save', protect, voiceControllerV2.saveReminder);
 router.get('/preview-voice', protect, voiceControllerV2.previewVoice);
+router.get('/news/local', protectOptional, voiceControllerV2.getLocalNews);
 
 // Reminder CRUD (Refactored to separate controller)
 router.get('/', protect, reminderController.getReminders);

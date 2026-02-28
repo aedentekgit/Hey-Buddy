@@ -10,6 +10,8 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkUser = async () => {
             const token = localStorage.getItem('token');
+            const storedUser = localStorage.getItem('user');
+
             if (token) {
                 try {
                     const res = await api.get('/auth/me');
@@ -18,6 +20,7 @@ export const AuthProvider = ({ children }) => {
                     if (userData && userData.webAccess === false) {
                         console.warn('Web access restricted for this role. Logging out.');
                         localStorage.removeItem('token');
+                        localStorage.removeItem('user');
                         setUser(null);
                         return;
                     }
@@ -30,9 +33,20 @@ export const AuthProvider = ({ children }) => {
                     }
 
                     setUser(userData);
+                    localStorage.setItem('user', JSON.stringify(userData));
                 } catch (error) {
                     localStorage.removeItem('token');
+                    localStorage.removeItem('user');
                     setUser(null);
+                }
+            } else if (storedUser) {
+                try {
+                    const parsedUser = JSON.parse(storedUser);
+                    if (parsedUser.isGuest) {
+                        setUser(parsedUser);
+                    }
+                } catch (e) {
+                    localStorage.removeItem('user');
                 }
             }
             setLoading(false);
@@ -44,6 +58,7 @@ export const AuthProvider = ({ children }) => {
         const res = await api.post('/auth/login', { email, password });
         if (res.data.success) {
             localStorage.setItem('token', res.data.data.token);
+            localStorage.setItem('user', JSON.stringify(res.data.data));
 
             // Sync Timezone on Login
             const userData = res.data.data;
@@ -62,6 +77,7 @@ export const AuthProvider = ({ children }) => {
         const res = await api.post('/auth/signup', userData);
         if (res.data.success) {
             localStorage.setItem('token', res.data.data.token);
+            localStorage.setItem('user', JSON.stringify(res.data.data));
             setUser(res.data.data);
             return { success: true };
         }
@@ -72,14 +88,31 @@ export const AuthProvider = ({ children }) => {
         const res = await api.post('/auth/google-login', { idToken });
         if (res.data.success) {
             localStorage.setItem('token', res.data.data.token);
+            localStorage.setItem('user', JSON.stringify(res.data.data));
             setUser(res.data.data);
             return { success: true };
         }
         return { success: false, message: res.data.message };
     };
 
+    const continueAsGuest = async () => {
+        try {
+            const res = await api.post('/auth/guest-login');
+            if (res.data.success) {
+                const guestData = res.data.data;
+                setUser(guestData);
+                localStorage.setItem('user', JSON.stringify(guestData));
+                return { success: true };
+            }
+        } catch (error) {
+            console.error('[Auth] Guest login failed:', error);
+        }
+        return { success: false, message: 'Failed to start guest session' };
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setUser(null);
     };
 
@@ -105,7 +138,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, signup, googleLogin, logout, refreshUser }}>
+        <AuthContext.Provider value={{ user, loading, login, signup, googleLogin, logout, refreshUser, continueAsGuest }}>
             {children}
         </AuthContext.Provider>
     );

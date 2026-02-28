@@ -87,7 +87,6 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
     const [alerts, setAlerts] = useState({ push: true, sms: false, email: false });
     const [priority, setPriority] = useState('medium');
     const [backupContacts, setBackupContacts] = useState([]);
-    const [escalationTime, setEscalationTime] = useState(0);
     const [smartFeatures, setSmartFeatures] = useState({
         earlyWarning: false,
         trafficAware: false,
@@ -107,7 +106,6 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
             setAlerts(reminder.alerts || { push: true, sms: false, email: false });
             setPriority(reminder.priority || 'medium');
             setBackupContacts(reminder.backupContacts || []);
-            setEscalationTime(reminder.escalationTime || 0);
             setSmartFeatures(reminder.smartFeatures || {
                 earlyWarning: false,
                 trafficAware: false,
@@ -156,7 +154,6 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                 alerts,
                 priority,
                 backupContacts,
-                escalationTime,
                 smartFeatures
             };
             await api.put(`/voice/${activeReminder._id}`, updatedData);
@@ -504,57 +501,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                         )}
                     </div>
 
-                    <div style={{ marginTop: '24px' }}>
-                        <label style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', display: 'block', marginBottom: '12px' }}>
-                            Escalation Timeline
-                        </label>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginBottom: '16px' }}>
-                            When should backup contacts be notified?
-                        </p>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {[
-                                { val: 0, label: 'Immediately', sub: 'Notify contacts right away' },
-                                { val: 15, label: '15 Minutes', sub: 'Wait 15 minutes before notifying' },
-                                { val: 30, label: '30 Minutes', sub: 'Wait 30 minutes before notifying' }
-                            ].map((opt) => (
-                                <div
-                                    key={opt.val}
-                                    onClick={() => isEditing && setEscalationTime(opt.val)}
-                                    style={{
-                                        padding: '16px',
-                                        borderRadius: '16px',
-                                        background: escalationTime === opt.val ? 'color-mix(in srgb, var(--primary-color) 10%, transparent)' : 'var(--bg-lite)',
-                                        border: `1px solid ${escalationTime === opt.val ? 'var(--primary-color)' : 'var(--border-color)'}`,
-                                        cursor: isEditing ? 'pointer' : 'default',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        transition: 'all 0.2s ease',
-                                        opacity: !isEditing && escalationTime !== opt.val ? 0.4 : 1
-                                    }}
-                                >
-                                    <div style={{
-                                        width: '20px',
-                                        height: '20px',
-                                        borderRadius: '50%',
-                                        border: `2px solid ${escalationTime === opt.val ? 'var(--primary-color)' : 'var(--border-color)'}`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        {escalationTime === opt.val && (
-                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--primary-color)' }} />
-                                        )}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontWeight: '600', fontSize: '0.95rem', color: escalationTime === opt.val ? 'var(--primary-glow)' : 'var(--text-main)' }}>{opt.label}</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{opt.sub}</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </DetailCard>
 
                 {/* Sharing & Collaboration Section */}

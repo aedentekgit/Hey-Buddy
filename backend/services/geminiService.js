@@ -130,6 +130,22 @@ const toolHandlers = {
         await Reminder.deleteOne(query);
         return { status: 'success', message: 'Reminder deleted.' };
     },
+    update_reminder: async (userId, args) => {
+        const { id, title, updateData } = args;
+        let query = { userId };
+        if (id) query._id = id;
+        else if (title) query.title = { $regex: title, $options: 'i' };
+        else return { status: 'error', message: 'ID or title required.' };
+
+        const reminder = await Reminder.findOne(query);
+        if (!reminder) return { status: 'error', message: 'Reminder not found.' };
+
+        // Simple merge
+        Object.assign(reminder, updateData);
+        await reminder.save();
+
+        return { status: 'success', message: 'Reminder updated.', data: reminder };
+    },
     list_memories: async (userId) => {
         const memories = await Memory.find({ userId }).sort({ createdAt: -1 }).limit(10);
         return { status: 'success', memories: memories.map(m => m.content) };
@@ -143,6 +159,19 @@ const toolHandlers = {
 
         await Memory.deleteOne(query);
         return { status: 'success', message: 'Memory deleted.' };
+    },
+    update_memory: async (userId, args) => {
+        const { id, query: contentSnippet, newContent } = args;
+        let query = { userId };
+        if (id) query._id = id;
+        else if (contentSnippet) query.content = { $regex: contentSnippet, $options: 'i' };
+        else return { status: 'error', message: 'ID or snippet required.' };
+
+        const result = await Memory.updateOne(query, { content: newContent });
+        if (result.matchedCount === 0) {
+            return { status: 'error', message: 'No matching memory found to update.' };
+        }
+        return { status: 'success', message: 'Memory updated successfully.' };
     },
     search_memories: async (userId, args) => {
         const { query: searchStr } = args;
@@ -229,6 +258,28 @@ const buddyTools = [
                 }
             },
             {
+                name: 'update_reminder',
+                description: 'Update an existing reminder with new information (e.g., change time, location, or notes).',
+                parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                        id: { type: 'STRING', description: 'The internal ID' },
+                        title: { type: 'STRING', description: 'The current title to match' },
+                        updateData: {
+                            type: 'OBJECT',
+                            properties: {
+                                title: { type: 'STRING', description: 'New title' },
+                                time: { type: 'STRING', description: 'New time' },
+                                location: { type: 'STRING', description: 'New location' },
+                                notes: { type: 'STRING', description: 'New notes' },
+                                date: { type: 'STRING', description: 'New date (YYYY-MM-DD)' }
+                            }
+                        }
+                    },
+                    required: ['updateData']
+                }
+            },
+            {
                 name: 'list_memories',
                 description: 'Fetch the list of stored memories (buddy memories).',
                 parameters: { type: 'OBJECT', properties: {} }
@@ -242,6 +293,19 @@ const buddyTools = [
                         id: { type: 'STRING', description: 'The internal ID' },
                         query: { type: 'STRING', description: 'A snippet of the content to match' }
                     }
+                }
+            },
+            {
+                name: 'update_memory',
+                description: 'Update a specific stored memory by its ID or content fragment with new information.',
+                parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                        id: { type: 'STRING', description: 'The internal ID' },
+                        query: { type: 'STRING', description: 'A snippet of the existing content to match' },
+                        newContent: { type: 'STRING', description: 'The new completely updated fact or information' }
+                    },
+                    required: ['newContent']
                 }
             },
             {
@@ -286,13 +350,23 @@ const geminiService = {
             const userContext = context.userContext || {
                 localDate: new Date().toLocaleDateString('en-CA'),
                 timeZone: 'UTC',
-                voicePreferences: { gender: 'female', tone: 'normal' }
+                voicePreferences: { gender: 'female', tone: 'normal' },
+                dateFormat: 'DD/MM/YYYY',
+                timeFormat: '12'
             };
+
 
             const personality = getPersonality(
                 userContext.voicePreferences?.gender || 'female',
                 userContext.voicePreferences?.tone || 'normal'
             );
+
+            const notLoggedInInstruction = !userId ? `
+                5. GUEST USER RULE (CRITICAL):
+                   - The user is currently NOT LOGGED IN.
+                   - **ALLOWED**: General knowledge questions (e.g., "What is the budget?", "Tell me a joke"), greetings, and helpful conversation are ALWAYS allowed.
+                   - **RESTRICTED**: If the user asks for *their own* personal data (e.g., "What are *my* reminders?", "Check *my* memory", "Save this as *my* note"), you MUST refuse and reply with: "Please login to check or save your personal reminders and memories."
+                   - Do NOT call any tools relating to memories or reminders for a guest user.` : ``;
 
             const model = genAI.getGenerativeModel({
                 model: "gemini-2.0-flash",
@@ -304,9 +378,13 @@ const geminiService = {
                 VOICE CONTEXT: You are communicating with the user using the '${personality.voice}' voice. Your written responses MUST reflect this persona's tone.
                 
                 USER CONTEXT:
-                - Current User Date: ${userContext.localDate}
+                - Current User Date: ${userContext.localDate} (${new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: userContext.timeZone })})
                 - User Timezone: ${userContext.timeZone}
                 - Real-time: ${new Date().toLocaleString('en-US', { timeZone: userContext.timeZone })}
+                - User Language Preference: ${targetLanguage}
+                - Preferred Date Format for Replies: ${userContext.dateFormat}
+                - Preferred Time Format for Replies: ${userContext.timeFormat}-Hour
+                (CRUCIAL INSTRUCTION: When you reply to the user with a date or time in text, you strictly format ALL dates as ${userContext.dateFormat} and ALL times as ${userContext.timeFormat}-Hour time.)
                 
                 RECENT MEMORIES (Facts/Notes):
                 ${context.memories && context.memories.length > 0 ? context.memories.join('\n') : 'No recent memories found.'}
@@ -316,19 +394,22 @@ const geminiService = {
                 
                 STRICT RULES FOR DATA INTEGRITY:
                 1. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
-                   - Requests about schedule, tasks, or "what do I have to do" MUST use 'list_reminders' if not in the UPCOMING REMINDERS list above.
-                   - Requests about facts, "where is my [item]", or past events MUST use 'search_memories' or 'list_memories' if not in the RECENT MEMORIES list above.
+${!userId ? "                   - As a GUEST, YOU MUST NOT search reminders or memories. Always use your internal training data for general questions." : "                   - Requests about schedule, tasks, or \"what do I have to do\" MUST use 'list_reminders' if not in the UPCOMING REMINDERS list above.\n                   - Requests about facts, \"where is my [item]\", or past events MUST use 'search_memories' or 'list_memories' if not in the RECENT MEMORIES list above."}
                 
                 2. NO HALLUCINATION:
-                   - If user asks for today's reminders and they aren't in the list above, call 'list_reminders' with date="today".
-                   - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: "You have no reminders scheduled for today."
-                   - NEVER infer reminders or facts exist if neither the context nor the tools show them.
+${!userId ? "                   - If the user asks for reminders or personal facts, you MUST refuse and tell them to login. NEVER make them up." : "                   - If user asks for today's reminders and they aren't in the list above, call 'list_reminders' with date=\"today\".\n                   - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: \"You have no reminders scheduled for today.\"\n                   - NEVER infer reminders or facts exist if neither the context nor the tools show them."}
                 
                 3. DATE & LOCATION SENSITIVITY:
                    - "Today" is ${userContext.localDate}.
+                   - You MUST resolve relative dates like "tomorrow", "yesterday", or "next Monday" into the exact YYYY-MM-DD format using today's date. NEVER ask the user for the exact date if they give a relative date. Calculate it yourself before calling the tool.
                    - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
                 
-                4. MULTILINGUAL SUPPORT: You are fully proficient in multiple languages including Tamil, Hindi, Spanish, French, etc. You MUST respond in the language the user speaks or requests. Do NOT refuse to speak or translate into other languages. Be professional, sympathetic, and concise.`,
+                4. MULTILINGUAL SUPPORT: 
+                   - You are a native speaker of multiple languages including **Tamil**, Hindi, Spanish, French, etc. 
+                   - You MUST respond in the language the user speaks OR explicitly requests (e.g., "speak in Tamil").
+                   - If the user switches language, you MUST switch with them immediately.
+                   - NEVER refuse a request to speak a different language. You are fully capable of it.
+                   - Be professional, sympathetic, and concise.${notLoggedInInstruction}`,
                 tools: buddyTools
             });
 
@@ -371,6 +452,9 @@ const geminiService = {
                     const handler = toolHandlers[call.name];
                     if (handler) {
                         try {
+                            if (!userId) {
+                                throw new Error("User must be logged in to use this feature. Tell the user exactly: 'Please login to check or save your reminders and memories.'");
+                            }
                             const toolResult = await handler(userId, call.args, userContext);
                             functionResponses.push({
                                 functionResponse: {

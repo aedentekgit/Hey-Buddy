@@ -103,4 +103,22 @@ const checkPermission = (permission) => {
     };
 };
 
-module.exports = { protect, authorize, checkPermission };
+const protectOptional = async (req, res, next) => {
+    let token;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            token = req.headers.authorization.split(' ')[1];
+
+            if (process.env.JWT_SECRET) {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                req.user = await User.findById(decoded.id).select('-password');
+            }
+        } catch (error) {
+            console.warn('[AUTH] Optional token verification failed:', error.message);
+        }
+    }
+    next();
+};
+
+module.exports = { protect, protectOptional, authorize, checkPermission };

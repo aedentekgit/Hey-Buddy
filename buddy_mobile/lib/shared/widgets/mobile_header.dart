@@ -7,6 +7,8 @@ import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:buddy_mobile/core/services/location_service.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+
 
 class MobileHeader extends StatefulWidget {
   const MobileHeader({super.key});
@@ -105,12 +107,13 @@ class _MobileHeaderState extends State<MobileHeader> {
                         border: Border.all(color: Colors.white, width: 2),
                       ),
                       child: ClipOval(
-                        child: user['profilePicture'] != null
+                        child: AppConfig.formatImageUrl(user['profilePicture']) != null
                             ? CachedNetworkImage(
-                                imageUrl: user['profilePicture'],
+                                imageUrl: AppConfig.formatImageUrl(user['profilePicture'])!,
                                 fit: BoxFit.cover,
                                 errorWidget: (context, url, error) => const Icon(LucideIcons.user, color: Colors.white, size: 20),
                               )
+
                             : (branding.logoUrl != null 
                                 ? CachedNetworkImage(imageUrl: branding.logoUrl!, fit: BoxFit.cover)
                                 : const Icon(LucideIcons.user, color: Colors.white, size: 20)),

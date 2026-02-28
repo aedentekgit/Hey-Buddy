@@ -166,6 +166,31 @@ class UserService {
     }
   }
 
+  // Get Google Auth URL
+  Future<String?> getGoogleAuthUrl() async {
+    try {
+      final token = await _getToken();
+      final response = await http.get(
+        Uri.parse('${_baseUrl}voice/google/auth'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['url'];
+        }
+      }
+      return null;
+    } catch (e) {
+      print("[UserService] Error fetching google auth URL: $e");
+      return null;
+    }
+  }
+
   // Update Location
   Future<bool> updateLocation(double lat, double lng) async {
     try {

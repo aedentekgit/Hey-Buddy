@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:buddy_mobile/shared/widgets/mobile_header.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
@@ -9,12 +8,19 @@ import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
+import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-
+import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
+import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AccountSettingsScreen extends StatefulWidget {
-  const AccountSettingsScreen({super.key});
+  final ValueChanged<bool>? onSubViewChanged;
+
+  const AccountSettingsScreen({super.key, this.onSubViewChanged});
 
   @override
   State<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
@@ -22,12 +28,23 @@ class AccountSettingsScreen extends StatefulWidget {
 
 enum _SettingsView { menu, editProfile, notifications, integrations, voicePersonality }
 
-class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
-  _SettingsView _currentView = _SettingsView.menu;
+
+class _AccountSettingsScreenState extends State<AccountSettingsScreen> with WidgetsBindingObserver {
+  _SettingsView __currentView = _SettingsView.menu;
+  _SettingsView get _currentView => __currentView;
+  set _currentView(_SettingsView view) {
+    __currentView = view;
+    // Delay callback to avoid synchronous build conflicts when parent updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onSubViewChanged?.call(view != _SettingsView.menu);
+    });
+  }
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final FlutterTts _flutterTts = FlutterTts();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
   
   String _dateFormat = 'DD/MM/YYYY';
@@ -40,7 +57,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadUserData();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _currentView == _SettingsView.integrations) {
+      // Reload profile when returning to the app in case Google Auth finished
+      Provider.of<UserProvider>(context, listen: false).loadProfile();
+    }
   }
 
   void _loadUserData() {
@@ -66,23 +92,89 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
     _flutterTts.stop();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
   // --- Handlers ---
   
   Future<void> _testVoice(String gender, String tone) async {
+    if (_isPlaying) return;
     setState(() => _isPlaying = true);
+    
+    final text = "Hello, I am Buddy, your AI assistant. This is how I will sound.";
+    
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final token = auth.token;
+      
+      if (token != null) {
+        final baseUrl = AppConfig.baseUrl;
+        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(text)}&gender=$gender&tone=$tone');
+        
+        final response = await http.get(url, headers: {
+          'Authorization': 'Bearer $token',
+        });
+        
+        if (response.statusCode == 200) {
+          final body = json.decode(response.body);
+          if (body['success'] == true && body['audio'] != null) {
+            final audioBytes = base64Decode(body['audio']);
+            
+            _audioPlayer.onPlayerComplete.listen((_) {
+              if (mounted) setState(() => _isPlaying = false);
+            });
+            
+            await _audioPlayer.play(BytesSource(audioBytes));
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching backend preview voice: $e");
+    }
+
+    // Fallback to local device TTS
     try {
       double speechRate = 0.5;
       double pitch = 1.0;
 
+      // Try setting an actual male/female voice from the system
+      final voices = await _flutterTts.getVoices;
+      if (voices != null) {
+        try {
+          List<dynamic> voiceList = List<dynamic>.from(voices);
+          Map<dynamic, dynamic>? selectedVoice;
+
+          for (var v in voiceList) {
+            final name = v['name'].toString().toLowerCase();
+            final locale = v['locale'].toString().toLowerCase();
+            if (locale.startsWith('en')) {
+              if (gender == 'male' && (name.contains('male') || name.contains('iom') || name.contains('tpd') || name.contains('rjs') || name.contains('daniel'))) {
+                selectedVoice = v;
+                break;
+              } else if (gender == 'female' && (name.contains('female') || name.contains('sfg') || name.contains('tpf') || name.contains('samantha'))) {
+                selectedVoice = v;
+                break;
+              }
+            }
+          }
+
+          if (selectedVoice != null) {
+            await _flutterTts.setVoice({"name": selectedVoice["name"].toString(), "locale": selectedVoice["locale"].toString()});
+          }
+        } catch (e) {
+          debugPrint("Voice mapping error: $e");
+        }
+      }
+
       if (gender == 'male') {
-        pitch = 0.8;
+        pitch = 0.5; // More distinct male pitch as fallback if actual voice fetch fails
       } else {
         pitch = 1.1;
       }
@@ -99,7 +191,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       await _flutterTts.setSpeechRate(speechRate);
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(pitch);
-      await _flutterTts.speak("Hello, I am Buddy, your AI assistant. This is how I will sound.");
+      await _flutterTts.speak(text);
       
       _flutterTts.setCompletionHandler(() {
         if (mounted) setState(() => _isPlaying = false);
@@ -164,7 +256,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         title: Text("Delete Account", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         content: Text("Are you sure you want to permanently delete your account? This action cannot be undone.", style: GoogleFonts.outfit()),
         actions: [
@@ -201,7 +293,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         await Provider.of<AuthProvider>(context, listen: false).logout();
         if (mounted) {
            Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(builder: (_) => const MainScreen()),
             (route) => false,
           );
         }
@@ -213,7 +305,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         title: Text("Log Out", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         content: Text("Are you sure you want to log out of your account?", style: GoogleFonts.outfit()),
         actions: [
@@ -247,7 +339,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
        await Provider.of<AuthProvider>(context, listen: false).logout();
        if (mounted) {
          Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          MaterialPageRoute(builder: (_) => const MainScreen()),
           (route) => false,
         );
        }
@@ -266,27 +358,27 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Header logic based on view
-              if (_currentView == _SettingsView.menu)
-                const MobileHeader()
-              else
-                _buildSubHeader(),
+        body: Column(
+          children: [
+            // Header logic based on view
+            if (_currentView != _SettingsView.menu)
+              _buildSubHeader(),
 
-              Expanded(
+            Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child: _buildCurrentView(),
+                  child: Align(
+                    key: ValueKey(_currentView),
+                    alignment: Alignment.topCenter,
+                    child: _buildCurrentView(),
+                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildSubHeader() {
     String title = "Settings";
@@ -296,7 +388,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     if (_currentView == _SettingsView.voicePersonality) title = "Voice Personality";
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
@@ -337,53 +429,63 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final prefs = user['notificationPreferences'] as Map<String, dynamic>? ?? {};
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Configure how you receive alerts and reminders.",
-            style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600]),
+          _buildNotificationItem(
+            "AI Voice Reminders", 
+            "Receive audible reminders from Buddy AI when you are in an active voice session.", 
+            "voice", 
+            prefs['voice'],
+            LucideIcons.mic
           ),
-          const SizedBox(height: 24),
-          
+
           _buildNotificationItem(
             "Push Notifications", 
-            "Receive instant alerts on your device.", 
+            "Receive instant alerts on your mobile or desktop device.", 
             "push", 
-            prefs['push']
+            prefs['push'],
+            LucideIcons.bell
+          ),
+
+          _buildNotificationItem(
+            "SMS Notifications", 
+            "Get critical alerts delivered directly to your phone via SMS.", 
+            "sms", 
+            prefs['sms'],
+            LucideIcons.messageSquare
           ),
 
           _buildNotificationItem(
             "Email Notifications", 
-            "Receive summaries and reminders via email.", 
+            "Receive detailed summaries and reminders in your inbox.", 
             "email", 
-            prefs['email']
+            prefs['email'],
+            LucideIcons.mail
           ),
           _buildNotificationItem(
             "In-App Notifications", 
-            "See alerts within the Buddy interface.", 
+            "See alerts and updates within the Buddy Assistant interface.", 
             "inApp", 
-            prefs['inApp']
+            prefs['inApp'],
+            LucideIcons.layout
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationItem(String title, String subtitle, String key, dynamic data) {
+  Widget _buildNotificationItem(String title, String subtitle, String key, dynamic data, IconData icon) {
     final Map<String, dynamic> safeData = data is Map<String, dynamic> ? data : {'enabled': false};
     final bool isEnabled = safeData['enabled'] ?? false;
-    
-    // We are simplifying the UI to match the professional request - cleaner row, no delay inputs for now
-    // or if delay is needed, it should be cleaner. The user point to "2nd image page" which typically shows clean list tiles.
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFF1F5F9)),
         boxShadow: [
           BoxShadow(
@@ -393,60 +495,61 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              key == 'push' ? LucideIcons.bell : 
-              key == 'email' ? LucideIcons.mail : LucideIcons.appWindow, 
-              size: 24, 
-              color: Theme.of(context).primaryColor
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: const Color(0xFF1E293B),
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.outfit(
-                    color: Colors.grey[500],
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
+                child: Icon(
+                  icon, 
+                  size: 24, 
+                  color: Theme.of(context).primaryColor
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Transform.scale(
-            scale: 0.8,
-            child: Switch.adaptive(
-              value: isEnabled,
-              activeColor: Colors.white,
-              activeTrackColor: Theme.of(context).primaryColor,
-              onChanged: (val) {
-                // Preserving existing delay if any, though we hid the input
-                final currentDelay = safeData['delay'] ?? 0;
-                _updateNotificationPref(key, {'enabled': val, 'delay': currentDelay});
-              },
-            ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.outfit(
+                        color: Colors.grey[500],
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Transform.scale(
+                scale: 0.8,
+                child: Switch.adaptive(
+                  value: isEnabled,
+                  activeColor: Colors.white,
+                  activeTrackColor: Theme.of(context).primaryColor,
+                  onChanged: (val) {
+                    _updateNotificationPref(key, {'enabled': val});
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -469,7 +572,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final bool isGoogleConnected = user['googleRefreshToken'] != null;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -477,7 +580,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
              padding: const EdgeInsets.all(20),
              decoration: BoxDecoration(
                color: Colors.white,
-               borderRadius: BorderRadius.circular(20),
+               borderRadius: BorderRadius.circular(12),
                border: Border.all(color: Colors.grey[200]!),
                boxShadow: [
                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 4))
@@ -532,17 +635,20 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                      ),
                    )
                  else
-                   Container(
-                     padding: const EdgeInsets.all(12),
-                     decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-                     child: Row(
-                       children: [
-                         const Icon(LucideIcons.info, size: 16, color: Colors.grey),
-                         const SizedBox(width: 8),
-                         Expanded(child: Text("To connect, please use the web dashboard.", style: GoogleFonts.outfit(color: Colors.grey[600], fontSize: 12))),
-                       ],
-                     ),
-                   )
+                   SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _handleConnectGoogleCalendar(context),
+                        icon: const Icon(LucideIcons.link, size: 18),
+                        label: Text("Connect Calendar", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    )
                ],
              ),
            ),
@@ -573,18 +679,37 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
      }
   }
 
+  Future<void> _handleConnectGoogleCalendar(BuildContext context) async {
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final url = await userProvider.getGoogleAuthUrl();
+      if (url != null) {
+        final Uri authUri = Uri.parse(url);
+        if (await canLaunchUrl(authUri)) {
+          await launchUrl(authUri, mode: LaunchMode.externalApplication);
+        } else {
+          ToastUtils.showErrorToast("Could not launch Google Auth page");
+        }
+      } else {
+        ToastUtils.showErrorToast("Failed to fetch Google Auth URL");
+      }
+    } catch (e) {
+      ToastUtils.showErrorToast("Failed to connect: $e");
+    }
+  }
+
   // --- MENU VIEW ---
   Widget _buildMenu() {
     final user = Provider.of<UserProvider>(context).user;
     final primaryColor = Theme.of(context).primaryColor;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Account", style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // Profile Card
           GestureDetector(
@@ -593,7 +718,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 24, offset: const Offset(0, 8))
                 ],
@@ -609,9 +734,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       border: Border.all(color: primaryColor.withOpacity(0.1), width: 3),
                     ),
                     child: ClipOval(
-                      child: user['profilePicture'] != null
+                      child: AppConfig.formatImageUrl(user['profilePicture']) != null
                           ? CachedNetworkImage(
-                              imageUrl: user['profilePicture'],
+                              imageUrl: AppConfig.formatImageUrl(user['profilePicture'])!,
                               fit: BoxFit.cover,
                               errorWidget: (context, url, error) => Icon(LucideIcons.user, color: Colors.grey[400]),
                             )
@@ -752,12 +877,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey[100]!),
               boxShadow: [
                 BoxShadow(
@@ -805,7 +930,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final primaryColor = Theme.of(context).primaryColor;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -825,9 +950,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   child: ClipOval(
                     child: _imageFile != null
                         ? Image.file(_imageFile!, fit: BoxFit.cover)
-                        : (user['profilePicture'] != null 
+                        : (AppConfig.formatImageUrl(user['profilePicture']) != null 
                             ? CachedNetworkImage(
-                                imageUrl: user['profilePicture'],
+                                imageUrl: AppConfig.formatImageUrl(user['profilePicture'])!,
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) => const CircularProgressIndicator(),
                                 errorWidget: (context, url, error) => const Icon(LucideIcons.user, size: 40),
@@ -910,7 +1035,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               onPressed: userProvider.isLoading ? null : _handleSave,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 4,
                 shadowColor: primaryColor.withOpacity(0.4),
               ),
@@ -1014,16 +1139,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final userProvider = Provider.of<UserProvider>(context);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Customize how Buddy AI sounds when responding.",
-            style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 24),
-          
           _buildLabel("Voice Gender"),
           const SizedBox(height: 12),
           Row(
@@ -1109,7 +1228,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
           color: isSelected ? primaryColor.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: isSelected ? primaryColor : Colors.grey[200]!, width: isSelected ? 2 : 1),
         ),
         child: Column(
@@ -1139,7 +1258,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected ? primaryColor.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: isSelected ? primaryColor : Colors.grey[200]!, width: isSelected ? 2 : 1),
         ),
         child: Row(

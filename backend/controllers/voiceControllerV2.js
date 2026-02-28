@@ -1,3 +1,4 @@
+const axios = require('axios');
 const nluService = require('../services/nluService');
 const geminiService = require('../services/geminiService');
 const contextService = require('../services/contextService');
@@ -36,33 +37,32 @@ exports.processVoice = async (req, res) => {
         const context = await contextService.getContext(userId, conversationId, timeZone);
         console.log(`[VoiceV2] Context retrieved in ${Date.now() - contextStartTime}ms`);
 
-        // 2. Generate Response (Steps 4 & 6)
-        console.log('[VoiceV2] Calling Gemini Service...');
+        // 2. Start Warming TTS and Generate Response in Parallel
+        console.log('[VoiceV2] Generating response and warming TTS...');
         const aiStartTime = Date.now();
-        const aiResponse = await geminiService.generateResponse(text, userId, context, language, image);
-        console.log(`[VoiceV2] AI response generated in ${Date.now() - aiStartTime}ms`);
 
-        // 3. Save Context & Generate Audio in Parallel
+        // Note: Disabling preemptive server-side TTS warming to ensure snappy response times
+        // The mobile client uses local high-speed flutter_tts when server audio is null.
+        const aiResponse = await geminiService.generateResponse(text, userId, context, language, image);
+        const aiDuration = Date.now() - aiStartTime;
+        console.log(`[VoiceV2] AI text generated in ${aiDuration}ms`);
+
+        // 3. Complete TTS and Save Interaction
         const processingStartTime = Date.now();
-        const [updatedConversationId, ttsResult] = await Promise.all([
-            contextService.saveInteraction(userId, conversationId, text, aiResponse.reply),
-            (async () => {
-                const voicePrefs = context.userContext?.voicePreferences || { gender: 'female', tone: 'soft' };
-                try {
-                    return await ttsService.generateAudio(aiResponse.reply, voicePrefs.gender, voicePrefs.tone);
-                } catch (err) {
-                    console.warn('[VoiceV2] TTS Generation failed:', err.message);
-                    return { audio: null };
-                }
-            })()
+        const voicePrefs = context.userContext?.voicePreferences || { gender: 'female', tone: 'soft' };
+
+        const [updatedConversationId, audio] = await Promise.all([
+            userId ? contextService.saveInteraction(userId, conversationId, text, aiResponse.reply) : Promise.resolve(conversationId),
+            ttsService.generateAudio(aiResponse.reply, voicePrefs.gender, voicePrefs.tone, language)
+                .then(res => res?.audio || null)
+                .catch(err => {
+                    console.error('[VoiceV2] TTS failed (falling back to client-side TTS):', err.message);
+                    return null;
+                })
         ]);
 
-        const audio = ttsResult?.audio || null;
-        console.log(`[VoiceV2] Post-AI processing (Save + TTS) completed in ${Date.now() - processingStartTime}ms`);
 
-        console.log(`[VoiceV2] TOTAL processing time: ${Date.now() - startTime}ms`);
-
-        // 5. Return result (ready for Steps 7 & 8 on frontend)
+        // 4. Return result
         res.status(200).json({
             success: true,
             data: {
@@ -74,10 +74,9 @@ exports.processVoice = async (req, res) => {
                 language: language
             }
         });
-
     } catch (error) {
-        console.error('[VoiceV2] Fatal Error:', error);
-        res.status(500).json({ success: false, message: "Internal processing error." });
+        console.error('[Voice] Error:', error);
+        res.status(500).json({ success: false, message: "Voice processing failed.", error: error.message });
     }
 };
 
@@ -149,9 +148,10 @@ exports.previewVoice = async (req, res) => {
         const userPrefs = req.user?.voicePreferences || {};
         const gender = req.query.gender || userPrefs.gender || 'female';
         const tone = req.query.tone || userPrefs.tone || 'soft';
+        const language = req.query.language || 'en-US';
         const text = req.query.text || "Hi! I am Buddy. I am ready to help you.";
 
-        const result = await ttsService.generateAudio(text, gender, tone);
+        const result = await ttsService.generateAudio(text, gender, tone, language);
 
         res.status(200).json({
             success: true,
@@ -162,5 +162,58 @@ exports.previewVoice = async (req, res) => {
     } catch (error) {
         console.error('[Preview] Error:', error);
         res.status(500).json({ success: false, message: error.message || "Failed to generate voice preview." });
+    }
+};
+
+/**
+ * Get 3 local current affairs points based on location
+ */
+exports.getLocalNews = async (req, res) => {
+    try {
+        let lat = req.query.lat;
+        let lon = req.query.lon;
+        let userId = req.user?._id;
+
+        // Fallback to user profile location if not provided in query
+        if ((!lat || !lon) && userId) {
+            const user = await User.findById(userId);
+            if (user && user.currentLocation) {
+                lat = user.currentLocation.lat;
+                lon = user.currentLocation.lng;
+            }
+        }
+
+        let cityStr = "your location";
+        if (lat && lon) {
+            try {
+                const geoRes = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+                    headers: { 'User-Agent': 'HeyBuddy-Health-Assistant/1.0' }
+                });
+                const geoData = geoRes.data;
+                cityStr = geoData.address?.city || geoData.address?.town || geoData.address?.village || geoData.address?.state || "your area";
+            } catch (err) {
+                console.warn("[News] Geo failed:", err.message);
+            }
+        }
+
+        // Use Gemini to get 3 interesting local/regional news points
+        const prompt = `Act as a news curator for ${cityStr}. Provide exactly 3 short, interesting current affairs or news points (max 12 words each) relevant to this location or its region. Format them as an array of strings. Ensure they are recent (around February 2026). Include emojis.`;
+
+        const aiResponse = await geminiService.generateResponse(prompt, userId, { userContext: { timeZone: 'Asia/Kolkata' } });
+
+        // Match only strings that look like news (Gemini might return a list)
+        let news = [];
+        try {
+            // Very basic extraction if Gemini doesn't return clean array
+            const textLines = aiResponse.reply.split('\n').filter(l => l.trim().length > 5);
+            news = textLines.slice(0, 3).map(l => l.replace(/^\d+\.\s*/, '').replace(/^- \s*/, '').trim());
+        } catch (e) {
+            news = ["Local weather updates for your area today 🌤️", "Upcoming cultural events in your city center 🎭", "New infrastructure developments ongoing nearby 🚧"];
+        }
+
+        res.status(200).json({ success: true, city: cityStr, news });
+    } catch (error) {
+        console.error('[News] Error:', error);
+        res.status(500).json({ success: false, message: "Failed to fetch local news." });
     }
 };

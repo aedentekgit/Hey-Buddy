@@ -341,14 +341,18 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                                         <span className="info-role">{user?.role}</span>
                                     </div>
                                     <div className="dropdown-divider" />
-                                    <button className="dropdown-item" onClick={() => { navigate('/user/settings'); setShowUserMenu(false); }}>
-                                        <Settings size={16} />
-                                        <span>Account Settings</span>
-                                    </button>
-                                    <div className="dropdown-divider" />
+                                    {!user?.isGuest && (
+                                        <>
+                                            <button className="dropdown-item" onClick={() => { navigate('/user/settings'); setShowUserMenu(false); }}>
+                                                <Settings size={16} />
+                                                <span>Account Settings</span>
+                                            </button>
+                                            <div className="dropdown-divider" />
+                                        </>
+                                    )}
                                     <button className="dropdown-item logout-item" onClick={() => { logout(); setShowUserMenu(false); }}>
-                                        <LogOut size={16} />
-                                        <span>Sign Out</span>
+                                        {user?.isGuest ? <X size={16} /> : <LogOut size={16} />}
+                                        <span>{user?.isGuest ? 'Exit Guest Mode' : 'Sign Out'}</span>
                                     </button>
                                 </motion.div>
                             )}

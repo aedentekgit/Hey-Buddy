@@ -47,7 +47,7 @@ export const NotificationProvider = ({ children }) => {
     }, [user]);
 
     useEffect(() => {
-        if (user) {
+        if (user && !user.isGuest) {
             fetchNotifications();
             // In a real app, we would setup a Socket.io connection here
             const interval = setInterval(fetchNotifications, 30000); // Poll every 30s as fallback

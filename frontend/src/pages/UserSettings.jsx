@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { getImageUrl } from '../utils/imageUrl';
 import { decode, decodeAudioData } from '../utils/audio';
 
-const NotifSetting = ({ icon: Icon, title, description, enabled, delay, onToggle, onDelayChange }) => (
+const NotifSetting = ({ icon: Icon, title, description, enabled, onToggle }) => (
     <div style={{
         padding: '20px',
         background: 'var(--bg-lite)',
@@ -68,38 +68,6 @@ const NotifSetting = ({ icon: Icon, title, description, enabled, delay, onToggle
                 }} />
             </div>
         </div>
-
-        {enabled && onDelayChange && (
-            <div style={{
-                paddingTop: '16px',
-                borderTop: '1px solid var(--border-color)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px'
-            }}>
-                <Clock size={16} color="var(--text-sub)" />
-                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)' }}>Escalation Delay:</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                        type="number"
-                        min="0"
-                        value={delay}
-                        onChange={(e) => onDelayChange(parseInt(e.target.value) || 0)}
-                        style={{
-                            width: '60px',
-                            padding: '4px 8px',
-                            borderRadius: '8px',
-                            border: '1px solid var(--border-color)',
-                            background: 'var(--card-bg)',
-                            color: 'var(--text-main)',
-                            fontSize: '0.85rem',
-                            outline: 'none'
-                        }}
-                    />
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>minutes</span>
-                </div>
-            </div>
-        )}
     </div>
 );
 
@@ -111,6 +79,7 @@ const UserSettings = () => {
     const [loading, setLoading] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showDeleteAvatarConfirm, setShowDeleteAvatarConfirm] = useState(false);
     const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
     const [imageUploading, setImageUploading] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
@@ -128,10 +97,10 @@ const UserSettings = () => {
     // State for notification preferences
     const [notifPreferences, setNotifPreferences] = useState({
         voice: { enabled: true },
-        push: { enabled: true, delay: 0 },
-        sms: { enabled: false, delay: 5 },
-        email: { enabled: true, delay: 0 },
-        inApp: { enabled: true, delay: 0 }
+        push: { enabled: true },
+        sms: { enabled: false },
+        email: { enabled: true },
+        inApp: { enabled: true }
     });
 
     // State for voice assistant personality
@@ -347,8 +316,7 @@ const UserSettings = () => {
     };
 
     const handleDeleteProfilePicture = async () => {
-        if (!confirm('Are you sure you want to remove your profile picture?')) return;
-
+        setShowDeleteAvatarConfirm(false);
         setImageUploading(true);
         try {
             await api.delete('/users/profile/avatar');
@@ -496,7 +464,7 @@ const UserSettings = () => {
                                                 {user?.profilePicture && (
                                                     <button
                                                         type="button"
-                                                        onClick={handleDeleteProfilePicture}
+                                                        onClick={() => setShowDeleteAvatarConfirm(true)}
                                                         style={{
                                                             background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
                                                             padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem',
@@ -613,7 +581,7 @@ const UserSettings = () => {
                                     <SectionTitle label="Notification Preferences" icon={Bell} color="var(--primary-color)" />
 
                                     <p style={{ color: 'var(--text-sub)', marginBottom: '2rem', maxWidth: '600px', lineHeight: '1.6', fontSize: '0.95rem' }}>
-                                        Configure how and when you want to receive reminders and alerts. Set delays for escalation to other channels.
+                                        Configure how and when you want to receive reminders and alerts across all available channels.
                                     </p>
 
                                     <div style={{ maxWidth: '600px' }}>
@@ -633,14 +601,9 @@ const UserSettings = () => {
                                             title="Push Notifications"
                                             description="Receive instant alerts on your mobile or desktop device."
                                             enabled={notifPreferences.push.enabled}
-                                            delay={notifPreferences.push.delay}
                                             onToggle={() => setNotifPreferences({
                                                 ...notifPreferences,
                                                 push: { ...notifPreferences.push, enabled: !notifPreferences.push.enabled }
-                                            })}
-                                            onDelayChange={(val) => setNotifPreferences({
-                                                ...notifPreferences,
-                                                push: { ...notifPreferences.push, delay: val }
                                             })}
                                         />
 
@@ -649,14 +612,9 @@ const UserSettings = () => {
                                             title="SMS Notifications"
                                             description="Get critical alerts delivered directly to your phone via SMS."
                                             enabled={notifPreferences.sms.enabled}
-                                            delay={notifPreferences.sms.delay}
                                             onToggle={() => setNotifPreferences({
                                                 ...notifPreferences,
                                                 sms: { ...notifPreferences.sms, enabled: !notifPreferences.sms.enabled }
-                                            })}
-                                            onDelayChange={(val) => setNotifPreferences({
-                                                ...notifPreferences,
-                                                sms: { ...notifPreferences.sms, delay: val }
                                             })}
                                         />
 
@@ -665,14 +623,9 @@ const UserSettings = () => {
                                             title="Email Notifications"
                                             description="Receive detailed summaries and reminders in your inbox."
                                             enabled={notifPreferences.email.enabled}
-                                            delay={notifPreferences.email.delay}
                                             onToggle={() => setNotifPreferences({
                                                 ...notifPreferences,
                                                 email: { ...notifPreferences.email, enabled: !notifPreferences.email.enabled }
-                                            })}
-                                            onDelayChange={(val) => setNotifPreferences({
-                                                ...notifPreferences,
-                                                email: { ...notifPreferences.email, delay: val }
                                             })}
                                         />
 
@@ -681,14 +634,9 @@ const UserSettings = () => {
                                             title="In-App Notifications"
                                             description="See alerts and updates within the Buddy Assistant interface."
                                             enabled={notifPreferences.inApp.enabled}
-                                            delay={notifPreferences.inApp.delay}
                                             onToggle={() => setNotifPreferences({
                                                 ...notifPreferences,
                                                 inApp: { ...notifPreferences.inApp, enabled: !notifPreferences.inApp.enabled }
-                                            })}
-                                            onDelayChange={(val) => setNotifPreferences({
-                                                ...notifPreferences,
-                                                inApp: { ...notifPreferences.inApp, delay: val }
                                             })}
                                         />
 
@@ -962,6 +910,19 @@ const UserSettings = () => {
                         onConfirm={handleUnlinkCalendar}
                         onCancel={() => setShowUnlinkConfirm(false)}
                         loading={calendarUnlinking}
+                    />
+                )}
+                {showDeleteAvatarConfirm && (
+                    <Modal
+                        icon={Trash2}
+                        iconColor="#ef4444"
+                        title="Remove Profile Picture?"
+                        description="Are you sure you want to remove your profile picture?"
+                        confirmText="Remove"
+                        confirmColor="#ef4444"
+                        onConfirm={handleDeleteProfilePicture}
+                        onCancel={() => setShowDeleteAvatarConfirm(false)}
+                        loading={imageUploading}
                     />
                 )}
             </AnimatePresence>

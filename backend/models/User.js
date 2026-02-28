@@ -87,20 +87,16 @@ const userSchema = new mongoose.Schema({
             enabled: { type: Boolean, default: true }
         },
         push: {
-            enabled: { type: Boolean, default: true },
-            delay: { type: Number, default: 0 }
+            enabled: { type: Boolean, default: true }
         },
         sms: {
-            enabled: { type: Boolean, default: false },
-            delay: { type: Number, default: 5 }
+            enabled: { type: Boolean, default: false }
         },
         email: {
-            enabled: { type: Boolean, default: true },
-            delay: { type: Number, default: 0 }
+            enabled: { type: Boolean, default: true }
         },
         inApp: {
-            enabled: { type: Boolean, default: true },
-            delay: { type: Number, default: 0 }
+            enabled: { type: Boolean, default: true }
         }
     }
 }, { timestamps: true });

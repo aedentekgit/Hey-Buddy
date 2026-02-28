@@ -6,117 +6,9 @@ import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sp
 import { getImageUrl } from '../utils/imageUrl';
 import { config } from '../config/env';
 
-// --- Voice Orbit Component (Interactive Square Visualizer) ---
-const VoiceOrbit = ({ isActive, isThinking, isSpeaking, volume, hasContent }) => {
-    const canvasRef = useRef(null);
-    const particles = useRef([]);
-    const frameRef = useRef(null);
-    const rotation = useRef({ x: 0, y: 0 });
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        let width = canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-        let height = canvas.height = canvas.offsetHeight * window.devicePixelRatio;
 
-        // Higher particle density for clarity
-        const particleCount = 800;
-        particles.current = Array.from({ length: particleCount }, () => {
-            return {
-                x: Math.random() * 2 - 1, // Normalized -1 to 1
-                y: Math.random() * 2 - 1, // Normalized -1 to 1
-                z: Math.random() * 2 - 1,
-                size: 1.5 + Math.random() * 2,
-                opacity: 0.4 + Math.random() * 0.5,
-                colorPhase: Math.random() * Math.PI * 2,
-                speed: 0.2 + Math.random() * 0.8
-            };
-        });
-
-        const animate = () => {
-            ctx.clearRect(0, 0, width, height);
-            const centerX = width / 2;
-            const centerY = height / 2;
-
-            let rotationSpeed = 0.007;
-            let sphereScale = 1;
-
-            if (isThinking) rotationSpeed = 0.05;
-            if (isSpeaking) sphereScale = 1 + Math.sin(Date.now() * 0.008) * 0.18;
-            if (isActive) sphereScale += volume * 12;
-
-            rotation.current.y += rotationSpeed;
-            rotation.current.x += rotationSpeed * 0.4;
-
-            const projected = particles.current.map(p => {
-                let s = 120 * sphereScale;
-
-                // Volume positioning for strictly square/cube alignment
-                let x = p.x;
-                let y = p.y;
-                let z = p.z;
-
-                // Standard rotation for depth but rendered as a sharp square
-                const smoothY = rotation.current.y;
-                const smoothX = rotation.current.x;
-
-                let ty = y * Math.cos(smoothY) - z * Math.sin(smoothY);
-                let tz = y * Math.sin(smoothY) + z * Math.cos(smoothY);
-                y = ty; z = tz;
-
-                let tx = x * Math.cos(smoothX) + z * Math.sin(smoothX);
-                tz = -x * Math.sin(smoothX) + z * Math.cos(smoothX);
-                x = tx; z = tz;
-
-                return { finalX: x * s, finalY: y * s, finalZ: z * s, p };
-            }).sort((a, b) => a.finalZ - b.finalZ);
-
-            projected.forEach(({ finalX, finalY, finalZ, p }) => {
-                const scale = (finalZ + 150) / 300;
-                const alpha = Math.max(0, p.opacity * (scale + 0.1));
-
-                // Theme Colors: Indigo/Purple
-                const hue = isThinking ? 280 : 255;
-                const sat = 85;
-                const light = 65 + Math.sin(Date.now() * 0.005 + p.colorPhase) * 15;
-
-                const particleSize = Math.max(0.5, p.size * (scale + 0.5) * window.devicePixelRatio);
-
-                ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
-
-                // Render as Squares
-                ctx.fillRect(
-                    centerX + finalX * window.devicePixelRatio - particleSize / 2,
-                    centerY + finalY * window.devicePixelRatio - particleSize / 2,
-                    particleSize,
-                    particleSize
-                );
-
-                // Add a permanent glow effect to foreground particles
-                if (scale > 0.8) {
-                    ctx.shadowColor = `hsla(${hue}, 100%, 70%, ${alpha * 0.6})`;
-                    ctx.shadowBlur = 10 * (volume + 0.4);
-                } else {
-                    ctx.shadowBlur = 0;
-                }
-            });
-
-            frameRef.current = requestAnimationFrame(animate);
-        };
-
-        animate();
-        return () => cancelAnimationFrame(frameRef.current);
-    }, [isActive, isThinking, isSpeaking, volume]);
-
-    return (
-        <canvas
-            ref={canvasRef}
-            style={{ width: '100%', height: '100%', display: 'block' }}
-        />
-    );
-};
-
-const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBack, language = 'en-US', onLanguageChange, user, onRegisterLoader }) => {
+const GeminiVoiceAssistant = ({ onToolCall, quickActions, onBack, language = 'en-US', onLanguageChange, user, onRegisterLoader }) => {
     // --- States ---
     const [isActive, setIsActive] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -131,6 +23,15 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Restart session if language changes while active
+    useEffect(() => {
+        if (isActive && !isConnecting && sessionRef.current) {
+            console.log('[Assistant] Language changed, resetting session...');
+            cleanup();
+            startAssistant(!isStandby, isStandby);
+        }
+    }, [language]);
+
     // Wake Word is OFF by default. User must start conversation to enable it (or we can add a toggle)
     // However, per user request "No background listening without user consent", we default to false.
     const [isWakeWordEnabled, setIsWakeWordEnabled] = useState(false);
@@ -143,6 +44,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [isThinking, setIsThinking] = useState(false);
     const [isAISpeaking, setIsAISpeaking] = useState(false);
+    const [isStandby, setIsStandby] = useState(false);
     const [streamingResponse, setStreamingResponse] = useState('');
     const fileInputRef = useRef(null);
 
@@ -282,13 +184,14 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         }
     };
 
-    const startAssistant = async (enableMic = true) => {
+    const startAssistant = async (enableMic = true, standby = false) => {
         if (connectingRef.current) return;
 
-        if (isActive && sessionRef.current) {
-            if (enableMic && !streamRef.current) {
-                await connectMicrophone();
-            }
+        // If we are already connected but in standby, just request activation if standby=false
+        if (isActive && sessionRef.current && isStandby && !standby) {
+            console.log('[Assistant] 🚀 Manual activation from standby');
+            sessionRef.current.emit('activate_agent'); // We might need to add this to backend
+            setIsStandby(false);
             return;
         }
 
@@ -320,19 +223,21 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
             const socket = io(backendUrl, {
                 auth: { token },
-                transports: ['websocket']
+                transports: ['websocket', 'polling']
             });
 
             socket.on('connect', async () => {
-                console.log('[Socket] Connected to Backend');
+                console.log('[Socket] Connected to Backend (Standby:', standby, ')');
                 setIsActive(true);
+                setIsStandby(standby);
                 setIsConnecting(false);
                 connectingRef.current = false;
 
                 // Configure the agent with selected language and conversation context
                 socket.emit('setup_agent', {
                     language,
-                    conversationId: conversationIdRef.current
+                    conversationId: conversationIdRef.current,
+                    standby
                 });
 
                 if (enableMic) {
@@ -412,6 +317,14 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 setIsThinking(false);
             });
 
+            socket.on('wake_word_detected', (data) => {
+                console.log('[Assistant] 🔔 Back-end detected Wake Word!');
+                setIsStandby(false);
+                setIsThinking(false);
+                setIsAISpeaking(false);
+                setInputMode('voice');
+            });
+
             socket.on('connect_error', (err) => {
                 console.error('[Socket] Connection error:', err);
                 setError('Failed to connect to assistant service.');
@@ -437,8 +350,9 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
 
     const stopAssistant = () => {
         manualStopRef.current = true;
-        setIsWakeWordEnabled(false); // KILL SWITCH: Disable wake word loop
+        setIsWakeWordEnabled(false);
         setIsWakeWordListening(false);
+        setIsStandby(false);
         cleanup();
     };
 
@@ -505,12 +419,13 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         }
 
         // IF NOT ACTIVE: Fallback to REST API (No live voice/multimodal stream)
-        // Note: We could call startAssistant() here, but for now we keep the classic text flow
-        addTranscript('user', text, preview);
+        addTranscript('user', text, img ? { inlineData: { data: img.data, mimeType: img.mimeType } } : null);
         setIsThinking(true);
+        setTextInput(''); // Clear input immediately for speed feel
 
         try {
             const response = await voiceService.parseVoice(text, img, language, [], conversationIdRef.current);
+            setIsThinking(false);
 
             if (response.success && response.data) {
                 addTranscript('ai', response.data.reply);
@@ -520,8 +435,11 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                 }
 
                 // Play returned audio for personality consistency
-                if (response.data.audio && outputAudioCtxRef.current) {
+                if (response.data.audio) {
                     try {
+                        if (!outputAudioCtxRef.current) {
+                            outputAudioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                        }
                         const ctx = outputAudioCtxRef.current;
                         if (ctx.state === 'suspended') await ctx.resume();
 
@@ -566,79 +484,36 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
         }
     }, [transcripts]);
 
-    // --- Wake Word Detection ('Hey Buddy') ---
-    // --- Wake Word Detection ('Hey Buddy') ---
+    // --- Unified Wake Word Strategy (Backend Detection) ---
+    const [isMicBlocked, setIsMicBlocked] = useState(false);
+    const [hasInteracted, setHasInteracted] = useState(false);
+
     useEffect(() => {
-        // Master Kill Switch check
-        if (!isWakeWordEnabled) {
-            setIsWakeWordListening(false);
-            return;
-        }
-
-        let recognition = null;
-        let shouldRestart = true;
-        let triggerAssistantAfterEnd = false;
-
-        const startWakeWordRecognition = () => {
-            if (isActive || isConnecting || !isWakeWordEnabled) return;
-
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) return;
-
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = true;
-            recognition.lang = language;
-
-            recognition.onstart = () => {
-                setIsWakeWordListening(true);
-            };
-
-            recognition.onresult = (event) => {
-                const transcript = Array.from(event.results)
-                    .map(result => result[0].transcript.toLowerCase())
-                    .join('');
-
-                if (transcript.includes('hey buddy')) {
-                    console.log('[Wake Word] Detected "Hey Buddy"!');
-                    shouldRestart = false;
-                    triggerAssistantAfterEnd = true;
-                    recognition.stop();
-                }
-            };
-
-            recognition.onerror = (event) => {
-                if (event.error === 'not-allowed') {
-                    shouldRestart = false;
-                    setIsWakeWordListening(false);
-                    // If permission denied, disable system
-                    setIsWakeWordEnabled(false);
-                }
-            };
-
-            recognition.onend = () => {
-                setIsWakeWordListening(false);
-                if (triggerAssistantAfterEnd) {
-                    startAssistant();
-                } else if (shouldRestart && !isActive && !isConnecting && isWakeWordEnabled && !manualStopRef.current) {
-                    setTimeout(startWakeWordRecognition, 300);
-                }
-            };
-
-            try { recognition.start(); } catch (e) { }
-        };
-
-        if (!isActive && !isConnecting) {
-            startWakeWordRecognition();
-        }
-
+        const handleInteraction = () => setHasInteracted(true);
+        window.addEventListener('click', handleInteraction, { once: true });
+        window.addEventListener('touchstart', handleInteraction, { once: true });
         return () => {
-            shouldRestart = false;
-            if (recognition) {
-                try { recognition.stop(); } catch (e) { }
-            }
+            window.removeEventListener('click', handleInteraction);
+            window.removeEventListener('touchstart', handleInteraction);
         };
-    }, [isActive, isConnecting, isWakeWordEnabled]); // Added isWakeWordEnabled dependency
+    }, []);
+
+    useEffect(() => {
+        // Automatically start listening for Wake Word when component is idle
+        // Only attempt if user has interacted at least once with the page
+        if (!isActive && !isConnecting && !manualStopRef.current && hasInteracted) {
+            setIsWakeWordEnabled(true);
+            startAssistant(true, true).then(() => {
+                setIsMicBlocked(false);
+                console.log('[Assistant] Standby active and listening...');
+            }).catch(err => {
+                console.error('[Assistant] Auto-start standby failed:', err);
+                if (err.message && (err.message.includes('denied') || err.message.includes('Permission'))) {
+                    setIsMicBlocked(true);
+                }
+            });
+        }
+    }, [isActive, isConnecting, hasInteracted]);
 
     return (
         <div style={{
@@ -693,23 +568,44 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                     )}
                 </div>
 
-                {/* Right side: History button */}
-                <div style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
-                    transition: 'all 0.2s ease'
-                }} onClick={() => onToggleHistory?.(true)} title="Conversation History" className="hover-lift">
-                    <History size={20} />
+                {/* Center: Language Picker */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        padding: '6px 14px',
+                        borderRadius: '16px',
+                        border: '1px solid rgba(0,0,0,0.05)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                    }}>
+                        <Globe size={14} color="var(--primary-color)" />
+                        <select
+                            value={language}
+                            onChange={(e) => onLanguageChange?.(e.target.value)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                fontSize: '0.85rem',
+                                fontWeight: '700',
+                                color: '#1e293b',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <option value="en-US">English</option>
+                            <option value="ta-IN">Tamil (தமிழ்)</option>
+                            <option value="hi-IN">Hindi (हिंदी)</option>
+                            <option value="te-IN">Telugu (తెలుగు)</option>
+                            <option value="es-ES">Spanish</option>
+                            <option value="fr-FR">French</option>
+                        </select>
+                    </div>
                 </div>
+
+                {/* Right side: Empty space or other actions */}
+                <div style={{ width: '42px' }}></div>
             </div>
 
             {/* 2. CHAT AREA */}
@@ -747,15 +643,7 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                             padding: '40px 20px 20px',
                             animation: 'fadeIn 0.6s ease',
                         }}>
-                            {/* Orbital animation on top */}
-                            <div style={{
-                                width: isMobile ? '180px' : '220px',
-                                height: isMobile ? '180px' : '220px',
-                                marginBottom: '28px',
-                                pointerEvents: 'none'
-                            }}>
-                                <VoiceOrbit isActive={isActive && inputMode === 'voice'} isThinking={isThinking} isSpeaking={isAISpeaking} volume={volume} hasContent={false} />
-                            </div>
+                            {/* Removed brain icon and container as per user request */}
 
                             {/* "Hey Buddy!" title */}
                             <h1 style={{
@@ -770,11 +658,24 @@ const GeminiVoiceAssistant = ({ onToolCall, quickActions, onToggleHistory, onBac
                             {/* Subtitle */}
                             <p style={{
                                 fontSize: '1rem',
-                                color: '#94a3b8',
-                                fontWeight: '500',
+                                color: isStandby ? 'var(--primary-color)' : (isMicBlocked ? '#ef4444' : (!hasInteracted ? 'var(--primary-color)' : '#94a3b8')),
+                                fontWeight: '600',
                                 margin: '0',
-                                textAlign: 'center'
-                            }}>Tap to speak or type below</p>
+                                textAlign: 'center',
+                                opacity: (isStandby || !hasInteracted) ? 0.8 : 1,
+                                animation: (isStandby || !hasInteracted) ? 'pulse 2s infinite' : 'none',
+                                cursor: !hasInteracted ? 'pointer' : 'default'
+                            }} onClick={() => !hasInteracted && setHasInteracted(true)}>
+                                {isStandby ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                        <Sparkles size={16} /> Listening for "Hey Buddy"
+                                    </span>
+                                ) : isMicBlocked ? (
+                                    "Microphone blocked. Click Mic button to enable."
+                                ) : !hasInteracted ? (
+                                    "Click anywhere to activate Buddy"
+                                ) : "Tap to speak or type below"}
+                            </p>
                         </div>
                     )}
 

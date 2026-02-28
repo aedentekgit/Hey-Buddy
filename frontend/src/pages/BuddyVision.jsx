@@ -223,7 +223,7 @@ const BuddyVision = () => {
                 .vision-card {
                     background: var(--card-bg);
                     border: 1px solid var(--border-color);
-                    border-radius: 24px;
+                    border-radius: 12px;
                     padding: 1.5rem;
                     display: flex;
                     flex-direction: column;
@@ -246,7 +246,7 @@ const BuddyVision = () => {
                 .drop-zone {
                     flex: 1;
                     border: 2px dashed rgba(255, 255, 255, 0.1);
-                    border-radius: 16px;
+                    border-radius: 8px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -332,7 +332,7 @@ const BuddyVision = () => {
                     gap: 1rem;
                     padding: 1rem;
                     background: rgba(255, 255, 255, 0.05);
-                    border-radius: 16px;
+                    border-radius: 8px;
                     margin-bottom: 2rem;
                 }
 
@@ -362,7 +362,7 @@ const BuddyVision = () => {
                     padding: 1rem;
                     background: rgba(255, 255, 255, 0.03);
                     border: 1px solid rgba(255, 255, 255, 0.05);
-                    border-radius: 12px;
+                    border-radius: 8px;
                 }
 
                 .item-info h4 {

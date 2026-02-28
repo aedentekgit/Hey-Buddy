@@ -1,5 +1,5 @@
-
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class TaskUtils {
   static String formatDate(String? dateStr, {String format = 'DD/MM/YYYY'}) {
@@ -50,5 +50,36 @@ class TaskUtils {
     } catch (e) {
       return null;
     }
+  }
+
+  static dynamic getTaskIcon(String? title, String? intent) {
+    // Priority 1: Intent based
+    if (intent != null) {
+      switch (intent.toLowerCase()) {
+        case 'work': return LucideIcons.briefcase;
+        case 'health': return LucideIcons.heartPulse;
+        case 'fitness': return LucideIcons.dumbbell;
+        case 'personal': return LucideIcons.user;
+        case 'education': return LucideIcons.book;
+        case 'travel': return LucideIcons.plane;
+        case 'shopping': return LucideIcons.shoppingBag;
+        case 'finance': return LucideIcons.banknote;
+      }
+    }
+
+    // Priority 2: Keyword based on title
+    if (title != null) {
+      final t = title.toLowerCase();
+      if (t.contains('gym') || t.contains('workout') || t.contains('exercise')) return LucideIcons.dumbbell;
+      if (t.contains('school') || t.contains('class') || t.contains('study') || t.contains('college')) return LucideIcons.book;
+      if (t.contains('shop') || t.contains('buy') || t.contains('grocery')) return LucideIcons.shoppingCart;
+      if (t.contains('work') || t.contains('office') || t.contains('meeting')) return LucideIcons.briefcase;
+      if (t.contains('doctor') || t.contains('health') || t.contains('medicine') || t.contains('dentist')) return LucideIcons.activity;
+      if (t.contains('food') || t.contains('dinner') || t.contains('lunch') || t.contains('eat')) return LucideIcons.utensils;
+      if (t.contains('bank') || t.contains('pay') || t.contains('bill') || t.contains('money')) return LucideIcons.creditCard;
+      if (t.contains('call') || t.contains('phone')) return LucideIcons.phone;
+    }
+
+    return LucideIcons.bell; // Default
   }
 }

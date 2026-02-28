@@ -72,15 +72,23 @@ class BrandingProvider extends ChangeNotifier {
             String? newLogoUrl;
             if (mobileApp['appLogo'] != null) {
               String logoPath = mobileApp['appLogo'];
-              if (logoPath.startsWith('/')) logoPath = logoPath.substring(1);
-              newLogoUrl = '${AppConfig.assetBaseUrl}$logoPath';
+              if (logoPath.startsWith('http')) {
+                newLogoUrl = logoPath;
+              } else {
+                if (logoPath.startsWith('/')) logoPath = logoPath.substring(1);
+                newLogoUrl = '${AppConfig.assetBaseUrl}$logoPath';
+              }
             }
             
             String? newSplashUrl;
             if (mobileApp['splashIcon'] != null) {
               String splashPath = mobileApp['splashIcon'];
-              if (splashPath.startsWith('/')) splashPath = splashPath.substring(1);
-              newSplashUrl = '${AppConfig.assetBaseUrl}$splashPath';
+              if (splashPath.startsWith('http')) {
+                newSplashUrl = splashPath;
+              } else {
+                if (splashPath.startsWith('/')) splashPath = splashPath.substring(1);
+                newSplashUrl = '${AppConfig.assetBaseUrl}$splashPath';
+              }
             }
 
             // Update variables
@@ -142,15 +150,15 @@ class BrandingProvider extends ChangeNotifier {
       filled: true,
       fillColor: Colors.grey[50],
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: Colors.grey[300]!),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: Colors.grey[200]!),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: _primaryColor, width: 2),
       ),
     ),
@@ -161,7 +169,7 @@ class BrandingProvider extends ChangeNotifier {
         elevation: 2,
         minimumSize: const Size(double.infinity, 48),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
         ),
         textStyle: GoogleFonts.outfit(
           fontSize: 16,
@@ -175,7 +183,7 @@ class BrandingProvider extends ChangeNotifier {
         side: BorderSide(color: _primaryColor, width: 1.2),
         minimumSize: const Size(double.infinity, 48),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
         ),
         textStyle: GoogleFonts.outfit(
           fontSize: 16,
@@ -197,7 +205,7 @@ class BrandingProvider extends ChangeNotifier {
         backgroundColor: WidgetStateProperty.all(Colors.white),
         elevation: WidgetStateProperty.all(8),
         shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     ),
@@ -206,7 +214,7 @@ class BrandingProvider extends ChangeNotifier {
         backgroundColor: WidgetStateProperty.all(Colors.white),
         elevation: WidgetStateProperty.all(8),
         shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     ),

@@ -15,23 +15,23 @@ const contextService = {
         let recentReminders = [];
 
         try {
-            // 1. Define all queries
-            const historyPromise = conversationId
-                ? Conversation.findOne({ _id: conversationId, userId })
+            // 1. Define all queries: Always fetch the most recent conversation for the user
+            const historyPromise = userId
+                ? Conversation.findOne({ userId }).sort({ updatedAt: -1 })
                 : Promise.resolve(null);
 
-            const memoriesPromise = Memory.find({ userId }).sort({ createdAt: -1 }).limit(10);
+            const memoriesPromise = userId ? Memory.find({ userId }).sort({ createdAt: -1 }).limit(10) : Promise.resolve([]);
 
             const now = new Date();
             const userDate = now.toLocaleDateString('en-CA', { timeZone: timeZone });
-            const remindersPromise = Reminder.find({
+            const remindersPromise = userId ? Reminder.find({
                 userId,
                 date: { $gte: userDate }
-            }).sort({ date: 1, time: 1 }).limit(5);
+            }).sort({ date: 1, time: 1 }).limit(5) : Promise.resolve([]);
 
             const mongoose = require('mongoose');
             const User = mongoose.model('User') || require('../models/User');
-            const userPromise = User.findById(userId).select('voicePreferences');
+            const userPromise = userId ? User.findById(userId).select('voicePreferences dateFormat timeFormat') : Promise.resolve(null);
 
             // 2. Execute all in parallel
             const [conversation, memoriesDocs, recentRemindersDocs, userDoc] = await Promise.all([
@@ -49,8 +49,12 @@ const contextService = {
             recentReminders = recentRemindersDocs || [];
 
             let voicePreferences = { gender: 'female', tone: 'soft' };
-            if (userDoc && userDoc.voicePreferences) {
-                voicePreferences = userDoc.voicePreferences;
+            let dateFormat = 'DD/MM/YYYY';
+            let timeFormat = '12';
+            if (userDoc) {
+                if (userDoc.voicePreferences) voicePreferences = userDoc.voicePreferences;
+                if (userDoc.dateFormat) dateFormat = userDoc.dateFormat;
+                if (userDoc.timeFormat) timeFormat = userDoc.timeFormat;
             }
 
             return {
@@ -64,7 +68,9 @@ const contextService = {
                 userContext: {
                     timeZone,
                     localDate: userDate,
-                    voicePreferences
+                    voicePreferences,
+                    dateFormat,
+                    timeFormat
                 }
             };
         } catch (error) {
@@ -83,19 +89,24 @@ const contextService = {
                 { role: 'assistant', content: assistantText }
             ];
 
-            if (conversationId) {
-                await Conversation.findByIdAndUpdate(conversationId, {
-                    $push: { messages: { $each: messageBatch } }
-                });
-                return conversationId;
-            } else {
-                const newConversation = await Conversation.create({
-                    userId,
-                    messages: messageBatch,
-                    title: userText.substring(0, 30) + (userText.length > 30 ? '...' : '')
-                });
-                return newConversation._id;
+            if (userId) {
+                let conversation = await Conversation.findOne({ userId }).sort({ updatedAt: -1 });
+
+                if (conversation) {
+                    await Conversation.findByIdAndUpdate(conversation._id, {
+                        $push: { messages: { $each: messageBatch } }
+                    });
+                    return conversation._id;
+                } else {
+                    const newConversation = await Conversation.create({
+                        userId,
+                        messages: messageBatch,
+                        title: 'Buddy Conversation'
+                    });
+                    return newConversation._id;
+                }
             }
+            return null;
         } catch (error) {
             console.error('[ContextService] Error saving interaction:', error);
             return conversationId;

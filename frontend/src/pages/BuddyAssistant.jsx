@@ -33,8 +33,6 @@ const BuddyAssistant = () => {
     const [chatVoiceResponse, setChatVoiceResponse] = useState(null);
     const [analyzedPrescription, setAnalyzedPrescription] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [historyList, setHistoryList] = useState([]);
-    const [showHistory, setShowHistory] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
     const fileInputRef = useRef(null);
     const chatEndRef = useRef(null);
@@ -242,101 +240,7 @@ const BuddyAssistant = () => {
 
 
 
-    const fetchHistory = async () => {
-        setHistoryLoading(true);
-        try {
-            const response = await api.get('/conversations');
-            if (response.data.success) {
-                setHistoryList(response.data.data);
-            }
-        } catch (error) {
-            console.error("Failed to fetch history:", error);
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
-
-    const loadConversation = async (id) => {
-        try {
-            const response = await api.get(`/conversations/${id}`);
-            if (response.data.success) {
-                const conv = response.data.data;
-                setCurrentConversationId(conv._id);
-                setConversationHistory(conv.messages);
-                setShowHistory(false);
-                // Load messages directly into the chat bubble view
-                if (loadIntoChatRef.current) {
-                    loadIntoChatRef.current(conv.messages, conv._id);
-                }
-            }
-        } catch (error) {
-            toast.error("Failed to load conversation");
-        }
-    };
-
-    const deleteConversation = async (e, id) => {
-        e.stopPropagation();
-        setDeleteModal({ isOpen: true, id, type: 'single' });
-    };
-
-    const deleteAllHistory = async () => {
-        setDeleteModal({ isOpen: true, id: 'all', type: 'all' });
-    };
-
-    const confirmDeleteConversation = async () => {
-        const { id, type } = deleteModal;
-        if (!id) return;
-
-        try {
-            if (type === 'all') {
-                await api.delete('/conversations');
-                setHistoryList([]);
-                setCurrentConversationId(null);
-                setConversationHistory([]);
-                setChatResponse(null);
-                // Clear the chat bubble view too
-                if (loadIntoChatRef.current) {
-                    loadIntoChatRef.current([], null);
-                }
-                toast.success("All conversations deleted");
-            } else {
-                await api.delete(`/conversations/${id}`);
-                setHistoryList(prev => prev.filter(c => c._id !== id));
-                if (id === currentConversationId) {
-                    setCurrentConversationId(null);
-                    setConversationHistory([]);
-                    setChatResponse(null);
-                    // Clear the chat bubble view too
-                    if (loadIntoChatRef.current) {
-                        loadIntoChatRef.current([], null);
-                    }
-                }
-                toast.success("Conversation deleted");
-            }
-        } catch (error) {
-            toast.error("Failed to delete");
-        } finally {
-            setDeleteModal({ isOpen: false, id: null, type: 'single' });
-        }
-    };
-
-    const startNewChat = () => {
-        setCurrentConversationId(null);
-        setConversationHistory([]);
-        setChatResponse(null);
-        setParsedReminder(null);
-        setShowHistory(false);
-        // Clear the chat bubble view too
-        if (loadIntoChatRef.current) {
-            loadIntoChatRef.current([], null);
-        }
-    };
-
-    useEffect(() => {
-        if (showHistory) {
-            fetchHistory();
-        }
-    }, [showHistory]);
+    // History related methods removed
 
 
     const handleSave = async () => {
@@ -439,123 +343,6 @@ const BuddyAssistant = () => {
 
     return (
         <div className="assistant-page-wrapper" style={{ background: 'var(--bg-color)', minHeight: '100vh', overflow: 'hidden', position: 'relative' }}>
-            {/* History Sidebar - Overhauled for slide-over glass effect */}
-            <AnimatePresence>
-                {showHistory && (
-                    <>
-                        <motion.div
-                            className="history-overlay"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowHistory(false)}
-                            style={{ backdropFilter: 'blur(4px)', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999 }}
-                        />
-                        <motion.div
-                            className="glass-panel history-sidebar"
-                            initial={{ x: '-100%' }}
-                            animate={{ x: 0 }}
-                            exit={{ x: '-100%' }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            style={{
-                                position: 'fixed',
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: '320px',
-                                zIndex: 1000,
-                                borderRadius: '0 24px 24px 0',
-                                borderLeft: 'none',
-                                display: 'flex',
-                                flexDirection: 'column'
-                            }}
-                        >
-                            <div className="history-sidebar-header" style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>Conversation History</h3>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {historyList.length > 0 && (
-                                        <button
-                                            onClick={deleteAllHistory}
-                                            style={{
-                                                background: 'rgba(239, 68, 68, 0.1)',
-                                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                                color: '#ef4444',
-                                                padding: '6px 12px',
-                                                borderRadius: '12px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: '700',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '4px'
-                                            }}
-                                            title="Clear All History"
-                                        >
-                                            <Trash2 size={12} />
-                                            Clear All
-                                        </button>
-                                    )}
-                                    <button className="close-history" onClick={() => setShowHistory(false)} style={{ background: 'var(--bg-lite)', padding: '8px', borderRadius: '50%', border: '1px solid var(--border-color)', color: 'var(--text-main)', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div style={{ padding: '24px', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                                <button className="btn-premium w-full" onClick={startNewChat} style={{ width: '100%', marginBottom: '24px' }}>
-                                    <Plus size={18} />
-                                    New Conversation
-                                </button>
-
-                                <div className="history-list-scroll" style={{ flex: 1, overflowY: 'auto' }}>
-                                    {historyLoading ? (
-                                        <div className="history-loading" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '40px 0' }}>
-                                            <Loader2 className="animate-spin text-indigo-500" size={32} />
-                                            <span style={{ color: 'var(--text-sub)' }}>Synchronizing history...</span>
-                                        </div>
-                                    ) : historyList.length === 0 ? (
-                                        <div className="history-empty" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-sub)' }}>
-                                            <Sparkles size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
-                                            <p>No past moments found</p>
-                                        </div>
-                                    ) : (
-                                        historyList.map(chat => (
-                                            <div
-                                                key={chat._id}
-                                                className={`glass-card history-item ${chat._id === currentConversationId ? 'active' : ''}`}
-                                                onClick={() => loadConversation(chat._id)}
-                                                style={{
-                                                    padding: '16px',
-                                                    marginBottom: '12px',
-                                                    cursor: 'pointer',
-                                                    border: chat._id === currentConversationId ? '1px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.05)',
-                                                    background: chat._id === currentConversationId ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.02)',
-                                                    position: 'relative',
-                                                    borderRadius: '16px'
-                                                }}
-                                            >
-                                                <div className="history-item-content">
-                                                    <span className="history-item-title" style={{ display: 'block', fontWeight: '600', fontSize: '0.95rem', marginBottom: '4px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chat.title || 'Health Journal Entry'}</span>
-                                                    <span className="history-item-date" style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{formatDate(chat.createdAt, user?.dateFormat)}</span>
-                                                </div>
-                                                <button
-                                                    className="delete-history-btn"
-                                                    onClick={(e) => deleteConversation(e, chat._id)}
-                                                    style={{ position: 'absolute', right: '12px', top: '16px', opacity: 0.5, background: 'none', border: 'none', color: 'var(--text-sub)', cursor: 'pointer' }}
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
 
             <div className="assistant-container" style={{
                 padding: '0',
@@ -584,12 +371,11 @@ const BuddyAssistant = () => {
                     <GeminiVoiceAssistant
                         onToolCall={handleToolCall}
                         quickActions={quickCommands}
-                        onToggleHistory={setShowHistory}
+                        onBack={() => navigate(-1)}
                         language={preferredLanguage}
                         onLanguageChange={setPreferredLanguage}
                         user={user}
                         onRegisterLoader={(fn) => { loadIntoChatRef.current = fn; }}
-                        onBack={() => navigate(-1)}
                     />
                 </div>
 
@@ -746,17 +532,6 @@ const BuddyAssistant = () => {
                 </AnimatePresence>
             </div>
 
-            <ConfirmationModal
-                isOpen={deleteModal.isOpen}
-                onClose={() => setDeleteModal({ isOpen: false, id: null, type: 'single' })}
-                onConfirm={confirmDeleteConversation}
-                title={deleteModal.type === 'all' ? "Clear All History" : "Delete Conversation"}
-                message={deleteModal.type === 'all'
-                    ? "Are you sure you want to delete ALL conversations? This action cannot be undone."
-                    : "Are you sure you want to delete this conversation? All messages will be permanently removed."}
-                confirmText="Delete"
-                type="danger"
-            />
 
 
             <style>{`

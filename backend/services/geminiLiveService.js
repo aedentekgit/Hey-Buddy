@@ -11,8 +11,9 @@ class GeminiLiveService extends EventEmitter {
         this.apiKey = apiKey;
         this.ws = null;
         this.isConnected = false;
-        this.model = "models/gemini-2.0-flash-exp";
+        this.model = "models/gemini-2.0-flash";
     }
+
 
     connect(systemInstruction = null, voice = 'Aoede', useTools = true) {
         console.log(`[Gemini Live] Connecting with voice: ${voice} (Tools: ${useTools})...`);
@@ -55,24 +56,26 @@ class GeminiLiveService extends EventEmitter {
     }
 
     sendSetup() {
-        console.log(`[Gemini Live] 📤 Sending setup with tools and model: ${this.model}...`);
+        const modelName = this.model;
+        console.log(`[Gemini Live] 📤 Sending setup with voice: ${this.voiceOverride} and model: ${modelName}...`);
+
 
         const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant.`;
 
         const setupMessage = {
             setup: {
-                model: this.model,
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: {
-                                voiceName: this.voiceOverride || "Aoede"
+                model: modelName,
+                generation_config: {
+                    response_modalities: ["AUDIO"],
+                    speech_config: {
+                        voice_config: {
+                            prebuilt_voice_config: {
+                                voice_name: this.voiceOverride || "Aoede"
                             }
                         }
                     }
                 },
-                systemInstruction: {
+                system_instruction: {
                     parts: [{ text: systemInstruction }]
                 },
                 tools: this.useTools ? buddyTools : []

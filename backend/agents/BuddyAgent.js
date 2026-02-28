@@ -10,17 +10,18 @@ const { getPersonality } = require('../utils/personality');
  * BuddyAgent: The core state machine for a real-time voice session.
  */
 class BuddyAgent extends EventEmitter {
-    constructor(userId, socket, language = 'auto', conversationId = null) {
+    constructor(userId, socket, language = 'auto', conversationId = null, standby = false) {
         super();
         this.userId = userId;
         this.socket = socket;
         this.language = language;
         this.conversationId = conversationId;
+        this.isStandby = standby;
         this.isInterrupted = false;
         this.createdAt = Date.now();
         this.currentInputText = '';
         this.currentOutputText = '';
-        console.log(`[BuddyAgent] 🚀 New Session (Gemini): ${socket.id} (User: ${userId}, Lang: ${language})`);
+        console.log(`[BuddyAgent] 🚀 New Session (Gemini): ${socket.id} (User: ${userId}, Standby: ${standby})`);
 
         // Initialize Gemini Live Service
         this.ai = new GeminiLiveService(process.env.GEMINI_API_KEY);
@@ -58,6 +59,7 @@ class BuddyAgent extends EventEmitter {
                 USER CONTEXT:
                 - Current User Date: ${this.userContext.localDate}
                 - User Timezone: ${timeZone}
+                - User Language Preference: ${this.language}
                 
                 RECENT MEMORIES (Facts/Notes):
                 ${context.memories.length > 0 ? context.memories.join('\n') : 'No recent memories found.'}
@@ -72,8 +74,11 @@ class BuddyAgent extends EventEmitter {
                 
                 2. NO HALLUCINATION: If the tool result is empty, say so. Do NOT invent data.
                 
-                3. MULTILINGUAL & CONCISE:
-                   - Respond in the SAME language the user used.
+                3. MULTILINGUAL SUPPORT: 
+                   - You are a native speaker of multiple languages including **Tamil**, Hindi, Spanish, French, etc. 
+                   - You MUST respond in the language the user speaks OR explicitly requests (e.g., "speak in Tamil").
+                   - If the user switches language, you MUST switch with them immediately.
+                   - NEVER refuse a request to speak a different language. You are fully capable of it.
                    - Be professional, sympathetic, and concise.`;
 
             // 4. Connect with instruction and voice
@@ -95,8 +100,8 @@ class BuddyAgent extends EventEmitter {
         });
 
         this.ai.on('audio_delta', (base64) => {
-            // Send audio back to client if not interrupted by user speech
-            if (!this.isInterrupted) {
+            // Send audio back to client if not interrupted by user speech and NOT in standby
+            if (!this.isInterrupted && !this.isStandby) {
                 this.socket.emit('audio_out', base64);
             }
         });
@@ -104,15 +109,54 @@ class BuddyAgent extends EventEmitter {
         this.ai.on('text_delta', (text) => {
             // console.log(`[BuddyAgent] 💬 AI Delta: ${text}`);
             this.currentOutputText += text;
-            this.socket.emit('caption', text); // caption = AI speaking or typing
+            if (!this.isStandby) {
+                this.socket.emit('caption', text); // caption = AI speaking or typing
+            }
         });
 
-        // Combine the duplicate user_transcript handlers
+        // Wake word detection logic
+        this.lastWakeWordDetected = 0;
+        const WAKE_WORD_COOLDOWN = 5000; // 5 seconds between wake events
+
         this.ai.on('user_transcript', (text) => {
             console.log(`[BuddyAgent] 🎙️ User Transcription: ${text}`);
+
+            // High-Precision Wake Word Detection
+            const transcript = text.toLowerCase().trim();
+
+            // Phrases that confirm intent to talk to Buddy
+            const WAKE_WORD_PHRASES = [
+                'hey buddy', 'hi buddy', 'hello buddy', 'okay buddy',
+                'hey body', 'hi body', 'hey bloody', 'hi bloody', // Phonetic variants
+                'hey buddy!', 'hi buddy!'
+            ];
+
+            const isWakeWordDetected = WAKE_WORD_PHRASES.some(phrase => {
+                // Must be the exact phrase or start with the phrase followed by a space/punctuation
+                return transcript === phrase || transcript.startsWith(phrase + ' ') || transcript.startsWith(phrase + ',');
+            });
+
+            if (isWakeWordDetected) {
+                const now = Date.now();
+                if (now - this.lastWakeWordDetected > WAKE_WORD_COOLDOWN) {
+                    this.lastWakeWordDetected = now;
+                    console.log(`[BuddyAgent] 🔔 Confirmed Wake Word: "${text}"`);
+
+                    if (this.isStandby) {
+                        this.isStandby = false;
+                        console.log(`[BuddyAgent] 🚀 Session Activated via Wake Word`);
+                        this.socket.emit('wake_word_detected', { transcript: text, timestamp: now });
+                    }
+                }
+            }
+
             this.currentInputText = text;
-            this.socket.emit('user_transcript', text);
-            this.socket.emit('user_caption', text);
+
+            // Only send captions if active
+            if (!this.isStandby) {
+                this.socket.emit('user_transcript', text);
+                this.socket.emit('user_caption', text);
+            }
         });
 
         this.ai.on('turn_started', () => {
@@ -234,6 +278,13 @@ class BuddyAgent extends EventEmitter {
         this.isInterrupted = true;
         this.ai.cancelResponse();
         this.socket.emit('clear_audio_queue');
+    }
+
+    activate() {
+        if (this.isStandby) {
+            console.log(`[BuddyAgent] 🚀 Manually activated via socket event`);
+            this.isStandby = false;
+        }
     }
 
     say(text) {

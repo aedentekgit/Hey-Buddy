@@ -8,7 +8,7 @@ import {
 } from '../styles/tableStyles';
 
 const Pagination = ({ pagination, onPageChange }) => {
-    if (!pagination || pagination.totalPages <= 1) return null;
+    if (!pagination || pagination.total === 0) return null;
 
     const { currentPage, totalPages, total, limit } = pagination;
 
@@ -38,33 +38,35 @@ const Pagination = ({ pagination, onPageChange }) => {
                 Showing <span style={{ color: 'var(--text-main)', fontWeight: '700' }}>{startRange}-{endRange}</span> of <span style={{ color: 'var(--text-main)', fontWeight: '700' }}>{total}</span> results
             </div>
 
-            <div style={PaginationGroupStyle} className="pagination-buttons">
-                <button
-                    onClick={() => onPageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    style={PaginationButtonStyle(false, currentPage === 1)}
-                >
-                    <ChevronLeft size={16} />
-                </button>
-
-                {getPageNumbers().map(page => (
+            {totalPages > 1 && (
+                <div style={PaginationGroupStyle} className="pagination-buttons">
                     <button
-                        key={page}
-                        onClick={() => onPageChange(page)}
-                        style={PaginationButtonStyle(page === currentPage)}
+                        onClick={() => onPageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        style={PaginationButtonStyle(false, currentPage === 1)}
                     >
-                        {page}
+                        <ChevronLeft size={16} />
                     </button>
-                ))}
 
-                <button
-                    onClick={() => onPageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    style={PaginationButtonStyle(false, currentPage === totalPages)}
-                >
-                    <ChevronRight size={16} />
-                </button>
-            </div>
+                    {getPageNumbers().map(page => (
+                        <button
+                            key={page}
+                            onClick={() => onPageChange(page)}
+                            style={PaginationButtonStyle(page === currentPage)}
+                        >
+                            {page}
+                        </button>
+                    ))}
+
+                    <button
+                        onClick={() => onPageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        style={PaginationButtonStyle(false, currentPage === totalPages)}
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

@@ -155,6 +155,8 @@ const googleLogin = async (req, res) => {
                 allowedPages: role ? role.allowedPages : [],
                 webAccess: role ? role.webAccess : true,
                 mobileAccess: role ? role.mobileAccess : true,
+                dateFormat: user.dateFormat || 'DD/MM/YYYY',
+                timeFormat: user.timeFormat || '12',
                 token: generateToken(user._id),
             },
         });
@@ -198,12 +200,42 @@ const signup = async (req, res) => {
                     profilePicture: user.profilePicture,
                     permissions: role ? role.permissions : [],
                     allowedPages: role ? role.allowedPages : [],
+                    dateFormat: user.dateFormat || 'DD/MM/YYYY',
+                    timeFormat: user.timeFormat || '12',
                     token: generateToken(user._id),
                 },
             });
         } else {
             res.status(400).json({ success: false, message: 'Invalid user data' });
         }
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const guestLogin = async (req, res) => {
+    try {
+        const platform = req.headers['x-platform'] || 'web';
+
+        // Return consistent 'guest' data structure
+        res.json({
+            success: true,
+            data: {
+                _id: 'guest_' + Math.random().toString(36).substr(2, 9),
+                email: 'guest@buddy.internal',
+                name: 'Guest User',
+                role: 'guest',
+                profilePicture: null,
+                voicePreferences: { gender: 'female', tone: 'soft' },
+                resolvedVoiceConfig: { pitch: 1.1, speechRate: 0.5 },
+                permissions: ['buddy'],
+                allowedPages: ['buddy'],
+                webAccess: true,
+                mobileAccess: true,
+                token: null, // No token for guests, backend will use protectOptional
+                isGuest: true
+            },
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -299,5 +331,6 @@ module.exports = {
     signup,
     googleLogin,
     getMe,
+    guestLogin,
     setupVPS
 };

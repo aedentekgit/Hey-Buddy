@@ -18,9 +18,19 @@ export const SettingsProvider = ({ children }) => {
         }
 
         // Don't fetch if we're on the login or signup page and have no intent to use the token
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                if (parsedUser.isGuest) {
+                    setLoading(false);
+                    return;
+                }
+            } catch (e) { }
+        }
+
         if (window.location.pathname === '/login' || window.location.pathname === '/signup') {
-            const tempUser = localStorage.getItem('user');
-            if (!tempUser) {
+            if (!storedUser) {
                 setLoading(false);
                 return;
             }

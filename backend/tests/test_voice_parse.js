@@ -26,7 +26,12 @@ const testParse = async () => {
         });
 
         console.log("Parse Response Status:", parseRes.status);
-        console.log("Parse Response Data:", JSON.stringify(parseRes.data, null, 2));
+        if (parseRes.data.data.audio) {
+            console.log("Audio Data length:", parseRes.data.data.audio.length);
+        } else {
+            console.log("Audio Data: NULL");
+        }
+        console.log("Parse Response Date:", JSON.stringify(parseRes.data, (k, v) => k === 'audio' ? undefined : v, 2));
 
     } catch (error) {
         console.error("Parse Test Failed:");

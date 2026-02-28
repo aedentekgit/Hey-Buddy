@@ -34,16 +34,16 @@ const voiceHandler = (io) => {
         socket.join(socket.userId);
 
         socket.on('setup_agent', (config) => {
-            const { language = 'en-US', conversationId = null } = config || {};
+            const { language = 'en-US', conversationId = null, standby = false } = config || {};
 
             // Cleanup existing agent if any
             if (activeAgents.has(socket.id)) {
                 activeAgents.get(socket.id).cleanup();
             }
 
-            const agent = new BuddyAgent(socket.userId, socket, language, conversationId);
+            const agent = new BuddyAgent(socket.userId, socket, language, conversationId, standby);
             activeAgents.set(socket.id, agent);
-            console.log(`[Socket] Agent configured for ${socket.id} with language: ${language}, conversationId: ${conversationId}`);
+            console.log(`[Socket] Agent configured for ${socket.id} (Standby: ${standby})`);
         });
 
         socket.on('audio_chunk', (data) => {
@@ -60,6 +60,11 @@ const voiceHandler = (io) => {
             console.log(`[Socket] ⏹️ User interruption: ${socket.id}`);
             const agent = activeAgents.get(socket.id);
             if (agent) agent.interrupt();
+        });
+
+        socket.on('activate_agent', () => {
+            const agent = activeAgents.get(socket.id);
+            if (agent) agent.activate();
         });
 
         socket.on('disconnect', (reason) => {

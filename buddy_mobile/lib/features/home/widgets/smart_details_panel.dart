@@ -13,6 +13,8 @@ import '../services/task_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
 
 class SmartDetailsPanel extends StatefulWidget {
   final Map<String, dynamic> reminder;
@@ -85,6 +87,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     timeline = List.from(r['timeline'] ?? []);
     status = r['status'] ?? 'pending';
     coordinates = r['coordinates'] != null ? Map<String, dynamic>.from(r['coordinates']) : null;
+    
+    if (coordinates == null && r['location'] != null && r['location'] != 'No Location' && r['location'].toString().isNotEmpty) {
+      coordinates = {
+        'lat': 13.0405, // Fallback lat for demo (e.g. KK Nagar)
+        'lng': 80.1983, // Fallback lng
+      };
+    }
+
     sharedWith = List.from(r['sharedWith'] ?? []);
     
     _fetchTravelStats();
@@ -222,6 +232,24 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   }
 
   Future<void> _unshareUser(String userId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Remove Sharing"),
+        content: const Text("Are you sure you want to stop sharing this reminder with this user?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Remove", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     final success = await _taskService.unshareReminder(widget.reminder['_id'], userId);
     if (success) {
       ToastUtils.showSuccessToast("User removed from sharing");
@@ -642,11 +670,35 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: Theme.of(context).primaryColor,
-                            child: Text(s['user']?['name']?[0]?.toUpperCase() ?? 'U', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: ClipOval(
+                              child: s['user']?['profilePicture'] != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: AppConfig.formatImageUrl(s['user']?['profilePicture'])!,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (context, url, error) => Center(
+                                        child: Text(
+                                          s['user']?['name']?[0]?.toUpperCase() ?? 'U',
+                                          style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    )
+                                  : Center(
+                                      child: Text(
+                                        s['user']?['name']?[0]?.toUpperCase() ?? 'U',
+                                        style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                            ),
                           ),
+
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(

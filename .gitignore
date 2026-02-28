@@ -52,3 +52,7 @@ backend/*.json
 
 # Debug
 ai_debug.txt
+
+# Large Binaries
+*.apk
+*.ipa

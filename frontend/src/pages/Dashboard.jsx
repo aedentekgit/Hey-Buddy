@@ -69,8 +69,12 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
+        if (user?.isGuest) {
+            navigate('/admin/buddy');
+            return;
+        }
         fetchStats();
-    }, []);
+    }, [user, navigate]);
 
     // Listen for background updates
     useEffect(() => {
@@ -391,7 +395,7 @@ const Dashboard = () => {
                     letter-spacing: -0.04em;
                 }
                 .stat-info label { color: var(--text-sub); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-                .stat-change { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; width: fit-content; margin-top: 8px; }
+                .stat-change { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 8px; width: fit-content; margin-top: 8px; }
                 .stat-change.positive { background: color-mix(in srgb, var(--success-color) 10%, transparent); color: var(--success-color); }
                 .stat-icon-wrap { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; }
                 
@@ -485,16 +489,16 @@ const Dashboard = () => {
                     .premium-dashboard { margin: 0; padding-bottom: 80px; }
                     .dashboard-scroll-container { padding: 12px; }
                     .dashboard-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-                    .stat-card { padding: 14px; border-radius: 16px; }
+                    .stat-card { padding: 14px; border-radius: 12px; }
                     .stat-info h3 { font-size: 1.25rem; }
                     .stat-info label { font-size: 0.6rem; }
-                    .stat-icon-wrap { width: 36px; height: 36px; border-radius: 10px; }
+                    .stat-icon-wrap { width: 36px; height: 36px; border-radius: 8px; }
                     .stat-icon-wrap svg { width: 18px; height: 18px; }
                     
                     /* Stack charts on mobile for readability */
                     .charts-section { gap: 16px; }
                     .charts-grid-row { grid-template-columns: 1fr; gap: 16px; }
-                    .chart-card { padding: 16px; border-radius: 20px; }
+                    .chart-card { padding: 16px; border-radius: 12px; }
                     .panel-header-small h4 { font-size: 0.85rem; }
                     .fixed-height-200 { height: 240px; } /* Slightly taller for stacked legend/bars */
                     

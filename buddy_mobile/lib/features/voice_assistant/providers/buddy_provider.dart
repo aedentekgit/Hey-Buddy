@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -13,6 +14,7 @@ class BuddyProvider with ChangeNotifier {
   final SocketService socketService = SocketService();
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _storage = const FlutterSecureStorage();
+  final FlutterTts _flutterTts = FlutterTts();
 
   List<Map<String, dynamic>> _messages = [];
   List<dynamic> _historyList = [];
@@ -20,12 +22,38 @@ class BuddyProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isThinking = false;
   bool _isRealtimeEnabled = false;
+  bool _isFetchingNews = false;
+  List<String> _localNews = [];
+  String? _localCity;
 
   BuddyProvider() {
     _setupSocketListeners();
   }
 
   bool get isRealtimeEnabled => _isRealtimeEnabled;
+  bool get isFetchingNews => _isFetchingNews;
+  List<String> get localNews => _localNews;
+  String? get localCity => _localCity;
+
+  Future<void> fetchLocalNews(double? lat, double? lon) async {
+    if (_isFetchingNews) return;
+    _isFetchingNews = true;
+    notifyListeners();
+
+    try {
+      final response = await _buddyService.getLocalNews(lat, lon);
+      if (response['success'] == true) {
+        _localNews = List<String>.from(response['news']);
+        _localCity = response['city'];
+      }
+    } catch (e) {
+      // Handle error gracefully if needed
+      print('Error fetching news: $e');
+    } finally {
+      _isFetchingNews = false;
+      notifyListeners();
+    }
+  }
 
   void _setupSocketListeners() {
     socketService.captionStream.listen((text) {
@@ -37,15 +65,24 @@ class BuddyProvider with ChangeNotifier {
           'type': 'ai',
           'text': text,
           'isPartial': true,
+          'shouldType': true,
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         });
       }
       notifyListeners();
     });
 
+
     socketService.statusStream.listen((isConnected) {
       _isRealtimeEnabled = isConnected;
       notifyListeners();
+    });
+
+    // Handle Wake Word Detection
+    socketService.wakeWordStream.listen((data) {
+      print('Wake word detected: ${data['transcript']}');
+      // Manually trigger a message to activate the assistant from standby
+      sendMessage('', isWakeWord: true);
     });
 
     // Handle Background Voice Alerts (e.g. Traffic, Proximity)
@@ -65,17 +102,22 @@ class BuddyProvider with ChangeNotifier {
           'Authorization': 'Bearer $token',
         });
 
-        if (response.statusCode == 200) {
-          final body = json.decode(response.body);
-          if (body['success'] == true && body['audio'] != null) {
-            final audioBytes = base64Decode(body['audio']);
-            await _audioPlayer.play(BytesSource(audioBytes));
+          if (response.statusCode == 200) {
+            final body = json.decode(response.body);
+            if (body['success'] == true && body['audio'] != null) {
+              final audioBytes = base64Decode(body['audio']);
+              await _audioPlayer.play(BytesSource(audioBytes));
+            } else {
+              await _flutterTts.speak(text);
+            }
+          } else {
+            await _flutterTts.speak(text);
           }
+        } catch (e) {
+          print('Error playing voice alert: $e');
+          await _flutterTts.speak(text);
         }
-      } catch (e) {
-        print('Error playing voice alert: $e');
-      }
-    });
+      });
   }
 
   void toggleRealtime(bool enable) {
@@ -99,21 +141,27 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void addMessage(String role, String text, {String? image}) {
+  void addMessage(String role, String text, {String? image, bool shouldType = true}) {
     _messages.add({
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'type': role, // 'user' or 'ai' to match web components
       'text': text,
       'image': image,
+      'shouldType': shouldType,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
     notifyListeners();
   }
 
+
   Future<void> fetchHistory() async {
     _isLoading = true;
     notifyListeners();
     _historyList = await _buddyService.getConversations();
+    if (_historyList.isNotEmpty) {
+        // Automatically load the latest (and now only) conversation
+        await loadConversation(_historyList.first['_id']);
+    }
     _isLoading = false;
     notifyListeners();
   }
@@ -129,14 +177,16 @@ class BuddyProvider with ChangeNotifier {
         'type': m['role'] == 'user' ? 'user' : 'ai',
         'text': m['content'],
         'image': null,
+        'shouldType': false, // History should not type
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       }).toList();
+
     }
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> sendMessage(String text, {String? imagePath, String language = 'auto'}) async {
+  Future<void> sendMessage(String text, {String? imagePath, String language = 'auto', bool isWakeWord = false}) async {
     _isThinking = true;
     notifyListeners();
 
@@ -152,7 +202,7 @@ class BuddyProvider with ChangeNotifier {
     }
 
     if (_isRealtimeEnabled) {
-      socketService.sendText(text);
+      socketService.sendText(text.isEmpty && isWakeWord ? 'Hey Buddy' : text);
       _isThinking = false;
       notifyListeners();
       return;
@@ -179,10 +229,13 @@ class BuddyProvider with ChangeNotifier {
       if (audioBase64 != null) {
         try {
           final audioBytes = base64Decode(audioBase64);
-          await _audioPlayer.play(BytesSource(audioBytes));
+          _audioPlayer.play(BytesSource(audioBytes)); // Do not await
         } catch (e) {
           print('Error playing response audio: $e');
+          _flutterTts.speak(reply); // Do not await
         }
+      } else {
+        _flutterTts.speak(reply); // Do not await
       }
     } else {
       addMessage('ai', "Error: ${response['message']}");
