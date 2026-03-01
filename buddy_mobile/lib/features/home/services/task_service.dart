@@ -90,7 +90,7 @@ class TaskService {
             'intent': 'manual_creation',
             'repeat': false,
           },
-          'saveTo': 'buddy',
+          'saveTo': 'both',
         }),
       );
 

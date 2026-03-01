@@ -18,6 +18,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
+import 'package:buddy_mobile/features/auth/screens/splash_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_field.dart';
 import 'package:buddy_mobile/features/voice_assistant/widgets/typewriter_text.dart';
 import 'package:buddy_mobile/shared/widgets/keyboard_guided_hover.dart';
@@ -56,6 +57,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         _scrollToBottom(false);
       });
       _initTts();
+
+      // Enable Realtime Socket for Instant Updates (Streaming Response)
+      provider.toggleRealtime(true);
 
       // Setup Realtime Audio Listener
       provider.socketService.audioStream.listen((base64Audio) async {
@@ -168,31 +172,48 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   }
 
   void _startListening() async {
-    if (!_speechToText.isAvailable) {
-        await _initSpeech();
-    }
-    
-    if (!_speechToText.isAvailable) {
-        if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Speech recognition not available. Please check microphone permissions.')),
-            );
+    try {
+        if (!_speechToText.isAvailable) {
+            await _initSpeech();
         }
-        return;
-    }
-    
-    setState(() => _isListening = true);
-    await _speechToText.listen(
-      onResult: (result) {
-        setState(() {
-            _inputController.text = result.recognizedWords;
-        });
-        if (result.finalResult) {
-          setState(() => _isListening = false);
-          _handleSend();
+        
+        if (!_speechToText.isAvailable) {
+            if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Speech recognition not available. Please check permissions in Settings.'),
+                        backgroundColor: Colors.redAccent,
+                    ),
+                );
+            }
+            return;
         }
-      },
-    );
+        
+        setState(() => _isListening = true);
+        await _speechToText.listen(
+          onResult: (result) {
+            if (kDebugMode) print('STT Result: "${result.recognizedWords}" (Final: ${result.finalResult})');
+            setState(() {
+                _inputController.text = result.recognizedWords;
+            });
+            if (result.finalResult) {
+              if (kDebugMode) print('STT Final Result arrived. Sending message...');
+              setState(() => _isListening = false);
+              _handleSend();
+            }
+          },
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 10),
+          listenMode: ListenMode.confirmation,
+          cancelOnError: false,
+          onSoundLevelChange: (level) {
+              // Optional: Update animation based on level
+          },
+        );
+    } catch (e) {
+        if (kDebugMode) print('STT Exception during listen: $e');
+        setState(() => _isListening = false);
+    }
   }
 
   void _stopListening() async {
@@ -206,6 +227,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     final branding = Provider.of<BrandingProvider>(context);
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context);
+
+    // Check for 401 Unauthorized and redirect
+    if (provider.needsLogin) {
+      provider.clearNeedsLogin();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Force logout in AuthProvider too
+        Provider.of<AuthProvider>(context, listen: false).logout();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => SplashScreen()),
+          (route) => false,
+        );
+      });
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFF),
@@ -410,34 +444,58 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       reverse: true, // Force list to start from the bottom edge
       controller: _scrollController,
       padding: const EdgeInsets.all(18),
-      itemCount: displayCount + (hasMore ? 1 : 0),
+      itemCount: displayCount + 1, // Always show the top row if messages exist
       itemBuilder: (context, index) {
-        if (hasMore && index == displayCount) {
+        if (index == displayCount) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: Center(
-              child: TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _messageLimit += 15;
-                  });
-                },
-                icon: Icon(LucideIcons.refreshCw, size: 16, color: branding.primaryColor),
-                label: Text(
-                  "Load More",
-                  style: GoogleFonts.outfit(
-                    color: branding.primaryColor,
-                    fontWeight: FontWeight.w600,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (hasMore) ...[
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _messageLimit += 15;
+                      });
+                    },
+                    icon: Icon(LucideIcons.refreshCw, size: 16, color: branding.primaryColor),
+                    label: Text(
+                      "Load More",
+                      style: GoogleFonts.outfit(
+                        color: branding.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      backgroundColor: branding.primaryColor.withOpacity(0.1),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                TextButton.icon(
+                  onPressed: () => _showClearHistoryDialog(context, provider),
+                  icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.redAccent),
+                  label: Text(
+                    "Clear Chat",
+                    style: GoogleFonts.outfit(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.redAccent.withOpacity(0.1),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  backgroundColor: branding.primaryColor.withOpacity(0.1),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+              ],
             ),
           );
         }
@@ -515,7 +573,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         msg['text'],
                         key: ValueKey(msg['id']),
                         enabled: msg['shouldType'] ?? true,
-                        duration: const Duration(milliseconds: 45),
+                        duration: const Duration(milliseconds: 8),
                         style: GoogleFonts.outfit(
 
                           color: const Color(0xFF1E293B),
@@ -691,6 +749,35 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text("Login"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearHistoryDialog(BuildContext context, BuddyProvider provider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Clear Chat History", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Text("Are you sure you want to delete all chat history? This action cannot be undone.", style: GoogleFonts.outfit()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: Text("Cancel", style: GoogleFonts.outfit(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await provider.deleteAllHistory();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text("Delete All", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
           ),
         ],
       ),

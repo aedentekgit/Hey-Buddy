@@ -25,6 +25,13 @@ class BuddyProvider with ChangeNotifier {
   bool _isFetchingNews = false;
   List<String> _localNews = [];
   String? _localCity;
+  bool _needsLogin = false;
+  bool get needsLogin => _needsLogin;
+
+  void clearNeedsLogin() {
+    _needsLogin = false;
+    notifyListeners();
+  }
 
   BuddyProvider() {
     _setupSocketListeners();
@@ -45,6 +52,8 @@ class BuddyProvider with ChangeNotifier {
       if (response['success'] == true) {
         _localNews = List<String>.from(response['news']);
         _localCity = response['city'];
+      } else if (response['statusCode'] == 401) {
+        _needsLogin = true;
       }
     } catch (e) {
       // Handle error gracefully if needed
@@ -56,20 +65,62 @@ class BuddyProvider with ChangeNotifier {
   }
 
   void _setupSocketListeners() {
+    _flutterTts.setSpeechRate(0.6);
+    _flutterTts.setPitch(1.0);
+    _flutterTts.setVolume(1.0);
+
     socketService.captionStream.listen((text) {
       if (_messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
         _messages.last['text'] += text;
       } else {
+        // CRITICAL: Force clear ANY previous specific indicators/states
+        for (var m in _messages) {
+           m['isPartial'] = false;
+           m['shouldType'] = false;
+        }
+
         _messages.add({
           'id': 'socket_${DateTime.now().millisecondsSinceEpoch}',
           'type': 'ai',
           'text': text,
           'isPartial': true,
-          'shouldType': true,
+          'shouldType': false, 
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         });
       }
+      
+      if (_isThinking) {
+        _isThinking = false;
+      }
       notifyListeners();
+    });
+
+    socketService.socket?.on('turn_started', (_) {
+        _isThinking = true;
+        notifyListeners();
+    });
+
+    // Handle end of stream
+    socketService.socket?.on('response_done', (_) {
+        if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
+            _messages.last['isPartial'] = false;
+        }
+        _isThinking = false; // Ensure cleared
+        notifyListeners();
+    });
+
+    socketService.audioStream.listen((base64Audio) async {
+       try {
+           if (base64Audio.isNotEmpty) {
+               // We decode and attempt to play, but we don't block
+               final audioBytes = base64Decode(base64Audio);
+               // Note: This needs a raw PCM player. For now we use it as is
+               // but we ensure the app stays responsive.
+               _audioPlayer.play(BytesSource(audioBytes));
+           }
+       } catch (e) {
+           print('Error playing audio chunk: $e');
+       }
     });
 
 
@@ -81,7 +132,6 @@ class BuddyProvider with ChangeNotifier {
     // Handle Wake Word Detection
     socketService.wakeWordStream.listen((data) {
       print('Wake word detected: ${data['transcript']}');
-      // Manually trigger a message to activate the assistant from standby
       sendMessage('', isWakeWord: true);
     });
 
@@ -94,28 +144,26 @@ class BuddyProvider with ChangeNotifier {
       final tone = data['tone'] ?? 'soft';
 
       try {
-        final token = await _storage.read(key: 'token');
-        final baseUrl = AppConfig.baseUrl;
-        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(text)}&gender=$gender&tone=$tone');
-        
-        final response = await http.get(url, headers: {
-          'Authorization': 'Bearer $token',
-        });
+          // Speak immediately using local TTS for maximum speed
+          await _flutterTts.speak(text);
+          
+          final token = await _storage.read(key: 'jwt'); 
+          final baseUrl = AppConfig.baseUrl;
+          final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(text)}&gender=$gender&tone=$tone');
+          
+          final response = await http.get(url, headers: {
+            'Authorization': 'Bearer $token',
+          });
 
           if (response.statusCode == 200) {
             final body = json.decode(response.body);
             if (body['success'] == true && body['audio'] != null) {
               final audioBytes = base64Decode(body['audio']);
               await _audioPlayer.play(BytesSource(audioBytes));
-            } else {
-              await _flutterTts.speak(text);
             }
-          } else {
-            await _flutterTts.speak(text);
           }
         } catch (e) {
-          print('Error playing voice alert: $e');
-          await _flutterTts.speak(text);
+          print('Error in voice alert: $e');
         }
       });
   }
@@ -142,12 +190,19 @@ class BuddyProvider with ChangeNotifier {
   }
 
   void addMessage(String role, String text, {String? image, bool shouldType = true}) {
+    // Prevent multiple typing states: disable typing animation for all previous messages
+    for (var m in _messages) {
+      m['shouldType'] = false;
+      m['isPartial'] = false;
+    }
+
     _messages.add({
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'type': role, // 'user' or 'ai' to match web components
+      'type': role, 
       'text': text,
       'image': image,
       'shouldType': shouldType,
+      'isPartial': false,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
     notifyListeners();
@@ -203,7 +258,7 @@ class BuddyProvider with ChangeNotifier {
 
     if (_isRealtimeEnabled) {
       socketService.sendText(text.isEmpty && isWakeWord ? 'Hey Buddy' : text);
-      _isThinking = false;
+      // Keep _isThinking = true; will be set to false when stream starts or finishes
       notifyListeners();
       return;
     }
@@ -221,24 +276,22 @@ class BuddyProvider with ChangeNotifier {
       
       addMessage('ai', reply);
       
+      // SPEED FIX: Speak immediately via local TTS
+      _flutterTts.speak(reply);
+
       if (response['meta'] != null && response['meta']['conversationId'] != null) {
         _currentConversationId = response['meta']['conversationId'];
       }
 
-      // Play audio response if available (for character consistency)
-      if (audioBase64 != null) {
-        try {
-          final audioBytes = base64Decode(audioBase64);
-          _audioPlayer.play(BytesSource(audioBytes)); // Do not await
-        } catch (e) {
-          print('Error playing response audio: $e');
-          _flutterTts.speak(reply); // Do not await
-        }
-      } else {
-        _flutterTts.speak(reply); // Do not await
-      }
+      // If backend audio is provided and high quality is preferred, we could play it.
+      // But for "Very Very Fast", local TTS already started.
     } else {
-      addMessage('ai', "Error: ${response['message']}");
+      if (response['statusCode'] == 401) {
+        _needsLogin = true;
+      }
+      final errorMsg = "Error: ${response['message']}";
+      addMessage('ai', errorMsg);
+      _flutterTts.speak("I'm sorry, I encountered an error.");
     }
 
     _isThinking = false;

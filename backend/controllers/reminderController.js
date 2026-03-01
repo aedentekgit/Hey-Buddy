@@ -50,10 +50,11 @@ exports.createReminder = async (req, res) => {
         const userId = req.user._id;
         let googleEventId = null;
 
-        // Sync to Google if requested
-        if (syncToGoogle && req.user.googleRefreshToken) {
+        // Sync to Google if connected
+        if (req.user.googleRefreshToken) {
             try {
                 googleEventId = await createGoogleCalendarEvent(userId, { title, date, time, location, description });
+                console.log("[ReminderController] Automatic Google Sync Success:", googleEventId);
             } catch (calError) {
                 console.error("Google Sync Failed during Create:", calError.message);
             }
@@ -104,14 +105,14 @@ exports.updateReminder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Reminder not found' });
         }
 
-        // Sync to Google
+        // Sync to Google if connected
         let googleEventId = reminder.googleEventId;
-        if (updateData.syncToGoogle || googleEventId) {
+        if (req.user.googleRefreshToken) {
             try {
                 const mergedData = { ...reminder.toObject(), ...updateData };
                 if (googleEventId) {
                     await updateGoogleCalendarEvent(userId, googleEventId, mergedData);
-                } else if (updateData.syncToGoogle && req.user.googleRefreshToken) {
+                } else {
                     googleEventId = await createGoogleCalendarEvent(userId, mergedData);
                     updateData.googleEventId = googleEventId;
                     updateData.source = 'google';

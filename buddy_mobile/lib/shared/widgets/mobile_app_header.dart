@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 
 class MobileAppHeader extends StatelessWidget {
   final int currentIndex;
@@ -35,14 +36,15 @@ class MobileAppHeader extends StatelessWidget {
             children: [
               GestureDetector(
                 onTap: () => onTabTapped(1),
-                child: Text(
-                  "Dialogue",
-                  style: GoogleFonts.outfit(
-                    fontSize: currentIndex == 1 ? 24 : 18,
-                    fontWeight: currentIndex == 1 ? FontWeight.w600 : FontWeight.w500,
-                    color: currentIndex == 1 ? const Color(0xFF1E293B) : const Color(0xFF94A3B8),
+                child: Consumer<BrandingProvider>(
+                  builder: (context, branding, _) => Text(
+                    branding.appName,
+                    style: GoogleFonts.outfit(
+                      fontSize: currentIndex == 1 ? 24 : 18,
+                      fontWeight: currentIndex == 1 ? FontWeight.w600 : FontWeight.w500,
+                      color: currentIndex == 1 ? const Color(0xFF1E293B) : const Color(0xFF94A3B8),
+                    ),
                   ),
-
                 ),
               ),
               const SizedBox(width: 16),

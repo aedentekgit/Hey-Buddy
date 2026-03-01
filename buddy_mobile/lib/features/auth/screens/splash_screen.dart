@@ -75,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          "Dialogue",
+                          branding.appName,
                           style: GoogleFonts.outfit(
                             fontSize: 36,
                             fontWeight: FontWeight.w700,
@@ -138,9 +138,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget _buildErrorScreen(BrandingProvider branding) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Center(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(40),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

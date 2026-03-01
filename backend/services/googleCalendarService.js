@@ -31,14 +31,35 @@ async function getOauth2Client(userId) {
     return oauth2Client;
 }
 
+function parseTime(timeStr) {
+    let rHour, rMin;
+    const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i);
+    if (ampmMatch) {
+        rHour = parseInt(ampmMatch[1]);
+        rMin = parseInt(ampmMatch[2]);
+        const period = ampmMatch[3].toLowerCase();
+        if (period === 'pm' && rHour < 12) rHour += 12;
+        if (period === 'am' && rHour === 12) rHour = 0;
+    } else {
+        const parts = timeStr.split(':');
+        rHour = parseInt(parts[0]);
+        rMin = parseInt(parts[1]) || 0;
+    }
+    return { hour: rHour, minute: rMin };
+}
+
 exports.createGoogleCalendarEvent = async (userId, reminderData) => {
     try {
         const auth = await getOauth2Client(userId);
         const calendar = google.calendar({ version: 'v3', auth });
 
-        const [year, month, day] = reminderData.date.split('-');
-        const [hour, minute] = reminderData.time.split(':');
+        const [year, month, day] = reminderData.date.split('-').map(Number);
+        const { hour, minute } = parseTime(reminderData.time);
+
         const startDateTime = new Date(year, month - 1, day, hour, minute);
+        if (isNaN(startDateTime.getTime())) {
+            throw new Error(`Invalid date/time combination: ${reminderData.date} ${reminderData.time}`);
+        }
         const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
 
         const event = {
@@ -62,9 +83,13 @@ exports.updateGoogleCalendarEvent = async (userId, eventId, reminderData) => {
         const auth = await getOauth2Client(userId);
         const calendar = google.calendar({ version: 'v3', auth });
 
-        const [year, month, day] = reminderData.date.split('-');
-        const [hour, minute] = reminderData.time.split(':');
+        const [year, month, day] = reminderData.date.split('-').map(Number);
+        const { hour, minute } = parseTime(reminderData.time);
+
         const startDateTime = new Date(year, month - 1, day, hour, minute);
+        if (isNaN(startDateTime.getTime())) {
+            throw new Error(`Invalid date/time combination: ${reminderData.date} ${reminderData.time}`);
+        }
         const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
 
         const event = {

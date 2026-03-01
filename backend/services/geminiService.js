@@ -63,6 +63,24 @@ const toolHandlers = {
             // Only add notes if the schema has it (we'll add it to schema next)
             if (notes) reminderData.notes = notes;
 
+            // --- GOOGLE CALENDAR SYNC ---
+            let googleEventId = null;
+            const User = require('../models/User'); // Ensure User model is available
+            const user = await User.findById(userId);
+
+            if (user && user.googleRefreshToken) {
+                try {
+                    const { createGoogleCalendarEvent } = require('./googleCalendarService');
+                    console.log('[GeminiTools] Syncing to Google Calendar...');
+                    googleEventId = await createGoogleCalendarEvent(userId, reminderData);
+                    reminderData.googleEventId = googleEventId;
+                    reminderData.source = 'google';
+                    console.log('[GeminiTools] Google Event Created:', googleEventId);
+                } catch (calErr) {
+                    console.error('[GeminiTools] Google Sync failed:', calErr.message);
+                }
+            }
+
             console.log('[GeminiTools] Creating reminder in DB:', JSON.stringify(reminderData));
             const reminder = await Reminder.create(reminderData);
 
@@ -127,7 +145,21 @@ const toolHandlers = {
         else if (title) query.title = { $regex: title, $options: 'i' };
         else return { status: 'error', message: 'ID or title required.' };
 
-        await Reminder.deleteOne(query);
+        const reminder = await Reminder.findOne(query);
+        if (!reminder) return { status: 'error', message: 'Reminder not found.' };
+
+        // --- GOOGLE CALENDAR SYNK DELETE ---
+        if (reminder.googleEventId) {
+            try {
+                const { deleteGoogleCalendarEvent } = require('./googleCalendarService');
+                await deleteGoogleCalendarEvent(userId, reminder.googleEventId);
+                console.log('[GeminiTools] Deleted from Google Calendar.');
+            } catch (calErr) {
+                console.error('[GeminiTools] Google Calendar delete failed:', calErr.message);
+            }
+        }
+
+        await Reminder.deleteOne({ _id: reminder._id });
         return { status: 'success', message: 'Reminder deleted.' };
     },
     update_reminder: async (userId, args) => {
@@ -142,6 +174,27 @@ const toolHandlers = {
 
         // Simple merge
         Object.assign(reminder, updateData);
+
+        // --- GOOGLE CALENDAR SYNC UPDATE ---
+        const User = require('../models/User');
+        const user = await User.findById(userId);
+        if (user && user.googleRefreshToken) {
+            try {
+                const { createGoogleCalendarEvent, updateGoogleCalendarEvent } = require('./googleCalendarService');
+                if (reminder.googleEventId) {
+                    await updateGoogleCalendarEvent(userId, reminder.googleEventId, reminder.toObject());
+                    console.log('[GeminiTools] Google Calendar updated.');
+                } else {
+                    const eventId = await createGoogleCalendarEvent(userId, reminder.toObject());
+                    reminder.googleEventId = eventId;
+                    reminder.source = 'google';
+                    console.log('[GeminiTools] New Google Event created during update:', eventId);
+                }
+            } catch (calErr) {
+                console.error('[GeminiTools] Update Google Sync failed:', calErr.message);
+            }
+        }
+
         await reminder.save();
 
         return { status: 'success', message: 'Reminder updated.', data: reminder };
@@ -198,6 +251,23 @@ const toolHandlers = {
                 user_context: { status: 'Active', date: userContext.localDate }
             }
         };
+    },
+    google_search: async (userId, args) => {
+        const { query } = args;
+        console.log(`[GeminiTools] Performing internal Google Search for: "${query}"`);
+        try {
+            // Internal call with ONLY Search Grounding (SDK doesn't allow combining with functions)
+            const searchModel = genAI.getGenerativeModel({
+                model: "gemini-2.0-flash",
+                tools: [{ googleSearch: {} }]
+            });
+            const result = await searchModel.generateContent(`Find current events/news about: ${query}. Provide a concise summary.`);
+            const response = await result.response;
+            return { status: 'success', data: response.text() };
+        } catch (err) {
+            console.error('[GeminiTools] Internal Search failed:', err.message);
+            return { status: 'error', message: 'Could not fetch real-time data.' };
+        }
     }
 };
 
@@ -334,6 +404,17 @@ const buddyTools = [
                 name: 'analyze_health_summary',
                 description: 'Analyze the users health state using today\'s reminders and memories.',
                 parameters: { type: 'OBJECT', properties: {} }
+            },
+            {
+                name: 'google_search',
+                description: 'Search Google for real-time news, current affairs, or information not present in your training data.',
+                parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                        query: { type: 'STRING', description: 'The search query to look up.' }
+                    },
+                    required: ['query']
+                }
             }
         ]
     }
@@ -364,7 +445,7 @@ const geminiService = {
             const notLoggedInInstruction = !userId ? `
                 5. GUEST USER RULE (CRITICAL):
                    - The user is currently NOT LOGGED IN.
-                   - **ALLOWED**: General knowledge questions (e.g., "What is the budget?", "Tell me a joke"), greetings, and helpful conversation are ALWAYS allowed.
+                   - **ALLOWED**: General knowledge questions (e.g., "What is the budget?", "Tell me a joke", "What is the news"), greetings, local current affairs, and helpful conversation are ALWAYS allowed.
                    - **RESTRICTED**: If the user asks for *their own* personal data (e.g., "What are *my* reminders?", "Check *my* memory", "Save this as *my* note"), you MUST refuse and reply with: "Please login to check or save your personal reminders and memories."
                    - Do NOT call any tools relating to memories or reminders for a guest user.` : ``;
 
@@ -374,6 +455,7 @@ const geminiService = {
                 - Your name is Buddy.
                 - PERSONALITY: ${personality.description}
                 - WRITING STYLE: ${personality.writingStyle}
+                - REAL-TIME CAPABILITY: You can look up real-time news and current events using the 'google_search' tool. Use it whenever you need to provide up-to-date information.
                 
                 VOICE CONTEXT: You are communicating with the user using the '${personality.voice}' voice. Your written responses MUST reflect this persona's tone.
                 
@@ -397,11 +479,13 @@ const geminiService = {
 ${!userId ? "                   - As a GUEST, YOU MUST NOT search reminders or memories. Always use your internal training data for general questions." : "                   - Requests about schedule, tasks, or \"what do I have to do\" MUST use 'list_reminders' if not in the UPCOMING REMINDERS list above.\n                   - Requests about facts, \"where is my [item]\", or past events MUST use 'search_memories' or 'list_memories' if not in the RECENT MEMORIES list above."}
                 
                 2. NO HALLUCINATION:
-${!userId ? "                   - If the user asks for reminders or personal facts, you MUST refuse and tell them to login. NEVER make them up." : "                   - If user asks for today's reminders and they aren't in the list above, call 'list_reminders' with date=\"today\".\n                   - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: \"You have no reminders scheduled for today.\"\n                   - NEVER infer reminders or facts exist if neither the context nor the tools show them."}
+${!userId ? "                   - If the user asks for reminders or personal facts, you MUST refuse and tell them to login. NEVER make them up. If asked for general news or facts, you SHOULD use 'google_search' to find accurate real-time information before answering." : "                   - If user asks for today's reminders and they aren't in the list above, call 'list_reminders' with date=\"today\".\n                   - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: \"You have no reminders scheduled for today.\"\n                   - ALWAYS use 'google_search' for real-time news, current affairs, or information not in your training data.\n                   - NEVER infer reminders or facts exist if neither the context nor the tools show them."}
                 
-                3. DATE & LOCATION SENSITIVITY:
+                3. DATE, LOCATION & ACTION SENSITIVITY:
                    - "Today" is ${userContext.localDate}.
-                   - You MUST resolve relative dates like "tomorrow", "yesterday", or "next Monday" into the exact YYYY-MM-DD format using today's date. NEVER ask the user for the exact date if they give a relative date. Calculate it yourself before calling the tool.
+                   - You MUST resolve relative dates like "tomorrow", "yesterday", or "next Monday" into the exact YYYY-MM-DD format using today's date. 
+                   - NEVER ask the user for confirmation if they give a relative date and time (e.g. "tomorrow at 5pm"). Calculate it yourself and call the tool IMMEDIATELY.
+                   - NEVER ask "Do you mean [Date]?", just assume you are correct and trigger the 'create_reminder' tool right away.
                    - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
                 
                 4. MULTILINGUAL SUPPORT: 
@@ -452,7 +536,9 @@ ${!userId ? "                   - If the user asks for reminders or personal fac
                     const handler = toolHandlers[call.name];
                     if (handler) {
                         try {
-                            if (!userId) {
+                            // Check if this is a personal data tool that requires login
+                            const personalDataTools = ['create_reminder', 'list_reminders', 'update_reminder', 'delete_reminder', 'save_memory', 'list_memories', 'update_memory', 'delete_memory', 'search_memories', 'analyze_health_summary'];
+                            if (!userId && personalDataTools.includes(call.name)) {
                                 throw new Error("User must be logged in to use this feature. Tell the user exactly: 'Please login to check or save your reminders and memories.'");
                             }
                             const toolResult = await handler(userId, call.args, userContext);

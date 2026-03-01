@@ -53,6 +53,7 @@ class BuddyAgent extends EventEmitter {
                 - Your name is Buddy.
                 - PERSONALITY: ${personality.description}
                 - WRITING STYLE: ${personality.writingStyle}
+                - REAL-TIME CAPABILITY: You can look up real-time news and current events using the 'google_search' tool. Use it whenever you need to provide up-to-date information.
                 
                 VOICE CONTEXT: You are communicating with the user using the '${personality.voice}' voice. Your responses MUST reflect this persona's tone.
 
@@ -72,9 +73,16 @@ class BuddyAgent extends EventEmitter {
                    - Schedule/Tasks -> Use 'list_reminders' with date="today" if not in UPCOMING list.
                    - Facts/Notes/History -> Use 'search_memories' or 'list_memories'.
                 
-                2. NO HALLUCINATION: If the tool result is empty, say so. Do NOT invent data.
+                2. NO HALLUCINATION: If the tool result is empty, say so. Do NOT invent data. ALWAYS use 'google_search' for real-time news, current affairs, or information not in your training data.
                 
-                3. MULTILINGUAL SUPPORT: 
+                3. DATE, LOCATION & ACTION SENSITIVITY:
+                   - "Today" is ${this.userContext.localDate}.
+                   - You MUST resolve relative dates like "tomorrow", "yesterday", or "next Monday" into the exact YYYY-MM-DD format using today's date. 
+                   - NEVER ask the user for confirmation if they give a relative date and time (e.g. "tomorrow at 5pm"). Calculate it yourself and call the tool IMMEDIATELY.
+                   - NEVER ask "Do you mean [Date]?", just assume you are correct and trigger the 'create_reminder' tool right away.
+                   - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
+
+                4. MULTILINGUAL SUPPORT: 
                    - You are a native speaker of multiple languages including **Tamil**, Hindi, Spanish, French, etc. 
                    - You MUST respond in the language the user speaks OR explicitly requests (e.g., "speak in Tamil").
                    - If the user switches language, you MUST switch with them immediately.
@@ -163,6 +171,7 @@ class BuddyAgent extends EventEmitter {
             this.isInterrupted = false;
             this.turnStartTime = Date.now();
             console.log('[BuddyAgent] AI started thinking...');
+            this.socket.emit('turn_started');
         });
 
         this.ai.on('response_done', async () => {

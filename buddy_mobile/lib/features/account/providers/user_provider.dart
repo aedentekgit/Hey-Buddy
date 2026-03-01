@@ -15,6 +15,13 @@ class UserProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get error => _error;
 
+  // Clear User Data on Logout
+  void clearUser() {
+    _user = {};
+    _error = '';
+    notifyListeners();
+  }
+
   // Initialize
   Future<void> loadProfile() async {
     _isLoading = true;

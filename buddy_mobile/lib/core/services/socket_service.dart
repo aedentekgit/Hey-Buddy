@@ -22,7 +22,7 @@ class SocketService {
   Stream<Map<String, dynamic>> get wakeWordStream => _wakeWordStreamController.stream;
 
   void connect() async {
-    final token = await _storage.read(key: 'token');
+    final token = await _storage.read(key: 'jwt');
     
     socket = IO.io(AppConfig.socketUrl, 
       IO.OptionBuilder()

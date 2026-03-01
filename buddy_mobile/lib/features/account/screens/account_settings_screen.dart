@@ -16,6 +16,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart' as buddy;
 
 class AccountSettingsScreen extends StatefulWidget {
   final ValueChanged<bool>? onSubViewChanged;
@@ -292,6 +293,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
       if (success && mounted) {
         await Provider.of<AuthProvider>(context, listen: false).logout();
         if (mounted) {
+           Provider.of<UserProvider>(context, listen: false).clearUser();
+           Provider.of<buddy.BuddyProvider>(context, listen: false).startNewChat();
            Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainScreen()),
             (route) => false,
@@ -338,6 +341,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
     if (shouldLogout == true && mounted) {
        await Provider.of<AuthProvider>(context, listen: false).logout();
        if (mounted) {
+         Provider.of<UserProvider>(context, listen: false).clearUser();
+         Provider.of<buddy.BuddyProvider>(context, listen: false).startNewChat();
          Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainScreen()),
           (route) => false,
@@ -449,13 +454,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
             LucideIcons.bell
           ),
 
-          _buildNotificationItem(
-            "SMS Notifications", 
-            "Get critical alerts delivered directly to your phone via SMS.", 
-            "sms", 
-            prefs['sms'],
-            LucideIcons.messageSquare
-          ),
+
 
           _buildNotificationItem(
             "Email Notifications", 

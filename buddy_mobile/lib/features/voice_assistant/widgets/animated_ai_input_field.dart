@@ -252,7 +252,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField> with Ticker
                             
                             // Mic Button
                             _buildActionIconButton(
-                              icon: widget.isListening ? LucideIcons.mic : LucideIcons.mic,
+                              icon: widget.isListening ? LucideIcons.micOff : LucideIcons.mic,
                               color: widget.isListening ? Colors.red : const Color(0xFF64748B),
                               onTap: widget.isEnabled ? widget.onMicPressed : null,
                               isPulsing: widget.isListening,

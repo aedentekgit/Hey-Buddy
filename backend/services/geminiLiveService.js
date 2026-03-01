@@ -11,7 +11,7 @@ class GeminiLiveService extends EventEmitter {
         this.apiKey = apiKey;
         this.ws = null;
         this.isConnected = false;
-        this.model = "models/gemini-2.0-flash";
+        this.model = "models/gemini-2.5-flash-native-audio-latest";
     }
 
 
@@ -36,7 +36,7 @@ class GeminiLiveService extends EventEmitter {
             try {
                 const response = JSON.parse(data);
                 if (!response.serverContent && !response.server_content) {
-                    console.log('[Gemini Live] 📥 Control Message:', JSON.stringify(response));
+                    // console.log('[Gemini Live] 📥 Control Message:', JSON.stringify(response));
                 }
                 this.handleResponse(response);
             } catch (err) {
@@ -65,22 +65,13 @@ class GeminiLiveService extends EventEmitter {
         const setupMessage = {
             setup: {
                 model: modelName,
-                generation_config: {
-                    response_modalities: ["AUDIO"],
-                    speech_config: {
-                        voice_config: {
-                            prebuilt_voice_config: {
-                                voice_name: this.voiceOverride || "Aoede"
-                            }
-                        }
-                    }
-                },
-                system_instruction: {
+                systemInstruction: {
                     parts: [{ text: systemInstruction }]
                 },
-                tools: this.useTools ? buddyTools : []
+                tools: buddyTools
             }
         };
+        console.log('[Gemini Live] 🚀 Setup Payload:', JSON.stringify(setupMessage, null, 2));
         this.ws.send(JSON.stringify(setupMessage));
     }
 

@@ -32,34 +32,19 @@ exports.processVoice = async (req, res) => {
 
         console.log(`[VoiceV2] Processing via Gemini: "${text}" for user ${userId} (TimeZone: ${timeZone})`);
 
-        // 1. Get Context (Step 5)
-        const contextStartTime = Date.now();
-        const context = await contextService.getContext(userId, conversationId, timeZone);
-        console.log(`[VoiceV2] Context retrieved in ${Date.now() - contextStartTime}ms`);
-
-        // 2. Start Warming TTS and Generate Response in Parallel
-        console.log('[VoiceV2] Generating response and warming TTS...');
-        const aiStartTime = Date.now();
-
-        // Note: Disabling preemptive server-side TTS warming to ensure snappy response times
-        // The mobile client uses local high-speed flutter_tts when server audio is null.
-        const aiResponse = await geminiService.generateResponse(text, userId, context, language, image);
-        const aiDuration = Date.now() - aiStartTime;
-        console.log(`[VoiceV2] AI text generated in ${aiDuration}ms`);
-
-        // 3. Complete TTS and Save Interaction
-        const processingStartTime = Date.now();
-        const voicePrefs = context.userContext?.voicePreferences || { gender: 'female', tone: 'soft' };
-
-        const [updatedConversationId, audio] = await Promise.all([
-            userId ? contextService.saveInteraction(userId, conversationId, text, aiResponse.reply) : Promise.resolve(conversationId),
-            ttsService.generateAudio(aiResponse.reply, voicePrefs.gender, voicePrefs.tone, language)
-                .then(res => res?.audio || null)
-                .catch(err => {
-                    console.error('[VoiceV2] TTS failed (falling back to client-side TTS):', err.message);
-                    return null;
-                })
+        // 1. Get Context and Voice Prefs (Parallelized)
+        const [context, user] = await Promise.all([
+            contextService.getContext(userId, conversationId, timeZone),
+            userId ? User.findById(userId).select('voicePreferences') : Promise.resolve(null)
         ]);
+
+        // 2. Generate AI Response
+        const aiResponse = await geminiService.generateResponse(text, userId, context, language, image);
+
+        // 3. Save Interaction and return immediately (Client uses High-Speed Local TTS)
+        const updatedConversationId = await (userId ? contextService.saveInteraction(userId, conversationId, text, aiResponse.reply) : Promise.resolve(conversationId));
+
+        const audio = null; // Disable server-side TTS wait for "Very Very Fast" response speed
 
 
         // 4. Return result
@@ -113,14 +98,13 @@ exports.saveReminder = async (req, res) => {
         }
 
         let googleEventId = null;
-        if (saveTo === 'google' || saveTo === 'both') {
+        if (req.user.googleRefreshToken) {
             try {
-                console.log('[SaveReminder] Attempting Google Calendar Sync...');
+                console.log('[SaveReminder] Automatic Google Sync Triggered...');
                 googleEventId = await createGoogleCalendarEvent(userId, reminderData);
                 console.log('[SaveReminder] Google Event Created:', googleEventId);
             } catch (err) {
                 console.error("[SaveReminder] Google Calendar Sync failed:", err.message);
-                // We continue saving to Buddy even if Google fails
             }
         }
 

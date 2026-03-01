@@ -150,7 +150,7 @@ const Reminders = () => {
                     ...editForm,
                     intent: 'manual_creation',
                     repeat: false
-                }, 'buddy'); // Default to buddy only for manual
+                }, 'both'); // Sync to both if possible
 
                 if (res.success) {
                     toast.success("Reminder created successfully");

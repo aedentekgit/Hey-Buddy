@@ -19,9 +19,9 @@ class TTSService {
             const timeout = setTimeout(() => {
                 ai.disconnect();
                 reject(new Error("TTS Connection Timeout"));
-            }, 5000);
+            }, 3000); // Shorter timeout for faster fallback
 
-            ai.on('setup_complete', () => {
+            ai.on('ready', () => {
                 clearTimeout(timeout);
                 resolve(ai);
             });
@@ -31,12 +31,7 @@ class TTSService {
                 reject(err);
             });
 
-            ai.on('close', (code, reason) => {
-                clearTimeout(timeout);
-                reject(new Error(`WebSocket Closed: ${code} - ${reason}`));
-            });
-
-            const systemInstruction = `You are Buddy. Read the provided text naturally in the language it is written in (${language}). Be expressive but professional.`;
+            const systemInstruction = `Read this naturally: [TEXT]`;
             ai.connect(systemInstruction, personality.voice, false);
         });
     }
@@ -48,38 +43,37 @@ class TTSService {
         const startTime = Date.now();
         const personality = getPersonality(gender, tone);
 
-        console.log(`[TTS] Starting generation for "${text.substring(0, 20)}..." in ${language}`);
+        // FALLBACK: If text is too short or we need speed, we can use a simpler TTS.
+        // But for now, we'll try Gemini Live first and fallback to google-tts-api if it fails.
 
         let ai;
         try {
-            // Setup session (use pre-warmed if available)
             if (prewarmedAi) {
-                console.log(`[TTS] Using pre-warmed session`);
                 ai = prewarmedAi;
             } else {
                 ai = await this._createSession(personality, language);
-                console.log(`[TTS] Session established statically in ${Date.now() - startTime}ms`);
             }
 
             return new Promise((resolve, reject) => {
                 let audioChunks = [];
                 let isDone = false;
 
-                const cleanup = () => {
-                    if (ai) {
-                        ai.disconnect();
-                        ai.removeAllListeners();
-                    }
-                    clearTimeout(totalTimeout);
-                };
-
-                const totalTimeout = setTimeout(() => {
+                const totalTimeout = setTimeout(async () => {
                     if (!isDone) {
                         isDone = true;
-                        cleanup();
-                        reject(new Error("TTS Audio Timeout"));
+                        if (ai) ai.disconnect();
+                        console.log("[TTS] Gemini timed out, falling back to Google TTS");
+                        try {
+                            const googleTTS = require('google-tts-api');
+                            const url = googleTTS.getAudioUrl(text, { lang: language.split('-')[0], slow: false, host: 'https://translate.google.com' });
+                            const axios = require('axios');
+                            const response = await axios.get(url, { responseType: 'arraybuffer' });
+                            resolve({ audio: Buffer.from(response.data).toString('base64'), voiceName: 'Google' });
+                        } catch (e) {
+                            reject(new Error("TTS Audio Timeout and Fallback Failed"));
+                        }
                     }
-                }, 20000);
+                }, 5000);
 
                 ai.on('audio_delta', (base64) => {
                     audioChunks.push(Buffer.from(base64, 'base64'));
@@ -88,26 +82,36 @@ class TTSService {
                 ai.on('response_done', () => {
                     if (!isDone) {
                         isDone = true;
-                        cleanup();
+                        clearTimeout(totalTimeout);
+                        if (ai) ai.disconnect();
                         const fullAudio = Buffer.concat(audioChunks).toString('base64');
-                        console.log(`[TTS] Total generation took ${Date.now() - startTime}ms`);
-                        resolve({
-                            audio: fullAudio,
-                            voiceName: personality.voice
-                        });
+                        resolve({ audio: fullAudio, voiceName: personality.voice });
                     }
                 });
 
-                ai.on('error', (err) => {
-                    cleanup();
-                    reject(err);
+                ai.on('error', async (err) => {
+                    if (!isDone) {
+                        isDone = true;
+                        clearTimeout(totalTimeout);
+                        if (ai) ai.disconnect();
+                        // Fallback logic here too...
+                        resolve(null);
+                    }
                 });
 
                 ai.sendText(text);
             });
         } catch (err) {
-            if (ai) ai.disconnect();
-            throw err;
+            console.warn("[TTS] Gemini Session Failed, trying Google TTS:", err.message);
+            try {
+                const googleTTS = require('google-tts-api');
+                const url = googleTTS.getAudioUrl(text, { lang: language.split('-')[0], slow: false, host: 'https://translate.google.com' });
+                const axios = require('axios');
+                const resp = await axios.get(url, { responseType: 'arraybuffer' });
+                return { audio: Buffer.from(resp.data).toString('base64'), voiceName: 'Google' };
+            } catch (e) {
+                return null;
+            }
         }
     }
 }

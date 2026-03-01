@@ -23,11 +23,15 @@ const initFirebase = async () => {
 
         const serviceAccount = require(jsonPath);
 
-        firebaseApp = admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
+        if (!admin.apps.length) {
+            firebaseApp = admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+            console.log("Firebase Admin Initialized");
+        } else {
+            firebaseApp = admin.app();
+        }
 
-        console.log("Firebase Admin Initialized");
         return firebaseApp;
     } catch (error) {
         console.error("Firebase Init Error:", error);
@@ -45,6 +49,10 @@ const sendPushNotification = async (token, title, body, data = {}) => {
             token: token,
             android: {
                 priority: 'high',
+                notification: {
+                    channelId: 'buddy_alerts',
+                    defaultSound: true
+                }
             },
             apns: {
                 payload: {
@@ -58,7 +66,7 @@ const sendPushNotification = async (token, title, body, data = {}) => {
         const response = await admin.messaging().send(message);
         return response;
     } catch (error) {
-        console.error("Firebase Send Error:", error);
+        console.error("Firebase Send Error:", error.message);
         throw error;
     }
 };

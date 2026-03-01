@@ -45,7 +45,7 @@ class BuddyService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return {'success': false, 'message': 'Status: ${response.statusCode}'};
+      return {'success': false, 'message': 'Status: ${response.statusCode}', 'statusCode': response.statusCode};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -210,7 +210,7 @@ class BuddyService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return {'success': false, 'message': 'Status: ${response.statusCode}'};
+      return {'success': false, 'message': 'Status: ${response.statusCode}', 'statusCode': response.statusCode};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
