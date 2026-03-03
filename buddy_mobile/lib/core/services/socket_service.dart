@@ -24,18 +24,26 @@ class SocketService {
   void connect() async {
     final token = await _storage.read(key: 'jwt');
     
+    print('Attempting to connect to socket: ${AppConfig.socketUrl}');
     socket = IO.io(AppConfig.socketUrl, 
       IO.OptionBuilder()
-        .setTransports(['websocket'])
+        .setTransports(['websocket', 'polling']) // Allow fallback for unstable networks
         .setAuth({'token': token})
-        .disableAutoConnect()
+        .setReconnectionAttempts(20) // Increased for robustness
+        .setReconnectionDelay(3000)
+        .setExtraHeaders({
+          'origin': 'capacitor://localhost',
+          'access-control-allow-origin': '*',
+        })
+        .disableAutoConnect() // Keep discovery manual
+        .setQuery({'platform': 'mobile'})
         .build()
     );
 
     socket?.connect();
 
     socket?.onConnect((_) {
-      print('Socket Connected');
+      print('Socket Connected successfully to ${AppConfig.socketUrl}');
       _statusStreamController.add(true);
       // Initialize agent in standby mode so it listens for wake word
       socket?.emit('setup_agent', {
@@ -56,6 +64,10 @@ class SocketService {
 
     socket?.on('caption', (text) {
       _captionStreamController.add(text);
+    });
+
+    socket?.on('connect_error', (data) {
+      print('Socket Connection Error: $data');
     });
 
     socket?.on('error', (err) {

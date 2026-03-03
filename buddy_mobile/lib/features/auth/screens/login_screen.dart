@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/signup_screen.dart';
+import 'package:buddy_mobile/features/auth/screens/forgot_password_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
@@ -123,7 +124,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()));
+                        },
                         child: Text(
                           "Forgot Password?",
                           style: GoogleFonts.inter(
@@ -141,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ElevatedButton(
                         onPressed: _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E293B), // Premium dark slate
+                          backgroundColor: branding.primaryColor,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 0,

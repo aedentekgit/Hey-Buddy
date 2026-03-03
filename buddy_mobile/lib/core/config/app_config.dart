@@ -10,19 +10,24 @@ class AppConfig {
   static const String localhostHost = '10.0.2.2:5001'; // 10.0.2.2 is local loopback for Android Emulator
 
   static String get host {
-    // Toggling: Set this flag to true for Localhost, false for Staging.
-    const bool useLocal = true; 
+    // Priority 1: Manual override via --dart-define=API_URL=...
+    const String envUrl = String.fromEnvironment('API_URL');
+    if (envUrl.isNotEmpty) return envUrl;
 
-    if (kDebugMode) {
-      return useLocal ? localhostHost : stagingHost;
+    // Priority 2: Localhost for Android Emulator only if specifically requested
+    // Use: flutter run --dart-define=LOCAL_DEV=true
+    const bool isLocalDev = bool.fromEnvironment('LOCAL_DEV', defaultValue: kDebugMode);
+    if (isLocalDev && Platform.isAndroid) {
+       return localhostHost;
     }
-    return productionHost;
+
+    // Priority 3: Default to Staging for all other cases (Real phones, Release APKs, etc.)
+    return stagingHost;
   }
 
   static String get protocol {
-    // Both environments use HTTPS (Staging on Port 5002 via Nginx)
-    // Localhost uses HTTP
-    return kDebugMode && host == localhostHost ? 'http' : 'https';
+    // We use HTTP for Localhost, HTTPS for Staging/Production
+    return host == localhostHost ? 'http' : 'https';
   }
 
   static String get baseUrl {
@@ -43,25 +48,49 @@ class AppConfig {
   static String secondaryColor = '#FFFFFF';
   static String? logoUrl;
   static String? splashUrl;
-
+  static String? googleClientId = "653874362760-32gca8aold1hap5s8271ad4803s959h5.apps.googleusercontent.com";
   static const String googleMapsApiKey = "AIzaSyDys6Q4lVtZkq6hqR5kl8ZAfCDzpWXJ1zA";
 
   static String? formatImageUrl(String? path) {
-    if (path == null || path.isEmpty || path == "null") return null;
+    if (path == null || path.isEmpty || path == "null" || path == "undefined") return null;
     
-    String finalUrl = path;
-    if (!finalUrl.startsWith('http')) {
-      final cleanPath = finalUrl.startsWith('/') ? finalUrl.substring(1) : finalUrl;
-      finalUrl = '$assetBaseUrl$cleanPath';
+    String finalPath = path;
+
+    // 1. If it's already a full URL
+    if (finalPath.startsWith('http')) {
+      // Fix potential localhost/127.0.0.1 leakage from local DBs
+      if (finalPath.contains('localhost:5001') || 
+          finalPath.contains('127.0.0.1:5001') ||
+          finalPath.contains('localhost:5002') ||
+          finalPath.contains('127.0.0.1:5002')) {
+        
+        finalPath = finalPath
+          .replaceAll('localhost:5001', host)
+          .replaceAll('127.0.0.1:5001', host)
+          .replaceAll('localhost:5002', host)
+          .replaceAll('127.0.0.1:5002', host);
+          
+        // Crucial: After replacement, ensure protocol matches our current protocol 
+        // (Force HTTPS if we are on staging/production to avoid Cleartext blocks)
+        if (host != localhostHost && finalPath.startsWith('http://')) {
+          finalPath = finalPath.replaceFirst('http://', 'https://');
+        }
+      }
+      return finalPath;
     }
     
-    // Fix localhost issue for Android Emulator
-    if (finalUrl.contains('localhost')) {
-      finalUrl = finalUrl.replaceAll('localhost:5001', host);
-      finalUrl = finalUrl.replaceAll('localhost', '10.0.2.2');
-    }
+    // 2. If it's a relative path, ensure it starts with 'uploads/' if it doesn't already
+    // but first clean leading slashes
+    if (finalPath.startsWith('/')) finalPath = finalPath.substring(1);
     
-    return finalUrl;
+    // If the path doesn't already contain 'uploads/', the backend usually expects it
+    if (!finalPath.startsWith('uploads/')) {
+        finalPath = 'uploads/$finalPath';
+    }
+
+    // Force secure protocol for anything not on the local loopback
+    String effectiveProtocol = host == localhostHost ? 'http' : 'https';
+    return '$effectiveProtocol://$host/$finalPath';
   }
 }
 

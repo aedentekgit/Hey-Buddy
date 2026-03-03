@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
@@ -29,8 +30,11 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
   @override
   void initState() {
     super.initState();
-    // Load tasks if not already loaded to show in "Explore More"
-    Future.microtask(() => Provider.of<TasksProvider>(context, listen: false).loadTasks());
+    // Load memories and tasks if not already loaded to show in "Explore More"
+    Future.microtask(() {
+      Provider.of<MemoriesProvider>(context, listen: false).loadMemories();
+      Provider.of<TasksProvider>(context, listen: false).loadTasks();
+    });
   }
 
   @override
@@ -97,35 +101,43 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
             const SizedBox(height: 16),
             
             // Infinitely scrolling cloud of suggestion chips (Marquee style)
-            Consumer<TasksProvider>(
+            Consumer<MemoriesProvider>(
               builder: (context, provider, child) {
-                final List<Map<String, dynamic>> reminders = provider.tasks.map((t) => {
-                  'title': t['title'] ?? 'Task',
-                  'icon': TaskUtils.getTaskIcon(t['title'], t['intent']),
-                  'color': TaskUtils.getTaskColor(t['title'], t['intent']),
-                  'task': t,
+                final List<Map<String, dynamic>> memories = provider.memories.map((m) {
+                  String title = m['content'] ?? 'Memory';
+                  if (m['type'] == 'prescription' && m['extractedData'] != null) {
+                    title = 'Prescription Details';
+                  }
+
+                  return {
+                    'title': title,
+                    'icon': LucideIcons.brain,
+                    'color': const Color(0xFF0284C7),
+                    'task': null,
+                  };
                 }).toList();
 
-                // Add placeholders if no real reminders
-                if (reminders.isEmpty) {
+                // Add placeholders if no real memories
+                if (memories.isEmpty) {
                   const placeholders = [
-                    'Meeting with the team',
-                    'Pickup girlfriend',
-                    'Doctor appointment',
-                    'Go to the gym',
-                    'Read a book',
+                    'My wifi password is...',
+                    'I prefer my coffee black',
+                    'Anniversary is on June 12th',
+                    'Mom\'s favorite color is blue',
+                    'Doctor appointment details',
                   ];
-                  reminders.addAll(placeholders.map((title) => {
+                  memories.addAll(placeholders.map((title) => {
                     'title': title,
-                    'icon': TaskUtils.getTaskIcon(title, null),
-                    'color': TaskUtils.getTaskColor(title, null),
+                    'icon': LucideIcons.brain,
+                    'color': const Color(0xFF0284C7),
+                    'task': null,
                   }));
                 }
 
-                // Create variations of the reminders list so the rows don't look identical
-                final row1 = reminders.reversed.toList();
-                final row2 = reminders;
-                final row3 = [...reminders.skip(reminders.length ~/ 2), ...reminders.take(reminders.length ~/ 2)];
+                // Create variations of the memories list so the rows don't look identical
+                final row1 = memories.reversed.toList();
+                final row2 = memories;
+                final row3 = [...memories.skip(memories.length ~/ 2), ...memories.take(memories.length ~/ 2)];
 
                 return Column(
                   children: [
@@ -144,9 +156,9 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
             
             const SizedBox(height: 32),
             
-            // Skills List Section
+            // Reminders Section
             Text(
-              "Skills List",
+              "Today's Reminders",
               style: GoogleFonts.outfit(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
@@ -154,7 +166,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
               ),
             ),
             const SizedBox(height: 16),
-            _buildSkillsCard(),
+            _buildTodayReminders(),
             
             const SizedBox(height: 40),
           ],
@@ -293,92 +305,163 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
   }
 
 
-  Widget _buildSkillsCard() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            child: Row(
+  Widget _buildTodayReminders() {
+    return Consumer<TasksProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final todayTasks = provider.processedTasks.where((t) {
+          final dateStr = t['date'];
+          return dateStr != null && TaskUtils.formatDate(dateStr) == 'Today';
+        }).toList();
+
+        if (todayTasks.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9), // Light blue-gray background for empty state
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
               children: [
+                Icon(LucideIcons.calendarCheck, size: 48, color: const Color(0xFF94A3B8)),
+                const SizedBox(height: 12),
                 Text(
-                  "New",
+                  "No reminders for today",
                   style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF991B1B),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
                   ),
                 ),
-                const Spacer(),
-                const Icon(LucideIcons.arrowUpRight, color: Color(0xFF991B1B), size: 18),
               ],
             ),
-          ),
-          _buildSkillItem("1", "Screen off"),
-          _buildSkillItem("2", "Turn on Eye care"),
-          _buildSkillItem("3", "Turn up the brightness"),
-          const SizedBox(height: 16),
-        ],
-      ),
+          );
+        }
+
+        return Column(
+          children: todayTasks.map((task) => _buildReminderItem(task)).toList(),
+        );
+      },
     );
   }
 
-  Widget _buildSkillItem(String number, String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF97316).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
+  Widget _buildReminderItem(Map<String, dynamic> task) {
+    final title = task['title'] ?? 'Untitled';
+    final bool isOverdue = task['_isOverdue'] ?? false;
+    final intent = task['intent'];
+    
+    // In MobileTaskCard, if overDue it's 'danger', else 'green' (or primary)
+    final bool isDanger = isOverdue;
+
+    // Use task_utils to get proper branding colors per task category/intent
+    final Color fallbackColor = isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981);
+    final dynamic fetchedColor = TaskUtils.getTaskColor(title, intent);
+    final Color baseColor = isDanger ? const Color(0xFFE11D48) : (fetchedColor is Color ? fetchedColor : fallbackColor);
+    final headerIcon = TaskUtils.getTaskIcon(title, intent) as IconData;
+
+    final Color bgColor = isDanger 
+        ? const Color(0xFFFFE4E6) 
+        : baseColor.withOpacity(0.06);
+
+    final Color borderColor = isDanger 
+        ? const Color(0xFFFECDD3) 
+        : baseColor.withOpacity(0.2);
+
+    final Color iconBgColor = isDanger 
+        ? const Color(0xFFFECDD3).withOpacity(0.5) 
+        : baseColor.withOpacity(0.12);
+
+    final Color iconColor = isDanger 
+        ? const Color(0xFFE11D48) 
+        : baseColor;
+
+    final String statusText = isDanger ? "Risk Alert" : "ON TRACK";
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => SmartDetailsScreen(task: task)));
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor, width: 1.5),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconBgColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(headerIcon, size: 22, color: iconColor),
             ),
-            child: Center(
-              child: Text(
-                number,
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFF97316),
-                ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: iconColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      if (isDanger) ...[
+                        const SizedBox(width: 8),
+                        const Text(
+                          "!",
+                          style: TextStyle(
+                            color: Color(0xFFE11D48),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF334155),
-              ),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Icon(LucideIcons.chevronRight, size: 22, color: iconColor.withOpacity(0.7)),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              "Try",
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF475569),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

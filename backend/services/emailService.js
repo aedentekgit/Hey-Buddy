@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const Settings = require('../models/Settings');
 
 const getTransporter = async () => {
-    const settings = await Settings.findOne();
+    const settings = await Settings.findOne().select('+smtp.password');
     if (!settings || !settings.smtp || !settings.smtp.host) {
         throw new Error("SMTP settings not configured");
     }
@@ -55,7 +55,7 @@ const sendTestEmail = async (smtpConfig, toEmail) => {
 
 const sendEmail = async (to, subject, text, html) => {
     try {
-        const settings = await Settings.findOne();
+        const settings = await Settings.findOne().select('+smtp.password');
         const transporter = await getTransporter();
 
         const sender = settings.smtp.fromName

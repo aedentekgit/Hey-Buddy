@@ -31,87 +31,110 @@ class TTSService {
                 reject(err);
             });
 
+            ai.on('close', (code, reason) => {
+                clearTimeout(timeout);
+                reject(new Error(`TTS Connection Closed: ${code} - ${reason}`));
+            });
+
             const systemInstruction = `Read this naturally: [TEXT]`;
             ai.connect(systemInstruction, personality.voice, false);
         });
     }
 
     /**
-     * Generates audio for a given text.
+     * Helper to wrap raw PCM data in a WAV header
      */
-    async generateAudio(text, gender = 'female', tone = 'soft', language = 'en-US', prewarmedAi = null) {
-        const startTime = Date.now();
-        const personality = getPersonality(gender, tone);
+    _addWavHeader(pcmBuffer, sampleRate = 24000, numChannels = 1) {
+        const header = Buffer.allocUnsafe(44);
+        const writeString = (off, str) => { for (let i = 0; i < str.length; i++) header[off + i] = str.charCodeAt(i); };
 
-        // FALLBACK: If text is too short or we need speed, we can use a simpler TTS.
-        // But for now, we'll try Gemini Live first and fallback to google-tts-api if it fails.
+        writeString(0, 'RIFF');
+        header.writeUInt32LE(36 + pcmBuffer.length, 4);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        header.writeUInt32LE(16, 16); // subchunk1size (PCM)
+        header.writeUInt16LE(1, 20);  // audio format (PCM)
+        header.writeUInt16LE(numChannels, 22);
+        header.writeUInt32LE(sampleRate, 24);
+        header.writeUInt32LE(sampleRate * numChannels * 2, 28); // byte rate
+        header.writeUInt16LE(numChannels * 2, 32); // block align
+        header.writeUInt16LE(16, 34); // bits per sample
+        writeString(36, 'data');
+        header.writeUInt32LE(pcmBuffer.length, 40);
 
-        let ai;
+        return Buffer.concat([header, pcmBuffer]);
+    }
+
+    /**
+     * Higher-level method to generate audio for a given personality.
+     * Includes fallback to Google TTS if Gemini fails.
+     */
+    async generateAudio(text, gender = 'female', tone = 'soft', language = 'en-US') {
         try {
-            if (prewarmedAi) {
-                ai = prewarmedAi;
-            } else {
-                ai = await this._createSession(personality, language);
-            }
-
-            return new Promise((resolve, reject) => {
-                let audioChunks = [];
-                let isDone = false;
-
-                const totalTimeout = setTimeout(async () => {
-                    if (!isDone) {
-                        isDone = true;
-                        if (ai) ai.disconnect();
-                        console.log("[TTS] Gemini timed out, falling back to Google TTS");
-                        try {
-                            const googleTTS = require('google-tts-api');
-                            const url = googleTTS.getAudioUrl(text, { lang: language.split('-')[0], slow: false, host: 'https://translate.google.com' });
-                            const axios = require('axios');
-                            const response = await axios.get(url, { responseType: 'arraybuffer' });
-                            resolve({ audio: Buffer.from(response.data).toString('base64'), voiceName: 'Google' });
-                        } catch (e) {
-                            reject(new Error("TTS Audio Timeout and Fallback Failed"));
-                        }
-                    }
-                }, 5000);
-
-                ai.on('audio_delta', (base64) => {
-                    audioChunks.push(Buffer.from(base64, 'base64'));
-                });
-
-                ai.on('response_done', () => {
-                    if (!isDone) {
-                        isDone = true;
-                        clearTimeout(totalTimeout);
-                        if (ai) ai.disconnect();
-                        const fullAudio = Buffer.concat(audioChunks).toString('base64');
-                        resolve({ audio: fullAudio, voiceName: personality.voice });
-                    }
-                });
-
-                ai.on('error', async (err) => {
-                    if (!isDone) {
-                        isDone = true;
-                        clearTimeout(totalTimeout);
-                        if (ai) ai.disconnect();
-                        // Fallback logic here too...
-                        resolve(null);
-                    }
-                });
-
-                ai.sendText(text);
+            const personality = getPersonality(gender, tone);
+            const ai = await this._createSession(personality, language).catch(e => {
+                console.warn("[TTS] Gemini Session Failed:", e.message);
+                return null;
             });
-        } catch (err) {
-            console.warn("[TTS] Gemini Session Failed, trying Google TTS:", err.message);
-            try {
-                const googleTTS = require('google-tts-api');
-                const url = googleTTS.getAudioUrl(text, { lang: language.split('-')[0], slow: false, host: 'https://translate.google.com' });
-                const axios = require('axios');
-                const resp = await axios.get(url, { responseType: 'arraybuffer' });
-                return { audio: Buffer.from(resp.data).toString('base64'), voiceName: 'Google' };
-            } catch (e) {
+
+            if (!ai) {
+                // Returning null delegates TTS to the Native Frontend/Mobile Client so that Pitch/Prosody are preserved!
+                console.log("[TTS] Delegating to native client TTS engine (Gemini unavailable)");
                 return null;
             }
+
+            const audioChunks = [];
+            ai.on('audio_delta', (data) => {
+                audioChunks.push(Buffer.from(data, 'base64'));
+            });
+
+            const success = await new Promise((resolve) => {
+                const timeout = setTimeout(() => resolve(false), 8000);
+                ai.on('response_done', () => {
+                    clearTimeout(timeout);
+                    resolve(true);
+                });
+                ai.sendText(text);
+            });
+
+            ai.disconnect();
+
+            if (success && audioChunks.length > 0) {
+                const fullPcm = Buffer.concat(audioChunks);
+                const wavData = this._addWavHeader(fullPcm, 24000, 1);
+                return {
+                    audio: wavData.toString('base64'),
+                    voiceName: personality.voice
+                };
+            }
+
+            console.log("[TTS] Gemini failed to produce audio, delegating to native client TTS...");
+            return null;
+
+        } catch (error) {
+            console.error('[TTS] Error in generateAudio:', error.message);
+            return null;
+        }
+    }
+
+    async _googleFallback(text, language) {
+        try {
+            console.log(`[TTS] Starting Google fallback for: "${text.substring(0, 30)}..." with lang: ${language}`);
+            const googleTTS = require('google-tts-api');
+            const url = googleTTS.getAudioUrl(text, {
+                lang: language,
+                slow: false,
+                host: 'https://translate.google.com'
+            });
+            const axios = require('axios');
+            const resp = await axios.get(url, { responseType: 'arraybuffer' });
+            return {
+                audio: Buffer.from(resp.data).toString('base64'),
+                voiceName: `Google Fallback (${language})`
+            };
+        } catch (e) {
+            console.error("[TTS] Google fallback failed:", e.message);
+            return null;
         }
     }
 }

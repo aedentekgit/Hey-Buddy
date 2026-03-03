@@ -6,6 +6,9 @@ import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -34,15 +37,101 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 1)); // Extra total splash time for branding
     if (!mounted) return;
     
+    // Check for app update
+    if (branding.latestAppVersion != null && branding.latestAppVersion!.isNotEmpty) {
+      try {
+        PackageInfo packageInfo = await PackageInfo.fromPlatform();
+        String currentVersion = packageInfo.version;
+        if (_isUpdateAvailable(currentVersion, branding.latestAppVersion!)) {
+          bool shouldUpdate = await _showUpdateDialog(branding.latestAppVersion!, branding.mandatoryUpdate);
+          if (shouldUpdate && branding.updateUrl != null) {
+            final uri = Uri.parse(branding.updateUrl!);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          }
+          if (branding.mandatoryUpdate) {
+            return; // Halt app progression
+          }
+        }
+      } catch (e) {
+        debugPrint("Update check failed: $e");
+      }
+    }
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.tryAutoLogin();
     
+    // Request location permission centrally
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+    } catch (_) {}
+
     if (!mounted) return;
     
     // Always go to MainScreen; it will handle showing the Assistant by default for guest users
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainScreen()),
     );
+  }
+
+  bool _isUpdateAvailable(String current, String latest) {
+    List<int> currentParts = current.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    List<int> latestParts = latest.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    
+    for (int i = 0; i < 3; i++) {
+        int c = i < currentParts.length ? currentParts[i] : 0;
+        int l = i < latestParts.length ? latestParts[i] : 0;
+        if (l > c) return true;
+        if (l < c) return false;
+    }
+    return false;
+  }
+
+  Future<bool> _showUpdateDialog(String newVersion, bool isMandatory) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: !isMandatory,
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => !isMandatory,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              "Update Available", 
+              style: GoogleFonts.outfit(fontWeight: FontWeight.bold)
+            ),
+            content: Text(
+              "Version $newVersion is now available. Please update the app to get the latest features and bug fixes.",
+              style: GoogleFonts.inter(color: Colors.black87),
+            ),
+            actions: <Widget>[
+              if (!isMandatory)
+                TextButton(
+                  child: Text("Later", style: GoogleFonts.inter(color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                ),
+                child: Text("Update Now", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  if (!isMandatory) Navigator.of(context).pop(true); // Pop first if voluntary
+                  else Navigator.of(context).pop(true); // We will route to store and come back, maybe block input. For now just pop.
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    ) ?? false;
   }
 
   @override
@@ -64,70 +153,25 @@ class _SplashScreenState extends State<SplashScreen> {
                       CachedNetworkImage(
                         imageUrl: branding.splashUrl!,
                         height: 100,
-                        placeholder: (context, url) => const CircularProgressIndicator(color: Color(0xFF6366F1), strokeWidth: 2),
+                        placeholder: (context, url) => const SizedBox(height: 100),
                         errorWidget: (context, url, error) => _buildPlaceholderLogo(branding),
                       )
                     else
                       _buildPlaceholderLogo(branding),
                     const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          branding.appName,
-                          style: GoogleFonts.outfit(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1E293B),
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6.0),
-                          child: Text(
-                            "AI",
-                            style: GoogleFonts.outfit(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: branding.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      branding.appName,
+                      style: GoogleFonts.outfit(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
+                        letterSpacing: -1,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Positioned(
-                bottom: 60,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Column(
-                    children: [
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF94A3B8),
-                          strokeWidth: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "Starting your assistant...",
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: const Color(0xFF94A3B8),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // Removed bottom loading indicator and "Starting your assistant..." text
             ],
           ),
         );

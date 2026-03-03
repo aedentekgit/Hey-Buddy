@@ -98,7 +98,9 @@ const userSchema = new mongoose.Schema({
         inApp: {
             enabled: { type: Boolean, default: true }
         }
-    }
+    },
+    resetPasswordOtp: String,
+    resetPasswordExpires: Date
 }, { timestamps: true });
 
 // Hash password before saving

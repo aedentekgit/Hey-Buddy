@@ -2,6 +2,8 @@
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">floralwhite-armadillo-532275.hostingersite.com</domain>
+        <domain includeSubdomains="true">ayuskart.com</domain>
+        <domain includeSubdomains="true">staging.ayuskart.com</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">82.29.167.22</domain>
         <domain includeSubdomains="true">localhost</domain>

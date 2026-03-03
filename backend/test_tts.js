@@ -1,34 +1,18 @@
-const admin = require('firebase-admin');
+require('dotenv').config();
+const ttsService = require('./services/ttsService');
 
-async function test() {
+(async () => {
     try {
-        const settings = require('./uploads/1770016713719-heybuddy-8abaf-firebase-adminsdk-fbsvc-c28d68812b.json');
-        if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(settings) });
-        
-        // Use standard FCM Token format
-        const token = "d-yNTwqiQpaZsCYQinI4To:APA91bGlm1-Nh9Affg7W1NSsSvMoFm4a7CaueCaWuwvRx3zXI6XjiKtBqYEAwz56_ug4DQVKjVZG7SE6Esy7uOoYox7PV6_baAxuHLL5x8VQ6tB-W4YC_Ak";
-        
-        const message = {
-            notification: {
-                title: "Voice Test Notification",
-                body: "Testing exactly the voice."
-            },
-            data: {
-                body: "Testing exactly the voice.",
-                type: "test"
-            },
-            token: token,
-            android: {
-                priority: 'high',
-            }
-        };
-        
-        const res = await admin.messaging().send(message);
-        console.log("Success:", res);
+        console.log("Generating audio for Female Soft...");
+        const result1 = await ttsService.generateAudio("Hello, I am soft female voice.", "female", "soft");
+        console.log(result1 ? `Success! Size: ${result1.audio.length}, Voice: ${result1.voiceName}` : "Failed.");
+
+        console.log("Generating audio for Male Energetic...");
+        const result2 = await ttsService.generateAudio("Hello, I am energetic male voice!", "male", "energetic");
+        console.log(result2 ? `Success! Size: ${result2.audio.length}, Voice: ${result2.voiceName}` : "Failed.");
         process.exit(0);
     } catch (e) {
         console.error("Error:", e);
         process.exit(1);
     }
-}
-test();
+})();

@@ -38,6 +38,7 @@ const nightTheme = {
 export const ThemeProvider = ({ children }) => {
     const [themeMode, setThemeMode] = useState(() => localStorage.getItem('themeMode') || 'auto');
     const [accentColor, setAccentColor] = useState(() => localStorage.getItem('accentColor') || '#2563EB');
+    const [secondaryAccent, setSecondaryAccent] = useState(() => localStorage.getItem('secondaryAccent') || '#6366F1');
 
     const hexToRgb = (hex) => {
         const bigint = parseInt(hex.replace('#', ''), 16);
@@ -81,7 +82,7 @@ export const ThemeProvider = ({ children }) => {
         root.style.setProperty('--success-color', '#10B981');
         root.style.setProperty('--warning-color', '#F59E0B');
         root.style.setProperty('--danger-color', '#EF4444');
-        root.style.setProperty('--secondary-color', '#6366F1');
+        root.style.setProperty('--secondary-color', secondaryAccent);
 
         // Precision Layout - Industrial Grade
         root.style.setProperty('--radius-sm', '6px');
@@ -100,10 +101,11 @@ export const ThemeProvider = ({ children }) => {
         if (themeMode === 'auto') {
             mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day';
         }
-        applyTheme(mode, accentColor);
+        applyTheme(mode, accentColor, secondaryAccent);
         localStorage.setItem('themeMode', themeMode);
         localStorage.setItem('accentColor', accentColor);
-    }, [themeMode, accentColor]);
+        localStorage.setItem('secondaryAccent', secondaryAccent);
+    }, [themeMode, accentColor, secondaryAccent]);
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
@@ -117,6 +119,7 @@ export const ThemeProvider = ({ children }) => {
                     if (appearance) {
                         if (appearance.themeMode) setThemeMode(appearance.themeMode);
                         if (appearance.accentColor) setAccentColor(appearance.accentColor);
+                        if (appearance.secondaryColor) setSecondaryAccent(appearance.secondaryColor);
                     }
                 }
             } catch (error) {
@@ -142,6 +145,7 @@ export const ThemeProvider = ({ children }) => {
         <ThemeContext.Provider value={{
             themeMode, setThemeMode,
             accentColor, setAccentColor,
+            secondaryAccent, setSecondaryAccent,
             dayTheme, nightTheme
         }}>
             {children}

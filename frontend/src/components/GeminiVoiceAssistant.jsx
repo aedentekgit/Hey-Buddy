@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import voiceService from '../services/voiceService';
 import { createPcmBlob, decode, decodeAudioData } from '../utils/audio';
-import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sparkles, Brain, Clock, X, Image as ImageIcon, Loader2, Zap, History, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Send, MessageSquare, Play, Square, Plus, ArrowUp, User, Sparkles, Brain, Clock, X, Image as ImageIcon, Loader2, Zap, History, ArrowLeft, Globe } from 'lucide-react';
 import { getImageUrl } from '../utils/imageUrl';
 import { config } from '../config/env';
 

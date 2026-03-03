@@ -39,7 +39,7 @@ try {
     console.log(`\n[2/6] 📦 Packaging local frontend and backend code...`);
     // Package Frontend dist directory
     execSync(`cd frontend && tar -czvf ../${frontendArchiveName} dist`, { stdio: 'inherit' });
-    
+
     // Package Backend
     const excludeFlags = `--exclude='./node_modules' --exclude='./.env' --exclude='./.git' --exclude='./uploads' --exclude='./backend' --exclude='*.tar.gz'`;
     execSync(`cd backend && tar ${excludeFlags} -czvf ../${backendArchiveName} .`, { stdio: 'inherit' });
@@ -66,14 +66,17 @@ try {
     execSync(`ssh ${SERVER} '${extractCommand}'`, { stdio: 'inherit' });
 
     // Step 5: Atomic switch (zero-downtime) and restart
-    console.log(`\n[5/6] 🔄 Switching live traffic and restarting PM2 process...`);
+    console.log(`\n[5/6] 🔄 Switching live traffic and updating PM2 path...`);
     console.log(`(You may be asked for the VPS password)`);
-    const restartCommand = `
+    // Delete and start ensures the new absolute path in 'current' symlink is used
+    const updateCommand = `
         ln -nfs ${releaseDir} ${currentDir} &&
         cd ${currentDir}/backend &&
-        pm2 restart ${PM2_NAME} || pm2 start server.js --name ${PM2_NAME}
+        pm2 delete ${PM2_NAME} || true &&
+        pm2 start server.js --name ${PM2_NAME} &&
+        pm2 save
     `;
-    execSync(`ssh ${SERVER} '${restartCommand}'`, { stdio: 'inherit' });
+    execSync(`ssh ${SERVER} '${updateCommand}'`, { stdio: 'inherit' });
 
     // Step 6: Cleanup local archives
     console.log(`\n[6/6] 🧹 Cleaning up local temporary files...`);

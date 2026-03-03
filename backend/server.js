@@ -17,7 +17,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: [config.FRONTEND_URL, config.FRONTEND_URL_ALT, 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean),
+    origin: [
+        config.FRONTEND_URL,
+        config.FRONTEND_URL_ALT,
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://ayuskart.com',
+        'https://staging.ayuskart.com'
+    ].filter(Boolean),
     credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -62,11 +69,11 @@ app.use('/api/knowledge', ragRoutes);
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Admin API' });
 });
-app.get('/api', (req, res) => {
-    res.json({ message: 'Welcome to the Admin API' });
-});
-app.get('/api/', (req, res) => {
-    res.json({ message: 'Welcome to the Admin API' });
+app.use((req, res, next) => {
+    if (req.url.startsWith('/api')) {
+        console.log(`[API-DEBUG] Unmatched Route: ${req.method} ${req.url}`);
+    }
+    next();
 });
 
 // Database connection
@@ -93,9 +100,20 @@ const { Server } = require('socket.io');
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: [config.FRONTEND_URL, config.FRONTEND_URL_ALT, 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean),
+        origin: [
+            config.FRONTEND_URL,
+            config.FRONTEND_URL_ALT,
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'https://ayuskart.com',
+            'https://staging.ayuskart.com'
+        ].filter(Boolean),
         credentials: true
-    }
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true // Support older socket.io clients if needed
 });
 
 // Initialize Socket.io Voice Handler

@@ -84,8 +84,8 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: res.data.message };
     };
 
-    const googleLogin = async (idToken) => {
-        const res = await api.post('/auth/google-login', { idToken });
+    const googleLogin = async (idToken, serverAuthCode = null) => {
+        const res = await api.post('/auth/google-login', { idToken, serverAuthCode });
         if (res.data.success) {
             localStorage.setItem('token', res.data.data.token);
             localStorage.setItem('user', JSON.stringify(res.data.data));

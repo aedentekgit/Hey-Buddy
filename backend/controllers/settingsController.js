@@ -7,14 +7,14 @@ const { uploadFile } = require('../services/fileService');
 
 const getSettings = async (req, res) => {
     try {
-        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +googleCalendar.accounts.personal.clientSecret +googleCalendar.accounts.work.clientSecret +googleCalendar.accounts.business.clientSecret');
+        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +googleCalendar.clientSecret');
         res.json({ success: true, data: settings || {} });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-let publicSettingsCache = null;
+let publicSettingsCache = null; // Sync with .env
 
 const getPublicSettings = async (req, res) => {
     try {
@@ -188,26 +188,9 @@ const updateSettings = async (req, res) => {
 
         // Google Calendar
         if (updateData.googleCalendar) {
-            const mergedCalendar = { ...(currentSettings.googleCalendar || {}) };
-            if (updateData.googleCalendar.activeAccount !== undefined) {
-                mergedCalendar.activeAccount = updateData.googleCalendar.activeAccount;
-            }
-            if (updateData.googleCalendar.accounts) {
-                mergedCalendar.accounts = { ...(mergedCalendar.accounts || {}) };
-                ['personal', 'work', 'business'].forEach(accountType => {
-                    if (updateData.googleCalendar.accounts[accountType]) {
-                        const { clientSecret, ...others } = updateData.googleCalendar.accounts[accountType];
-                        mergedCalendar.accounts[accountType] = {
-                            ...(mergedCalendar.accounts[accountType] || {}),
-                            ...others
-                        };
-                        if (clientSecret) {
-                            mergedCalendar.accounts[accountType].clientSecret = clientSecret;
-                        }
-                    }
-                });
-            }
-            updateDoc['googleCalendar'] = mergedCalendar;
+            const { clientSecret, ...others } = updateData.googleCalendar;
+            updateDoc['googleCalendar'] = { ...(currentSettings.googleCalendar || {}), ...others };
+            if (clientSecret) updateDoc['googleCalendar'].clientSecret = clientSecret;
         }
 
         // Google Maps
@@ -235,7 +218,7 @@ const updateSettings = async (req, res) => {
                 upsert: false,
                 runValidators: false,
             }
-        ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey');
+        ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +googleCalendar.clientSecret');
 
         invalidatePublicCache(); // Invalidate on update
 
@@ -248,10 +231,14 @@ const updateSettings = async (req, res) => {
 
 const testSMTP = async (req, res) => {
     try {
-        const { to, subject, body } = req.body;
-        await sendTestEmail(to, subject, body);
+        const { smtpConfig, testEmail } = req.body;
+        if (!smtpConfig || !testEmail) {
+            return res.status(400).json({ success: false, message: 'Missing smtpConfig or testEmail' });
+        }
+        await sendTestEmail(smtpConfig, testEmail);
         res.json({ success: true, message: 'Test email sent successfully' });
     } catch (error) {
+        console.error('Test SMTP Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

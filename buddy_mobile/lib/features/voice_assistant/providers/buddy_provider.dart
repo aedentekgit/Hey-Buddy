@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
@@ -15,6 +16,10 @@ class BuddyProvider with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _storage = const FlutterSecureStorage();
   final FlutterTts _flutterTts = FlutterTts();
+  
+  // Expose these for potential direct use (but provider methods are preferred)
+  FlutterTts get tts => _flutterTts;
+  AudioPlayer get audioPlayer => _audioPlayer;
 
   List<Map<String, dynamic>> _messages = [];
   List<dynamic> _historyList = [];
@@ -27,6 +32,11 @@ class BuddyProvider with ChangeNotifier {
   String? _localCity;
   bool _needsLogin = false;
   bool get needsLogin => _needsLogin;
+
+  // TTS Buffering Variables
+  String _ttsBuffer = '';
+  final List<String> _ttsQueue = [];
+  bool _isSpeakingQueue = false;
 
   void clearNeedsLogin() {
     _needsLogin = false;
@@ -64,10 +74,78 @@ class BuddyProvider with ChangeNotifier {
     }
   }
 
+  Future<void> stopAllAudio() async {
+    _ttsQueue.clear();
+    _ttsBuffer = '';
+    _isSpeakingQueue = false;
+    socketService.interrupt(); // TELL BACKEND TO STOP STREAMING
+    await _flutterTts.stop();
+    await _audioPlayer.stop();
+    notifyListeners();
+  }
+
+  Future<void> _processTtsQueue() async {
+    if (_isSpeakingQueue || _ttsQueue.isEmpty) return;
+    _isSpeakingQueue = true;
+
+    while (_ttsQueue.isNotEmpty) {
+      if (!_isSpeakingQueue) break; // Allow emergency stop
+      final sentence = _ttsQueue.removeAt(0);
+      if (sentence.trim().isEmpty) continue;
+      
+      try {
+        final token = await _storage.read(key: 'jwt'); 
+        final baseUrl = AppConfig.baseUrl;
+        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(sentence)}');
+        
+        final response = await http.get(url, headers: {
+          'Authorization': 'Bearer $token',
+        });
+        
+        bool playedCustom = false;
+        if (response.statusCode == 200) {
+          final body = json.decode(response.body);
+          if (body['success'] == true && body['audio'] != null) {
+            final audioBytes = base64Decode(body['audio']);
+            
+            var completer = Completer<void>();
+            StreamSubscription? compSub;
+            StreamSubscription? stateSub;
+            
+            compSub = _audioPlayer.onPlayerComplete.listen((_) {
+              if (!completer.isCompleted) completer.complete();
+            });
+            stateSub = _audioPlayer.onPlayerStateChanged.listen((state) {
+               if (state == PlayerState.stopped && !completer.isCompleted) completer.complete();
+            });
+            
+            await _audioPlayer.play(BytesSource(audioBytes));
+            await completer.future;
+            
+            await compSub.cancel();
+            await stateSub.cancel();
+            
+            playedCustom = true;
+          }
+        }
+
+        if (!playedCustom) {
+           await _flutterTts.speak(sentence);
+        }
+      } catch (e) {
+        print("TTS Error: $e");
+        await _flutterTts.speak(sentence);
+      }
+    }
+
+    _isSpeakingQueue = false;
+  }
+
   void _setupSocketListeners() {
-    _flutterTts.setSpeechRate(0.6);
+    _flutterTts.setSpeechRate(0.5); // More natural speed
     _flutterTts.setPitch(1.0);
     _flutterTts.setVolume(1.0);
+    _flutterTts.awaitSpeakCompletion(true); 
 
     socketService.captionStream.listen((text) {
       if (_messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
@@ -92,11 +170,60 @@ class BuddyProvider with ChangeNotifier {
       if (_isThinking) {
         _isThinking = false;
       }
+
+      // Sentence parsing for TTS Streaming (Sanitize for voice)
+      String sanitizedText = text
+          .replaceAll('*', '')
+          .replaceAll('`', '')
+          .replaceAll('#', '')
+          .replaceAll(RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false), '')
+          .replaceAll(RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]', unicode: true), '');
+
+      _ttsBuffer += sanitizedText;
+      List<String> sentences = [];
+      String tempBuffer = _ttsBuffer;
+      
+      // PARSER: Split by punctuation OR if buffer is getting too long (for lower latency)
+      final sentenceRegEx = RegExp(r'[^.!?]+[.!?]+');
+      Iterable<Match> matches = sentenceRegEx.allMatches(tempBuffer);
+      
+      int lastMatchEnd = 0;
+      for (final match in matches) {
+          sentences.add(match.group(0)!);
+          lastMatchEnd = match.end;
+      }
+      
+      // If no punctuation yet but buffer is very long, force a chunk to reduce latency
+      if (sentences.isEmpty && tempBuffer.length > 80) {
+        int lastSpace = tempBuffer.lastIndexOf(' ');
+        if (lastSpace > 40) {
+          sentences.add(tempBuffer.substring(0, lastSpace));
+          lastMatchEnd = lastSpace;
+        }
+      }
+
+      if (sentences.isNotEmpty) {
+          _ttsBuffer = tempBuffer.substring(lastMatchEnd);
+          _ttsQueue.addAll(sentences);
+          _processTtsQueue();
+      }
+
       notifyListeners();
     });
 
-    socketService.socket?.on('turn_started', (_) {
+    socketService.socket?.on('turn_started', (_) async {
         _isThinking = true;
+        await stopAllAudio(); // Use the consolidated stop method
+        notifyListeners();
+    });
+
+    socketService.socket?.on('error', (_) {
+        _isThinking = false;
+        notifyListeners();
+    });
+
+    socketService.socket?.on('connect_error', (_) {
+        _isThinking = false;
         notifyListeners();
     });
 
@@ -105,27 +232,29 @@ class BuddyProvider with ChangeNotifier {
         if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
             _messages.last['isPartial'] = false;
         }
+        
+        // Flush any remaining text in buffer to TTS
+        if (_ttsBuffer.trim().isNotEmpty) {
+           _ttsQueue.add(_ttsBuffer.trim());
+           _ttsBuffer = '';
+           _processTtsQueue();
+        }
+
         _isThinking = false; // Ensure cleared
         notifyListeners();
     });
 
     socketService.audioStream.listen((base64Audio) async {
-       try {
-           if (base64Audio.isNotEmpty) {
-               // We decode and attempt to play, but we don't block
-               final audioBytes = base64Decode(base64Audio);
-               // Note: This needs a raw PCM player. For now we use it as is
-               // but we ensure the app stays responsive.
-               _audioPlayer.play(BytesSource(audioBytes));
-           }
-       } catch (e) {
-           print('Error playing audio chunk: $e');
-       }
+       // Gemini 2.0 Live returns raw PCM chunks which the native AudioPlayer cannot play gracefully.
+       // We rely on the local TTS chunking implemented above in captionStream for high-speed voice.
     });
 
 
     socketService.statusStream.listen((isConnected) {
       _isRealtimeEnabled = isConnected;
+      if (!isConnected) {
+        _isThinking = false;
+      }
       notifyListeners();
     });
 
@@ -158,6 +287,7 @@ class BuddyProvider with ChangeNotifier {
           if (response.statusCode == 200) {
             final body = json.decode(response.body);
             if (body['success'] == true && body['audio'] != null) {
+              await _flutterTts.stop(); // Clear local TTS
               final audioBytes = base64Decode(body['audio']);
               await _audioPlayer.play(BytesSource(audioBytes));
             }
@@ -256,9 +386,9 @@ class BuddyProvider with ChangeNotifier {
       };
     }
 
-    if (_isRealtimeEnabled) {
+    if (_isRealtimeEnabled && imagePath == null) {
+      await stopAllAudio(); // STOP PREVIOUS VOICE IMMEDIATELY
       socketService.sendText(text.isEmpty && isWakeWord ? 'Hey Buddy' : text);
-      // Keep _isThinking = true; will be set to false when stream starts or finishes
       notifyListeners();
       return;
     }
@@ -276,15 +406,23 @@ class BuddyProvider with ChangeNotifier {
       
       addMessage('ai', reply);
       
-      // SPEED FIX: Speak immediately via local TTS
-      _flutterTts.speak(reply);
+      // Clear any busy audio before speaking new reply
+      await stopAllAudio();
+
+      if (audioBase64 != null && audioBase64.isNotEmpty) {
+          final audioBytes = base64Decode(audioBase64);
+          await _audioPlayer.play(BytesSource(audioBytes));
+      } else {
+          _flutterTts.setSpeechRate(0.5); // Optimal for Android emulators
+          await _flutterTts.speak(reply);
+      }
 
       if (response['meta'] != null && response['meta']['conversationId'] != null) {
         _currentConversationId = response['meta']['conversationId'];
       }
 
       // If backend audio is provided and high quality is preferred, we could play it.
-      // But for "Very Very Fast", local TTS already started.
+      // Now playing backend audio directly.
     } else {
       if (response['statusCode'] == 401) {
         _needsLogin = true;
@@ -305,22 +443,24 @@ class BuddyProvider with ChangeNotifier {
   }
 
   Future<void> deleteConversation(String id) async {
-    final success = await _buddyService.deleteConversation(id);
-    if (success) {
-      _historyList.removeWhere((c) => c['_id'] == id);
-      if (_currentConversationId == id) {
-        startNewChat();
-      }
-      notifyListeners();
+    // Optimistically clear local state
+    _historyList.removeWhere((c) => c['_id'] == id);
+    if (_currentConversationId == id) {
+      startNewChat();
     }
+    notifyListeners();
+    
+    // Attempt to clear from server if logged in
+    await _buddyService.deleteConversation(id);
   }
 
   Future<void> deleteAllHistory() async {
-    final success = await _buddyService.deleteAllConversations();
-    if (success) {
-      _historyList = [];
-      startNewChat();
-      notifyListeners();
-    }
+    // Optimistically clear local state
+    _historyList = [];
+    startNewChat();
+    notifyListeners();
+    
+    // Attempt to clear from server if logged in
+    await _buddyService.deleteAllConversations();
   }
 }

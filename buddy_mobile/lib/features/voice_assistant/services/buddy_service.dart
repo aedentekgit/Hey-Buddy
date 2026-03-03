@@ -14,6 +14,20 @@ class BuddyService {
     return await _storage.read(key: 'jwt');
   }
 
+  Future<Map<String, String>> _getHeaders() async {
+    final token = await _getToken();
+    final headers = {
+      'Content-Type': 'application/json',
+      'x-platform': 'mobile',
+    };
+    
+    if (token != null && token.isNotEmpty && token != "null" && token != "undefined") {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    
+    return headers;
+  }
+
   // Parse Voice / Bot Chat
   Future<Map<String, dynamic>> parseVoice({
     required String text,
@@ -23,14 +37,10 @@ class BuddyService {
     String? conversationId,
   }) async {
     try {
-      final token = await _getToken();
+      final headers = await _getHeaders();
       final response = await http.post(
         Uri.parse('${_baseUrl}voice/parse'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'x-platform': 'mobile',
-        },
+        headers: headers,
         body: jsonEncode({
           'text': text,
           'image': image,
@@ -54,14 +64,10 @@ class BuddyService {
   // Reminders
   Future<Map<String, dynamic>> saveReminder(Map<String, dynamic> reminderData, String saveTo) async {
     try {
-      final token = await _getToken();
+      final headers = await _getHeaders();
       final response = await http.post(
         Uri.parse('${_baseUrl}voice/save'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'x-platform': 'mobile',
-        },
+        headers: headers,
         body: jsonEncode({
           'reminderData': reminderData,
           'saveTo': saveTo,
@@ -195,17 +201,14 @@ class BuddyService {
 
   Future<Map<String, dynamic>> getLocalNews(double? lat, double? lon) async {
     try {
-      final token = await _getToken();
+      final headers = await _getHeaders();
       String url = '${_baseUrl}voice/news/local';
       if (lat != null && lon != null) {
         url += '?lat=$lat&lon=$lon';
       }
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: headers,
       );
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

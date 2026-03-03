@@ -15,8 +15,9 @@ class GeminiLiveService extends EventEmitter {
     }
 
 
-    connect(systemInstruction = null, voice = 'Aoede', useTools = true) {
-        console.log(`[Gemini Live] Connecting with voice: ${voice} (Tools: ${useTools})...`);
+    connect(systemInstruction = null, voice = 'Aoede', useTools = true, modelOverride = null) {
+        if (modelOverride) this.model = modelOverride;
+        console.log(`[Gemini Live] Connecting to ${this.model} with voice: ${voice} (Tools: ${useTools})...`);
         this.systemInstructionOverride = systemInstruction;
         this.voiceOverride = voice;
         this.useTools = useTools;
@@ -26,18 +27,15 @@ class GeminiLiveService extends EventEmitter {
         this.ws = new WebSocket(url);
 
         this.ws.on('open', () => {
-            console.log('[Gemini Live] ✅ Connected to Gemini Live API');
+            console.log(`[Gemini Live] ✅ Connected to Gemini Live API (${this.model})`);
             this.isConnected = true;
             this.sendSetup();
-            this.emit('ready');
         });
 
         this.ws.on('message', (data) => {
             try {
                 const response = JSON.parse(data);
-                if (!response.serverContent && !response.server_content) {
-                    // console.log('[Gemini Live] 📥 Control Message:', JSON.stringify(response));
-                }
+                // console.log('[Gemini Live] 📥 Message received:', JSON.stringify(response, null, 2));
                 this.handleResponse(response);
             } catch (err) {
                 console.error('[Gemini Live] ❌ Error parsing message:', err, data.toString());
@@ -57,18 +55,29 @@ class GeminiLiveService extends EventEmitter {
 
     sendSetup() {
         const modelName = this.model;
-        console.log(`[Gemini Live] 📤 Sending setup with voice: ${this.voiceOverride} and model: ${modelName}...`);
+        console.log(`[Gemini Live] 📤 Sending setup with model: ${modelName}...`);
 
-
-        const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant.`;
+        const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant. Never narrate your thought process or mention the internal tools you are using to the user. Simply execute the tools silently and provide a brief, professional confirmation to the user.`;
 
         const setupMessage = {
             setup: {
                 model: modelName,
-                systemInstruction: {
+                generation_config: {
+                    response_modalities: ["AUDIO"],
+                    speech_config: {
+                        voice_config: {
+                            prebuilt_voice_config: {
+                                voice_name: this.voiceOverride || "Aoede"
+                            }
+                        }
+                    }
+                },
+                system_instruction: {
                     parts: [{ text: systemInstruction }]
                 },
-                tools: buddyTools
+                tools: this.useTools ? buddyTools.map(t => ({
+                    function_declarations: t.functionDeclarations
+                })) : []
             }
         };
         console.log('[Gemini Live] 🚀 Setup Payload:', JSON.stringify(setupMessage, null, 2));
@@ -77,18 +86,25 @@ class GeminiLiveService extends EventEmitter {
 
     handleResponse(response) {
         if (response.setupComplete || response.setup_complete) {
-            console.log('[Gemini Live] 🆗 Setup complete');
+            console.log('[Gemini Live] 🆗 Setup complete for model:', this.model);
             this.emit('setup_complete');
+            this.emit('ready'); // Now we are actually ready
         }
 
         if (response.error) {
-            console.error('[Gemini Live] ❌ Gemini Server Error:', JSON.stringify(response.error, null, 2));
+            console.error('[Gemini Live] ❌ Gemini Server Error:', this.model, JSON.stringify(response.error, null, 2));
             this.emit('error', response.error);
         }
 
         // Handle Server Content (Audio/Interim Transcripts)
         const serverContent = response.serverContent || response.server_content;
         if (serverContent) {
+            // If we haven't seen this turn yet, emit turn_started
+            if (!this.inTurn) {
+                this.inTurn = true;
+                this.emit('turn_started');
+            }
+
             const modelTurn = serverContent.modelTurn || serverContent.model_turn;
             const parts = modelTurn?.parts || [];
 
@@ -112,10 +128,12 @@ class GeminiLiveService extends EventEmitter {
             }
 
             if (serverContent.turnComplete || serverContent.turn_complete) {
+                this.inTurn = false;
                 this.emit('response_done');
             }
 
             if (serverContent.interrupted) {
+                this.inTurn = false;
                 this.emit('interrupted');
             }
         }
@@ -124,6 +142,12 @@ class GeminiLiveService extends EventEmitter {
         const toolCall = response.toolCall || response.tool_call;
         if (toolCall) {
             this.emit('call_tool', toolCall);
+        }
+
+        // Handle Non-Stream / Client Content Completions
+        if (response.generationComplete || response.generation_complete) {
+            this.inTurn = false;
+            this.emit('response_done');
         }
     }
 

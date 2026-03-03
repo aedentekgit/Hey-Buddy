@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 
 class KeyboardGuidedHover extends StatefulWidget {
   final Widget child;
@@ -141,7 +143,7 @@ class _KeyboardGuidedHoverState extends State<KeyboardGuidedHover> with SingleTi
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Buddy Dialogue",
+                        "${Provider.of<BrandingProvider>(context, listen: false).appName} Dialogue",
                         style: GoogleFonts.outfit(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,

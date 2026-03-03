@@ -21,7 +21,9 @@ const initFirebase = async () => {
 
         const jsonPath = path.join(__dirname, '..', relativePath);
 
-        const serviceAccount = require(jsonPath);
+        const fs = require('fs');
+        const jsonContent = fs.readFileSync(jsonPath, 'utf8');
+        const serviceAccount = JSON.parse(jsonContent);
 
         if (!admin.apps.length) {
             firebaseApp = admin.initializeApp({

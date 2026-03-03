@@ -254,19 +254,25 @@ const toolHandlers = {
     },
     google_search: async (userId, args) => {
         const { query } = args;
-        console.log(`[GeminiTools] Performing internal Google Search for: "${query}"`);
+        console.log(`[GeminiTools] 🔍 Start internal search for: "${query}"`);
         try {
-            // Internal call with ONLY Search Grounding (SDK doesn't allow combining with functions)
             const searchModel = genAI.getGenerativeModel({
-                model: "gemini-2.0-flash",
+                model: "gemini-1.5-flash", // Use latest flash for reliability in subcalls
                 tools: [{ googleSearch: {} }]
             });
-            const result = await searchModel.generateContent(`Find current events/news about: ${query}. Provide a concise summary.`);
+
+            // Set a timeout for the search call
+            const searchPromise = searchModel.generateContent(`Find current events in Feb 2026 about: ${query}. Provide a concise summary. NO MARKDOWN, NO BULLET POINTS (*,-), NO EMOJIS. PLAIN TEXT ONLY.`);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Search Timeout')), 8000));
+
+            const result = await Promise.race([searchPromise, timeoutPromise]);
             const response = await result.response;
-            return { status: 'success', data: response.text() };
+            const text = response.text();
+            console.log(`[GeminiTools] ✅ Search complete: ${text.substring(0, 50)}...`);
+            return { status: 'success', data: text };
         } catch (err) {
-            console.error('[GeminiTools] Internal Search failed:', err.message);
-            return { status: 'error', message: 'Could not fetch real-time data.' };
+            console.error('[GeminiTools] ❌ Search failed:', err.message);
+            return { status: 'error', message: 'Currently unable to fetch live news. Please try again later.' };
         }
     }
 };
@@ -471,24 +477,31 @@ const geminiService = {
                 RECENT MEMORIES (Facts/Notes):
                 ${context.memories && context.memories.length > 0 ? context.memories.join('\n') : 'No recent memories found.'}
                 
-                UPCOMING REMINDERS:
-                ${context.reminders && context.reminders.length > 0 ? context.reminders.map(r => `- ${r.title} at ${r.time} (${r.date})`).join('\n') : 'No upcoming reminders found in immediate context.'}
+                STRICT RULES FOR DATA INTEGRITY AND VOICE OUTPUT:
+                1. NO EMOJIS:
+                   - DO NOT USE ANY EMOJIS in your responses. Your text is sent directly to a Text-to-Speech voice synthesizer which will literally read the emoji descriptions out loud. NO EMOJIS.
+                   
+                2. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
+                   - If the user asks a general question like "is there any reminder for me?" or "what are my reminders?", you MUST ONLY mention reminders where the date exactly matches TODAY (${userContext.localDate}). Do NOT read future reminders unless the user explicitly asks for future dates (e.g., "what do I have later this week").
+                   - If there are no reminders for TODAY, just say "You have no reminders for today." DO NOT list the upcoming ones unless they ask.
+                   - As a GUEST, YOU MUST NOT search reminders or memories. Always use your internal training data for general questions.
+                   - Requests about schedule, tasks, or "what do I have to do" MUST use 'list_reminders' if not in the UPCOMING REMINDERS list above.
+                   - Requests about facts, "where is my [item]", or past events MUST use 'search_memories' or 'list_memories' if not in the RECENT MEMORIES list above.
+                3. NO HALLUCINATION:
+                   - If the user asks for reminders or personal facts, you MUST refuse and tell them to login. NEVER make them up. If asked for general news or facts, you SHOULD use 'google_search' to find accurate real-time information before answering.
+                   - If user asks for today's reminders and they aren't in the list above, call 'list_reminders' with date="today".
+                   - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: "You have no reminders scheduled for today."
+                   - ALWAYS use 'google_search' for real-time news, current affairs, or information not in your training data.
+                   - NEVER infer reminders or facts exist if neither the context nor the tools show them.
                 
-                STRICT RULES FOR DATA INTEGRITY:
-                1. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
-${!userId ? "                   - As a GUEST, YOU MUST NOT search reminders or memories. Always use your internal training data for general questions." : "                   - Requests about schedule, tasks, or \"what do I have to do\" MUST use 'list_reminders' if not in the UPCOMING REMINDERS list above.\n                   - Requests about facts, \"where is my [item]\", or past events MUST use 'search_memories' or 'list_memories' if not in the RECENT MEMORIES list above."}
-                
-                2. NO HALLUCINATION:
-${!userId ? "                   - If the user asks for reminders or personal facts, you MUST refuse and tell them to login. NEVER make them up. If asked for general news or facts, you SHOULD use 'google_search' to find accurate real-time information before answering." : "                   - If user asks for today's reminders and they aren't in the list above, call 'list_reminders' with date=\"today\".\n                   - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: \"You have no reminders scheduled for today.\"\n                   - ALWAYS use 'google_search' for real-time news, current affairs, or information not in your training data.\n                   - NEVER infer reminders or facts exist if neither the context nor the tools show them."}
-                
-                3. DATE, LOCATION & ACTION SENSITIVITY:
+                4. DATE, LOCATION & ACTION SENSITIVITY:
                    - "Today" is ${userContext.localDate}.
                    - You MUST resolve relative dates like "tomorrow", "yesterday", or "next Monday" into the exact YYYY-MM-DD format using today's date. 
                    - NEVER ask the user for confirmation if they give a relative date and time (e.g. "tomorrow at 5pm"). Calculate it yourself and call the tool IMMEDIATELY.
                    - NEVER ask "Do you mean [Date]?", just assume you are correct and trigger the 'create_reminder' tool right away.
                    - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
                 
-                4. MULTILINGUAL SUPPORT: 
+                5. MULTILINGUAL SUPPORT: 
                    - You are a native speaker of multiple languages including **Tamil**, Hindi, Spanish, French, etc. 
                    - You MUST respond in the language the user speaks OR explicitly requests (e.g., "speak in Tamil").
                    - If the user switches language, you MUST switch with them immediately.

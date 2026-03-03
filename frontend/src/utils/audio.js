@@ -25,7 +25,8 @@ export function encode(bytes) {
 }
 
 /**
- * Decodes raw PCM audio data into an AudioBuffer.
+ * Decodes audio data into an AudioBuffer. 
+ * Supports both raw PCM (Gemini) and encoded formats (Google TTS MP3).
  */
 export async function decodeAudioData(
   data,
@@ -33,7 +34,25 @@ export async function decodeAudioData(
   sampleRate,
   numChannels,
 ) {
-  const dataInt16 = new Int16Array(data.buffer);
+  // 1. Try Native Decoder (for MP3, AAC, etc.)
+  // We detect if it's likely an encoded format by checking for common headers
+  // or just trying to decode it.
+  const isMP3 = (data[0] === 0xFF && (data[1] & 0xE0) === 0xE0) ||
+    (data[0] === 0x49 && data[1] === 0x44 && data[2] === 0x33); // ID3 or Sync
+
+  if (isMP3) {
+    try {
+      // NOTE: ctx.decodeAudioData requires an ArrayBuffer and is async
+      // We must copy the buffer because decodeAudioData might detatch it
+      const bufferCopy = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      return await ctx.decodeAudioData(bufferCopy);
+    } catch (e) {
+      console.warn("[Audio] Native decode failed, attempting PCM fallback", e);
+    }
+  }
+
+  // 2. Fallback to Raw PCM (Int16)
+  const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 

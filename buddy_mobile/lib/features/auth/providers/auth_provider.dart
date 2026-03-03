@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:buddy_mobile/core/services/notification_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import '../services/auth_service.dart';
 
 class AuthProvider with ChangeNotifier {
@@ -60,8 +62,18 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Step 1: Trigger Google Sign In
-      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+      debugPrint('[AUTH] Starting Google Sign-In with Server Client ID: ${AppConfig.googleClientId}');
+      
+      // Step 1: Trigger Google Sign In 
+      // Passing the serverClientId is VITAL for Android to receive an idToken
+      final googleSignInInstance = GoogleSignIn(
+        serverClientId: AppConfig.googleClientId,
+        scopes: ['email', 'profile', 'https://www.googleapis.com/auth/calendar'],
+        forceCodeForRefreshToken: true,
+      );
+
+      final GoogleSignInAccount? account = await googleSignInInstance.signIn();
+      
       if (account == null) {
         _isLoading = false;
         notifyListeners();
@@ -73,14 +85,19 @@ class AuthProvider with ChangeNotifier {
       final String? idToken = auth.idToken;
 
       if (idToken == null) {
-        debugPrint('Google Login Error: ID Token is null');
+        final errorMsg = 'Google Login Error: ID Token is null. Check if Web Client ID is correct in Admin Settings.';
+        debugPrint(errorMsg);
+        ToastUtils.showErrorToast('Google Login Failed: Missing ID Token');
         _isLoading = false;
         notifyListeners();
         return false;
       }
 
       // Step 3: Call backend
-      final result = await _authService.googleLogin(idToken);
+      final String? serverAuthCode = account.serverAuthCode;
+      debugPrint('[AUTH] Received Server Auth Code: ${serverAuthCode != null ? "YES" : "NO"}');
+      
+      final result = await _authService.googleLogin(idToken, serverAuthCode: serverAuthCode);
       
       if (result['success'] == true && result['data'] != null) {
         final data = result['data'];
@@ -94,9 +111,14 @@ class AuthProvider with ChangeNotifier {
           notifyListeners();
           return true;
         }
+      } else {
+         final backendMsg = result['message'] ?? 'Backend verification failed';
+         debugPrint('[AUTH] Backend Error: $backendMsg');
+         ToastUtils.showErrorToast(backendMsg);
       }
     } catch (e) {
-      debugPrint('Google Login Error: $e');
+      debugPrint('Google Login Exception: $e');
+      ToastUtils.showErrorToast('Google Error: ${e.toString()}');
     }
 
     _isLoading = false;
@@ -138,6 +160,58 @@ class AuthProvider with ChangeNotifier {
       _notificationService.updateToken();
     }
     notifyListeners();
+  }
+  Future<bool> forgotPassword(String email) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    final result = await _authService.forgotPassword(email);
+    
+    _isLoading = false;
+    notifyListeners();
+    
+    if (result['success'] == true) {
+      ToastUtils.showSuccessToast(result['message'] ?? 'OTP sent to your email');
+      return true;
+    } else {
+      ToastUtils.showErrorToast(result['message'] ?? 'Failed to send OTP');
+      return false;
+    }
+  }
+
+  Future<bool> verifyResetOtp(String email, String otp) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    final result = await _authService.verifyResetOtp(email, otp);
+    
+    _isLoading = false;
+    notifyListeners();
+    
+    if (result['success'] == true) {
+      return true;
+    } else {
+       ToastUtils.showErrorToast(result['message'] ?? 'Invalid OTP');
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(String email, String otp, String newPassword) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    final result = await _authService.resetPassword(email, otp, newPassword);
+    
+    _isLoading = false;
+    notifyListeners();
+    
+    if (result['success'] == true) {
+      ToastUtils.showSuccessToast('Password reset successfully');
+      return true;
+    } else {
+      ToastUtils.showErrorToast(result['message'] ?? 'Password reset failed');
+      return false;
+    }
   }
 }
 

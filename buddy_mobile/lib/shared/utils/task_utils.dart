@@ -6,7 +6,7 @@ class TaskUtils {
   static String formatDate(String? dateStr, {String format = 'DD/MM/YYYY'}) {
     if (dateStr == null) return 'No date';
     try {
-      final date = DateTime.parse(dateStr);
+      final date = DateTime.parse(dateStr).toLocal();
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final d = DateTime(date.year, date.month, date.day);

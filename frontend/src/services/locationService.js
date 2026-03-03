@@ -44,9 +44,9 @@ export const startLocationTracking = async () => {
 
     // Options for initial position
     const options = {
-        enableHighAccuracy: false, // Set to false to avoid kCLErrorLocationUnknown on startup
-        maximumAge: 300000, // Accept a cached position up to 5 minutes old
-        timeout: 15000 // Give it more time (15s)
+        enableHighAccuracy: false,
+        maximumAge: 600000, // Accept a cached position up to 10 minutes old
+        timeout: 20000 // Give it more time (20s)
     };
 
     // Request permission and start tracking
@@ -61,16 +61,17 @@ export const startLocationTracking = async () => {
                     sendLocationUpdate(position.coords.latitude, position.coords.longitude);
                 },
                 (error) => {
-                    if (error.code === 2) { // POSITION_UNAVAILABLE
-                        console.warn('Location temporarily unavailable (kCLErrorLocationUnknown). Retrying...');
-                    } else {
-                        console.error('Location tracking error:', error.message);
+                    // Code 2 is POSITION_UNAVAILABLE, which mapping to kCLErrorLocationUnknown on macOS
+                    if (error.code === 2) {
+                        // Silence the warning as it's often transient on Mac/Desktop
+                        return;
                     }
+                    console.error('Location tracking error:', error.message);
                 },
                 {
                     enableHighAccuracy: false,
-                    maximumAge: 120000, // 2 minutes
-                    timeout: 20000
+                    maximumAge: 300000, // 5 minutes
+                    timeout: 30000
                 }
             );
 
@@ -81,7 +82,8 @@ export const startLocationTracking = async () => {
             if (error.code === 1) { // PERMISSION_DENIED
                 console.warn('Location permission denied by user.');
             } else if (error.code === 2) { // POSITION_UNAVAILABLE
-                console.warn('Location service error: Position unavailable. This often happens if location services are disabled on your Mac.');
+                // This is the kCLErrorLocationUnknown failure on Mac
+                console.info('Location service hint: Position unavailable. This often happens if WiFi is off or location services are restricted in Mac System Settings.');
             } else {
                 console.warn('Location error:', error.message);
             }

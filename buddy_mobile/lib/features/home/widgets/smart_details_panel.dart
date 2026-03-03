@@ -64,8 +64,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     timeController = TextEditingController(text: r['time'] ?? '');
     locationController = TextEditingController(text: r['location'] ?? '');
 
-    bufferTime = (r['bufferTime'] ?? 15).toDouble();
-    geofenceRadius = (r['geofenceRadius'] ?? 500).toDouble();
+    bufferTime = (r['bufferTime'] ?? 15).toDouble().clamp(5.0, 120.0);
+    geofenceRadius = (r['geofenceRadius'] ?? 500).toDouble().clamp(100.0, 2000.0);
     
     final al = r['alerts'] ?? {};
     alerts = {
@@ -377,18 +377,20 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           const SizedBox(height: 24),
 
           // Meta Info Rows
-          _InfoRow(
-            icon: LucideIcons.mapPin,
-            label: "Location",
-            child: isEditing
-                ? TextField(
-                    controller: locationController,
-                    decoration: const InputDecoration(hintText: "Add location...", border: InputBorder.none),
-                    style: GoogleFonts.outfit(fontSize: 14),
-                  )
-                : Text(locationController.text.isEmpty ? "No location set" : locationController.text),
-          ),
-          const SizedBox(height: 12),
+          if (widget.reminder['intent'] == 'pickup' || (locationController.text.isNotEmpty && locationController.text != 'No Location') || (coordinates != null && coordinates!['lat'] != null) || isEditing)
+            _InfoRow(
+              icon: LucideIcons.mapPin,
+              label: "Location",
+              child: isEditing
+                  ? TextField(
+                      controller: locationController,
+                      decoration: const InputDecoration(hintText: "Add location...", border: InputBorder.none),
+                      style: GoogleFonts.outfit(fontSize: 14),
+                    )
+                  : Text(locationController.text.isEmpty ? "No location set" : locationController.text),
+            ),
+          if (widget.reminder['intent'] == 'pickup' || (locationController.text.isNotEmpty && locationController.text != 'No Location') || (coordinates != null && coordinates!['lat'] != null) || isEditing)
+            const SizedBox(height: 12),
           _InfoRow(
             icon: LucideIcons.clock,
             label: "Schedule",
@@ -502,155 +504,182 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           ),
 
           // Location Settings
-          _DetailCard(
-            title: "LOCATION SETTINGS",
-            icon: LucideIcons.navigation,
-            children: [
-              Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+          if (widget.reminder['intent'] == 'pickup' || (locationController.text.isNotEmpty && locationController.text != 'No Location') || (coordinates != null && coordinates!['lat'] != null) || isEditing)
+            _DetailCard(
+              title: "LOCATION SETTINGS",
+              icon: LucideIcons.navigation,
+              children: [
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: isEditing
+                      ? MobileMapPicker(
+                          initialCoordinates: coordinates,
+                          onLocationSelected: (coords, address) {
+                            setState(() {
+                              coordinates = coords;
+                              // Only update text if it's currently empty or was just generic
+                              if (locationController.text.isEmpty || locationController.text.contains("Custom Location")) {
+                                locationController.text = address;
+                              }
+                            });
+                          },
+                        )
+                      : Stack(
+                          children: [
+                            GoogleMap(
+                              initialCameraPosition: CameraPosition(
+                                target: (coordinates != null && coordinates!['lat'] != null)
+                                    ? LatLng(coordinates!['lat'], coordinates!['lng'])
+                                    : (currentPosition != null 
+                                        ? LatLng(currentPosition!.latitude, currentPosition!.longitude)
+                                        : const LatLng(9.9252, 78.1198)),
+                                zoom: (coordinates != null && coordinates!['lat'] != null) ? 15 : 12,
+                              ),
+                              onMapCreated: (controller) {
+                                mapController = controller;
+                                if (polylines.isNotEmpty) {
+                                  List<LatLng> polylineCoordinates = polylines.first.points;
+                                  LatLngBounds bounds = _getBounds(polylineCoordinates);
+                                  mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+                                }
+                              },
+                              markers: {
+                                if (coordinates != null && coordinates!['lat'] != null)
+                                  Marker(
+                                    markerId: const MarkerId('selected'),
+                                    position: LatLng(coordinates!['lat'], coordinates!['lng']),
+                                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+                                  ),
+                                if (currentPosition != null)
+                                   Marker(
+                                    markerId: const MarkerId('current'),
+                                    position: LatLng(currentPosition!.latitude, currentPosition!.longitude),
+                                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                                  ),
+                              },
+                              circles: {
+                                if (coordinates != null && coordinates!['lat'] != null)
+                                  Circle(
+                                    circleId: const CircleId('geofence'),
+                                    center: LatLng(coordinates!['lat'], coordinates!['lng']),
+                                    radius: geofenceRadius,
+                                    fillColor: Theme.of(context).primaryColor.withOpacity(0.12),
+                                    strokeColor: Theme.of(context).primaryColor,
+                                    strokeWidth: 2,
+                                  ),
+                              },
+                              polylines: polylines,
+                              zoomControlsEnabled: true,
+                              myLocationEnabled: true,
+                              myLocationButtonEnabled: true,
+                              mapToolbarEnabled: true,
+                            ),
+                            if (coordinates == null || coordinates!['lat'] == null)
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.95),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4)
+                                      )
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(LucideIcons.mapPinOff, size: 28, color: Theme.of(context).primaryColor.withOpacity(0.8)),
+                                      const SizedBox(height: 8),
+                                      Text("No location specified", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[800], fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 2),
+                                      Text("Tap 'Edit Settings' to route", style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[600])),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text("Geofence Radius", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
                     ),
+                    Text("${geofenceRadius.toInt()}m", style: GoogleFonts.outfit(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
                   ],
                 ),
-                clipBehavior: Clip.hardEdge,
-                child: isEditing
-                    ? MobileMapPicker(
-                        initialCoordinates: coordinates,
-                        onLocationSelected: (coords, address) {
-                          setState(() {
-                            coordinates = coords;
-                            // Only update text if it's currently empty or was just generic
-                            if (locationController.text.isEmpty || locationController.text.contains("Custom Location")) {
-                              locationController.text = address;
-                            }
-                          });
-                        },
-                      )
-                    : coordinates != null && coordinates!['lat'] != null
-                    ? GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: LatLng(coordinates!['lat'], coordinates!['lng']),
-                          zoom: 15,
-                        ),
-                        onMapCreated: (controller) {
-                          mapController = controller;
-                          if (polylines.isNotEmpty) {
-                            List<LatLng> polylineCoordinates = polylines.first.points;
-                            LatLngBounds bounds = _getBounds(polylineCoordinates);
-                            mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-                          }
-                        },
-                        markers: {
-                          Marker(
-                            markerId: const MarkerId('selected'),
-                            position: LatLng(coordinates!['lat'], coordinates!['lng']),
-                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-                          ),
-                          if (currentPosition != null)
-                             Marker(
-                              markerId: const MarkerId('current'),
-                              position: LatLng(currentPosition!.latitude, currentPosition!.longitude),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-                            ),
-                        },
-                        circles: {
-                          Circle(
-                            circleId: const CircleId('geofence'),
-                            center: LatLng(coordinates!['lat'], coordinates!['lng']),
-                            radius: geofenceRadius,
-                            fillColor: Theme.of(context).primaryColor.withOpacity(0.12),
-                            strokeColor: Theme.of(context).primaryColor,
-                            strokeWidth: 2,
-                          ),
-                        },
-                        polylines: polylines,
-                        zoomControlsEnabled: true,
-                        myLocationEnabled: true,
-                        myLocationButtonEnabled: true,
-                        mapToolbarEnabled: true,
-                      )
-                        : Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(LucideIcons.mapPin, size: 32, color: Theme.of(context).primaryColor.withOpacity(0.5)),
-                                const SizedBox(height: 8),
-                                Text("No location specified", style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[500])),
-                              ],
-                            ),
-                          ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text("Geofence Radius", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4,
+                    activeTrackColor: const Color(0xFFE2E8F0).withOpacity(0.5),
+                    inactiveTrackColor: const Color(0xFFE2E8F0).withOpacity(0.3),
+                    thumbColor: const Color(0xFFE2E8F0),
+                    overlayColor: Colors.transparent,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 0),
                   ),
-                  Text("${geofenceRadius.toInt()}m", style: GoogleFonts.outfit(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: Slider(
+                    value: geofenceRadius,
+                    min: 100,
+                    max: 2000,
+                    divisions: 19,
+                    onChanged: isEditing ? (v) => setState(() => geofenceRadius = v) : null,
+                  ),
+                ),
+                if (travelStats != null) ...[
+                   const SizedBox(height: 20),
+                   Container(
+                     padding: const EdgeInsets.all(20),
+                     decoration: BoxDecoration(
+                       color: const Color(0xFFF1F5F9).withOpacity(0.5),
+                       borderRadius: BorderRadius.circular(20),
+                       border: Border.all(color: Colors.grey[200]!),
+                     ),
+                     child: Column(
+                       children: [
+                         Row(
+                           children: [
+                             Icon(LucideIcons.activity, size: 18, color: Colors.grey[600]),
+                             const SizedBox(width: 12),
+                             Text("Current Distance", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
+                             const Spacer(),
+                             Text("${(travelStats!['distance'] / 1000).toStringAsFixed(2)} km", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
+                           ],
+                         ),
+                         const SizedBox(height: 16),
+                         Row(
+                           children: [
+                             Icon(LucideIcons.car, size: 18, color: Colors.grey[600]),
+                             const SizedBox(width: 12),
+                             Text("Est. Travel Time", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
+                             const Spacer(),
+                             Text("${(travelStats!['durationInTraffic'] / 60).round()} mins", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
+                           ],
+                         ),
+                       ],
+                     ),
+                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 4,
-                  activeTrackColor: const Color(0xFFE2E8F0).withOpacity(0.5),
-                  inactiveTrackColor: const Color(0xFFE2E8F0).withOpacity(0.3),
-                  thumbColor: const Color(0xFFE2E8F0),
-                  overlayColor: Colors.transparent,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 0),
-                ),
-                child: Slider(
-                  value: geofenceRadius,
-                  min: 100,
-                  max: 2000,
-                  divisions: 19,
-                  onChanged: isEditing ? (v) => setState(() => geofenceRadius = v) : null,
-                ),
-              ),
-              if (travelStats != null) ...[
-                 const SizedBox(height: 20),
-                 Container(
-                   padding: const EdgeInsets.all(20),
-                   decoration: BoxDecoration(
-                     color: const Color(0xFFF1F5F9).withOpacity(0.5),
-                     borderRadius: BorderRadius.circular(20),
-                     border: Border.all(color: Colors.grey[200]!),
-                   ),
-                   child: Column(
-                     children: [
-                       Row(
-                         children: [
-                           Icon(LucideIcons.activity, size: 18, color: Colors.grey[600]),
-                           const SizedBox(width: 12),
-                           Text("Current Distance", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
-                           const Spacer(),
-                           Text("${(travelStats!['distance'] / 1000).toStringAsFixed(2)} km", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
-                         ],
-                       ),
-                       const SizedBox(height: 16),
-                       Row(
-                         children: [
-                           Icon(LucideIcons.car, size: 18, color: Colors.grey[600]),
-                           const SizedBox(width: 12),
-                           Text("Est. Travel Time", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
-                           const Spacer(),
-                           Text("${(travelStats!['durationInTraffic'] / 60).round()} mins", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
-                         ],
-                       ),
-                     ],
-                   ),
-                 ),
               ],
-            ],
-          ),
+            ),
 
           // Collaboration Section
           _DetailCard(

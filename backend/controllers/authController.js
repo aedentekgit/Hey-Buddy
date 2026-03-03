@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Role = require('../models/Role');
 const Settings = require('../models/Settings');
 const { OAuth2Client } = require('google-auth-library');
+const { resolveVoiceConfig } = require('../utils/personality');
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -32,11 +33,7 @@ const login = async (req, res) => {
             }
 
             const prefs = user.voicePreferences || { gender: 'female', tone: 'soft' };
-            let pitch = 1.0;
-            let speechRate = 0.5;
-            if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
-            if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
-            else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+            const resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
             res.json({
                 success: true,
@@ -47,7 +44,7 @@ const login = async (req, res) => {
                     role: user.role,
                     profilePicture: user.profilePicture,
                     voicePreferences: user.voicePreferences,
-                    resolvedVoiceConfig: { pitch, speechRate },
+                    resolvedVoiceConfig,
                     permissions: role ? role.permissions : [],
                     allowedPages: role ? role.allowedPages : [],
                     webAccess: role ? role.webAccess : true,
@@ -64,37 +61,72 @@ const login = async (req, res) => {
 };
 
 const googleLogin = async (req, res) => {
-    const { idToken } = req.body;
+    const { idToken, serverAuthCode } = req.body;
 
-    if (!idToken) {
-        return res.status(400).json({ success: false, message: 'Google ID Token is missing' });
+    if (!idToken && !serverAuthCode) {
+        return res.status(400).json({ success: false, message: 'Google ID Token or Server Auth Code is missing' });
     }
 
     try {
-        // Fetch dynamic settings from database
-        const settings = await Settings.findOne().select('googleAuth');
+        // Fetch dynamic settings from database including secret for OAuth exchange
+        const settings = await Settings.findOne().select('+googleAuth.webClientSecret');
         if (!settings || !settings.googleAuth?.enabled) {
             return res.status(400).json({ success: false, message: 'Google authentication is currently disabled' });
         }
 
-        const { webClientId, androidClientId, iosClientId } = settings.googleAuth;
+        const { webClientId, androidClientId, iosClientId, webClientSecret } = settings.googleAuth;
         const audiences = [webClientId, androidClientId, iosClientId].filter(Boolean);
+        const clientSecret = webClientSecret;
 
         if (audiences.length === 0) {
             return res.status(400).json({ success: false, message: 'Google Client IDs not configured' });
         }
 
-        console.log('Verifying Google token against audiences:', audiences);
+        let payload;
+        let refresh_token;
 
-        const client = new OAuth2Client(webClientId); // Use webClientId as primary
-        const ticket = await client.verifyIdToken({
-            idToken,
-            audience: audiences
-        });
+        // Step 1: Handle Server Auth Code (Preferential for fresh refresh tokens)
+        if (serverAuthCode && clientSecret) {
+            try {
+                console.log('[Auth] Exchanging Server Auth Code for tokens...');
+                const oAuth2Client = new OAuth2Client(webClientId, clientSecret, 'postmessage');
+                const { tokens } = await oAuth2Client.getToken(serverAuthCode);
 
-        const payload = ticket.getPayload();
+                if (tokens.id_token) {
+                    const ticket = await oAuth2Client.verifyIdToken({
+                        idToken: tokens.id_token,
+                        audience: audiences
+                    });
+                    payload = ticket.getPayload();
+                }
+
+                if (tokens.refresh_token) {
+                    refresh_token = tokens.refresh_token;
+                    console.log('[Auth] New Refresh Token obtained from code exchange.');
+                }
+            } catch (authError) {
+                console.warn('[Auth] Code exchange failed:', authError.message);
+                if (!idToken) throw authError; // Fail if this was our only source
+            }
+        }
+
+        // Step 2: Handle fallback to direct idToken verification if needed
+        if (!payload && idToken) {
+            console.log('[Auth] Verifying direct ID Token...');
+            const client = new OAuth2Client(webClientId);
+            const ticket = await client.verifyIdToken({
+                idToken,
+                audience: audiences
+            });
+            payload = ticket.getPayload();
+        }
+
+        if (!payload) {
+            throw new Error('Could not verify Google identity from provided credentials');
+        }
+
         const { name, sub } = payload;
-        const email = payload.email.toLowerCase(); // Ensure lowercase to match Mongoose schema
+        const email = payload.email.toLowerCase();
 
         console.log('Google user verified:', email);
 
@@ -122,6 +154,14 @@ const googleLogin = async (req, res) => {
             }
         }
 
+        if (refresh_token) {
+            user.googleRefreshToken = refresh_token;
+            console.log('[Auth] Syncing new Refresh Token for user:', email);
+        }
+
+        // Save any changes to the user (e.g. the refresh token or new user creation)
+        await user.save();
+
         const role = await Role.findOne({ name: user.role });
         const platform = req.headers['x-platform'] || 'web';
 
@@ -135,11 +175,7 @@ const googleLogin = async (req, res) => {
         }
 
         const prefs = user.voicePreferences || { gender: 'female', tone: 'soft' };
-        let pitch = 1.0;
-        let speechRate = 0.5;
-        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
-        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
-        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
+        const resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
         res.json({
             success: true,
@@ -150,7 +186,7 @@ const googleLogin = async (req, res) => {
                 role: user.role,
                 profilePicture: user.profilePicture,
                 voicePreferences: user.voicePreferences,
-                resolvedVoiceConfig: { pitch, speechRate },
+                resolvedVoiceConfig,
                 permissions: role ? role.permissions : [],
                 allowedPages: role ? role.allowedPages : [],
                 webAccess: role ? role.webAccess : true,
@@ -227,7 +263,7 @@ const guestLogin = async (req, res) => {
                 role: 'guest',
                 profilePicture: null,
                 voicePreferences: { gender: 'female', tone: 'soft' },
-                resolvedVoiceConfig: { pitch: 1.1, speechRate: 0.5 },
+                resolvedVoiceConfig: resolveVoiceConfig({ gender: 'female', tone: 'soft' }, platform),
                 permissions: ['buddy'],
                 allowedPages: ['buddy'],
                 webAccess: true,
@@ -251,12 +287,8 @@ const getMe = async (req, res) => {
         userData.allowedPages = role ? role.allowedPages : [];
 
         const prefs = userData.voicePreferences || { gender: 'female', tone: 'soft' };
-        let pitch = 1.0;
-        let speechRate = 0.5;
-        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
-        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
-        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
-        userData.resolvedVoiceConfig = { pitch, speechRate };
+        const platform = req.headers['x-platform'] || 'web';
+        userData.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
         res.json({ success: true, data: userData });
     } catch (error) {
@@ -326,11 +358,98 @@ const setupVPS = async (req, res) => {
     }
 };
 
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ success: false, message: 'If the email exists, an OTP will be sent.' }); // Generic message for security
+
+        // Generate 6 digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { resetPasswordOtp: otp, resetPasswordExpires: expires } }
+        );
+
+        const { sendEmail } = require('../services/emailService');
+        await sendEmail(
+            user.email,
+            'Password Reset OTP',
+            `Your OTP to reset your password is: ${otp}\nIt is valid for 10 minutes.`,
+            `<h3>Password Reset</h3><p>Your OTP to reset your password is: <b>${otp}</b></p><p>It is valid for 10 minutes.</p>`
+        );
+
+        res.json({ success: true, message: 'If the email exists, an OTP will be sent.' });
+    } catch (error) {
+        console.error('[Forgot Password Error]:', error);
+
+        let errorMessage = 'Internal Server Error';
+        if (error.message && error.message.includes('SMTP')) {
+            errorMessage = 'Email system not configured. Please contact support or check admin settings.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+
+        res.status(500).json({ success: false, message: errorMessage });
+    }
+};
+
+const verifyResetOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+
+        const user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+
+        if (user.resetPasswordOtp !== otp || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+        }
+
+        res.json({ success: true, message: 'OTP verified successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+        if (!email || !otp || !newPassword) return res.status(400).json({ success: false, message: 'Missing fields' });
+
+        const user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+
+        if (user.resetPasswordOtp !== otp || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+        }
+
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { password: hashedPassword }, $unset: { resetPasswordOtp: "", resetPasswordExpires: "" } }
+        );
+
+        res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+};
+
 module.exports = {
     login,
     signup,
     googleLogin,
     getMe,
     guestLogin,
-    setupVPS
+    setupVPS,
+    forgotPassword,
+    verifyResetOtp,
+    resetPassword
 };

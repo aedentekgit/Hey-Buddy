@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Upload, Search, MessageSquare, FileText, Trash2, Loader2, Plus, Sparkles, Send, Brain } from 'lucide-react';
 import knowledgeService from '../services/knowledgeService';
@@ -13,7 +14,15 @@ const KnowledgeBase = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [query, setQuery] = useState('');
     const [chatHistory, setChatHistory] = useState([]);
-    const [activeTab, setActiveTab] = useState('library'); // 'library' or 'chat'
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = searchParams.get('tab') || 'library'; // 'library' or 'chat'
+    const setActiveTab = (tab) => {
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            newParams.set('tab', tab);
+            return newParams;
+        });
+    };
 
     useEffect(() => {
         fetchDocuments();

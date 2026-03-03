@@ -48,6 +48,11 @@ export const VoiceAssistantProvider = ({ children }) => {
             recognition.onstart = () => setStatus('LISTENING');
 
             recognition.onerror = (event) => {
+                if (event.error === 'aborted') {
+                    console.warn('[VoiceContext] Speech Recognition aborted, ignoring.');
+                    return;
+                }
+
                 console.error('[VoiceContext] Speech Recognition Error:', event.error);
                 if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
                     isIntentionalStop.current = true;
@@ -62,19 +67,18 @@ export const VoiceAssistantProvider = ({ children }) => {
                     console.log('[VoiceContext] Browser stopped mic. Restarting for continuity...');
                     setTimeout(() => {
                         try {
-                            // Double-check intention after delay
+                            // Only restart if still intentional and not already listening
                             if (!isIntentionalStop.current) {
                                 recognition.start();
                             }
                         } catch (e) {
-                            // Ignore errors if it's already started
+                            if (e.name !== 'InvalidStateError') {
+                                console.error('[VoiceContext] Failed to restart recognition:', e);
+                            }
                         }
-                    }, 500); // Small delay to prevent CPU spinning
+                    }, 800);
                 } else {
-                    // User explicitly stopped
-                    if (!isSpeakingRef.current) {
-                        setStatus('IDLE');
-                    }
+                    setStatus('IDLE');
                 }
             };
             recognitionRef.current = recognition;
@@ -222,16 +226,26 @@ export const VoiceAssistantProvider = ({ children }) => {
                 if (user?.voicePreferences) {
                     const voices = window.speechSynthesis.getVoices();
                     const gender = user.voicePreferences.gender || 'female';
+                    const tone = user.voicePreferences.tone || 'normal';
 
-                    // Look for voice that matches gender in its name (very common for browser voices)
-                    const targetVoice = voices.find(v => {
+                    const sortedVoices = [...voices].sort((a, b) => (b.localService ? 1 : 0) - (a.localService ? 1 : 0));
+
+                    const targetVoice = sortedVoices.find(v => {
                         const name = v.name.toLowerCase();
                         if (gender === 'female') {
-                            return name.includes('female') || name.includes('samantha') || name.includes('victoria') || name.includes('karen') || name.includes('moira');
+                            if (tone === 'soft') return name.includes('samantha') || name.includes('tessa');
+                            if (tone === 'energetic') return name.includes('moira') || name.includes('karen') || name.includes('fiona');
+                            return name.includes('victoria') || name.includes('monica') || (name.includes('female') && v.localService);
                         } else {
-                            return name.includes('male') || name.includes('daniel') || name.includes('alex') || name.includes('fred');
+                            if (tone === 'soft') return name.includes('daniel') || name.includes('thomas');
+                            if (tone === 'energetic') return name.includes('alex') || name.includes('lee');
+                            return name.includes('fred') || name.includes('oliver') || (name.includes('male') && v.localService);
                         }
-                    });
+                    }) || sortedVoices.find(v => {
+                        const name = v.name.toLowerCase();
+                        if (gender === 'female') return name.includes('female') || name.includes('woman');
+                        return name.includes('male') || name.includes('man');
+                    }) || sortedVoices[0];
 
                     if (targetVoice) {
                         utterance.voice = targetVoice;

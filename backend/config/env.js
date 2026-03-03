@@ -14,7 +14,13 @@ const config = {
     API_URL: process.env.API_URL || `http://localhost:${process.env.PORT || 5001}/api`,
 
     // Third Party
-    GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || `http://localhost:${process.env.PORT || 5001}/api/voice/google/callback`
+    GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || (
+        process.env.NODE_ENV === 'production'
+            ? 'https://ayuskart.com/api/voice/google/callback'
+            : process.env.NODE_ENV === 'staging'
+                ? 'https://staging.ayuskart.com/api/voice/google/callback'
+                : `http://localhost:${process.env.PORT || 5001}/api/voice/google/callback`
+    )
 };
 
 module.exports = config;

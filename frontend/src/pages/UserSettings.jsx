@@ -9,62 +9,66 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import voiceService from '../services/voiceService';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getImageUrl } from '../utils/imageUrl';
 import { decode, decodeAudioData } from '../utils/audio';
 
 const NotifSetting = ({ icon: Icon, title, description, enabled, onToggle }) => (
     <div style={{
-        padding: '20px',
+        padding: '24px',
         background: 'var(--bg-lite)',
-        borderRadius: '20px',
+        borderRadius: '24px',
         border: '1px solid var(--border-color)',
-        marginBottom: '1rem',
+        marginBottom: '1.5rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px'
+        gap: '20px',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
     }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '12px',
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '16px',
                     background: 'var(--card-bg)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid var(--border-color)'
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                 }}>
-                    <Icon size={20} color="var(--primary-color)" />
+                    <Icon size={22} color="var(--primary-color)" />
                 </div>
                 <div>
-                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700' }}>{title}</h4>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-sub)' }}>{description}</p>
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>{title}</h4>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)', lineHeight: '1.4' }}>{description}</p>
                 </div>
             </div>
 
             <div
                 onClick={onToggle}
                 style={{
-                    width: '48px',
-                    height: '24px',
-                    borderRadius: '12px',
-                    background: enabled ? 'var(--primary-color)' : 'var(--border-color)',
-                    padding: '2px',
+                    width: '56px',
+                    height: '28px',
+                    borderRadius: '14px',
+                    background: enabled ? 'var(--primary-color)' : 'var(--bg-lite)',
+                    border: enabled ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                    padding: '3px',
                     cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    position: 'relative'
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    boxShadow: enabled ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
                 }}
             >
                 <div style={{
                     width: '20px',
                     height: '20px',
                     borderRadius: '50%',
-                    background: 'white',
-                    transform: `translateX(${enabled ? '24px' : '0'})`,
+                    background: enabled ? 'white' : 'var(--text-sub)',
+                    transform: `translateX(${enabled ? '28px' : '0'})`,
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
                 }} />
             </div>
         </div>
@@ -74,8 +78,16 @@ const NotifSetting = ({ icon: Icon, title, description, enabled, onToggle }) => 
 const UserSettings = () => {
     const { user, logout, refreshUser } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const fileInputRef = useRef(null);
-    const [activeTab, setActiveTab] = useState('general');
+    const activeTab = searchParams.get('tab') || 'general';
+    const setActiveTab = (tab) => {
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            newParams.set('tab', tab);
+            return newParams;
+        });
+    };
     const [loading, setLoading] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -169,7 +181,9 @@ const UserSettings = () => {
         if (previewLoading) return;
         setPreviewLoading(true);
         try {
-            console.log("[Preview] Requesting voice preview...");
+            console.log("[Preview] Requesting premium voice preview...");
+            window.speechSynthesis.cancel();
+
             const response = await api.get('/voice/preview-voice', {
                 params: {
                     gender: voicePreferences.gender,
@@ -177,31 +191,82 @@ const UserSettings = () => {
                 }
             });
 
-            if (response.data.success && response.data.audio) {
-                console.log("[Preview] Audio data received, size:", response.data.audio.length);
+            if (response.data.success) {
+                if (response.data.audio) {
+                    console.log("[Preview] Premium Audio received, playing by decoding wav stream...");
 
-                if (!audioContextRef.current) {
-                    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                    if (!audioContextRef.current) {
+                        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                    }
+                    const ctx = audioContextRef.current;
+                    if (ctx.state === 'suspended') await ctx.resume();
+
+                    // Decode base64 to Float32Array
+                    const binaryString = atob(response.data.audio);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+
+                    try {
+                        const buffer = await ctx.decodeAudioData(bytes.buffer);
+                        const source = ctx.createBufferSource();
+                        source.buffer = buffer;
+                        source.connect(ctx.destination);
+
+                        source.onended = () => {
+                            setPreviewLoading(false);
+                            console.log("[Preview] Premium Playback complete");
+                        };
+
+                        source.start(0);
+                        toast.success(`Playing premium voice: ${response.data.voiceName}`);
+                        return; // Exit here if premium audio succeeded
+                    } catch (decodeErr) {
+                        console.error("[Preview] Decode error, falling back to basic...", decodeErr);
+                    }
                 }
-                const ctx = audioContextRef.current;
-                if (ctx.state === 'suspended') await ctx.resume();
 
-                const audioData = decode(response.data.audio);
-                const buffer = await decodeAudioData(audioData, ctx, 24000, 1);
+                // Fallback to Native TTS if Premium fails or returns Null
+                const config = response.data.resolvedVoiceConfig || { pitch: 1.0, speechRate: 1.0 };
+                const text = "Hi! I am Buddy. I am ready to help you.";
 
-                const source = ctx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(ctx.destination);
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.pitch = config.pitch;
+                utterance.rate = config.speechRate;
 
-                source.onended = () => {
-                    console.log("[Preview] Playback complete");
-                    setPreviewLoading(false);
-                };
+                const voices = window.speechSynthesis.getVoices();
 
-                source.start();
-                toast.success("Playing sample...");
+                // Sort to prefer localService voices
+                const sortedVoices = [...voices].sort((a, b) => (b.localService ? 1 : 0) - (a.localService ? 1 : 0));
+
+                const targetVoice = sortedVoices.find(v => {
+                    const name = v.name.toLowerCase();
+                    const tone = voicePreferences.tone || 'normal';
+                    if (voicePreferences.gender === 'female') {
+                        if (tone === 'soft') return name.includes('samantha') || name.includes('tessa');
+                        if (tone === 'energetic') return name.includes('moira') || name.includes('karen') || name.includes('fiona');
+                        return name.includes('victoria') || name.includes('monica') || (name.includes('female') && v.localService);
+                    } else {
+                        if (tone === 'soft') return name.includes('daniel') || name.includes('thomas');
+                        if (tone === 'energetic') return name.includes('alex') || name.includes('lee');
+                        return name.includes('fred') || name.includes('oliver') || (name.includes('male') && v.localService);
+                    }
+                }) || sortedVoices.find(v => {
+                    const name = v.name.toLowerCase();
+                    if (voicePreferences.gender === 'female') return name.includes('female') || name.includes('woman');
+                    return name.includes('male') || name.includes('man');
+                }) || sortedVoices[0];
+
+                if (targetVoice) utterance.voice = targetVoice;
+
+                utterance.onend = () => setPreviewLoading(false);
+                utterance.onerror = () => setPreviewLoading(false);
+
+                toast.success("Playing basic sample...");
+                window.speechSynthesis.speak(utterance);
             } else {
-                toast.error("Failed to generate preview.");
+                toast.error("Failed to generate preview config.");
                 setPreviewLoading(false);
             }
         } catch (error) {
@@ -393,19 +458,20 @@ const UserSettings = () => {
                                     <SectionTitle label="General Information" icon={User} color="var(--primary-color)" />
 
                                     {/* Profile Picture Section */}
-                                    <div className="profile-upload-section" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                                    <div className="profile-upload-section" style={{ marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
                                         <div style={{ position: 'relative' }}>
                                             <div style={{
-                                                width: '100px',
-                                                height: '100px',
-                                                borderRadius: '50%',
+                                                width: '120px',
+                                                height: '120px',
+                                                borderRadius: '35px',
                                                 background: getProfileImageUrl() ? 'transparent' : 'var(--bg-lite)',
-                                                border: '2px solid var(--border-color)',
+                                                border: '1px solid var(--border-color)',
                                                 overflow: 'hidden',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                position: 'relative'
+                                                position: 'relative',
+                                                boxShadow: '0 12px 24px -8px rgba(0,0,0,0.1)'
                                             }}>
                                                 {getProfileImageUrl() ? (
                                                     <img
@@ -414,15 +480,16 @@ const UserSettings = () => {
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     />
                                                 ) : (
-                                                    <User size={48} color="var(--text-sub)" />
+                                                    <User size={56} color="var(--text-sub)" />
                                                 )}
 
                                                 {imageUploading && (
                                                     <div style={{
-                                                        position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)',
+                                                        position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)',
+                                                        backdropFilter: 'blur(4px)',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                                     }}>
-                                                        <Loader2 className="animate-spin" color="white" size={24} />
+                                                        <Loader2 className="animate-spin" color="white" size={32} />
                                                     </div>
                                                 )}
                                             </div>
@@ -432,47 +499,50 @@ const UserSettings = () => {
                                                 onClick={() => fileInputRef.current?.click()}
                                                 disabled={imageUploading}
                                                 style={{
-                                                    position: 'absolute', bottom: '0', right: '0',
-                                                    width: '32px', height: '32px', borderRadius: '50%',
-                                                    background: 'var(--primary-color)', border: '2px solid var(--card-bg)',
+                                                    position: 'absolute', bottom: '-8px', right: '-8px',
+                                                    width: '40px', height: '40px', borderRadius: '12px',
+                                                    background: 'var(--primary-color)', border: '4px solid var(--card-bg)',
                                                     color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                                                    cursor: 'pointer', boxShadow: '0 8px 16px rgba(var(--primary-rgb), 0.3)',
+                                                    transition: 'all 0.3s ease'
                                                 }}
                                             >
-                                                <Camera size={16} />
+                                                <Camera size={18} />
                                             </button>
                                         </div>
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '700' }}>Profile Picture</h4>
-                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-sub)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: 'var(--text-main)' }}>Profile Picture</h4>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)', fontWeight: '600' }}>
                                                 PNG, JPG or GIF up to 5MB
                                             </p>
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                            <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
                                                 <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
                                                     style={{
-                                                        background: 'var(--bg-lite)', border: '1px solid var(--border-color)',
-                                                        padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem',
-                                                        fontWeight: '600', color: 'var(--text-main)', cursor: 'pointer',
-                                                        display: 'flex', alignItems: 'center', gap: '6px'
+                                                        background: 'var(--card-bg)', border: '1px solid var(--border-color)',
+                                                        padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem',
+                                                        fontWeight: '700', color: 'var(--text-main)', cursor: 'pointer',
+                                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                                        transition: 'all 0.2s ease'
                                                     }}
                                                 >
-                                                    <ImagePlus size={14} /> Upload New
+                                                    <ImagePlus size={16} color="var(--primary-color)" /> Upload New
                                                 </button>
                                                 {user?.profilePicture && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowDeleteAvatarConfirm(true)}
                                                         style={{
-                                                            background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                                                            padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem',
-                                                            fontWeight: '600', color: '#ef4444', cursor: 'pointer',
-                                                            display: 'flex', alignItems: 'center', gap: '6px'
+                                                            background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.1)',
+                                                            padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem',
+                                                            fontWeight: '700', color: '#ef4444', cursor: 'pointer',
+                                                            display: 'flex', alignItems: 'center', gap: '8px',
+                                                            transition: 'all 0.2s ease'
                                                         }}
                                                     >
-                                                        <Trash2 size={14} /> Remove
+                                                        <Trash2 size={16} /> Remove
                                                     </button>
                                                 )}
                                             </div>
@@ -486,50 +556,52 @@ const UserSettings = () => {
                                         </div>
                                     </div>
 
-                                    <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '1.5rem', maxWidth: '600px' }}>
-                                        <InputGroup
-                                            label="Full Name"
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleChange}
-                                            placeholder="Your Name"
-                                            icon={<User size={18} />}
-                                        />
-                                        <InputGroup
-                                            label="Email Address"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleChange}
-                                            placeholder="Your Email"
-                                            disabled
-                                            icon={<Mail size={18} />}
-                                        />
-                                        <InputGroup
-                                            label="Phone Number"
-                                            name="phone"
-                                            value={formData.phone}
-                                            onChange={handleChange}
-                                            placeholder="Your Phone Number"
-                                            type="tel"
-                                            icon={<Phone size={18} />}
-                                        />
-                                        <InputGroup
-                                            label="Address"
-                                            name="address"
-                                            value={formData.address}
-                                            onChange={handleChange}
-                                            placeholder="Your Address"
-                                            type="textarea"
-                                            icon={<MapPin size={18} />}
-                                        />
+                                    <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '1rem', maxWidth: '100%' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                                            <InputGroup
+                                                label="Full Name"
+                                                name="name"
+                                                value={formData.name}
+                                                onChange={handleChange}
+                                                placeholder="Your Name"
+                                                icon={User}
+                                            />
+                                            <InputGroup
+                                                label="Email Address"
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleChange}
+                                                placeholder="Your Email"
+                                                disabled
+                                                icon={Mail}
+                                            />
+                                            <InputGroup
+                                                label="Phone Number"
+                                                name="phone"
+                                                value={formData.phone}
+                                                onChange={handleChange}
+                                                placeholder="Your Phone Number"
+                                                type="tel"
+                                                icon={Phone}
+                                            />
+                                            <InputGroup
+                                                label="Address"
+                                                name="address"
+                                                value={formData.address}
+                                                onChange={handleChange}
+                                                placeholder="Your Address"
+                                                type="textarea"
+                                                icon={MapPin}
+                                            />
+                                        </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
                                             <SelectGroup
                                                 label="Date Format"
                                                 name="dateFormat"
                                                 value={formData.dateFormat}
                                                 onChange={handleChange}
-                                                icon={<Calendar size={18} />}
+                                                icon={Calendar}
                                                 options={[
                                                     { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY (31/12/2024)' },
                                                     { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY (12/31/2024)' },
@@ -541,7 +613,7 @@ const UserSettings = () => {
                                                 name="timeFormat"
                                                 value={formData.timeFormat}
                                                 onChange={handleChange}
-                                                icon={<Clock size={18} />}
+                                                icon={Clock}
                                                 options={[
                                                     { value: '12', label: '12 Hour (01:30 PM)' },
                                                     { value: '24', label: '24 Hour (13:30)' }
@@ -549,27 +621,29 @@ const UserSettings = () => {
                                             />
                                         </div>
 
-                                        <div style={{ paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                                        <div style={{ paddingTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
                                             <button
                                                 type="submit"
                                                 disabled={loading}
                                                 style={{
-                                                    padding: '12px 32px',
+                                                    padding: '16px 40px',
                                                     background: 'var(--primary-color)',
                                                     color: 'white',
                                                     border: 'none',
-                                                    borderRadius: '12px',
-                                                    fontWeight: '600',
+                                                    borderRadius: '16px',
+                                                    fontWeight: '800',
+                                                    fontSize: '1rem',
                                                     cursor: 'pointer',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px',
+                                                    gap: '12px',
                                                     opacity: loading ? 0.7 : 1,
-                                                    boxShadow: '0 10px 20px -5px rgba(var(--primary-rgb), 0.4)'
+                                                    boxShadow: '0 12px 30px -8px color-mix(in srgb, var(--primary-color) 40%, transparent)',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                                                 }}
                                             >
                                                 {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                                                Save Changes
+                                                Save Profile Changes
                                             </button>
                                         </div>
                                     </form>
@@ -642,55 +716,56 @@ const UserSettings = () => {
 
                                         <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
                                             <SectionTitle label="Voice Assistant Personality" icon={Mic} color="var(--primary-color)" />
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', gap: '20px' }}>
-                                                <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: '0.9rem', flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', gap: '24px' }}>
+                                                <p style={{ color: 'var(--text-sub)', margin: 0, fontSize: '0.9rem', flex: 1, fontWeight: '500', lineHeight: '1.5' }}>
                                                     Customize Buddy's voice output style. Select the gender and tone that feels most natural to you.
                                                 </p>
                                                 <button
                                                     onClick={handlePreviewVoice}
                                                     disabled={previewLoading}
                                                     style={{
-                                                        background: 'var(--bg-lite)',
+                                                        background: 'var(--card-bg)',
                                                         border: '1px solid var(--border-color)',
-                                                        borderRadius: '12px',
-                                                        padding: '10px 20px',
+                                                        borderRadius: '16px',
+                                                        padding: '12px 24px',
                                                         display: 'flex',
                                                         alignItems: 'center',
-                                                        gap: '10px',
+                                                        gap: '12px',
                                                         cursor: 'pointer',
                                                         color: 'var(--primary-color)',
-                                                        fontWeight: '700',
-                                                        fontSize: '0.85rem',
-                                                        transition: 'all 0.2s ease',
+                                                        fontWeight: '800',
+                                                        fontSize: '0.9rem',
+                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                                         whiteSpace: 'nowrap',
-                                                        boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                                                        boxShadow: '0 8px 16px rgba(0,0,0,0.05)'
                                                     }}
                                                 >
                                                     {previewLoading ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} fill="currentColor" />}
-                                                    {previewLoading ? 'Generating...' : 'Test Voice'}
+                                                    {previewLoading ? 'Generating...' : 'Test Voice Output'}
                                                 </button>
                                             </div>
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '2rem' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', marginBottom: '2rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                     <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>Voice Gender</label>
-                                                    <div style={{ display: 'flex', gap: '10px', background: 'var(--bg-lite)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-lite)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}>
                                                         {['female', 'male'].map(g => (
                                                             <button
                                                                 key={g}
                                                                 onClick={() => setVoicePreferences({ ...voicePreferences, gender: g })}
                                                                 style={{
                                                                     flex: 1,
-                                                                    padding: '8px',
-                                                                    borderRadius: '8px',
-                                                                    border: 'none',
+                                                                    padding: '10px',
+                                                                    borderRadius: '12px',
+                                                                    border: '1px solid transparent',
                                                                     background: voicePreferences.gender === g ? 'var(--primary-color)' : 'transparent',
-                                                                    color: voicePreferences.gender === g ? 'white' : 'var(--text-main)',
-                                                                    fontSize: '0.85rem',
-                                                                    fontWeight: '600',
+                                                                    color: voicePreferences.gender === g ? 'white' : 'var(--text-sub)',
+                                                                    fontSize: '0.9rem',
+                                                                    fontWeight: '800',
                                                                     textTransform: 'capitalize',
                                                                     cursor: 'pointer',
-                                                                    transition: 'all 0.2s ease'
+                                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                    boxShadow: voicePreferences.gender === g ? '0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent)' : 'none'
                                                                 }}
                                                             >
                                                                 {g}
@@ -699,25 +774,26 @@ const UserSettings = () => {
                                                     </div>
                                                 </div>
 
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>Voice Tone</label>
-                                                    <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-lite)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)' }}>Voice Tone Style</label>
+                                                    <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-lite)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}>
                                                         {['soft', 'normal', 'energetic'].map(t => (
                                                             <button
                                                                 key={t}
                                                                 onClick={() => setVoicePreferences({ ...voicePreferences, tone: t })}
                                                                 style={{
                                                                     flex: 1,
-                                                                    padding: '8px 4px',
-                                                                    borderRadius: '8px',
-                                                                    border: 'none',
+                                                                    padding: '10px 4px',
+                                                                    borderRadius: '12px',
+                                                                    border: '1px solid transparent',
                                                                     background: voicePreferences.tone === t ? 'var(--primary-color)' : 'transparent',
-                                                                    color: voicePreferences.tone === t ? 'white' : 'var(--text-main)',
-                                                                    fontSize: '0.8rem',
-                                                                    fontWeight: '600',
+                                                                    color: voicePreferences.tone === t ? 'white' : 'var(--text-sub)',
+                                                                    fontSize: '0.85rem',
+                                                                    fontWeight: '800',
                                                                     textTransform: 'capitalize',
                                                                     cursor: 'pointer',
-                                                                    transition: 'all 0.2s ease'
+                                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                    boxShadow: voicePreferences.tone === t ? '0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent)' : 'none'
                                                                 }}
                                                             >
                                                                 {t}
@@ -728,27 +804,29 @@ const UserSettings = () => {
                                             </div>
                                         </div>
 
-                                        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
+                                        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '2.5rem', display: 'flex', justifyContent: 'flex-end' }}>
                                             <button
                                                 onClick={handleUpdateNotifications}
                                                 disabled={loading}
                                                 style={{
-                                                    padding: '12px 24px',
+                                                    padding: '16px 32px',
                                                     background: 'var(--primary-color)',
                                                     color: 'white',
                                                     border: 'none',
-                                                    borderRadius: '12px',
-                                                    fontWeight: '600',
+                                                    borderRadius: '16px',
+                                                    fontWeight: '800',
+                                                    fontSize: '1rem',
                                                     cursor: 'pointer',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px',
+                                                    gap: '12px',
                                                     opacity: loading ? 0.7 : 1,
-                                                    boxShadow: '0 4px 15px color-mix(in srgb, var(--primary-color) 30%, transparent)'
+                                                    boxShadow: '0 12px 30px -8px color-mix(in srgb, var(--primary-color) 40%, transparent)',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                                                 }}
                                             >
                                                 {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                                                Save Notification Settings
+                                                Save Preferences
                                             </button>
                                         </div>
                                     </div>
@@ -769,78 +847,83 @@ const UserSettings = () => {
                                         <div style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '16px',
-                                            padding: '20px',
-                                            background: isCalendarLinked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)',
-                                            borderRadius: '16px',
-                                            border: `1px solid ${isCalendarLinked ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.2)'}`,
-                                            marginBottom: '2rem'
+                                            gap: '24px',
+                                            padding: '28px',
+                                            background: isCalendarLinked ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-lite)',
+                                            borderRadius: '24px',
+                                            border: `1px solid ${isCalendarLinked ? 'rgba(16, 185, 129, 0.15)' : 'var(--border-color)'}`,
+                                            marginBottom: '2.5rem',
+                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                                         }}>
                                             <div style={{
-                                                padding: '10px',
-                                                borderRadius: '50%',
-                                                background: isCalendarLinked ? '#10b981' : '#94a3b8',
-                                                color: 'white',
+                                                width: '56px',
+                                                height: '56px',
+                                                borderRadius: '18px',
+                                                background: isCalendarLinked ? '#10b981' : 'var(--card-bg)',
+                                                color: isCalendarLinked ? 'white' : 'var(--text-sub)',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'center'
+                                                justifyContent: 'center',
+                                                boxShadow: isCalendarLinked ? '0 8px 16px rgba(16, 185, 129, 0.2)' : '0 4px 8px rgba(0,0,0,0.05)',
+                                                border: isCalendarLinked ? 'none' : '1px solid var(--border-color)'
                                             }}>
-                                                {isCalendarLinked ? <CheckCircle size={24} /> : <XCircle size={24} />}
+                                                {isCalendarLinked ? <CheckCircle size={28} /> : <XCircle size={28} />}
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                                <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '700', color: isCalendarLinked ? '#10b981' : 'var(--text-sub)' }}>
-                                                    {isCalendarLinked ? 'Connected' : 'Not Connected'}
+                                                <h4 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', fontWeight: '900', color: isCalendarLinked ? '#10b981' : 'var(--text-main)' }}>
+                                                    {isCalendarLinked ? 'Google Calendar Connected' : 'Integration Pending'}
                                                 </h4>
-                                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)' }}>
-                                                    {isCalendarLinked ? 'Your Google Calendar is syncing.' : 'Link your calendar to enable sync.'}
+                                                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-sub)', fontWeight: '500', lineHeight: '1.5' }}>
+                                                    {isCalendarLinked ? 'Your Buddy AI events are automatically syncing with Google.' : 'Connect your workspace to enable automatic event synchronization.'}
                                                 </p>
                                             </div>
                                         </div>
 
-                                        {/* Actions */}
-                                        <div style={{ display: 'flex', gap: '12px' }}>
-                                            {!isCalendarLinked ? (
+                                        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                            {isCalendarLinked ? (
+                                                <button
+                                                    onClick={() => setShowUnlinkConfirm(true)}
+                                                    style={{
+                                                        padding: '14px 28px',
+                                                        background: 'rgba(239, 68, 68, 0.05)',
+                                                        color: '#ef4444',
+                                                        border: '1px solid rgba(239, 68, 68, 0.1)',
+                                                        borderRadius: '16px',
+                                                        fontWeight: '800',
+                                                        fontSize: '0.95rem',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '10px',
+                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                                    }}
+                                                >
+                                                    {calendarUnlinking ? <Loader2 className="animate-spin" size={20} /> : <Unlink size={20} />}
+                                                    Disconnect Account
+                                                </button>
+                                            ) : (
                                                 <button
                                                     onClick={handleLinkCalendar}
                                                     disabled={calendarLinking}
                                                     style={{
-                                                        padding: '12px 24px',
+                                                        padding: '16px 36px',
                                                         background: '#4285F4',
                                                         color: 'white',
                                                         border: 'none',
-                                                        borderRadius: '12px',
-                                                        fontWeight: '600',
+                                                        borderRadius: '16px',
+                                                        fontWeight: '800',
+                                                        fontSize: '1rem',
                                                         cursor: 'pointer',
                                                         display: 'flex',
                                                         alignItems: 'center',
-                                                        gap: '8px',
+                                                        gap: '12px',
                                                         opacity: calendarLinking ? 0.7 : 1,
-                                                        boxShadow: '0 4px 15px rgba(66, 133, 244, 0.3)'
+                                                        boxShadow: '0 12px 25px rgba(66, 133, 244, 0.3)',
+                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                                                     }}
                                                 >
-                                                    {calendarLinking ? <Loader2 className="animate-spin" size={18} /> : <Link2 size={18} />}
+                                                    {calendarLinking ? <Loader2 className="animate-spin" size={20} /> : <Link2 size={20} />}
                                                     Link Google Calendar
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => setShowUnlinkConfirm(true)}
-                                                    disabled={calendarUnlinking}
-                                                    style={{
-                                                        padding: '12px 24px',
-                                                        background: 'transparent',
-                                                        color: '#ef4444',
-                                                        border: '1px solid rgba(239, 68, 68, 0.5)',
-                                                        borderRadius: '12px',
-                                                        fontWeight: '600',
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px',
-                                                        opacity: calendarUnlinking ? 0.7 : 1
-                                                    }}
-                                                >
-                                                    {calendarUnlinking ? <Loader2 className="animate-spin" size={18} /> : <Unlink size={18} />}
-                                                    Unlink Calendar
                                                 </button>
                                             )}
                                         </div>
@@ -853,29 +936,37 @@ const UserSettings = () => {
                                 <section className="settings-card" style={{ background: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
                                     <SectionTitle label="Danger Zone" icon={AlertTriangle} color="#ef4444" />
 
-                                    <p style={{ color: 'var(--text-sub)', marginBottom: '2rem', maxWidth: '600px', lineHeight: '1.6' }}>
-                                        Once you delete your account, there is no going back. Please be certain. All your data including profile, settings, and activity will be permanently removed.
+                                    <p style={{ color: 'var(--text-sub)', marginBottom: '2.5rem', maxWidth: '100%', lineHeight: '1.6', fontWeight: '500', fontSize: '0.95rem' }}>
+                                        Once you delete your account, there is no going back. All your data including profile info, voice preferences, and calendar activity will be permanently removed.
                                     </p>
 
-                                    <button
-                                        onClick={() => setShowDeleteConfirm(true)}
-                                        style={{
-                                            padding: '12px 24px',
-                                            background: '#ef4444',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '12px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            boxShadow: '0 10px 25px rgba(239, 68, 68, 0.3)'
-                                        }}
-                                    >
-                                        <Trash2 size={18} />
-                                        Delete My Account
-                                    </button>
+                                    <div style={{ background: 'var(--card-bg)', padding: '24px', borderRadius: '24px', border: '1px solid rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+                                        <div>
+                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)' }}>Permanent Account Deletion</h4>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-sub)', fontWeight: '500' }}>This action is irreversible and will remove all your data.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowDeleteConfirm(true)}
+                                            style={{
+                                                padding: '14px 28px',
+                                                background: '#ef4444',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '16px',
+                                                fontWeight: '800',
+                                                fontSize: '0.95rem',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                boxShadow: '0 10px 25px rgba(239, 68, 68, 0.25)',
+                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                            }}
+                                        >
+                                            <Trash2 size={20} />
+                                            Delete My Account
+                                        </button>
+                                    </div>
                                 </section>
                             )}
 
@@ -931,62 +1022,75 @@ const UserSettings = () => {
             <style>{`
                 .settings-container {
                     display: grid;
-                    grid-template-columns: 240px 1fr;
-                    gap: 2rem;
+                    grid-template-columns: 280px 1fr;
+                    gap: 2.5rem;
                     align-items: start;
                 }
 
                 .settings-tabs {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.5rem;
+                    gap: 8px;
                     background: var(--card-bg);
-                    padding: 12px;
-                    border-radius: 24px;
+                    padding: 16px;
+                    border-radius: 30px;
                     border: 1px solid var(--border-color);
                     height: fit-content;
-                    backdrop-filter: blur(15px);
-                    box-shadow: var(--card-shadow);
+                    backdrop-filter: blur(20px);
+                    box-shadow: 0 15px 35px rgba(0,0,0,0.05);
                     position: sticky;
-                    top: 20px;
+                    top: 24px;
+                    overflow: hidden;
                 }
 
                 .settings-tabs button {
                     display: flex;
                     align-items: center;
-                    gap: 1rem;
-                    padding: 0.75rem 1rem;
-                    border-radius: 12px;
-                    border: none;
+                    gap: 16px;
+                    padding: 14px 20px;
+                    border-radius: 18px;
+                    border: 1px solid transparent;
                     background: transparent;
                     color: var(--text-sub);
                     font-weight: 700;
-                    font-size: 0.85rem;
+                    font-size: 0.95rem;
                     cursor: pointer;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     text-align: left;
+                    width: 100%;
                 }
 
                 .settings-tabs button:hover {
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--bg-lite);
                     color: var(--text-main);
+                    padding-left: 24px;
                 }
 
                 .settings-tabs button.active {
                     background: var(--primary-color);
                     color: white;
-                    box-shadow: 0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent);
+                    box-shadow: 0 8px 20px color-mix(in srgb, var(--primary-color) 30%, transparent);
+                    border-color: rgba(255, 255, 255, 0.1);
                 }
 
                 .settings-card {
                     background: var(--card-bg);
                     border: 1px solid var(--border-color);
-                    border-radius: 24px;
-                    padding: 2rem;
-                    backdrop-filter: blur(10px);
+                    border-radius: 32px;
+                    padding: 32px;
+                    backdrop-filter: blur(20px);
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.03);
                 }
 
-                @media (max-width: 768px) {
+                .profile-upload-section {
+                    background: var(--bg-lite);
+                    padding: 32px;
+                    border-radius: 35px;
+                    border: 1px solid var(--border-color);
+                    box-shadow: 0 15px 35px -10px rgba(0,0,0,0.05);
+                }
+
+                @media (max-width: 992px) {
                     .settings-container {
                         grid-template-columns: 1fr !important;
                         gap: 1.5rem !important;
@@ -994,11 +1098,12 @@ const UserSettings = () => {
                     .settings-tabs {
                         flex-direction: row !important;
                         overflow-x: auto;
-                        padding: 8px !important;
+                        padding: 10px !important;
                         scrollbar-width: none;
                         -ms-overflow-style: none;
                         position: relative;
                         top: 0;
+                        border-radius: 20px;
                     }
                     .settings-tabs::-webkit-scrollbar {
                         display: none;
@@ -1010,17 +1115,11 @@ const UserSettings = () => {
                         display: none !important;
                     }
                     .settings-tabs button {
-                        padding: 10px !important;
+                        padding: 12px !important;
                         gap: 0 !important;
                         justify-content: center !important;
-                        min-width: 48px;
-                    }
-                    .settings-card {
-                        padding: 1.25rem !important;
-                        border-radius: 20px !important;
-                    }
-                    .section-title-container h3 {
-                        font-size: 1.1rem !important;
+                        min-width: 52px;
+                        border-radius: 15px;
                     }
                 }
             `}</style>
@@ -1030,42 +1129,49 @@ const UserSettings = () => {
 
 // --- Sub-components & Styles ---
 const SectionTitle = ({ label, icon: Icon, color }) => (
-    <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }} className="section-title-container">
+    <div style={{ marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }} className="section-title-container">
         <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            background: 'var(--bg-lite)',
+            width: '56px',
+            height: '56px',
+            borderRadius: '18px',
+            background: 'var(--card-bg)',
             border: '1px solid var(--border-color)',
             color: color || 'var(--primary-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-            flexShrink: 0
+            boxShadow: '0 12px 24px -10px rgba(0,0,0,0.1)',
+            flexShrink: 0,
+            position: 'relative',
+            overflow: 'hidden'
         }}>
-            <Icon size={20} />
+            <div style={{
+                position: 'absolute', inset: 0,
+                background: color ? `color-mix(in srgb, ${color} 8%, transparent)` : 'color-mix(in srgb, var(--primary-color) 8%, transparent)',
+                opacity: 0.5
+            }} />
+            <Icon size={26} style={{ position: 'relative', zIndex: 1 }} />
         </div>
         <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em', lineBreak: 'anywhere' }}>{label}</h3>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.03em' }}>{label}</h3>
         </div>
     </div>
 );
 
-const InputGroup = ({ label, name, value, onChange, type = 'text', placeholder = '', required = false, disabled = false, icon }) => {
+const InputGroup = ({ label, name, value, onChange, type = 'text', placeholder = '', required = false, disabled = false, icon: Icon }) => {
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === 'password';
     const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
     return (
-        <div style={{ marginBottom: '0.5rem' }}>
+        <div style={{ marginBottom: '1.2rem' }}>
             <label style={LabelStyle}>{label} {required && <span style={{ color: '#ef4444' }}>*</span>}</label>
             {type === 'textarea' ? (
                 <div style={{ position: 'relative' }}>
-                    {icon && <div style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-sub)' }}>{icon}</div>}
+                    {Icon && <div style={{ position: 'absolute', left: '18px', top: '20px', color: 'var(--primary-color)', opacity: 0.8 }}><Icon size={20} /></div>}
                     <textarea
                         name={name}
-                        style={{ ...InputStyle, minHeight: '100px', fontFamily: 'inherit', paddingLeft: icon ? '48px' : '16px' }}
+                        style={{ ...InputStyle, minHeight: '120px', fontFamily: 'inherit', paddingLeft: Icon ? '52px' : '18px', paddingTop: '18px' }}
                         value={value}
                         onChange={onChange}
                         placeholder={placeholder}
@@ -1075,11 +1181,11 @@ const InputGroup = ({ label, name, value, onChange, type = 'text', placeholder =
                 </div>
             ) : (
                 <div style={{ position: 'relative' }}>
-                    {icon && <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)' }}>{icon}</div>}
+                    {Icon && <div style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary-color)', opacity: 0.8, display: 'flex' }}><Icon size={20} /></div>}
                     <input
                         type={inputType}
                         name={name}
-                        style={{ ...InputStyle, paddingRight: isPassword ? '40px' : '16px', paddingLeft: icon ? '48px' : '16px' }}
+                        style={{ ...InputStyle, paddingRight: isPassword ? '48px' : '18px', paddingLeft: Icon ? '52px' : '18px', height: '56px' }}
                         value={value}
                         onChange={onChange}
                         placeholder={placeholder}
@@ -1091,11 +1197,12 @@ const InputGroup = ({ label, name, value, onChange, type = 'text', placeholder =
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
                             style={{
-                                position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
-                                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)'
+                                position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
+                                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px'
                             }}
                         >
-                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                     )}
                 </div>
@@ -1104,23 +1211,23 @@ const InputGroup = ({ label, name, value, onChange, type = 'text', placeholder =
     );
 };
 
-const SelectGroup = ({ label, name, value, onChange, options, icon }) => (
-    <div style={{ marginBottom: '0.5rem' }}>
+const SelectGroup = ({ label, name, value, onChange, options, icon: Icon }) => (
+    <div style={{ marginBottom: '1.2rem' }}>
         <label style={LabelStyle}>{label}</label>
         <div style={{ position: 'relative' }}>
-            {icon && <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', pointerEvents: 'none' }}>{icon}</div>}
+            {Icon && <div style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary-color)', opacity: 0.8, pointerEvents: 'none', display: 'flex' }}><Icon size={20} /></div>}
             <select
                 name={name}
                 value={value}
                 onChange={onChange}
-                style={{ ...InputStyle, paddingLeft: icon ? '48px' : '16px', appearance: 'none', cursor: 'pointer' }}
+                style={{ ...InputStyle, paddingLeft: Icon ? '52px' : '18px', appearance: 'none', cursor: 'pointer', height: '56px' }}
             >
                 {options.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
             </select>
-            <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-sub)' }}>
-                <ChevronDown size={16} />
+            <div style={{ position: 'absolute', right: '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-sub)' }}>
+                <ChevronDown size={18} />
             </div>
         </div>
     </div>
@@ -1132,46 +1239,51 @@ const Modal = ({ icon: Icon, iconColor, title, description, confirmText, confirm
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px'
         }}
     >
         <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             style={{
-                background: 'var(--card-bg)', padding: '2rem', borderRadius: '24px', maxWidth: '400px', width: '90%',
-                border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                background: 'var(--card-bg)', padding: '40px', borderRadius: '32px', maxWidth: '480px', width: '100%',
+                border: '1px solid var(--border-color)', boxShadow: '0 30px 60px rgba(0, 0, 0, 0.4)',
+                textAlign: 'center'
             }}
         >
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                <div style={{
-                    width: '60px', height: '60px', borderRadius: '50%', background: `color-mix(in srgb, ${confirmColor} 10%, transparent)`,
-                    color: confirmColor, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem'
-                }}>
-                    <Icon size={32} />
-                </div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-main)' }}>{title}</h3>
-                <p style={{ color: 'var(--text-sub)' }}>{description}</p>
+            <div style={{
+                width: '80px', height: '80px', borderRadius: '28px', background: `color-mix(in srgb, ${confirmColor} 10%, transparent)`,
+                color: confirmColor, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px',
+                boxShadow: `0 12px 24px color-mix(in srgb, ${confirmColor} 15%, transparent)`
+            }}>
+                <Icon size={40} />
             </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: '900', marginBottom: '12px', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{title}</h3>
+            <p style={{ color: 'var(--text-sub)', fontSize: '1rem', lineHeight: '1.6', marginBottom: '32px', fontWeight: '500' }}>{description}</p>
+
+            <div style={{ display: 'flex', gap: '16px' }}>
                 <button
                     onClick={onCancel}
                     disabled={loading}
                     style={{
-                        flex: 1, padding: '12px', background: 'var(--bg-lite)', border: '1px solid var(--border-color)',
-                        borderRadius: '12px', color: 'var(--text-main)', fontWeight: '600', cursor: 'pointer'
+                        flex: 1, padding: '16px', background: 'var(--bg-lite)', border: '1px solid var(--border-color)',
+                        borderRadius: '16px', color: 'var(--text-main)', fontWeight: '800', cursor: 'pointer',
+                        fontSize: '0.95rem', transition: 'all 0.2s ease'
                     }}
                 >
-                    Cancel
+                    Keep Everything
                 </button>
                 <button
                     onClick={onConfirm}
                     disabled={loading}
                     style={{
-                        flex: 1, padding: '12px', background: confirmColor, border: 'none', borderRadius: '12px',
-                        color: 'white', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                        flex: 1, padding: '16px', background: confirmColor, border: 'none', borderRadius: '16px',
+                        color: 'white', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                        fontSize: '0.95rem', boxShadow: `0 12px 24px color-mix(in srgb, ${confirmColor} 25%, transparent)`,
+                        transition: 'all 0.2s ease'
                     }}
                 >
                     {loading ? <Loader2 size={18} className="animate-spin" /> : confirmText}
@@ -1182,14 +1294,15 @@ const Modal = ({ icon: Icon, iconColor, title, description, confirmText, confirm
 );
 
 const LabelStyle = {
-    display: 'block', color: 'var(--text-sub)', fontSize: '0.75rem', fontWeight: '800',
-    marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.8
+    display: 'block', color: 'var(--text-sub)', fontSize: '0.8rem', fontWeight: '900',
+    marginBottom: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.9
 };
 
 const InputStyle = {
-    width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-color)',
-    background: 'var(--bg-lite)', color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: '500',
-    outline: 'none', transition: 'all 0.2s ease', backdropFilter: 'blur(10px)'
+    width: '100%', padding: '14px 20px', borderRadius: '18px', border: '1px solid var(--border-color)',
+    background: 'var(--card-bg)', color: 'var(--text-main)', fontSize: '1rem', fontWeight: '600',
+    outline: 'none', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', backdropFilter: 'blur(10px)',
+    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
 };
 
 export default UserSettings;

@@ -174,12 +174,13 @@ const startReminderWorker = (io) => {
                 // Get Current Time in User's Timezone
                 const now = new Date();
 
-                // Get User local date components for robust comparison
-                const userYear = parseInt(now.toLocaleDateString('en-CA', { timeZone: userTimezone, year: 'numeric' }));
-                const userMonth = parseInt(now.toLocaleDateString('en-CA', { timeZone: userTimezone, month: 'numeric' })) - 1;
-                const userDay = parseInt(now.toLocaleDateString('en-CA', { timeZone: userTimezone, day: 'numeric' }));
-                const userHour = parseInt(now.toLocaleTimeString('en-GB', { timeZone: userTimezone, hour: '2-digit', hour12: false }));
-                const userMinute = parseInt(now.toLocaleTimeString('en-GB', { timeZone: userTimezone, minute: '2-digit' }));
+                // Safely interpret precise local time
+                const userNow = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
+                const userYear = userNow.getFullYear();
+                const userMonth = userNow.getMonth(); // 0-indexed
+                const userDay = userNow.getDate();
+                const userHour = userNow.getHours();
+                const userMinute = userNow.getMinutes();
 
                 const userNowMinutes = (userHour * 60) + userMinute;
 

@@ -240,6 +240,15 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  void setGuestLocation(double lat, double lng) {
+    _user['currentLocation'] = {
+      'lat': lat,
+      'lng': lng,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    notifyListeners();
+  }
+
   String? _formatProfilePictureUrl(String path) {
     return AppConfig.formatImageUrl(path);
   }

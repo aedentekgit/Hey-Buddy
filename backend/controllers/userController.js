@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { uploadFileToFirebase } = require('../services/fileService');
 const { checkItemExitGuards } = require('../services/smartReminderService');
+const { resolveVoiceConfig } = require('../utils/personality');
 
 // Get all users
 const getUsers = async (req, res) => {
@@ -24,12 +25,8 @@ const getUsers = async (req, res) => {
 
             // Resolve voice configuration
             const prefs = user.voicePreferences || { gender: 'female', tone: 'soft' };
-            let pitch = 1.0;
-            let speechRate = 0.5;
-            if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
-            if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
-            else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
-            user.resolvedVoiceConfig = { pitch, speechRate };
+            const platform = req.headers['x-platform'] || 'web';
+            user.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
             return user;
         });
@@ -52,12 +49,8 @@ const createUser = async (req, res) => {
         delete userResponse.password;
 
         const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
-        let pitch = 1.0;
-        let speechRate = 0.5;
-        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
-        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
-        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
-        userResponse.resolvedVoiceConfig = { pitch, speechRate };
+        const platform = req.headers['x-platform'] || 'web';
+        userResponse.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
         res.status(201).json({ success: true, data: userResponse });
     } catch (error) {
@@ -106,12 +99,8 @@ const updateUser = async (req, res) => {
         delete userResponse.password;
 
         const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
-        let pitch = 1.0;
-        let speechRate = 0.5;
-        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
-        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
-        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
-        userResponse.resolvedVoiceConfig = { pitch, speechRate };
+        const platform = req.headers['x-platform'] || 'web';
+        userResponse.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
         res.json({ success: true, data: userResponse });
     } catch (error) {
@@ -210,12 +199,8 @@ const updateProfile = async (req, res) => {
         delete userResponse.password;
 
         const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
-        let pitch = 1.0;
-        let speechRate = 0.5;
-        if (prefs.gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
-        if (prefs.tone === 'soft') { speechRate = 0.45; pitch -= 0.1; }
-        else if (prefs.tone === 'energetic') { speechRate = 0.6; pitch += 0.1; }
-        userResponse.resolvedVoiceConfig = { pitch, speechRate };
+        const platform = req.headers['x-platform'] || 'web';
+        userResponse.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
         console.log('[UserController] Profile updated successfully for:', user.email);
         res.json({

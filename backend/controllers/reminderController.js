@@ -1,3 +1,4 @@
+const config = require('../config/env');
 const Reminder = require('../models/Reminder');
 const Notification = require('../models/Notification');
 const { google } = require('googleapis');
@@ -71,7 +72,7 @@ exports.createReminder = async (req, res) => {
             geofenceRadius: geofenceRadius || 500,
             intent: intent || 'generic',
             priority: priority || 'medium',
-            bufferTime: bufferTime || 15,
+            bufferTime: bufferTime || 0,
             alerts: alerts || { push: true, sms: false, email: false },
             smartFeatures: smartFeatures || { earlyWarning: false, trafficAware: false, itemExitGuards: false },
             googleEventId,
@@ -302,15 +303,13 @@ exports.unshareReminder = async (req, res) => {
 exports.getGoogleAuthUrl = async (req, res) => {
     try {
         const Settings = require('../models/Settings');
-        const settings = await Settings.findOne();
+        const settings = await Settings.findOne().select('+googleCalendar.clientSecret');
 
         const googleConfig = settings?.googleCalendar;
-        const activeAccount = googleConfig?.activeAccount || 'personal';
-        const accountConfig = googleConfig?.accounts?.[activeAccount];
 
-        const clientId = accountConfig?.clientId || process.env.GOOGLE_CLIENT_ID;
-        const clientSecret = accountConfig?.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
-        const redirectUri = accountConfig?.redirectUri || process.env.GOOGLE_REDIRECT_URI;
+        const clientId = googleConfig?.clientId;
+        const clientSecret = googleConfig?.clientSecret;
+        const redirectUri = googleConfig?.redirectUri || config.GOOGLE_REDIRECT_URI;
 
         if (!clientId || !clientSecret) {
             return res.status(400).json({ success: false, message: "Google Calendar credentials not configured." });
@@ -337,15 +336,13 @@ exports.googleCallback = async (req, res) => {
         if (!code) return res.status(400).send("No code provided from Google");
 
         const Settings = require('../models/Settings');
-        const settings = await Settings.findOne().select('+googleCalendar.accounts.personal.clientSecret +googleCalendar.accounts.work.clientSecret +googleCalendar.accounts.business.clientSecret');
+        const settings = await Settings.findOne().select('+googleCalendar.clientSecret');
 
         const googleConfig = settings?.googleCalendar;
-        const activeAccount = googleConfig?.activeAccount || 'personal';
-        const accountConfig = googleConfig?.accounts?.[activeAccount];
 
-        const clientId = accountConfig?.clientId || process.env.GOOGLE_CLIENT_ID;
-        const clientSecret = accountConfig?.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
-        const redirectUri = accountConfig?.redirectUri || process.env.GOOGLE_REDIRECT_URI;
+        const clientId = googleConfig?.clientId;
+        const clientSecret = googleConfig?.clientSecret;
+        const redirectUri = googleConfig?.redirectUri || config.GOOGLE_REDIRECT_URI;
 
         if (!clientId || !clientSecret) {
             throw new Error('Google Calendar credentials not configured.');

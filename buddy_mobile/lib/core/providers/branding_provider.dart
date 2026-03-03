@@ -16,6 +16,10 @@ class BrandingProvider extends ChangeNotifier {
   late Color _primaryColor;
   String? _logoUrl;
   String? _splashUrl;
+  
+  String? _latestAppVersion;
+  bool _mandatoryUpdate = false;
+  String? _updateUrl;
 
   BrandingProvider(this.prefs) {
     _hydrateFromLocal();
@@ -30,12 +34,14 @@ class BrandingProvider extends ChangeNotifier {
     
     _logoUrl = prefs.getString('branding_logo_url');
     _splashUrl = prefs.getString('branding_splash_url');
+    final savedClientId = prefs.getString('branding_google_client_id');
     
     // Sync to AppConfig for static access
     AppConfig.appName = _appName;
     AppConfig.primaryColor = colorHex;
     AppConfig.logoUrl = _logoUrl;
     AppConfig.splashUrl = _splashUrl;
+    AppConfig.googleClientId = savedClientId;
     
     _isLoading = true; // Still loading fresh data from backend
   }
@@ -47,6 +53,10 @@ class BrandingProvider extends ChangeNotifier {
   Color get primaryColor => _primaryColor;
   String? get logoUrl => _logoUrl;
   String? get splashUrl => _splashUrl;
+  
+  String? get latestAppVersion => _latestAppVersion;
+  bool get mandatoryUpdate => _mandatoryUpdate;
+  String? get updateUrl => _updateUrl;
 
   Future<void> fetchBranding() async {
     // Don't set _isLoading = true here if we already have local data to show
@@ -69,26 +79,13 @@ class BrandingProvider extends ChangeNotifier {
               newPrimaryColor = _hexToColor(appearance['accentColor']);
             }
             
-            String? newLogoUrl;
-            if (mobileApp['appLogo'] != null) {
-              String logoPath = mobileApp['appLogo'];
-              if (logoPath.startsWith('http')) {
-                newLogoUrl = logoPath;
-              } else {
-                if (logoPath.startsWith('/')) logoPath = logoPath.substring(1);
-                newLogoUrl = '${AppConfig.assetBaseUrl}$logoPath';
-              }
-            }
+            String? newLogoUrl = AppConfig.formatImageUrl(mobileApp['appLogo']);
+            String? newSplashUrl = AppConfig.formatImageUrl(mobileApp['splashIcon']);
             
-            String? newSplashUrl;
-            if (mobileApp['splashIcon'] != null) {
-              String splashPath = mobileApp['splashIcon'];
-              if (splashPath.startsWith('http')) {
-                newSplashUrl = splashPath;
-              } else {
-                if (splashPath.startsWith('/')) splashPath = splashPath.substring(1);
-                newSplashUrl = '${AppConfig.assetBaseUrl}$splashPath';
-              }
+            // Capture Google Client ID
+            String? newGoogleClientId;
+            if (data['googleAuth'] != null) {
+              newGoogleClientId = data['googleAuth']['webClientId'];
             }
 
             // Update variables
@@ -96,18 +93,26 @@ class BrandingProvider extends ChangeNotifier {
             _primaryColor = newPrimaryColor;
             _logoUrl = newLogoUrl;
             _splashUrl = newSplashUrl;
+            
+            _latestAppVersion = mobileApp['latestAppVersion'];
+            _mandatoryUpdate = mobileApp['mandatoryUpdate'] ?? false;
+            _updateUrl = mobileApp['updateUrl'];
 
             // Persist for next run
             await prefs.setString('branding_app_name', _appName);
             await prefs.setString('branding_primary_color', '#${_primaryColor.value.toRadixString(16).substring(2)}');
             if (_logoUrl != null) await prefs.setString('branding_logo_url', _logoUrl!);
             if (_splashUrl != null) await prefs.setString('branding_splash_url', _splashUrl!);
+            if (newGoogleClientId != null) await prefs.setString('branding_google_client_id', newGoogleClientId);
 
             // Update AppConfig
             AppConfig.appName = _appName;
             AppConfig.primaryColor = '#${_primaryColor.value.toRadixString(16).substring(2)}';
             AppConfig.logoUrl = _logoUrl;
             AppConfig.splashUrl = _splashUrl;
+            if (newGoogleClientId != null) {
+              AppConfig.googleClientId = newGoogleClientId;
+            }
           }
         }
       } else {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'dart:math' as math;
 import 'dart:io';
 import 'dart:convert';
@@ -16,11 +17,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:buddy_mobile/features/auth/screens/splash_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_field.dart';
 import 'package:buddy_mobile/features/voice_assistant/widgets/typewriter_text.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:buddy_mobile/shared/widgets/keyboard_guided_hover.dart';
 
 class BuddyAssistantPage extends StatefulWidget {
@@ -38,8 +41,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
   final SpeechToText _speechToText = SpeechToText();
-  final FlutterTts _flutterTts = FlutterTts();
-  final AudioPlayer _audioPlayer = AudioPlayer();
   
   bool _isListening = false;
   String _selectedLanguage = "en-US";
@@ -61,24 +62,43 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       // Enable Realtime Socket for Instant Updates (Streaming Response)
       provider.toggleRealtime(true);
 
-      // Setup Realtime Audio Listener
-      provider.socketService.audioStream.listen((base64Audio) async {
-        if (base64Audio.isNotEmpty) {
-          await _audioPlayer.play(BytesSource(base64Decode(base64Audio)));
-        }
-      });
+      // Setup Realtime Audio Listener - REMOVED: Managed by Provider to prevent conflicts
 
-      // Fetch Local News based on location
+      // Fetch Local News based on location gracefully
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final lat = userProvider.user['currentLocation']?['lat'];
-      final lon = userProvider.user['currentLocation']?['lng'];
-      provider.fetchLocalNews(lat, lon);
+      double? lat = userProvider.user['currentLocation']?['lat'];
+      double? lon = userProvider.user['currentLocation']?['lng'];
+      
+      if (lat == null || lon == null) {
+        // First check permission status silently
+        Geolocator.checkPermission().then((permission) {
+          if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+            Geolocator.getCurrentPosition().then((pos) {
+              userProvider.setGuestLocation(pos.latitude, pos.longitude);
+              provider.fetchLocalNews(pos.latitude, pos.longitude);
+            }).catchError((e) {
+              provider.fetchLocalNews(null, null);
+            });
+          } else {
+            // Permission not granted already, don't force a prompt in Assistant page
+            // just use basic news (null, null)
+            provider.fetchLocalNews(null, null);
+          }
+        });
+      } else {
+        provider.fetchLocalNews(lat, lon);
+      }
     });
   }
 
   Future<void> _initSpeech() async {
     try {
-      final status = await Permission.microphone.request();
+      // Check status first to avoid forced OS prompt if already determined
+      var status = await Permission.microphone.status;
+      if (status.isDenied) {
+        status = await Permission.microphone.request();
+      }
+      
       if (status != PermissionStatus.granted) {
         if (kDebugMode) print('Microphone permission not granted');
         return;
@@ -96,7 +116,10 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   Future<void> _initTts() async {
     try {
-      await _flutterTts.setLanguage(_selectedLanguage);
+      final provider = Provider.of<BuddyProvider>(context, listen: false);
+      final tts = provider.tts;
+      
+      await tts.setLanguage(_selectedLanguage);
       
       // Use pre-resolved voice configurations from backend payload
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -105,9 +128,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       double pitch = (resolvedConfig['pitch'] as num?)?.toDouble() ?? 1.0;
       double speechRate = (resolvedConfig['speechRate'] as num?)?.toDouble() ?? 0.5;
 
-      await _flutterTts.setSpeechRate(speechRate);
-      await _flutterTts.setVolume(1.0);
-      await _flutterTts.setPitch(pitch);
+      await tts.setSpeechRate(speechRate);
+      await tts.setVolume(1.0);
+      await tts.setPitch(pitch);
     } catch (e) {
       if (kDebugMode) print('Error initializing TTS: $e');
     }
@@ -118,7 +141,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     _inputController.dispose();
     _scrollController.dispose();
     _speechToText.stop();
-    _flutterTts.stop();
+    // TTS/Audio disposal handled by Provider
     super.dispose();
   }
 
@@ -189,6 +212,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             return;
         }
         
+        final provider = Provider.of<BuddyProvider>(context, listen: false);
+        await provider.stopAllAudio(); // STOP AI IMMEDIATELY WHEN USER WANTS TO TALK
+
         setState(() => _isListening = true);
         await _speechToText.listen(
           onResult: (result) {
@@ -203,7 +229,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             }
           },
           listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 10),
+          pauseFor: const Duration(seconds: 2),
           listenMode: ListenMode.confirmation,
           cancelOnError: false,
           onSoundLevelChange: (level) {
@@ -242,15 +268,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFF),
+      backgroundColor: const Color(0xFFF9FAFB), // Premium Light BG
       body: SafeArea(
         child: KeyboardGuidedHover(
           child: Column(
             children: [
               Expanded(
-                child: provider.messages.isEmpty 
-                  ? _buildEmptyState(provider, branding) 
-                  : _buildChatList(provider, branding),
+                child: Stack(
+                  children: [
+                    provider.messages.isEmpty 
+                      ? _buildEmptyState(provider, branding) 
+                      : _buildChatList(provider, branding),
+                  ],
+                ),
               ),
 
               if (provider.isThinking) _buildThinkingIndicator(branding),
@@ -277,7 +307,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.03),
@@ -356,13 +386,13 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         ),
                         const SizedBox(width: 8),
                         if (provider.isFetchingNews)
-                          const SizedBox(
+                          SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E293B)),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: branding.primaryColor),
                           )
                         else
-                          const Icon(LucideIcons.rotateCcw, size: 16, color: Color(0xFF1E293B)),
+                          Icon(LucideIcons.rotateCcw, size: 16, color: branding.primaryColor),
                       ],
                     ),
                   ),
@@ -376,15 +406,15 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     ),
                   )
                 else if (provider.localNews.isEmpty) ...[
-                  _buildSuggestionItem("What is the format of T20 WC 2026? 📜"),
+                  _buildSuggestionItem("What is the format of T20 WC 2026? 📜", branding),
                   const SizedBox(height: 12),
-                  _buildSuggestionItem("Budget 2026: Taxpayers' Relief 💰"),
+                  _buildSuggestionItem("Budget 2026: Taxpayers' Relief 💰", branding),
                   const SizedBox(height: 12),
-                  _buildSuggestionItem("Convert photo of paper doc to document"),
+                  _buildSuggestionItem("Convert photo of paper doc to document", branding),
                 ] else
                   ...provider.localNews.map((news) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildSuggestionItem(news),
+                    child: _buildSuggestionItem(news, branding),
                   )).toList(),
               ],
             ),
@@ -394,16 +424,16 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
   }
 
-  Widget _buildSuggestionItem(String text) {
+  Widget _buildSuggestionItem(String text, BrandingProvider branding) {
     return Material(
-      color: const Color(0xFFF1F7FF),
-      borderRadius: BorderRadius.circular(12),
+      color: branding.primaryColor.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: () {
           _inputController.text = text;
           _handleSend();
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -411,8 +441,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           text,
           style: GoogleFonts.outfit(
             fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF1E6AFF),
+            fontWeight: FontWeight.w600,
+            color: branding.primaryColor,
           ),
         ),
         ), // Container
@@ -441,154 +471,206 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     bool hasMore = totalMessages > _messageLimit;
 
     return ListView.builder(
-      reverse: true, // Force list to start from the bottom edge
+      reverse: true,
       controller: _scrollController,
-      padding: const EdgeInsets.all(18),
-      itemCount: displayCount + 1, // Always show the top row if messages exist
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      itemCount: displayCount + 1,
       itemBuilder: (context, index) {
         if (index == displayCount) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            padding: const EdgeInsets.only(bottom: 24.0, top: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (hasMore) ...[
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _messageLimit += 15;
-                      });
-                    },
-                    icon: Icon(LucideIcons.refreshCw, size: 16, color: branding.primaryColor),
-                    label: Text(
-                      "Load More",
-                      style: GoogleFonts.outfit(
-                        color: branding.primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      backgroundColor: branding.primaryColor.withOpacity(0.1),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                  _smallActionButton(
+                    icon: LucideIcons.refreshCw, 
+                    label: "Load More", 
+                    color: branding.primaryColor,
+                    onTap: () => setState(() => _messageLimit += 15),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                 ],
-                TextButton.icon(
-                  onPressed: () => _showClearHistoryDialog(context, provider),
-                  icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.redAccent),
-                  label: Text(
-                    "Clear Chat",
-                    style: GoogleFonts.outfit(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.redAccent.withOpacity(0.1),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                _smallActionButton(
+                  icon: LucideIcons.trash2, 
+                  label: "Clear History", 
+                  color: Colors.redAccent,
+                  onTap: () => _showClearHistoryDialog(context, provider),
                 ),
               ],
             ),
           );
         }
 
-        // Reverse index since the ListView is now building bottom-up
         final msg = provider.messages[totalMessages - 1 - index];
         final isUser = msg['type'] == 'user';
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Row(
+            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!isUser) ...[
-                Text(
-                  "BUDDY",
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: branding.primaryColor,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-                decoration: BoxDecoration(
-                  color: isUser ? branding.primaryColor : Colors.white,
-                  gradient: isUser 
-                    ? LinearGradient(
-                        colors: [branding.primaryColor, branding.primaryColor.withOpacity(0.8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(12),
-                    topRight: const Radius.circular(12),
-                    bottomLeft: Radius.circular(isUser ? 12 : 4),
-                    bottomRight: Radius.circular(isUser ? 4 : 12),
-                  ),
-                  boxShadow: [
-                    if (!isUser)
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                  ],
-                  border: !isUser ? Border.all(color: Colors.black.withOpacity(0.04)) : null,
-                ),
+              if (!isUser) _buildAssistantAvatar(branding),
+              const SizedBox(width: 12),
+              Flexible(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
-                    if (msg['image'] != null) ...[
-                        ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.file(File(msg['image']), width: 260),
-                        ),
-                        const SizedBox(height: 8),
-                    ],
-                    if (isUser)
-                      Text(
-                        msg['text'],
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
-                          height: 1.6,
-                        ),
-                      )
-                    else
-                      TypewriterText(
-                        msg['text'],
-                        key: ValueKey(msg['id']),
-                        enabled: msg['shouldType'] ?? true,
-                        duration: const Duration(milliseconds: 8),
-                        style: GoogleFonts.outfit(
-
-                          color: const Color(0xFF1E293B),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
-                          height: 1.6,
+                    // Label above the bubble
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6, left: 4, right: 4),
+                      child: Text(
+                        isUser ? "You" : "Buddy (Assistant)",
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF64748B), // Muted Slate
                         ),
                       ),
+                    ),
+                    
+                    // The Bubble (Light Glass Effect)
+                    ClipRRect(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(isUser ? 10 : 4),
+                        topRight: Radius.circular(isUser ? 4 : 10),
+                        bottomLeft: const Radius.circular(10),
+                        bottomRight: const Radius.circular(10),
+                      ),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isUser 
+                                ? branding.primaryColor.withOpacity(0.08) 
+                                : Colors.white.withOpacity(0.7), // Semi-transparent glass
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(isUser ? 10 : 4),
+                              topRight: Radius.circular(isUser ? 4 : 10),
+                              bottomLeft: const Radius.circular(10),
+                              bottomRight: const Radius.circular(10),
+                            ),
+                            border: Border.all(
+                              color: isUser 
+                                  ? branding.primaryColor.withOpacity(0.12)
+                                  : Colors.black.withOpacity(0.06),
+                            ),
+                            boxShadow: [
+                              if (!isUser)
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.03),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (msg['image'] != null) ...[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.file(
+                                    File(msg['image']), 
+                                    width: 240,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              if (isUser)
+                                Text(
+                                  msg['text'],
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFF111827), // Deep Dark Text
+                                    fontSize: 14.5,
+                                    height: 1.5,
+                                  ),
+                                )
+                              else
+                                MarkdownBody(
+                                  data: msg['text'],
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: GoogleFonts.poppins(color: const Color(0xFF111827), fontSize: 14.5, height: 1.5),
+                                    strong: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: const Color(0xFF111827)),
+                                    listBullet: GoogleFonts.poppins(color: const Color(0xFF111827)),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              if (isUser) _buildUserAvatar(),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _smallActionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssistantAvatar(BrandingProvider branding) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: branding.primaryColor.withOpacity(0.1),
+        shape: BoxShape.circle,
+        border: Border.all(color: branding.primaryColor.withOpacity(0.2)),
+      ),
+      child: Center(
+        child: Icon(LucideIcons.bot, color: branding.primaryColor, size: 18),
+      ),
+    );
+  }
+
+  Widget _buildUserAvatar() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        shape: BoxShape.circle,
+      ),
+      child: const Center(
+        child: Icon(LucideIcons.user, color: Color(0xFF64748B), size: 18),
+      ),
     );
   }
 
@@ -601,7 +683,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.black.withOpacity(0.04)),
               boxShadow: [
                 BoxShadow(
@@ -659,7 +741,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   Widget _buildInputArea(BuddyProvider provider, BrandingProvider branding, AuthProvider auth) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-      color: const Color(0xFFF9FAFF),
+      color: Colors.transparent, // Allow glass bg to show
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -759,25 +841,42 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Clear Chat History", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        content: Text("Are you sure you want to delete all chat history? This action cannot be undone.", style: GoogleFonts.outfit()),
+        title: Text("Clear Chat History", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFF1E293B))),
+        content: Text("Are you sure you want to delete all chat history? This action cannot be undone.", style: GoogleFonts.outfit(color: const Color(0xFF64748B))),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: Text("Cancel", style: GoogleFonts.outfit(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await provider.deleteAllHistory();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text("Delete All", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context), 
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text("Cancel", style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await provider.deleteAllHistory();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text("Delete All", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
           ),
         ],
       ),

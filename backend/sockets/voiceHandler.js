@@ -16,19 +16,27 @@ const voiceHandler = (io) => {
 
     io.use((socket, next) => {
         const token = socket.handshake.auth.token;
-        if (!token) return next(new Error('Auth error'));
+
+        if (!token || token === 'null' || token === 'undefined') {
+            // Allow Guest connections
+            socket.userId = `guest_${socket.id}`;
+            return next();
+        }
 
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             socket.userId = decoded.id;
             next();
         } catch (err) {
-            next(new Error('Auth error'));
+            // Even on invalid token, allow as guest for voice assistant
+            socket.userId = `guest_${socket.id}`;
+            next();
         }
     });
 
     io.on('connection', (socket) => {
-        console.log(`[Socket] 📞 New Voice Session: ${socket.id} (User: ${socket.userId})`);
+        const transport = socket.conn.transport.name; // 'polling' or 'websocket'
+        console.log(`[Socket] 📞 New Voice Session: ${socket.id} (User: ${socket.userId}) [Transport: ${transport}]`);
 
         // Join a private room for this user to receive targeted notifications
         socket.join(socket.userId);

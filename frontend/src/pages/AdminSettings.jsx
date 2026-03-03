@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
     Settings, Mail, MessageSquare, CreditCard, Share2, Palette, Save, Plus, Trash2, Send, Upload, ChevronRight, Globe,
     Facebook, Instagram, Twitter, Linkedin, Youtube, ExternalLink, RefreshCw, CheckCircle2, ShieldCheck, Zap, Eye, EyeOff, Lock, ChevronDown, Bell, Database, Calendar, Link2,
-    Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image, MapPin
+    Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image, MapPin, HardDrive, Cloud, Inbox, Cpu, Fingerprint, Layout, Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -32,7 +32,8 @@ const AdminSettings = () => {
     const { user, refreshUser } = useAuth();
     const {
         themeMode, setThemeMode,
-        accentColor, setAccentColor
+        accentColor, setAccentColor,
+        secondaryAccent, setSecondaryAccent
     } = useTheme();
     const { refreshSettings } = useSettings();
     const logoInputRef = useRef(null);
@@ -77,12 +78,10 @@ const AdminSettings = () => {
         socialMedia: { facebook: '', instagram: '', whatsapp: '', twitter: '', linkedin: '', youtube: '' },
         ai: { activeModel: 'anthropic/claude-3.5-sonnet', consensusMode: false, listeningDuration: 5, models: { gpt4o: 'openai/gpt-4o-mini', claude: 'anthropic/claude-3.5-sonnet', deepseek: 'deepseek/deepseek-chat' }, geminiApiKey: '' },
         googleCalendar: {
-            activeAccount: '',
-            accounts: {
-                personal: { clientId: '', clientSecret: '', redirectUri: `${envConfig.API_URL}/voice/google/callback`, enabled: false },
-                work: { clientId: '', clientSecret: '', redirectUri: `${envConfig.API_URL}/voice/google/callback`, enabled: false },
-                business: { clientId: '', clientSecret: '', redirectUri: `${envConfig.API_URL}/voice/google/callback`, enabled: false }
-            }
+            clientId: '',
+            clientSecret: '',
+            redirectUri: `${envConfig.API_URL}/voice/google/callback`,
+            enabled: false
         },
         googleAuth: {
             webClientId: '',
@@ -101,6 +100,7 @@ const AdminSettings = () => {
 
 
     const [voicePrefs, setVoicePrefs] = useState({ gender: 'female', tone: 'soft' });
+    const [showGeminiKey, setShowGeminiKey] = useState(false);
 
     useEffect(() => {
         if (user?.voicePreferences) {
@@ -115,12 +115,17 @@ const AdminSettings = () => {
     // Local state for pending appearance changes - Moved up for correct initialization
     const [appearance, setAppearance] = useState({
         themeMode,
-        accentColor
+        accentColor,
+        secondaryColor: localStorage.getItem('secondaryColor') || '#6366F1'
     });
 
     // Sync local state if context changes elsewhere
     useEffect(() => {
-        setAppearance({ themeMode, accentColor });
+        setAppearance(prev => ({
+            ...prev,
+            themeMode,
+            accentColor
+        }));
     }, [themeMode, accentColor]);
 
     useEffect(() => {
@@ -159,6 +164,12 @@ const AdminSettings = () => {
                     if (data.appearance) {
                         setThemeMode(data.appearance.themeMode || 'night');
                         setAccentColor(data.appearance.accentColor || '#0075ff');
+                        setAppearance(prev => ({
+                            ...prev,
+                            themeMode: data.appearance.themeMode || 'night',
+                            accentColor: data.appearance.accentColor || '#0075ff',
+                            secondaryColor: data.appearance.secondaryColor || '#6366F1'
+                        }));
                     }
                 }
             } catch (error) {
@@ -178,7 +189,8 @@ const AdminSettings = () => {
                 ...settings,
                 appearance: {
                     themeMode: appearance.themeMode,
-                    accentColor: appearance.accentColor
+                    accentColor: appearance.accentColor,
+                    secondaryColor: appearance.secondaryColor
                 }
             };
 
@@ -190,6 +202,7 @@ const AdminSettings = () => {
                 // Update Global Theme Context immediately
                 setThemeMode(appearance.themeMode);
                 setAccentColor(appearance.accentColor);
+                setSecondaryAccent(appearance.secondaryColor);
 
                 // Apply font if changed
                 if (settings.general.fontFamily) {
@@ -204,7 +217,8 @@ const AdminSettings = () => {
                         ...data,
                         smtp: { ...prev.smtp, ...(data.smtp || {}), password: prev.smtp?.password || data.smtp?.password || '' }, // Keep current pw in field
                         ai: { ...prev.ai, ...(data.ai || {}), geminiApiKey: prev.ai?.geminiApiKey || data.ai?.geminiApiKey || '' }, // Keep current key in field
-                        googleAuth: { ...prev.googleAuth, ...(data.googleAuth || {}), webClientSecret: prev.googleAuth?.webClientSecret || data.googleAuth?.webClientSecret || '' } // Keep secret
+                        googleAuth: { ...prev.googleAuth, ...(data.googleAuth || {}), webClientSecret: prev.googleAuth?.webClientSecret || data.googleAuth?.webClientSecret || '' }, // Keep secret
+                        googleCalendar: { ...prev.googleCalendar, ...(data.googleCalendar || {}), clientSecret: prev.googleCalendar?.clientSecret || data.googleCalendar?.clientSecret || '' } // Keep secret
                     }));
                 }
             }
@@ -465,318 +479,339 @@ const AdminSettings = () => {
                             style={{ minHeight: '500px' }}
                         >
                             {activeTab === 'general' && (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '2rem' }}>
-                                    <section>
-                                        <SectionTitle label="Branding" icon={Globe} color="var(--primary-color)" />
+                                <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+                                    <div style={{ marginBottom: '2.5rem' }}>
+                                        <SectionTitle label="System Configuration" icon={Globe} color="var(--primary-color)" />
+                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                                            Manage your platform's core identity, regional preferences, and administrative communication channels.
+                                        </p>
+                                    </div>
 
-                                        <div style={{ marginBottom: '1.5rem' }}>
-                                            <label style={LabelStyle}>Logo</label>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <div
-                                                    onClick={() => logoInputRef.current?.click()}
-                                                    style={{
-                                                        width: '64px',
-                                                        height: '64px',
-                                                        borderRadius: '12px',
-                                                        background: settings.general.logo ? 'transparent' : 'var(--bg-lite)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        overflow: 'hidden',
-                                                        border: '1px solid var(--border-color)',
-                                                        cursor: 'pointer'
-                                                    }}>
-                                                    {settings.general.logo ? (
-                                                        <img
-                                                            src={getImageUrl(settings.general.logo)}
-                                                            alt="Logo"
-                                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                        />
-                                                    ) : (
-                                                        <Upload color="var(--text-sub)" size={20} />
-                                                    )}
-                                                </div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <label
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))', gap: '32px' }}>
+                                            {/* Branding & Identity Card */}
+                                            <div style={{ padding: '28px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                                <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(var(--primary-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Zap size={18} color="var(--primary-color)" />
+                                                    </div>
+                                                    Branding & Identity
+                                                </h4>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px', background: 'var(--card-bg)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
+                                                    <div
                                                         onClick={() => logoInputRef.current?.click()}
-                                                        style={{ ...UploadButtonStyle, cursor: 'pointer', margin: 0, textAlign: 'center' }}
-                                                    >
-                                                        Update Logo
-                                                    </label>
-                                                    {settings.general.logo && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleRemoveLogo}
-                                                            style={{
-                                                                ...UploadButtonStyle,
-                                                                background: 'transparent',
-                                                                color: 'var(--danger-color)',
-                                                                borderColor: 'var(--danger-color)',
-                                                                marginTop: 0
-                                                            }}
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    )}
-                                                    <input
-                                                        ref={logoInputRef}
-                                                        type="file"
-                                                        hidden
-                                                        onChange={handleLogoUpload}
-                                                        accept="image/*"
-                                                    />
+                                                        style={{
+                                                            width: '80px',
+                                                            height: '80px',
+                                                            borderRadius: '16px',
+                                                            background: 'var(--bg-lite)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            overflow: 'hidden',
+                                                            border: '2px dashed var(--border-color)',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }}>
+                                                        {settings.general.logo ? (
+                                                            <img src={getImageUrl(settings.general.logo)} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                        ) : (
+                                                            <Upload color="var(--text-sub)" size={24} />
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                        <label style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text-main)' }}>Platform Logo</label>
+                                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                                            <button onClick={() => logoInputRef.current?.click()} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--primary-color)', color: 'white', border: 'none', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}>Update</button>
+                                                            {settings.general.logo && (
+                                                                <button onClick={handleRemoveLogo} style={{ padding: '8px 16px', borderRadius: '8px', background: 'transparent', color: 'var(--danger-color)', border: '1px solid var(--danger-color)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}>Remove</button>
+                                                            )}
+                                                        </div>
+                                                        <input ref={logoInputRef} type="file" hidden onChange={handleLogoUpload} accept="image/*" />
+                                                    </div>
+                                                </div>
+
+                                                <InputGroup label="System Name" value={settings.general.companyName} onChange={v => setSettings({ ...settings, general: { ...settings.general, companyName: v } })} placeholder="e.g. My Awesome App" />
+                                                <InputGroup label="Physical Address" value={settings.general.address} onChange={v => setSettings({ ...settings, general: { ...settings.general, address: v } })} type="textarea" placeholder="Enter headquarters address..." />
+
+                                                <div>
+                                                    <label style={{ ...LabelStyle, marginBottom: '8px' }}>Primary Contact Number</label>
+                                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                                        <div style={{ width: '130px' }}>
+                                                            <CustomSelect
+                                                                value={settings.general.countryCode || 'IN'}
+                                                                onChange={e => setSettings({ ...settings, general: { ...settings.general, countryCode: e.target.value, phone: '' } })}
+                                                                options={COUNTRIES.map(c => ({ value: c.code, label: `${c.code} (${c.dial})` }))}
+                                                            />
+                                                        </div>
+                                                        <div style={{ flex: 1 }}>
+                                                            <input
+                                                                type="text"
+                                                                style={{ ...InputStyle, height: '44px' }}
+                                                                value={settings.general.phone}
+                                                                onChange={e => {
+                                                                    const target = COUNTRIES.find(c => c.code === (settings.general.countryCode || 'IN'));
+                                                                    const val = e.target.value.replace(/\D/g, '');
+                                                                    if (val.length <= target.digits) setSettings({ ...settings, general: { ...settings.general, phone: val } });
+                                                                }}
+                                                                placeholder="Phone digits..."
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <InputGroup label="Name" value={settings.general.companyName} onChange={v => setSettings({ ...settings, general: { ...settings.general, companyName: v } })} required />
-                                        <InputGroup label="Address" value={settings.general.address} onChange={v => setSettings({ ...settings, general: { ...settings.general, address: v } })} type="textarea" required />
+                                            {/* Localization & Preferences Card */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                                <div style={{ padding: '28px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                                                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(52, 168, 83, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Globe size={18} color="#34A853" />
+                                                        </div>
+                                                        Localization & Regional
+                                                    </h4>
 
-                                        <div style={{ marginBottom: '1.25rem' }}>
-                                            <label style={LabelStyle}>Phone Number *</label>
-                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                <div style={{ position: 'relative', width: '120px' }}>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                        <CustomSelect
+                                                            label="Date Display Format"
+                                                            value={settings.general.dateFormat || 'DD-MM-YYYY'}
+                                                            onChange={e => setSettings({ ...settings, general: { ...settings.general, dateFormat: e.target.value } })}
+                                                            options={[
+                                                                { value: "DD-MM-YYYY", label: "DD-MM-YYYY" },
+                                                                { value: "MM-DD-YYYY", label: "MM-DD-YYYY" },
+                                                                { value: "YYYY-MM-DD", label: "YYYY-MM-DD" },
+                                                                { value: "DD/MM/YYYY", label: "DD/MM/YYYY" }
+                                                            ]}
+                                                        />
+                                                        <CustomSelect
+                                                            label="Time Presentation"
+                                                            value={settings.general.timeFormat || '24h'}
+                                                            onChange={e => setSettings({ ...settings, general: { ...settings.general, timeFormat: e.target.value } })}
+                                                            options={[
+                                                                { value: "12h", label: "12H (AM/PM)" },
+                                                                { value: "24h", label: "24H Global" }
+                                                            ]}
+                                                        />
+                                                    </div>
+
                                                     <CustomSelect
-                                                        value={settings.general.countryCode || 'IN'}
-                                                        onChange={e => {
-                                                            const newCode = e.target.value;
-                                                            setSettings({
-                                                                ...settings,
-                                                                general: {
-                                                                    ...settings.general,
-                                                                    countryCode: newCode,
-                                                                    phone: ''
-                                                                }
-                                                            });
-                                                        }}
-                                                        options={COUNTRIES.map(c => ({ value: c.code, label: `${c.code} (${c.dial})` }))}
+                                                        label="Global Time Zone"
+                                                        value={settings.general.timeZone || 'UTC'}
+                                                        onChange={e => setSettings({ ...settings, general: { ...settings.general, timeZone: e.target.value } })}
+                                                        options={[
+                                                            { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+                                                            { value: "America/New_York", label: "Eastern Time (US & Canada)" },
+                                                            { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)" },
+                                                            { value: "Asia/Kolkata", label: "India Standard Time (IST)" }
+                                                        ]}
                                                     />
+
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                        <CustomSelect
+                                                            label="System Typography"
+                                                            value={settings.general.fontFamily || "'Inter', sans-serif"}
+                                                            onChange={e => { setSettings({ ...settings, general: { ...settings.general, fontFamily: e.target.value } }); applyFont(e.target.value); }}
+                                                            options={FONTS}
+                                                        />
+                                                        <CustomSelect
+                                                            label="Voice Interaction"
+                                                            value={settings.general.language || 'en-US'}
+                                                            onChange={e => setSettings({ ...settings, general: { ...settings.general, language: e.target.value } })}
+                                                            options={[
+                                                                { value: 'en-US', label: 'English (US)' },
+                                                                { value: 'hi-IN', label: 'Hindi (IN)' },
+                                                                { value: 'ta-IN', label: 'Tamil (IN)' }
+                                                            ]}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <input
-                                                        type="text"
-                                                        style={InputStyle}
-                                                        value={settings.general.phone}
-                                                        onChange={e => {
-                                                            const targetCountry = COUNTRIES.find(c => c.code === (settings.general.countryCode || 'IN'));
-                                                            const val = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                                                            if (val.length <= targetCountry.digits) {
-                                                                setSettings({ ...settings, general: { ...settings.general, phone: val } });
-                                                            }
-                                                        }}
-                                                        placeholder={`${COUNTRIES.find(c => c.code === (settings.general.countryCode || 'IN'))?.digits} digits`}
-                                                        required
-                                                    />
-                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '4px' }}>
-                                                        Selected: {COUNTRIES.find(c => c.code === (settings.general.countryCode || 'IN'))?.name}.
-                                                        Requires {COUNTRIES.find(c => c.code === (settings.general.countryCode || 'IN'))?.digits} digits.
-                                                    </p>
+
+                                                {/* Administrative Card */}
+                                                <div style={{ padding: '28px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(251, 188, 5, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Mail size={18} color="#FBBC05" />
+                                                        </div>
+                                                        Administrative Access
+                                                    </h4>
+                                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', marginBottom: '20px' }}>Add email addresses that should receive critical system alerts and reports.</p>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        {settings.general.emails.map((email, index) => (
+                                                            <div key={index} style={{ display: 'flex', gap: '10px' }}>
+                                                                <input
+                                                                    type="email"
+                                                                    style={{ ...InputStyle, flex: 1 }}
+                                                                    value={email}
+                                                                    onChange={(e) => updateEmailField(index, e.target.value)}
+                                                                    placeholder="admin@example.com"
+                                                                />
+                                                                {settings.general.emails.length > 1 && (
+                                                                    <button type="button" onClick={() => removeEmailField(index)} style={{ padding: '0 12px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: 'none', cursor: 'pointer' }}>
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        <button type="button" onClick={addEmailField} style={{ marginTop: '8px', padding: '12px', borderRadius: '12px', background: 'var(--card-bg)', color: 'var(--primary-color)', border: '1px dashed var(--primary-color)', fontSize: '0.85rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                            <Plus size={16} /> Add Recipient
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
-                                            <div>
-                                                <label style={LabelStyle}>Date Format</label>
-                                                <CustomSelect
-                                                    value={settings.general.dateFormat || 'DD-MM-YYYY'}
-                                                    onChange={e => setSettings({ ...settings, general: { ...settings.general, dateFormat: e.target.value } })}
-                                                    options={[
-                                                        { value: "DD-MM-YYYY", label: "DD-MM-YYYY" },
-                                                        { value: "MM-DD-YYYY", label: "MM-DD-YYYY" },
-                                                        { value: "YYYY-MM-DD", label: "YYYY-MM-DD" },
-                                                        { value: "DD/MM/YYYY", label: "DD/MM/YYYY" },
-                                                        { value: "MM/DD/YYYY", label: "MM/DD/YYYY" }
-                                                    ]}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={LabelStyle}>Time Zone</label>
-                                                <CustomSelect
-                                                    value={settings.general.timeZone || 'UTC'}
-                                                    onChange={e => setSettings({ ...settings, general: { ...settings.general, timeZone: e.target.value } })}
-                                                    options={[
-                                                        { value: "UTC", label: "UTC (Coordinated Universal Time)" },
-                                                        { value: "America/New_York", label: "Eastern Time (US & Canada)" },
-                                                        { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)" },
-                                                        { value: "Europe/London", label: "London" },
-                                                        { value: "Asia/Kolkata", label: "Asia/Kolkata" },
-                                                        { value: "Asia/Tokyo", label: "Asia/Tokyo" },
-                                                        { value: "Australia/Sydney", label: "Australia/Sydney" }
-                                                    ]}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={LabelStyle}>Time Format</label>
-                                                <CustomSelect
-                                                    value={settings.general.timeFormat || '24h'}
-                                                    onChange={e => setSettings({ ...settings, general: { ...settings.general, timeFormat: e.target.value } })}
-                                                    options={[
-                                                        { value: "12h", label: "12 Hours (AM/PM)" },
-                                                        { value: "24h", label: "24 Hours" }
-                                                    ]}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={LabelStyle}>System Font</label>
-                                                <CustomSelect
-                                                    value={settings.general.fontFamily || "'Inter', sans-serif"}
-                                                    onChange={e => {
-                                                        const v = e.target.value;
-                                                        setSettings({ ...settings, general: { ...settings.general, fontFamily: v } });
-                                                        // Optional: Apply immediately for preview
-                                                        applyFont(v);
-                                                    }}
-                                                    options={FONTS}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={LabelStyle}>Voice Language</label>
-                                                <CustomSelect
-                                                    value={settings.general.language || 'en-US'}
-                                                    onChange={e => setSettings({ ...settings, general: { ...settings.general, language: e.target.value } })}
-                                                    options={[
-                                                        { value: 'en-US', label: 'English (Default)' },
-                                                        { value: 'hi-IN', label: 'Hindi (India)' },
-                                                        { value: 'ta-IN', label: 'Tamil (India)' },
-                                                        { value: 'te-IN', label: 'Telugu (India)' },
-                                                        { value: 'ml-IN', label: 'Malayalam (India)' },
-                                                        { value: 'kn-IN', label: 'Kannada (India)' }
-                                                    ]}
-                                                />
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    <section>
-                                        <SectionTitle label="Administrative Emails" icon={Mail} color="var(--primary-color)" />
-                                        {settings.general.emails.map((email, index) => (
-                                            <div key={index} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                                <input
-                                                    type="email"
-                                                    style={InputStyle}
-                                                    value={email}
-                                                    onChange={(e) => updateEmailField(index, e.target.value)}
-                                                    placeholder="admin@company.com"
-                                                />
-                                                {settings.general.emails.length > 1 && (
-                                                    <button type="button" onClick={() => removeEmailField(index)} style={RemoveButtonStyle}>
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
-                                        <button type="button" onClick={addEmailField} style={AddButtonStyle}>
-                                            <Plus size={16} /> Add More
-                                        </button>
-                                    </section>
-                                </div>
+                                    </div>
+                                </section>
                             )}
+
 
                             {activeTab === 'smtp' && (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '2rem' }}>
-                                    <section>
-                                        <SectionTitle label="SMTP Configuration" icon={Zap} color="var(--primary-color)" />
+                                <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+                                        <div>
+                                            <SectionTitle label="SMTP Configuration" icon={Mail} color="var(--primary-color)" />
+                                            <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                                                Configure your email server settings to enable system notifications and user communications.
+                                            </p>
+                                        </div>
 
-                                        <div style={{ marginBottom: '2rem' }}>
-                                            <label style={LabelStyle}>Quick Setup</label>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                                                {smtpPresets.map(preset => (
-                                                    <button
-                                                        key={preset.name}
-                                                        type="button"
-                                                        onClick={() => handleSmtpPreset(preset)}
-                                                        style={{
-                                                            padding: '12px 28px',
-                                                            borderRadius: '14px',
-                                                            border: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                                            background: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                                            color: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? 'white' : 'var(--text-sub)',
-                                                            cursor: 'pointer',
-                                                            fontWeight: '750',
-                                                            fontSize: '0.9rem',
-                                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                            boxShadow: (settings.smtp.host === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host)) ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
-                                                        }}
-                                                    >
-                                                        {preset.name}
-                                                    </button>
-                                                ))}
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            background: settings.smtp?.enabled ? 'color-mix(in srgb, var(--success-color) 15%, transparent)' : 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+                                            padding: '8px 16px',
+                                            borderRadius: '20px',
+                                            border: `1px solid ${settings.smtp?.enabled ? 'color-mix(in srgb, var(--success-color) 30%, transparent)' : 'color-mix(in srgb, var(--text-sub) 20%, transparent)'}`,
+                                            cursor: 'pointer'
+                                        }} onClick={() => setSettings({ ...settings, smtp: { ...settings.smtp, enabled: !settings.smtp.enabled } })}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: settings.smtp?.enabled ? 'var(--success-color)' : 'var(--text-sub)' }} />
+                                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: settings.smtp?.enabled ? 'var(--success-color)' : 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                {settings.smtp?.enabled ? 'Service Active' : 'Service Paused'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        {/* Presets Card */}
+                                        <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '16px' }}>Quick Presets</h4>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                                {smtpPresets.map(preset => {
+                                                    const isSelected = ((settings.smtp?.host || "") === preset.host) || (preset.name === 'Custom' && !smtpPresets.slice(1).some(p => p.host === settings.smtp.host));
+                                                    return (
+                                                        <button
+                                                            key={preset.name}
+                                                            type="button"
+                                                            onClick={() => handleSmtpPreset(preset)}
+                                                            style={{
+                                                                padding: '10px 20px',
+                                                                borderRadius: '12px',
+                                                                border: isSelected ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                                                background: isSelected ? 'var(--primary-color)' : 'var(--card-bg)',
+                                                                color: isSelected ? 'white' : 'var(--text-sub)',
+                                                                cursor: 'pointer',
+                                                                fontWeight: '700',
+                                                                fontSize: '0.85rem',
+                                                                transition: 'all 0.2s ease'
+                                                            }}
+                                                        >
+                                                            {preset.name}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1rem' }}>
-                                            <InputGroup label="Host" value={settings.smtp.host} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, host: v } })} placeholder="smtp.mailtrap.io" />
-                                            <InputGroup label="Port" value={settings.smtp.port} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, port: v } })} placeholder="465" />
-                                        </div>
-                                        <InputGroup label="Username" value={settings.smtp.username} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, username: v } })} placeholder="API Key or User" />
-                                        <InputGroup label="Password" type="password" value={settings.smtp.password} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, password: v } })} placeholder="••••••••" />
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1rem' }}>
-                                            <InputGroup label="From Name" value={settings.smtp.fromName} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, fromName: v } })} placeholder="My Company" />
-                                            <InputGroup label="From Email" value={settings.smtp.fromEmail} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, fromEmail: v } })} placeholder="sender@example.com" />
-                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+                                            {/* Connection Details */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <RefreshCw size={18} color="var(--primary-color)" /> Server Connection
+                                                </h4>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                                    <InputGroup label="Host Address" value={settings.smtp.host} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, host: v } })} placeholder="smtp.provider.com" />
+                                                    <InputGroup label="Port" value={settings.smtp?.port} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, port: v } })} placeholder="465" />
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    <InputGroup label="Username" value={settings.smtp?.username} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, username: v } })} placeholder="Enter username" />
+                                                    <InputGroup label="Password" type="password" value={settings.smtp?.password} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, password: v } })} placeholder="••••••••" />
+                                                </div>
+                                            </div>
 
-                                        <div style={{ marginBottom: '1.25rem' }}>
-                                            <label style={LabelStyle}>Encryption</label>
-                                            <div style={{ display: 'flex', gap: '1.5rem', background: 'var(--bg-color)', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-                                                {['ssl', 'tls'].map(type => (
-                                                    <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: '600' }}>
-                                                        <div style={{
-                                                            width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${settings.smtp.encryption === type ? 'var(--primary-color)' : 'var(--border-color)'}`,
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                        }}>
-                                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--primary-color)', transform: `scale(${settings.smtp.encryption === type ? 1 : 0})`, transition: 'transform 0.2s' }} />
+                                            {/* Security & Identity */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <ShieldCheck size={18} color="var(--primary-color)" /> Sender Details
+                                                </h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                                        <InputGroup label="From Name" value={settings.smtp?.fromName} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, fromName: v } })} placeholder="Sender Name" />
+                                                        <InputGroup label="From Email" value={settings.smtp?.fromEmail} onChange={v => setSettings({ ...settings, smtp: { ...settings.smtp, fromEmail: v } })} placeholder="sender@domain.com" />
+                                                    </div>
+
+                                                    <div>
+                                                        <label style={{ ...LabelStyle, marginBottom: '12px' }}>Encryption Protocol</label>
+                                                        <div style={{ display: 'flex', gap: '12px', background: 'var(--card-bg)', padding: '12px', borderRadius: '15px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+                                                            {['ssl', 'tls'].map(type => {
+                                                                const currentEncryption = settings.smtp?.encryption || 'tls';
+                                                                const isChecked = currentEncryption === type;
+                                                                return (
+                                                                    <label key={type} style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '8px',
+                                                                        cursor: 'pointer',
+                                                                        padding: '6px 16px',
+                                                                        borderRadius: '10px',
+                                                                        background: isChecked ? 'var(--primary-color)' : 'transparent',
+                                                                        color: isChecked ? 'white' : 'var(--text-sub)',
+                                                                        fontSize: '0.85rem',
+                                                                        fontWeight: '700',
+                                                                        transition: 'all 0.2s'
+                                                                    }}>
+                                                                        <input
+                                                                            type="radio"
+                                                                            hidden
+                                                                            name="smtpEncryption"
+                                                                            checked={isChecked}
+                                                                            onChange={() => setSettings({ ...settings, smtp: { ...(settings.smtp || {}), encryption: type } })}
+                                                                        />
+                                                                        {type.toUpperCase()}
+                                                                    </label>
+                                                                );
+                                                            })}
                                                         </div>
-                                                        <input
-                                                            type="radio"
-                                                            hidden
-                                                            name="smtpEncryption"
-                                                            checked={settings.smtp.encryption === type}
-                                                            onChange={() => setSettings({ ...settings, smtp: { ...settings.smtp, encryption: type } })}
+                                                    </div>
+
+                                                    <div style={{ marginTop: 'auto' }}>
+                                                        <TestSection
+                                                            title="Verification"
+                                                            description="Confirm settings by sending a test email."
+                                                            value={testEmail}
+                                                            onChange={setTestEmail}
+                                                            placeholder="test@example.com"
+                                                            icon={Send}
+                                                            onTest={async () => {
+                                                                const loadToast = toast.loading('Sending test email...');
+                                                                try {
+                                                                    const res = await api.post('/settings/test-smtp', { smtpConfig: settings.smtp, testEmail });
+                                                                    toast.success(res.data.message, { id: loadToast });
+                                                                } catch (error) {
+                                                                    toast.error(error.response?.data?.message || 'Failed', { id: loadToast });
+                                                                }
+                                                            }}
+                                                            btnColor="var(--primary-color)"
                                                         />
-                                                        {type.toUpperCase()}
-                                                    </label>
-                                                ))}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <div style={{ marginBottom: '1.25rem' }}>
-                                            <label style={LabelStyle}>SMTP STATUS</label>
-                                            <CustomSelect
-                                                value={settings.smtp.enabled ? 'enabled' : 'disabled'}
-                                                onChange={e => setSettings({ ...settings, smtp: { ...settings.smtp, enabled: e.target.value === 'enabled' } })}
-                                                options={[
-                                                    { value: 'enabled', label: 'Enable' },
-                                                    { value: 'disabled', label: 'Disable' }
-                                                ]}
-                                            />
-                                        </div>
-                                    </section>
-
-                                    <TestSection
-                                        title="Verify System"
-                                        description="Send a test email to verify credentials are correct."
-                                        value={testEmail}
-                                        onChange={setTestEmail}
-                                        placeholder="test@example.com"
-                                        icon={Send}
-                                        onTest={async () => {
-                                            const loadToast = toast.loading('Sending test email...');
-                                            try {
-                                                const res = await api.post('/settings/test-smtp', { smtpConfig: settings.smtp, testEmail });
-                                                toast.success(res.data.message, { id: loadToast });
-                                            } catch (error) {
-                                                toast.error(error.response?.data?.message || 'Failed', { id: loadToast });
-                                            }
-                                        }}
-                                        btnColor="var(--primary-color)"
-                                    />
-                                </div>
+                                    </div>
+                                </section>
                             )}
+
 
                             {activeTab === 'sms' && (
                                 <SMSSettings
@@ -788,66 +823,76 @@ const AdminSettings = () => {
                             )}
 
                             {activeTab === 'otp' && (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '2rem' }}>
-                                    <section>
-                                        <SectionTitle label="OTP Configuration" icon={Lock} color="var(--primary-color)" />
-                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Configure One-Time Password security settings.</p>
+                                <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <SectionTitle label="OTP Configuration" icon={Lock} color="#FFD700" />
+                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                                            Define the security parameters for One-Time Password verification across all supported communication channels.
+                                        </p>
+                                    </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
-                                            <div>
-                                                <label style={LabelStyle}>OTP Type *</label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                                            {/* Logic Card */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '16px' }}>Verification Method</h4>
                                                 <CustomSelect
+                                                    label="Delivery Strategy"
                                                     value={settings.otp.method}
                                                     onChange={e => setSettings({ ...settings, otp: { ...settings.otp, method: e.target.value } })}
                                                     options={[
                                                         { value: 'sms', label: 'SMS Only' },
                                                         { value: 'email', label: 'Email Only' },
-                                                        { value: 'both', label: 'Both (Recommended)' }
+                                                        { value: 'both', label: 'Multi-Channel (Recommended)' }
                                                     ]}
                                                 />
                                             </div>
 
-                                            <div>
-                                                <label style={LabelStyle}>OTP Digit Limit *</label>
-                                                <CustomSelect
-                                                    value={settings.otp.digits}
-                                                    onChange={e => setSettings({ ...settings, otp: { ...settings.otp, digits: Number(e.target.value) } })}
-                                                    options={[
-                                                        { value: 4, label: '4 Digits' },
-                                                        { value: 6, label: '6 Digits' }
-                                                    ]}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={LabelStyle}>OTP Expire Time *</label>
-                                                <CustomSelect
-                                                    value={settings.otp.expiry}
-                                                    onChange={e => setSettings({ ...settings, otp: { ...settings.otp, expiry: Number(e.target.value) } })}
-                                                    options={[
-                                                        { value: 5, label: '5 Minutes' },
-                                                        { value: 10, label: '10 Minutes' },
-                                                        { value: 15, label: '15 Minutes' }
-                                                    ]}
-                                                />
+                                            {/* Security Card */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '16px' }}>Security Policy</h4>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                                    <CustomSelect
+                                                        label="Code Length"
+                                                        value={settings.otp.digits}
+                                                        onChange={e => setSettings({ ...settings, otp: { ...settings.otp, digits: Number(e.target.value) } })}
+                                                        options={[
+                                                            { value: 4, label: '4 Digits' },
+                                                            { value: 6, label: '6 Digits' }
+                                                        ]}
+                                                    />
+                                                    <CustomSelect
+                                                        label="TTL Duration"
+                                                        value={settings.otp.expiry}
+                                                        onChange={e => setSettings({ ...settings, otp: { ...settings.otp, expiry: Number(e.target.value) } })}
+                                                        options={[
+                                                            { value: 5, label: '5 Mins' },
+                                                            { value: 10, label: '10 Mins' },
+                                                            { value: 15, label: '15 Mins' }
+                                                        ]}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </section>
 
-                                    <TestSection
-                                        title="Verify Integration"
-                                        description="Trigger a test OTP dispatch to verify communication channels."
-                                        value={testEmail}
-                                        onChange={setTestEmail}
-                                        placeholder="test@example.com"
-                                        icon={Send}
-                                        onTest={async () => {
-                                            toast.error('Admin test trigger coming soon!');
-                                        }}
-                                        btnColor="var(--primary-color)"
-                                    />
-                                </div>
+                                        <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                                            <div style={{ flex: 1, minWidth: '300px' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>Integration Verification</h4>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', margin: 0 }}>Trigger a diagnostics dispatch to ensure current SMTP and SMS configurations are functioning correctly.</p>
+                                            </div>
+                                            <TestSection
+                                                value={testEmail}
+                                                onChange={setTestEmail}
+                                                placeholder="test@example.com"
+                                                icon={Send}
+                                                onTest={async () => { toast.error('Diagnostic trigger coming soon!'); }}
+                                                btnColor="var(--primary-color)"
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
                             )}
+
 
                             {activeTab === 'notification' && (
                                 <NotificationSettings settings={settings} setSettings={setSettings} />
@@ -862,11 +907,13 @@ const AdminSettings = () => {
                             )}
 
                             {activeTab === 'social' && (
-                                <section>
-                                    <SectionTitle label="Social Connections" icon={Share2} color="var(--primary-color)" />
-                                    <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '2rem' }}>Link your official social media profiles to display across the site.</p>
+                                <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <SectionTitle label="Social Connections" icon={Share2} color="var(--primary-color)" />
+                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Link your official social media profiles to display across the site footer and contact pages.</p>
+                                    </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '1.5rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                                         {[
                                             { id: 'facebook', label: 'Facebook', icon: Facebook, color: '#1877F2' },
                                             { id: 'instagram', label: 'Instagram', icon: Instagram, color: '#E4405F' },
@@ -875,38 +922,27 @@ const AdminSettings = () => {
                                             { id: 'youtube', label: 'YouTube', icon: Youtube, color: '#FF0000' }
                                         ].map(social => (
                                             <div key={social.id} style={{
-                                                padding: '1.5rem',
+                                                padding: '20px',
                                                 borderRadius: '20px',
                                                 background: 'var(--bg-lite)',
                                                 border: '1px solid var(--border-color)',
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                gap: '12px',
-                                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                                                cursor: 'default'
-                                            }}
-                                                onMouseEnter={e => {
-                                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                                    e.currentTarget.style.boxShadow = 'var(--card-shadow)';
-                                                }}
-                                                onMouseLeave={e => {
-                                                    e.currentTarget.style.transform = 'translateY(0)';
-                                                    e.currentTarget.style.boxShadow = 'none';
-                                                }}
-                                            >
+                                                gap: '16px'
+                                            }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                     <div style={{
-                                                        width: '32px',
-                                                        height: '32px',
-                                                        borderRadius: '8px',
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        borderRadius: '10px',
                                                         background: `${social.color}15`,
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center'
                                                     }}>
-                                                        <social.icon size={18} color={social.color} />
+                                                        <social.icon size={20} color={social.color} />
                                                     </div>
-                                                    <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)' }}>{social.label}</span>
+                                                    <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-main)' }}>{social.label}</span>
                                                 </div>
                                                 <input
                                                     type="text"
@@ -922,432 +958,228 @@ const AdminSettings = () => {
                             )}
 
                             {activeTab === 'appearance' && (
-                                <section className="appearance-settings">
-                                    <SectionTitle label="Appearance Settings" icon={Palette} color="var(--primary-color)" />
-                                    <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '2rem' }}>Customize the look and feel of your administrative dashboard.</p>
+                                <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+                                    <div style={{ marginBottom: '2.5rem' }}>
+                                        <SectionTitle label="Interface Settings" icon={Palette} color="var(--primary-color)" />
+                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Personalize your administrative workspace with custom themes and branding colors.</p>
+                                    </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                                        {/* Main Theme Controls */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                                            <div>
-                                                <label style={AppearanceLabelStyle}>Mode</label>
-                                                <div className="mode-toggle-container" style={ModeToggleContainer}>
-                                                    {[
-                                                        { id: 'day', label: 'Day', icon: Sun },
-                                                        { id: 'night', label: 'Night', icon: Moon }
-                                                    ].map(mode => (
-                                                        <button
-                                                            key={mode.id}
-                                                            type="button"
-                                                            className="mode-button"
-                                                            onClick={() => setAppearance(prev => ({ ...prev, themeMode: mode.id }))}
-                                                            style={ModeButtonStyle(appearance.themeMode === mode.id)}
-                                                        >
-                                                            <mode.icon size={18} />
-                                                            {mode.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label style={AppearanceLabelStyle}>Themes</label>
-                                                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
-                                                    <label style={RadioOptionStyle}>
-                                                        <div style={RadioOuter(true)}>
-                                                            <div style={RadioInner(true)} />
-                                                        </div>
-                                                        <span style={{ fontWeight: '600' }}>Lite</span>
-                                                    </label>
-                                                </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+                                        {/* Theme Mode Card */}
+                                        <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Sun size={18} color="var(--primary-color)" /> Visual Mode
+                                            </h4>
+                                            <div style={{ display: 'flex', gap: '12px', background: 'var(--card-bg)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                                                {[
+                                                    { id: 'day', label: 'Classic Lite', icon: Sun },
+                                                    { id: 'night', label: 'Premium Dark', icon: Moon }
+                                                ].map(mode => (
+                                                    <button
+                                                        key={mode.id}
+                                                        type="button"
+                                                        onClick={() => setAppearance(prev => ({ ...prev, themeMode: mode.id }))}
+                                                        style={{
+                                                            flex: 1,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '8px',
+                                                            padding: '12px',
+                                                            borderRadius: '12px',
+                                                            border: 'none',
+                                                            background: appearance.themeMode === mode.id ? 'var(--primary-color)' : 'transparent',
+                                                            color: appearance.themeMode === mode.id ? 'white' : 'var(--text-sub)',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '700',
+                                                            fontSize: '0.85rem',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                    >
+                                                        <mode.icon size={16} />
+                                                        {mode.label}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
 
-                                        {/* Brand Colors */}
-                                        <div>
-                                            <label style={AppearanceLabelStyle}>Brand Accent</label>
-                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '1.5rem' }}>Select your primary brand color for the dashboard.</p>
-                                            <div style={{
-                                                display: 'flex',
-                                                flexWrap: 'wrap',
-                                                gap: '1rem',
-                                                padding: '1.5rem',
-                                                background: 'var(--bg-lite)',
-                                                borderRadius: '24px',
-                                                border: '1px solid var(--border-color)',
-                                                alignItems: 'center'
-                                            }}>
-                                                {accentColors.map(color => (
-                                                    <button
-                                                        key={color}
-                                                        type="button"
-                                                        onClick={() => setAppearance(prev => ({ ...prev, accentColor: color }))}
-                                                        style={SwatchStyle(color, appearance.accentColor === color)}
-                                                    >
-                                                        {appearance.accentColor === color && (
-                                                            <motion.div
-                                                                initial={{ scale: 0 }}
-                                                                animate={{ scale: 1 }}
-                                                                style={CheckmarkStyle}
-                                                            >
-                                                                ✓
-                                                            </motion.div>
-                                                        )}
-                                                    </button>
-                                                ))}
+                                        {/* Accent Color Card */}
+                                        <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Zap size={18} color="var(--primary-color)" /> Branding Colors
+                                            </h4>
 
-                                                {/* Custom Hex Input Widget */}
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '12px',
-                                                    background: 'var(--card-bg)',
-                                                    padding: '8px 16px 8px 10px',
-                                                    borderRadius: '16px',
-                                                    border: '1px solid var(--border-color)',
-                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                                                    transition: 'all 0.2s ease',
-                                                    cursor: 'text'
-                                                }}
-                                                    onClick={() => document.getElementById('hexInput').focus()}
-                                                >
-                                                    {/* Color Indicator trigger */}
-                                                    <div style={{ position: 'relative' }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                document.getElementById('customColorPicker').click();
-                                                            }}
-                                                            style={{
-                                                                width: '38px',
-                                                                height: '38px',
-                                                                borderRadius: '50%',
-                                                                background: appearance.accentColor,
-                                                                border: '2px solid rgba(255,255,255,0.2)',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                color: '#fff',
-                                                                cursor: 'pointer',
-                                                                transition: 'transform 0.2s',
-                                                                padding: 0,
-                                                                boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
-                                                            }}
-                                                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                                                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                                                        >
-                                                            <Palette size={18} style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
-                                                        </button>
-                                                        {/* Hidden Native Picker */}
-                                                        <input
-                                                            id="customColorPicker"
-                                                            type="color"
-                                                            value={appearance.accentColor}
-                                                            onChange={(e) => setAppearance(prev => ({ ...prev, accentColor: e.target.value }))}
-                                                            style={{
-                                                                position: 'absolute',
-                                                                opacity: 0,
-                                                                width: 0,
-                                                                height: 0,
-                                                                pointerEvents: 'none'
-                                                            }}
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                                                {/* Primary Color */}
+                                                <div>
+                                                    <label style={{ ...LabelStyle, fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>Primary Accent</label>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '10px',
+                                                        padding: '10px',
+                                                        background: 'var(--card-bg)',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid var(--border-color)'
+                                                    }}>
+                                                        <div
+                                                            onClick={() => document.getElementById('primaryColorPicker').click()}
+                                                            style={{ width: '32px', height: '32px', borderRadius: '8px', background: appearance.accentColor, cursor: 'pointer', border: '1px solid var(--border-color)' }}
                                                         />
-                                                    </div>
-
-                                                    {/* Text Input Area */}
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                        <label htmlFor="hexInput" style={{
-                                                            fontSize: '0.65rem',
-                                                            color: 'var(--text-sub)',
-                                                            fontWeight: '800',
-                                                            textTransform: 'uppercase',
-                                                            letterSpacing: '0.05em',
-                                                            cursor: 'pointer'
-                                                        }}>
-                                                            Hex Code
-                                                        </label>
                                                         <input
-                                                            id="hexInput"
                                                             type="text"
-                                                            value={appearance.accentColor}
+                                                            value={appearance.accentColor?.toUpperCase()}
                                                             onChange={(e) => setAppearance(prev => ({ ...prev, accentColor: e.target.value }))}
-                                                            style={{
-                                                                width: '80px',
-                                                                padding: '0',
-                                                                borderRadius: '0',
-                                                                border: 'none',
-                                                                background: 'transparent',
-                                                                color: 'var(--text-main)',
-                                                                fontSize: '0.95rem',
-                                                                fontFamily: "'Courier New', monospace",
-                                                                fontWeight: '700',
-                                                                outline: 'none',
-                                                                textTransform: 'uppercase',
-                                                                letterSpacing: '0.5px'
-                                                            }}
-                                                            placeholder="#000000"
-                                                            maxLength={7}
+                                                            style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '700', fontFamily: 'monospace', width: '80px', border: 'none', background: 'transparent', outline: 'none' }}
                                                         />
+                                                        <input id="primaryColorPicker" type="color" value={appearance.accentColor} onChange={e => setAppearance(prev => ({ ...prev, accentColor: e.target.value }))} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
                                                     </div>
                                                 </div>
+
+                                                {/* Secondary Color */}
+                                                <div>
+                                                    <label style={{ ...LabelStyle, fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>Secondary Accent</label>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '10px',
+                                                        padding: '10px',
+                                                        background: 'var(--card-bg)',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid var(--border-color)'
+                                                    }}>
+                                                        <div
+                                                            onClick={() => document.getElementById('secondaryColorPicker').click()}
+                                                            style={{ width: '32px', height: '32px', borderRadius: '8px', background: appearance.secondaryColor, cursor: 'pointer', border: '1px solid var(--border-color)' }}
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={appearance.secondaryColor?.toUpperCase()}
+                                                            onChange={(e) => setAppearance(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                                                            style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '700', fontFamily: 'monospace', width: '80px', border: 'none', background: 'transparent', outline: 'none' }}
+                                                        />
+                                                        <input id="secondaryColorPicker" type="color" value={appearance.secondaryColor} onChange={e => setAppearance(prev => ({ ...prev, secondaryColor: e.target.value }))} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Presets Row */}
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+                                                {[
+                                                    { id: 'purple', color: '#8b5cf6' },
+                                                    { id: 'blue', color: '#3b82f6' },
+                                                    { id: 'green', color: '#10b981' },
+                                                    { id: 'orange', color: '#f59e0b' },
+                                                    { id: 'rose', color: '#f43f5e' },
+                                                    { id: 'cyan', color: '#06b6d4' }
+                                                ].map(c => (
+                                                    <button
+                                                        key={c.id}
+                                                        type="button"
+                                                        onClick={() => setAppearance(prev => ({ ...prev, accentColor: c.color }))}
+                                                        style={{
+                                                            width: '24px',
+                                                            height: '24px',
+                                                            borderRadius: '50%',
+                                                            background: c.color,
+                                                            border: appearance.accentColor === c.color ? '2px solid white' : 'none',
+                                                            boxShadow: appearance.accentColor === c.color ? `0 0 0 1px ${c.color}` : 'none',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                    />
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
                                 </section>
                             )}
 
+
                             {activeTab === 'ai' && (
-                                <section>
-                                    <SectionTitle label="AI Engine Configuration" icon={Zap} color="var(--primary-color)" />
-                                    <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '2rem', maxWidth: '700px', lineHeight: '1.6' }}>
-                                        Configure the intelligence behind Buddy. Choose your preferred model and optimize response handling.
-                                    </p>
+                                <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <SectionTitle label="AI Engine Configuration" icon={Zap} color="#FFD700" />
+                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem', maxWidth: '800px' }}>
+                                            The AI Engine power all automated interactions in Buddy. Configure your preferred LLM provider and enhance response reliability through consensus.
+                                        </p>
+                                    </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                                        {/* Active Model Card */}
-                                        <div style={{ padding: '1.5rem', background: 'var(--bg-color)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
-                                            <div style={{ marginBottom: '1rem' }}>
-                                                <label style={LabelStyle}>Primary AI Model</label>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>The main engine for processing queries.</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                                            {/* Primary Model Selection */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Core Intelligence</h4>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '20px' }}>Select the primary model used for generating AI responses.</p>
+                                                <CustomSelect
+                                                    value={settings.ai.activeModel}
+                                                    onChange={e => setSettings({ ...settings, ai: { ...settings.ai, activeModel: e.target.value } })}
+                                                    options={[
+                                                        { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet (Recommended)' },
+                                                        { value: 'openai/gpt-4o-mini', label: 'GPT-4o-mini (Fast & Efficient)' },
+                                                        { value: 'deepseek/deepseek-chat', label: 'DeepSeek V3 (Economic)' },
+                                                        { value: 'google/gemini-2.0-flash-exp:free', label: 'Gemini 2.0 Flash (Free Tier)' },
+                                                        { value: 'openrouter/free', label: 'Smart Router (Auto-Free)' },
+                                                        { value: 'google/gemini-flash-1.5-8b', label: 'Gemini Flash 1.5 (Lite)' }
+                                                    ]}
+                                                />
                                             </div>
-                                            <CustomSelect
-                                                value={settings.ai.activeModel}
-                                                onChange={e => setSettings({ ...settings, ai: { ...settings.ai, activeModel: e.target.value } })}
-                                                options={[
-                                                    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet (Recommended)' },
-                                                    { value: 'openai/gpt-4o-mini', label: 'GPT-4o-mini (Fastest)' },
-                                                    { value: 'deepseek/deepseek-chat', label: 'DeepSeek V3 (Economical)' },
-                                                    { value: 'google/gemini-2.0-flash-exp:free', label: 'Gemini 2.0 Flash (Fully Free)' },
-                                                    { value: 'openrouter/free', label: 'Smart Free Router (Auto-Select Free)' },
-                                                    { value: 'google/gemini-flash-1.5-8b', label: 'Gemini Flash 1.5 (Stable)' }
-                                                ]}
-                                            />
-                                        </div>
 
-                                        <div style={{ padding: '1.5rem', background: 'var(--bg-color)', borderRadius: '20px', border: '1px solid var(--border-color)', position: 'relative', overflow: 'hidden' }}>
-                                            <div style={{ marginBottom: '1rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gemini API Key (Optional)</label>
-                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: settings.ai.geminiApiKey ? '#10b981' : 'rgba(255,255,255,0.1)' }} />
+                                            {/* Gemini Key with visibility toggle */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Gemini Pro Access</h4>
+                                                    {settings.ai.geminiApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>KEY ACTIVE</div>}
                                                 </div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>Use your Google AI Studio key for free Pro access.</p>
-                                            </div>
-                                            <div style={{ position: 'relative' }}>
-                                                <input
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '20px' }}>Provide your own Google AI Studio key to unlock dedicated Gemini Pro processing.</p>
+                                                <InputGroup
+                                                    label="Google Gemini API Key"
                                                     type="password"
-                                                    placeholder="Enter your Gemini Key..."
+                                                    placeholder="Enter your API Key"
                                                     value={settings.ai.geminiApiKey || ''}
-                                                    onChange={e => setSettings({ ...settings, ai: { ...settings.ai, geminiApiKey: e.target.value } })}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 16px',
-                                                        background: 'rgba(255, 255, 255, 0.05)',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: '12px',
-                                                        color: 'var(--text-main)',
-                                                        fontSize: '0.85rem',
-                                                        outline: 'none',
-                                                        transition: 'all 0.3s'
-                                                    }}
-                                                    onFocus={e => e.target.style.borderColor = 'var(--primary-color)'}
-                                                    onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
-                                                />
-                                                <Lock size={14} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
-                                            </div>
-                                        </div>
-
-                                        {/* Consensus Mode Card */}
-                                        <div style={{
-                                            padding: '1.5rem',
-                                            background: settings.ai.consensusMode ? 'linear-gradient(145deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%)' : 'var(--bg-color)',
-                                            borderRadius: '20px',
-                                            border: `1px solid ${settings.ai.consensusMode ? 'rgba(16, 185, 129, 0.2)' : 'var(--border-color)'}`,
-                                            transition: 'all 0.3s ease'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                                <div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                        <h4 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>Multi-AI Consensus</h4>
-                                                        {settings.ai.consensusMode && <ShieldCheck size={14} color="#10b981" />}
-                                                    </div>
-                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', lineHeight: '1.4' }}>
-                                                        Verify responses across multiple models (Claude + GPT) to reduce hallucinations.
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSettings({ ...settings, ai: { ...settings.ai, consensusMode: !settings.ai.consensusMode } })}
-                                                    style={{
-                                                        width: '48px',
-                                                        height: '28px',
-                                                        borderRadius: '20px',
-                                                        background: settings.ai.consensusMode ? '#10b981' : 'var(--border-color)',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        position: 'relative',
-                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                        flexShrink: 0
-                                                    }}
-                                                >
-                                                    <div style={{
-                                                        width: '22px',
-                                                        height: '22px',
-                                                        borderRadius: '50%',
-                                                        background: 'white',
-                                                        position: 'absolute',
-                                                        top: '3px',
-                                                        left: settings.ai.consensusMode ? '23px' : '3px',
-                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                                    }} />
-                                                </button>
-                                            </div>
-                                            <div style={{
-                                                fontSize: '0.75rem',
-                                                color: settings.ai.consensusMode ? '#10b981' : 'var(--text-sub)',
-                                                fontWeight: '600',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                marginTop: 'auto'
-                                            }}>
-                                                {settings.ai.consensusMode ? (
-                                                    <>
-                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                                                        Precision Mode Active
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-sub)' }} />
-                                                        Standard Mode
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Auto-Stop Timer Section */}
-                                    <div style={{
-                                        background: 'rgba(255, 255, 255, 0.03)',
-                                        padding: '2rem',
-                                        borderRadius: '24px',
-                                        border: '1px solid var(--border-color)',
-                                        marginBottom: '2rem',
-                                        position: 'relative',
-                                        overflow: 'hidden'
-                                    }}>
-                                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'linear-gradient(90deg, var(--primary-color) 0%, transparent 100%)', opacity: 0.5 }} />
-
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem' }}>
-                                            <div style={{
-                                                width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(var(--primary-rgb), 0.1)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)'
-                                            }}>
-                                                <Clock size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Silence Auto-Stop</h4>
-                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: 0 }}>Automatically stop listening after a period of silence.</p>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-sub)' }}>Duration</span>
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary-color)' }}>{settings.ai.listeningDuration || 5} Seconds</span>
-                                                </div>
-                                                <div style={{ position: 'relative', height: '20px', display: 'flex', alignItems: 'center' }}>
-                                                    <input
-                                                        type="range"
-                                                        min="2"
-                                                        max="15"
-                                                        step="1"
-                                                        value={settings.ai.listeningDuration || 5}
-                                                        onChange={(e) => setSettings({ ...settings, ai: { ...settings.ai, listeningDuration: parseInt(e.target.value) } })}
-                                                        style={{
-                                                            width: '100%',
-                                                            height: '6px',
-                                                            background: `linear-gradient(to right, var(--primary-color) ${((settings.ai.listeningDuration || 5) - 2) / 13 * 100}%, rgba(255, 255, 255, 0.1) ${((settings.ai.listeningDuration || 5) - 2) / 13 * 100}%)`,
-                                                            borderRadius: '10px',
-                                                            appearance: 'none',
-                                                            outline: 'none',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                        className="premium-slider"
-                                                    />
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', opacity: 0.6 }}>2s (Quick)</span>
-                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', opacity: 0.6 }}>15s (Patient)</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Voice Personalization */}
-                                    <div style={{
-                                        padding: '2rem',
-                                        background: 'rgba(255, 255, 255, 0.02)',
-                                        borderRadius: '24px',
-                                        border: '1px solid var(--border-color)',
-                                        marginTop: '1rem'
-                                    }}>
-                                        <SectionTitle label="Voice Personalization" icon={Volume2} color="var(--primary-color)" />
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                                            <div>
-                                                <label style={LabelStyle}>Voice Gender</label>
-                                                <CustomSelect
-                                                    value={voicePrefs.gender}
-                                                    onChange={e => setVoicePrefs({ ...voicePrefs, gender: e.target.value })}
-                                                    options={[
-                                                        { value: 'female', label: 'Female (Standard)' },
-                                                        { value: 'male', label: 'Male' }
-                                                    ]}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={LabelStyle}>Speaking Style</label>
-                                                <CustomSelect
-                                                    value={voicePrefs.tone}
-                                                    onChange={e => setVoicePrefs({ ...voicePrefs, tone: e.target.value })}
-                                                    options={[
-                                                        { value: 'soft', label: 'Soft & Calm' },
-                                                        { value: 'normal', label: 'Balanced' },
-                                                        { value: 'energetic', label: 'Energetic' }
-                                                    ]}
+                                                    onChange={v => setSettings({ ...settings, ai: { ...settings.ai, geminiApiKey: v } })}
                                                 />
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+
+                                        {/* Consensus & Accuracy */}
+                                        <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                                            <div style={{ flex: 1, minWidth: '300px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                                    <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Multi-Model Consensus</h4>
+                                                    <div style={{ padding: '4px 12px', borderRadius: '20px', background: 'color-mix(in srgb, var(--primary-color) 10%, transparent)', color: 'var(--primary-color)', fontSize: '0.65rem', fontWeight: '800' }}>ADVANCED FEATURE</div>
+                                                </div>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', margin: 0 }}>
+                                                    Cross-verify AI output across Claude and GPT-4o models simultaneously to minimize hallucinations and ensure maximum accuracy for critical tasks.
+                                                </p>
+                                            </div>
+
                                             <button
                                                 type="button"
-                                                onClick={handleSaveVoicePrefs}
-                                                disabled={loading}
+                                                onClick={() => setSettings({ ...settings, ai: { ...settings.ai, consensusMode: !settings.ai.consensusMode } })}
                                                 style={{
-                                                    padding: '0.75rem 1.5rem',
-                                                    background: 'var(--card-bg)',
-                                                    border: '1px solid var(--border-color)',
-                                                    color: 'var(--text-main)',
-                                                    borderRadius: '12px',
+                                                    padding: '12px 24px',
+                                                    borderRadius: '16px',
+                                                    background: settings.ai.consensusMode ? 'var(--primary-color)' : 'var(--card-bg)',
+                                                    color: settings.ai.consensusMode ? 'white' : 'var(--text-main)',
+                                                    border: `1px solid ${settings.ai.consensusMode ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                                                    fontWeight: '800',
                                                     fontSize: '0.9rem',
-                                                    fontWeight: '600',
                                                     cursor: 'pointer',
-                                                    display: 'inline-flex',
+                                                    display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px',
-                                                    transition: 'all 0.2s'
+                                                    gap: '10px',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                                                 }}
-                                                className="btn-outline"
                                             >
-                                                <Save size={18} />
-                                                {loading ? 'Saving...' : 'Save Voice Preferences'}
+                                                {settings.ai.consensusMode ? <ShieldCheck size={20} /> : <Zap size={20} />}
+                                                {settings.ai.consensusMode ? 'Consensus Enabled' : 'Enable Consensus Mode'}
                                             </button>
                                         </div>
                                     </div>
                                 </section>
                             )}
+
 
                             {activeTab === 'integrations' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -1594,7 +1426,7 @@ const AdminSettings = () => {
                 message={deleteModal.message}
                 confirmText="Remove"
             />
-        </div>
+        </div >
     );
 };
 
@@ -1767,15 +1599,15 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
 
     const mainTabs = [
         { id: 'twilio', label: 'Twilio' },
-        { id: 'clickatell', label: 'Clickatell' },
-        { id: 'nexmo', label: 'Nexmo' }
+        { id: 'nexmo', label: 'Vonage / Nexmo' },
+        { id: 'clickatell', label: 'Clickatell' }
     ];
 
     const moreGateways = [
         { id: 'msg91', label: 'Msg91' },
         { id: 'twofactor', label: '2Factor' },
-        { id: 'bulksms', label: 'Bulksms' },
-        { id: 'bulksmsbd', label: 'Bulksmsbd' },
+        { id: 'bulksms', label: 'BulkSMS' },
+        { id: 'bulksmsbd', label: 'BulkSMS BD' },
         { id: 'telesign', label: 'Telesign' }
     ];
 
@@ -1783,250 +1615,221 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
     const currentConfig = gateways[activeTab] || {};
 
     const handleUpdate = (field, value) => {
-        const updatedGateways = {
-            ...gateways,
-            [activeTab]: { ...currentConfig, [field]: value }
-        };
+        const updatedGateways = { ...gateways, [activeTab]: { ...currentConfig, [field]: value } };
         const updatedActive = field === 'enabled' && value === true ? activeTab : settings.sms.activeGateway;
-
-        setSettings({
-            ...settings,
-            sms: {
-                ...settings.sms,
-                gateways: updatedGateways,
-                activeGateway: updatedActive
-            }
-        });
+        setSettings({ ...settings, sms: { ...settings.sms, gateways: updatedGateways, activeGateway: updatedActive } });
     };
 
     const isActiveGateway = settings.sms.activeGateway === activeTab;
 
     const renderFields = () => {
+        const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' };
         switch (activeTab) {
             case 'msg91':
                 return (
-                    <div className="settings-grid">
+                    <div style={gridStyle}>
                         <InputGroup label="Msg91 Auth Key" value={currentConfig?.authKey || ''} onChange={v => handleUpdate('authKey', v)} />
-                        <InputGroup label="Msg91 Sender ID" value={currentConfig?.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
-                        <InputGroup label="Msg91 Template ID" value={currentConfig?.templateId || ''} onChange={v => handleUpdate('templateId', v)} />
-                        <InputGroup label="Msg91 Template Variable" value={currentConfig?.templateVariable || ''} onChange={v => handleUpdate('templateVariable', v)} placeholder="OTP" />
+                        <InputGroup label="Sender ID" value={currentConfig?.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
+                        <InputGroup label="Template ID" value={currentConfig?.templateId || ''} onChange={v => handleUpdate('templateId', v)} />
+                        <InputGroup label="Variable Name" value={currentConfig?.templateVariable || ''} onChange={v => handleUpdate('templateVariable', v)} placeholder="OTP" />
                     </div>
                 );
             case 'twilio':
                 return (
-                    <div className="settings-grid">
+                    <div style={gridStyle}>
                         <InputGroup label="Account SID" value={currentConfig?.accountSid || ''} onChange={v => handleUpdate('accountSid', v)} />
                         <InputGroup label="Auth Token" type="password" value={currentConfig?.authToken || ''} onChange={v => handleUpdate('authToken', v)} />
-                        <InputGroup label="From Phone Number" value={currentConfig?.fromPhone || ''} onChange={v => handleUpdate('fromPhone', v)} />
+                        <InputGroup label="Service Number" value={currentConfig?.fromPhone || ''} onChange={v => handleUpdate('fromPhone', v)} />
                     </div>
                 );
             case 'nexmo':
                 return (
-                    <div className="settings-grid">
+                    <div style={gridStyle}>
                         <InputGroup label="API Key" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
                         <InputGroup label="API Secret" type="password" value={currentConfig?.apiSecret || ''} onChange={v => handleUpdate('apiSecret', v)} />
-                        <InputGroup label="From" value={currentConfig?.from || ''} onChange={v => handleUpdate('from', v)} />
+                        <InputGroup label="Sender Label" value={currentConfig?.from || ''} onChange={v => handleUpdate('from', v)} />
                     </div>
                 );
             case 'bulksms':
                 return (
-                    <div className="settings-grid">
-                        <InputGroup label="Username" value={currentConfig?.username || ''} onChange={v => handleUpdate('username', v)} />
-                        <InputGroup label="Password" type="password" value={currentConfig?.password || ''} onChange={v => handleUpdate('password', v)} />
+                    <div style={gridStyle}>
+                        <InputGroup label="Portal Username" value={currentConfig?.username || ''} onChange={v => handleUpdate('username', v)} />
+                        <InputGroup label="Portal Password" type="password" value={currentConfig?.password || ''} onChange={v => handleUpdate('password', v)} />
                     </div>
                 );
             case 'bulksmsbd':
                 return (
-                    <div className="settings-grid">
-                        <InputGroup label="API Key" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
-                        <InputGroup label="Sender ID" value={currentConfig?.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
+                    <div style={gridStyle}>
+                        <InputGroup label="API Access Token" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
+                        <InputGroup label="Approved Sender ID" value={currentConfig?.senderId || ''} onChange={v => handleUpdate('senderId', v)} />
                     </div>
                 );
             case 'telesign':
                 return (
-                    <div className="settings-grid">
+                    <div style={gridStyle}>
                         <InputGroup label="Customer ID" value={currentConfig?.customerId || ''} onChange={v => handleUpdate('customerId', v)} />
-                        <InputGroup label="API Key" type="password" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
+                        <InputGroup label="API Access Key" type="password" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
                     </div>
                 );
             default:
-                return (
-                    <InputGroup label="API Key" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />
-                );
+                return <InputGroup label="Gateway API Key" value={currentConfig?.apiKey || ''} onChange={v => handleUpdate('apiKey', v)} />;
         }
     };
 
     return (
-        <div className="sms-grid">
-            <section className="settings-section-card responsive-section-card">
-                <SectionTitle label="SMS Gateway Configuration" icon={MessageSquare} color="var(--primary-color)" />
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div>
+                    <SectionTitle label="SMS Gateway Setup" icon={MessageSquare} color="#34D399" />
+                    <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                        Configure your preferred SMS provider to handle automated notifications and verification codes.
+                    </p>
+                </div>
 
-                <div style={{ marginBottom: '2rem' }}>
-                    <label style={LabelStyle}>Quick Setup</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: isActiveGateway ? 'color-mix(in srgb, var(--success-color) 15%, transparent)' : 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: `1px solid ${isActiveGateway ? 'color-mix(in srgb, var(--success-color) 30%, transparent)' : 'color-mix(in srgb, var(--text-sub) 20%, transparent)'}`,
+                    cursor: 'pointer'
+                }} onClick={() => handleUpdate('enabled', !isActiveGateway)}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActiveGateway ? 'var(--success-color)' : 'var(--text-sub)' }} />
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: isActiveGateway ? 'var(--success-color)' : 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {isActiveGateway ? 'Active Gateway' : 'Set as Primary'}
+                    </span>
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Gateway Selection Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Gateway Provider</h4>
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                type="button"
+                                onClick={() => setDropdownOpen(!dropdownOpen)}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '10px',
+                                    background: 'var(--card-bg)',
+                                    color: 'var(--text-main)',
+                                    border: '1px solid var(--border-color)',
+                                    fontSize: '0.85rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                More Providers <ChevronDown size={14} />
+                            </button>
+                            {dropdownOpen && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    right: 0,
+                                    marginTop: '8px',
+                                    background: 'var(--card-bg)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                                    zIndex: 100,
+                                    minWidth: '180px',
+                                    overflow: 'hidden'
+                                }}>
+                                    {moreGateways.map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            type="button"
+                                            onClick={() => { setActiveTab(tab.id); setDropdownOpen(false); }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 16px',
+                                                border: 'none',
+                                                background: activeTab === tab.id ? 'var(--primary-color)' : 'transparent',
+                                                color: activeTab === tab.id ? 'white' : 'var(--text-main)',
+                                                textAlign: 'left',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85rem',
+                                                fontWeight: '600',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                         {mainTabs.map(tab => (
                             <button
                                 key={tab.id}
                                 type="button"
                                 onClick={() => setActiveTab(tab.id)}
                                 style={{
-                                    padding: '12px 28px',
-                                    borderRadius: '14px',
+                                    padding: '10px 24px',
+                                    borderRadius: '12px',
                                     border: activeTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                    background: activeTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                    background: activeTab === tab.id ? 'var(--primary-color)' : 'var(--card-bg)',
                                     color: activeTab === tab.id ? 'white' : 'var(--text-sub)',
                                     cursor: 'pointer',
-                                    fontWeight: '750',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    boxShadow: activeTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
-                                    whiteSpace: 'nowrap'
+                                    fontWeight: '700',
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.2s ease'
                                 }}
-                                className="responsive-tab-button"
                             >
                                 {tab.label}
                             </button>
                         ))}
-
-                        <div style={{ position: 'relative' }}>
-                            <button
-                                type="button"
-                                onClick={() => setDropdownOpen(!dropdownOpen)}
-                                style={{
-                                    padding: '12px 28px',
-                                    borderRadius: '14px',
-                                    border: moreGateways.some(g => g.id === activeTab) ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                    background: moreGateways.some(g => g.id === activeTab) ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                    color: moreGateways.some(g => g.id === activeTab) ? 'white' : 'var(--text-sub)',
-                                    cursor: 'pointer',
-                                    fontWeight: '750',
-                                    fontSize: '0.9rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    transition: 'all 0.2s ease',
-                                    boxShadow: moreGateways.some(g => g.id === activeTab) ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
-                                    whiteSpace: 'nowrap'
-                                }}
-                                className="responsive-tab-button"
-                            >
-                                {moreGateways.find(g => g.id === activeTab)?.label || 'Other Gateways'}
-                                <ChevronDown size={14} style={{ opacity: 0.7 }} />
-                            </button>
-
-                            {dropdownOpen && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 10px)',
-                                    left: 0,
-                                    background: 'var(--bg-lite)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '12px',
-                                    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                                    zIndex: 100,
-                                    minWidth: '180px',
-                                    overflow: 'hidden',
-                                    backdropFilter: 'blur(20px)'
-                                }}>
-                                    {moreGateways.map(gateway => (
-                                        <div
-                                            key={gateway.id}
-                                            onClick={() => {
-                                                setActiveTab(gateway.id);
-                                                setDropdownOpen(false);
-                                            }}
-                                            style={{
-                                                padding: '12px 20px',
-                                                cursor: 'pointer',
-                                                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                                color: activeTab === gateway.id ? 'var(--primary-color)' : 'var(--text-main)',
-                                                background: activeTab === gateway.id ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent',
-                                                fontWeight: activeTab === gateway.id ? '700' : '500',
-                                                fontSize: '0.85rem',
-                                                transition: 'all 0.2s'
-                                            }}
-                                        >
-                                            {gateway.label}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </div>
 
-                <div style={{ padding: '0 4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2rem' }}>
-                        <div style={{ width: '4px', height: '18px', background: 'var(--primary-color)', borderRadius: '2px' }} />
-                        <h4 style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: '700', margin: 0 }}>
-                            {activeTab.toUpperCase()} DETAILS
-                        </h4>
-                    </div>
-
+                {/* Configuration Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Zap size={18} color="var(--primary-color)" /> API Credentials
+                    </h4>
                     {renderFields()}
-
-                    <div className="responsive-controls-bar">
-                        <div>
-                            <label style={LabelStyle}>GATEWAY STATUS</label>
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: 0 }}>Enable to use {activeTab} as active provider.</p>
-                        </div>
-                        <div style={{ flexGrow: 1, maxWidth: '220px' }} className="custom-select-container">
-                            <CustomSelect
-                                value={isActiveGateway ? 'enabled' : 'disabled'}
-                                onChange={(e) => {
-                                    const isEnabled = e.target.value === 'enabled';
-                                    handleUpdate('enabled', isEnabled);
-                                    if (!isEnabled && isActiveGateway) {
-                                        setSettings(prev => ({
-                                            ...prev,
-                                            sms: { ...prev.sms, activeGateway: '' }
-                                        }));
-                                    } else if (isEnabled) {
-                                        setSettings(prev => ({
-                                            ...prev,
-                                            sms: { ...prev.sms, activeGateway: activeTab }
-                                        }));
-                                    }
-                                }}
-                                options={[
-                                    { value: 'enabled', label: 'Enabled / Primary' },
-                                    { value: 'disabled', label: 'Disabled' }
-                                ]}
-                            />
-                        </div>
-                    </div>
                 </div>
-            </section >
 
-            <TestSection
-                title="Send Test SMS"
-                description={`Test your ${activeTab} integration before saving.`}
-                value={testPhone}
-                onChange={setTestPhone}
-                placeholder="+91..."
-                icon={Send}
-                onTest={async () => {
-                    const loadToast = toast.loading('Sending SMS...');
-                    try {
-                        const tempConfig = {
-                            activeGateway: activeTab,
-                            gateways: { ...gateways, [activeTab]: currentConfig }
-                        };
-                        const res = await api.post('/settings/test-sms', { smsConfig: tempConfig, testPhone });
-                        toast.success(res.data.message, { id: loadToast });
-                    } catch (error) {
-                        toast.error(error.response?.data?.message || 'Failed', { id: loadToast });
-                    }
-                }}
-                btnColor="var(--primary-color)"
-            />
-        </div >
+                {/* Diagnostics Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                    <div style={{ flex: 1, minWidth: '300px' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>Connection Diagnostics</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', margin: 0 }}>Send a test SMS to verify that your credentials and gateway connectivity are properly established.</p>
+                    </div>
+                    <TestSection
+                        value={testPhone}
+                        onChange={setTestPhone}
+                        placeholder="+1234567890"
+                        icon={Send}
+                        onTest={async () => {
+                            const loadToast = toast.loading('Sending test SMS...');
+                            try {
+                                await api.post('/settings/test-sms', { gateway: activeTab, config: currentConfig, testPhone });
+                                toast.success('Test message sent!', { id: loadToast });
+                            } catch (error) { toast.error('SMS test failed', { id: loadToast }); }
+                        }}
+                        btnColor="var(--primary-color)"
+                    />
+                </div>
+            </div>
+        </section>
     );
 };
 
 
 
 const GoogleMapsSettings = ({ settings, setSettings }) => {
+    const [showKey, setShowKey] = useState(false);
     return (
         <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
             <SectionTitle label="Google Maps Setup" icon={MapPin} color="#34A853" />
@@ -2068,7 +1871,7 @@ const GoogleMapsSettings = ({ settings, setSettings }) => {
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '16px' }}>Provide the API key to activate Google Maps services.</p>
                     <div style={{ position: 'relative' }}>
                         <input
-                            type="password"
+                            type={showKey ? 'text' : 'password'}
                             value={settings?.googleMaps?.apiKey || ''}
                             onChange={(e) => setSettings(prev => ({ ...prev, googleMaps: { ...prev.googleMaps, apiKey: e.target.value } }))}
                             placeholder="AIzaSy..."
@@ -2085,7 +1888,25 @@ const GoogleMapsSettings = ({ settings, setSettings }) => {
                                 fontFamily: 'monospace'
                             }}
                         />
-                        <Lock size={16} color="var(--text-sub)" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <button
+                            type="button"
+                            onClick={() => setShowKey(!showKey)}
+                            style={{
+                                position: 'absolute',
+                                right: '12px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: 'var(--text-sub)',
+                                opacity: 0.7,
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '8px'
+                            }}>
+                            {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2096,350 +1917,50 @@ const GoogleMapsSettings = ({ settings, setSettings }) => {
 
 const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
     const [subTab, setSubTab] = useState('accounts');
-    const [activeAccount, setActiveAccount] = useState('personal');
 
     const mainTabs = [
         { id: 'accounts', label: 'Manage Accounts' },
         { id: 'config', label: 'App Setup Guide' }
     ];
 
-    const accountTabs = [
-        { id: 'personal', label: 'Personal' },
-        { id: 'work', label: 'Work' },
-        { id: 'business', label: 'Business' }
-    ];
-
-    const accounts = settings.googleCalendar?.accounts || {};
-    const currentConfig = accounts[activeAccount] || {};
+    const currentConfig = settings.googleCalendar || {};
 
     const handleUpdate = (field, value) => {
-        const updatedAccounts = {
-            ...accounts,
-            [activeAccount]: { ...currentConfig, [field]: value }
-        };
-        const updatedActive = field === 'enabled' && value === true ? activeAccount : settings.googleCalendar.activeAccount;
-
         setSettings(prev => ({
             ...prev,
-            googleCalendar: { ...prev.googleCalendar, accounts: updatedAccounts, activeAccount: updatedActive }
+            googleCalendar: { ...prev.googleCalendar, [field]: value }
         }));
     };
 
-    const isActiveAccount = settings.googleCalendar.activeAccount === activeAccount;
-
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            <section className="settings-section-card responsive-section-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div>
                     <SectionTitle label="Google Calendar Setup" icon={Calendar} color="#4285F4" />
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                        {mainTabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => setSubTab(tab.id)}
-                                style={{
-                                    padding: '12px 28px',
-                                    borderRadius: '14px',
-                                    border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                    background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                    color: subTab === tab.id ? 'white' : 'var(--text-sub)',
-                                    cursor: 'pointer',
-                                    fontWeight: '750',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    boxShadow: subTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                                className="responsive-tab-button"
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                    <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                        Configure your Google Calendar API credentials to enable synchronization and voice-based calendar management.
+                    </p>
                 </div>
 
-
-
-                {subTab === 'accounts' && (
-                    <div style={{ padding: '0 4px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                            <div>
-                                <label style={{ ...LabelStyle, marginBottom: '1rem' }}>Select Account Type</label>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                                    {accountTabs.map(tab => (
-                                        <button
-                                            key={tab.id}
-                                            type="button"
-                                            onClick={() => setActiveAccount(tab.id)}
-                                            style={{
-                                                padding: '12px 28px',
-                                                borderRadius: '14px',
-                                                border: activeAccount === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                                background: activeAccount === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                                color: activeAccount === tab.id ? 'white' : 'var(--text-sub)',
-                                                cursor: 'pointer',
-                                                fontWeight: '750',
-                                                fontSize: '0.9rem',
-                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                boxShadow: activeAccount === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
-                                            }}
-                                            className="responsive-tab-button"
-                                        >
-                                            {tab.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="responsive-grid-container" style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-                                background: 'rgba(255, 255, 255, 0.015)',
-                                borderRadius: '20px',
-                                border: '1px solid rgba(255, 255, 255, 0.05)'
-                            }}>
-                                <InputGroup
-                                    label="Client ID"
-                                    value={currentConfig.clientId || ''}
-                                    onChange={v => handleUpdate('clientId', v)}
-                                    placeholder="Enter Client ID"
-                                />
-                                <InputGroup
-                                    label="Client Secret"
-                                    type="password"
-                                    value={currentConfig.clientSecret || ''}
-                                    onChange={v => handleUpdate('clientSecret', v)}
-                                    placeholder="Enter Client Secret"
-                                />
-                                <div style={{ gridColumn: '1 / -1' }}>
-                                    <InputGroup
-                                        label="Redirect URI"
-                                        value={currentConfig.redirectUri || `${envConfig.API_URL}/voice/google/callback`}
-                                        onChange={v => handleUpdate('redirectUri', v)}
-                                    />
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '-0.5rem' }}>
-                                        Default: {envConfig.API_URL}/voice/google/callback
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                flexWrap: 'wrap',
-                                gap: '1.5rem',
-                                padding: '1.5rem',
-                                background: 'rgba(var(--primary-rgb), 0.03)',
-                                borderRadius: '16px',
-                                border: '1px solid rgba(var(--primary-rgb), 0.1)'
-                            }}>
-                                <div>
-                                    <label style={LabelStyle}>{activeAccount.toUpperCase()} ACCOUNT STATUS</label>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: 0 }}>Active account will be used for sync.</p>
-                                </div>
-                                <CustomSelect
-                                    value={isActiveAccount ? 'enabled' : 'disabled'}
-                                    onChange={(e) => {
-                                        const isEnabled = e.target.value === 'enabled';
-                                        handleUpdate('enabled', isEnabled);
-                                        if (!isEnabled && isActiveAccount) {
-                                            setSettings(prev => ({
-                                                ...prev,
-                                                googleCalendar: { ...prev.googleCalendar, activeAccount: '' }
-                                            }));
-                                        } else if (isEnabled) {
-                                            setSettings(prev => ({
-                                                ...prev,
-                                                googleCalendar: { ...prev.googleCalendar, activeAccount: activeAccount }
-                                            }));
-                                        }
-                                    }}
-                                    options={[
-                                        { value: 'enabled', label: 'Active / Connected' },
-                                        { value: 'disabled', label: 'Inactive / Disabled' }
-                                    ]}
-                                    style={{ width: '100%', maxWidth: '220px' }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {subTab === 'config' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <div>
-                            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: '700', marginBottom: '1rem' }}>Step-by-Step Setup Guide</h3>
-                            <div style={{ background: 'rgba(66, 133, 244, 0.05)', borderRadius: '12px', border: '1px solid rgba(66, 133, 244, 0.1)', padding: '1.25rem' }}>
-                                <ol style={{ fontSize: '0.85rem', color: 'var(--text-sub)', marginLeft: '1.25rem', lineHeight: '1.8' }}>
-                                    <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#4285F4', fontWeight: '600' }}>Google Cloud Console</a>.</li>
-                                    <li>Create a new project or select an existing one.</li>
-                                    <li>Go to **APIs & Services** &gt; **Library** and search for **Google Calendar API**. Enable it.</li>
-                                    <li>Go to **APIs & Services** &gt; **Credentials**.</li>
-                                    <li>Click **Create Credentials** &gt; **OAuth client ID**.</li>
-                                    <li>Select **Web application** as application type.</li>
-                                    <li>Add the Redirect URI below to your Google App:
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px', background: 'var(--bg-lite)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                                            <code style={{ fontSize: '0.8rem', color: 'var(--primary-color)', flex: 1, wordBreak: 'break-all' }}>
-                                                {envConfig.API_URL}/voice/google/callback
-                                            </code>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(`${envConfig.API_URL}/voice/google/callback`);
-                                                    toast.success('URI Copied!');
-                                                }}
-                                                style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)' }}
-                                            >
-                                                <Copy size={16} />
-                                            </button>
-                                        </div>
-                                    </li>
-                                    <li>Once created, download the **JSON credentials** or copy the **Client ID** and **Client Secret**.</li>
-                                </ol>
-                            </div>
-                        </div>
-
-                        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
-                            <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FileJson size={18} color="var(--primary-color)" />
-                                Quick Import from JSON
-                            </h4>
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '1rem' }}>
-                                You can upload the <code>client_secret_xxxx.json</code> file to automatically fill the credentials for the active account.
-                            </p>
-                            <label style={{ ...UploadButtonStyle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                <Upload size={16} />
-                                Upload JSON Credentials
-                                <input
-                                    type="file"
-                                    hidden
-                                    accept=".json"
-                                    onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (!file) return;
-                                        const reader = new FileReader();
-                                        reader.onload = (event) => {
-                                            try {
-                                                const json = JSON.parse(event.target.result);
-                                                const client = json.web || json.installed;
-                                                if (client) {
-                                                    handleUpdate('clientId', client.client_id);
-                                                    handleUpdate('clientSecret', client.client_secret);
-                                                    toast.success('Credentials imported successfully!');
-                                                } else {
-                                                    toast.error('JSON format not recognized');
-                                                }
-                                            } catch (err) {
-                                                toast.error('Invalid JSON file');
-                                            }
-                                        };
-                                        reader.readAsText(file);
-                                    }}
-                                />
-                            </label>
-                        </div>
-                    </div>
-                )}
-            </section>
-
-            <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '1rem' }}>
-                    Testing & Tools
-                </h4>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${currentConfig.clientId}&redirect_uri=${encodeURIComponent(currentConfig.redirectUri)}&response_type=code&scope=https://www.googleapis.com/auth/calendar.events&access_type=offline&prompt=consent`;
-                            window.open(url, '_blank');
-                            toast('Redirecting to Verification...', { icon: '🔍' });
-                        }}
-                        style={{
-                            padding: '0.6rem 1.25rem',
-                            borderRadius: '10px',
-                            border: '1px solid var(--border-color)',
-                            background: 'transparent',
-                            color: 'var(--text-main)',
-                            fontWeight: '600',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                        className="btn-outline"
-                    >
-                        <ExternalLink size={16} />
-                        Verify OAuth Flow
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => window.open('https://console.cloud.google.com/apis/dashboard', '_blank')}
-                        style={{
-                            padding: '0.6rem 1.25rem',
-                            borderRadius: '10px',
-                            border: '1px solid var(--border-color)',
-                            background: 'transparent',
-                            color: 'var(--text-main)',
-                            fontWeight: '600',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                        className="btn-outline"
-                    >
-                        <ShieldCheck size={16} color="#4285F4" />
-                        API Console
-                    </button>
-                </div>
-            </div>
-        </div >
-    );
-};
-
-const NotificationSettings = ({ settings, setSettings }) => {
-    const [subTab, setSubTab] = useState('web');
-
-    const tabs = [
-        { id: 'web', label: 'Website Setup' },
-        { id: 'mobile', label: 'Mobile App Setup' },
-        { id: 'backend', label: 'Server / Backend' }
-    ];
-
-    return (
-        <section className="settings-section-card responsive-section-card">
-            <SectionTitle label="Notification Configuration" icon={Bell} color="var(--primary-color)" />
-            <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-                Configure Firebase Cloud Messaging for Web, Android, and iOS.
-            </p>
-
-            <div style={{ marginBottom: '2rem' }}>
-                <label style={LabelStyle}>Quick Setup</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                    {tabs.map(tab => (
+                    {mainTabs.map(tab => (
                         <button
                             key={tab.id}
                             type="button"
                             onClick={() => setSubTab(tab.id)}
                             style={{
-                                padding: '12px 28px',
-                                borderRadius: '14px',
+                                padding: '10px 24px',
+                                borderRadius: '12px',
                                 border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
                                 background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
                                 color: subTab === tab.id ? 'white' : 'var(--text-sub)',
                                 cursor: 'pointer',
-                                fontWeight: '750',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: subTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none'
+                                fontWeight: '700',
+                                fontSize: '0.85rem',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
                             }}
                         >
                             {tab.label}
@@ -2448,187 +1969,245 @@ const NotificationSettings = ({ settings, setSettings }) => {
                 </div>
             </div>
 
-            <div style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'var(--bg-color)' }}>
-                {subTab === 'web' && (
-                    <div>
-                        <h3 style={{ fontSize: '1.2rem', margin: '0 0 1.5rem', color: 'var(--text-main)', fontWeight: '700' }}>Website Setup (Client SDK)</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.25rem' }}>
-                            <InputGroup label="Firebase Public Vapid Key (Web Push Only) *" value={settings.notification.firebasePublicVapidKey} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebasePublicVapidKey: v } })} placeholder="B.... (Key Pair)" />
-                            <InputGroup label="Firebase API Key *" type="password" value={settings.notification.firebaseApiKey} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseApiKey: v } })} />
-                            <InputGroup label="Firebase Auth Domain *" value={settings.notification.firebaseAuthDomain} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseAuthDomain: v } })} />
-                            <InputGroup label="Firebase Project ID *" value={settings.notification.firebaseProjectId} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseProjectId: v } })} />
-                            <InputGroup label="Firebase Storage Bucket *" value={settings.notification.firebaseStorageBucket} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseStorageBucket: v } })} />
-                            <InputGroup label="Firebase Message Sender ID *" value={settings.notification.firebaseMessageSenderId} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseMessageSenderId: v } })} />
-                            <InputGroup label="Firebase App ID *" value={settings.notification.firebaseAppId} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseAppId: v } })} />
-                            <InputGroup label="Firebase Measurement ID *" value={settings.notification.firebaseMeasurementId} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseMeasurementId: v } })} />
-                        </div>
-                    </div>
-                )}
-
-                {subTab === 'mobile' && (
-                    <div>
-                        <h3 style={{ fontSize: '1.2rem', margin: '0 0 1.5rem', color: 'var(--text-main)', fontWeight: '700' }}>Mobile App Configuration (Optional)</h3>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginBottom: '1rem' }}>
-                            Define your mobile app identifiers here for reference. The backend uses the Service Account to send to all platforms.
-                        </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.25rem' }}>
-                            <InputGroup label="Android Package Name" value={settings.notification.androidPackageName || ''} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, androidPackageName: v } })} placeholder="com.company.app" />
-                            <InputGroup label="iOS Bundle ID" value={settings.notification.iosBundleId || ''} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, iosBundleId: v } })} placeholder="com.company.app" />
-                        </div>
-                    </div>
-                )}
-
-                {subTab === 'backend' && (
-                    <div>
-                        <h3 style={{ fontSize: '1.2rem', margin: '0 0 1.5rem', color: 'var(--text-main)', fontWeight: '700' }}>Backend Configuration</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div>
-                                <label style={LabelStyle}>Service Account Key (JSON) *</label>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginBottom: '8px' }}>
-                                    Upload the <code>service-account.json</code> file from Firebase Console (Project Settings &gt; Service Accounts). This authorizes the backend to send notifications.
-                                </p>
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    <label style={{ ...InputStyle, display: 'flex', alignItems: 'center', cursor: 'pointer', background: 'var(--bg-color)', width: 'auto', paddingRight: '20px' }}>
-                                        <span style={{ marginRight: '10px', background: 'var(--border-color)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>Choose File</span>
-                                        <span style={{ color: 'var(--text-sub)', fontSize: '0.85rem' }}>{settings.notification.serviceAccountJson ? 'Service Account Key Uploaded (Active)' : 'No file chosen'}</span>
-                                        <input
-                                            type="file"
-                                            hidden
-                                            accept=".json"
-                                            onChange={async (e) => {
-                                                const file = e.target.files[0];
-                                                if (!file) return;
-
-                                                const formData = new FormData();
-                                                formData.append('serviceAccountJson', file);
-
-                                                const loadToast = toast.loading('Uploading JSON...');
-                                                try {
-                                                    const res = await api.put('/settings', formData, {
-                                                        headers: { 'Content-Type': 'multipart/form-data' }
-                                                    });
-                                                    if (res.data.success) {
-                                                        setSettings(prev => ({
-                                                            ...prev,
-                                                            notification: {
-                                                                ...prev.notification,
-                                                                ...res.data.data.notification
-                                                            }
-                                                        }));
-                                                        toast.success('Service Account JSON uploaded', { id: loadToast });
-                                                    }
-                                                } catch (error) {
-                                                    toast.error('Upload failed', { id: loadToast });
-                                                }
-                                            }}
-                                        />
-                                    </label>
+            {subTab === 'accounts' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                        {/* Credentials Card */}
+                        <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>API Credentials</h3>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    background: currentConfig.enabled ? 'color-mix(in srgb, var(--success-color) 15%, transparent)' : 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+                                    padding: '6px 14px',
+                                    borderRadius: '20px',
+                                    border: `1px solid ${currentConfig.enabled ? 'color-mix(in srgb, var(--success-color) 30%, transparent)' : 'color-mix(in srgb, var(--text-sub) 20%, transparent)'}`,
+                                    cursor: 'pointer'
+                                }} onClick={() => handleUpdate('enabled', !currentConfig.enabled)}>
+                                    <div style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        background: currentConfig.enabled ? 'var(--success-color)' : 'var(--text-sub)'
+                                    }} />
+                                    <span style={{
+                                        fontSize: '0.7rem',
+                                        fontWeight: '800',
+                                        color: currentConfig.enabled ? 'var(--success-color)' : 'var(--text-sub)',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        {currentConfig.enabled ? 'Active' : 'Inactive'}
+                                    </span>
                                 </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <InputGroup
+                                    label="Client ID"
+                                    value={currentConfig.clientId || ''}
+                                    onChange={v => handleUpdate('clientId', v)}
+                                    placeholder="Enter Google Client ID"
+                                />
+                                <InputGroup
+                                    label="Client Secret"
+                                    type="password"
+                                    value={currentConfig.clientSecret || ''}
+                                    onChange={v => handleUpdate('clientSecret', v)}
+                                    placeholder="Enter Google Client Secret"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Integration Card */}
+                        <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>Endpoint Configuration</h3>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '20px' }}>This URI must be added to your Google Cloud Console authorized redirect URIs.</p>
+
+                            <InputGroup
+                                label="Redirect URI"
+                                value={currentConfig.redirectUri || `${envConfig.API_URL}/voice/google/callback`}
+                                onChange={v => handleUpdate('redirectUri', v)}
+                            />
+                            <div style={{
+                                marginTop: '12px',
+                                padding: '12px',
+                                background: 'var(--card-bg)',
+                                borderRadius: '12px',
+                                border: '1px solid var(--border-color)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <code style={{ fontSize: '0.75rem', color: 'var(--primary-color)', flex: 1, wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                                    {envConfig.API_URL}/voice/google/callback
+                                </code>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`${envConfig.API_URL}/voice/google/callback`);
+                                        toast.success('URI Copied!');
+                                    }}
+                                    style={{ padding: '6px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-sub)', display: 'flex' }}
+                                >
+                                    <Copy size={14} />
+                                </button>
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
 
-            {/* <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}> */}
-            <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '1rem' }}>
-                Testing & Tools
-            </h4>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-                <button
-                    type="button"
-                    onClick={async () => {
-                        const loadToast = toast.loading('Requesting permission...');
-                        const token = await requestNotificationPermission();
-                        if (token) {
-                            console.log("Token received:", token);
-                            navigator.clipboard.writeText(token);
-                            toast.success('Token copied to clipboard! Paste it below to test.', { id: loadToast });
-                        } else {
-                            toast.error('Permission denied or Firebase not configured.', { id: loadToast });
-                        }
-                    }}
-                    style={{
-                        padding: '0.6rem 1.25rem',
-                        borderRadius: '10px',
-                        border: '1px solid var(--border-color)',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontWeight: '600',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                    className="btn-outline"
-                >
-                    <Zap size={16} color="#f59e0b" />
-                    Get My Token
-                </button>
+                    {/* Testing Tools Card */}
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px' }}>Testing & Verification</h3>
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${currentConfig.clientId}&redirect_uri=${encodeURIComponent(currentConfig.redirectUri)}&response_type=code&scope=https://www.googleapis.com/auth/calendar.events&access_type=offline&prompt=consent`;
+                                    window.open(url, '_blank');
+                                    toast('Redirecting to Verification...', { icon: '🔍' });
+                                }}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--card-bg)',
+                                    color: 'var(--text-main)',
+                                    fontWeight: '700',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                <ExternalLink size={16} />
+                                Verify Connection
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => window.open('https://console.cloud.google.com/apis/dashboard', '_blank')}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--card-bg)',
+                                    color: 'var(--text-main)',
+                                    fontWeight: '700',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                <ShieldCheck size={16} color="#4285F4" />
+                                Google Cloud Console
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                <button
-                    type="button"
-                    onClick={async () => {
-                        const token = prompt("Please enter your Firebase Device Token to test:");
-                        if (!token) return;
+            {subTab === 'config' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: '800', marginBottom: '1.5rem' }}>Step-by-Step Setup Guide</h3>
+                        <div style={{ background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid var(--border-color)', padding: '20px' }}>
+                            <ol style={{ fontSize: '0.85rem', color: 'var(--text-sub)', marginLeft: '1.25rem', lineHeight: '1.8' }}>
+                                <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#4285F4', fontWeight: '600' }}>Google Cloud Console</a>.</li>
+                                <li>Create a new project or select an existing one.</li>
+                                <li>Enable **Google Calendar API** in Library.</li>
+                                <li>Go to **Credentials** and create **OAuth client ID**.</li>
+                                <li>Select **Web application** type.</li>
+                                <li>Add the Redirect URI from the Accounts tab.</li>
+                                <li>Download the **JSON credentials** or copy the **ID** and **Secret**.</li>
+                            </ol>
+                        </div>
+                    </div>
 
-                        const loadToast = toast.loading('Sending test notification...');
-                        try {
-                            await api.post('/settings/test-notification', {
-                                token,
-                                title: 'Buddy Test',
-                                body: 'Firebase Notification Working! 🚀'
-                            });
-                            toast.success('Test notification sent!', { id: loadToast });
-                        } catch (error) {
-                            toast.error(error.response?.data?.message || 'Notification test failed', { id: loadToast });
-                        }
-                    }}
-                    style={{
-                        padding: '0.6rem 1.25rem',
-                        borderRadius: '10px',
-                        border: '1px solid var(--border-color)',
-                        background: 'transparent',
-                        color: 'var(--text-main)',
-                        fontWeight: '600',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                    className="btn-outline"
-                >
-                    <Send size={16} />
-                    Test Connectivity
-                </button>
-            </div>
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FileJson size={18} color="#4285F4" />
+                                Quick Import
+                            </h4>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
+                                Upload <code>client_secret_xxxx.json</code> to automatically fill credentials.
+                            </p>
+                        </div>
+                        <label style={{
+                            padding: '12px 24px',
+                            background: 'var(--primary-color)',
+                            color: 'white',
+                            borderRadius: '12px',
+                            fontWeight: '700',
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            transition: 'all 0.2s ease'
+                        }}>
+                            <Upload size={18} />
+                            Upload JSON File
+                            <input
+                                type="file"
+                                hidden
+                                accept=".json"
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                        try {
+                                            const json = JSON.parse(event.target.result);
+                                            const client = json.web || json.installed;
+                                            if (client) {
+                                                handleUpdate('clientId', client.client_id);
+                                                handleUpdate('clientSecret', client.client_secret);
+                                                toast.success('Credentials imported successfully!');
+                                            } else {
+                                                toast.error('JSON format not recognized');
+                                            }
+                                        } catch (err) {
+                                            toast.error('Invalid JSON file');
+                                        }
+                                    };
+                                    reader.readAsText(file);
+                                }}
+                            />
+                        </label>
+                    </div>
+                </div>
+            )}
         </section>
     );
 };
 
-const StorageSettings = ({ settings, setSettings }) => {
-    const [subTab, setSubTab] = useState('local');
+
+
+const NotificationSettings = ({ settings, setSettings }) => {
+    const [subTab, setSubTab] = useState('web');
 
     const tabs = [
-        { id: 'local', label: 'Local (VPS)' },
-        { id: 'cloudinary', label: 'Cloudinary' },
-        { id: 'gcs', label: 'Google Cloud' }
+        { id: 'web', label: 'Project Credentials', icon: Globe },
+        { id: 'backend', label: 'Cloud Messaging (FCM)', icon: ShieldCheck },
+        { id: 'mobile', label: 'Mobile Reference', icon: Smartphone }
     ];
 
-    const isActive = (provider) => settings.storage.activeProvider === provider;
-
     return (
-        <section className="settings-section-card responsive-section-card">
-            <SectionTitle label="Storage Configuration" icon={Database} color="var(--primary-color)" />
-            <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-                Choose where to store your uploaded files. Only one provider can be active.
-            </p>
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div>
+                    <SectionTitle label="Notification Setup" icon={Bell} color="#FF6F00" />
+                    <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                        Configure Firebase Cloud Messaging (FCM) to deliver real-time push notifications across web and mobile platforms.
+                    </p>
+                </div>
 
-            {/* Tabs */}
-            <div style={{ marginBottom: '2rem' }}>
-                <label style={LabelStyle}>Quick Setup</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                     {tabs.map(tab => (
                         <button
@@ -2636,28 +2215,262 @@ const StorageSettings = ({ settings, setSettings }) => {
                             type="button"
                             onClick={() => setSubTab(tab.id)}
                             style={{
-                                padding: '12px 28px',
-                                borderRadius: '14px',
+                                padding: '10px 24px',
+                                borderRadius: '12px',
                                 border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
                                 background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
                                 color: subTab === tab.id ? 'white' : 'var(--text-sub)',
                                 cursor: 'pointer',
-                                fontWeight: '750',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: subTab === tab.id ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                fontWeight: '700',
+                                fontSize: '0.85rem',
+                                transition: 'all 0.2s ease',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px'
                             }}
                         >
+                            {tab.icon && <tab.icon size={16} />}
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {subTab === 'web' && (
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px' }}>Firebase Client SDK Configuration</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <InputGroup
+                                    label="Public Vapid Key (Web Push)"
+                                    value={settings.notification.firebasePublicVapidKey}
+                                    onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebasePublicVapidKey: v } })}
+                                    placeholder="Enter Vapid Key Pair"
+                                />
+                            </div>
+                            <InputGroup label="API Key" type="password" value={settings.notification.firebaseApiKey} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseApiKey: v } })} />
+                            <InputGroup label="Auth Domain" value={settings.notification.firebaseAuthDomain} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseAuthDomain: v } })} />
+                            <InputGroup label="Project ID" value={settings.notification.firebaseProjectId} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseProjectId: v } })} />
+                            <InputGroup label="Storage Bucket" value={settings.notification.firebaseStorageBucket} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseStorageBucket: v } })} />
+                            <InputGroup label="Message Sender ID" value={settings.notification.firebaseMessageSenderId} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseMessageSenderId: v } })} />
+                            <InputGroup label="App ID" value={settings.notification.firebaseAppId} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, firebaseAppId: v } })} />
+                        </div>
+                    </div>
+                )}
+
+                {subTab === 'backend' && (
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Service Account Authorization</h4>
+                            {settings.notification.serviceAccountJson && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'color-mix(in srgb, var(--success-color) 15%, transparent)', borderRadius: '12px', border: '1px solid color-mix(in srgb, var(--success-color) 30%, transparent)' }}>
+                                    <CheckCircle2 size={14} color="var(--success-color)" />
+                                    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--success-color)', textTransform: 'uppercase' }}>Key Uploaded</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', marginBottom: '24px', lineHeight: '1.6' }}>
+                            Upload your <code>service-account.json</code> to allow the backend server to securely dispatch push notifications.
+                        </p>
+
+                        <div style={{
+                            padding: '30px',
+                            background: 'var(--card-bg)',
+                            borderRadius: '20px',
+                            border: '2px dashed var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            textAlign: 'center',
+                            gap: '16px'
+                        }}>
+                            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--bg-lite)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FileJson size={28} color="var(--primary-color)" />
+                            </div>
+                            <div>
+                                <h5 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', margin: '0 0 4px 0' }}>{settings.notification.serviceAccountJson ? 'JSON Key is Active' : 'Upload Service Account Key'}</h5>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', margin: 0 }}>{settings.notification.serviceAccountJson ? 'Your server is authorized to send FBM notifications.' : 'Required for server-side push messaging.'}</p>
+                            </div>
+                            <label style={{
+                                padding: '10px 24px',
+                                background: 'var(--primary-color)',
+                                color: 'white',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <Upload size={16} />
+                                {settings.notification.serviceAccountJson ? 'Replace JSON File' : 'Select JSON File'}
+                                <input
+                                    type="file"
+                                    hidden
+                                    accept=".json"
+                                    onChange={async (e) => {
+                                        const file = e.target.files[0];
+                                        if (!file) return;
+                                        const formData = new FormData();
+                                        formData.append('serviceAccountJson', file);
+                                        const loadToast = toast.loading('Uploading JSON...');
+                                        try {
+                                            const res = await api.put('/settings', formData, {
+                                                headers: { 'Content-Type': 'multipart/form-data' }
+                                            });
+                                            if (res.data.success) {
+                                                setSettings(prev => ({ ...prev, notification: { ...prev.notification, ...res.data.data.notification } }));
+                                                toast.success('Service Account JSON uploaded', { id: loadToast });
+                                            }
+                                        } catch (error) { toast.error('Upload failed', { id: loadToast }); }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                )}
+
+                {subTab === 'mobile' && (
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Smartphone size={18} color="var(--primary-color)" /> Platform Identifiers
+                        </h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                            <InputGroup label="Android Package Name" value={settings.notification.androidPackageName || ''} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, androidPackageName: v } })} placeholder="com.company.app" />
+                            <InputGroup label="iOS Bundle ID" value={settings.notification.iosBundleId || ''} onChange={v => setSettings({ ...settings, notification: { ...settings.notification, iosBundleId: v } })} placeholder="com.company.app" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Testing Section */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+                        <div style={{ flex: 1, minWidth: '300px' }}>
+                            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>Connectivity Diagnostics</h4>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', margin: 0 }}>Perform a loopback test to ensure your FCM credentials and network connection are valid.</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    const loadToast = toast.loading('Generating token...');
+                                    const token = await requestNotificationPermission();
+                                    if (token) {
+                                        navigator.clipboard.writeText(token);
+                                        toast.success('Token copied! Use it in the test below.', { id: loadToast });
+                                    } else {
+                                        toast.error('Permission denied.', { id: loadToast });
+                                    }
+                                }}
+                                style={{
+                                    padding: '10px 18px',
+                                    borderRadius: '12px',
+                                    background: 'var(--card-bg)',
+                                    color: 'var(--text-main)',
+                                    border: '1px solid var(--border-color)',
+                                    fontWeight: '700',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                <Copy size={16} /> Get My Token
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    const token = prompt("Enter Firebase Token:");
+                                    if (!token) return;
+                                    const loadToast = toast.loading('Sending test...');
+                                    try {
+                                        await api.post('/settings/test-notification', { token, title: 'Buddy Test', body: 'Push notifications working! 🚀' });
+                                        toast.success('Notification sent!', { id: loadToast });
+                                    } catch (error) { toast.error('Test failed', { id: loadToast }); }
+                                }}
+                                style={{
+                                    padding: '10px 24px',
+                                    borderRadius: '12px',
+                                    background: 'var(--primary-color)',
+                                    color: 'white',
+                                    border: 'none',
+                                    fontWeight: '700',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                <Send size={16} /> Test Connection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+};
+
+
+const StorageSettings = ({ settings, setSettings }) => {
+    const [subTab, setSubTab] = useState('local');
+
+    const tabs = [
+        { id: 'local', label: 'Local (VPS)', icon: HardDrive },
+        { id: 'cloudinary', label: 'Cloudinary', icon: Cloud },
+        { id: 'gcs', label: 'Google Cloud', icon: Globe }
+    ];
+
+    const isActive = (provider) => settings.storage.activeProvider === provider;
+
+    return (
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <div style={{ marginBottom: '2.5rem' }}>
+                <SectionTitle label="Storage Configuration" icon={Database} color="var(--primary-color)" />
+                <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                    Select your preferred file storage provider. Active provider handles all user uploads and system assets.
+                </p>
+            </div>
+
+            {/* Provider Selection */}
+            <div style={{ marginBottom: '2rem' }}>
+                <label style={{ ...LabelStyle, marginBottom: '16px', display: 'block' }}>Active Storage Provider</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setSubTab(tab.id)}
+                            style={{
+                                padding: '14px 24px',
+                                borderRadius: '16px',
+                                border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                color: subTab === tab.id ? 'white' : 'var(--text-sub)',
+                                cursor: 'pointer',
+                                fontWeight: '800',
+                                fontSize: '0.9rem',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: subTab === tab.id ? '0 8px 20px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}
+                        >
+                            <tab.icon size={18} />
                             {tab.label}
                             {isActive(tab.id) && (
                                 <div style={{
-                                    width: '6px',
-                                    height: '6px',
+                                    width: '8px',
+                                    height: '8px',
                                     borderRadius: '50%',
-                                    background: subTab === tab.id ? 'white' : 'var(--primary-color)'
+                                    background: subTab === tab.id ? 'white' : '#10b981',
+                                    marginLeft: '4px'
                                 }} />
                             )}
                         </button>
@@ -2665,19 +2478,20 @@ const StorageSettings = ({ settings, setSettings }) => {
                 </div>
             </div>
 
-            {/* Content Body */}
-            <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'var(--bg-color)' }}>
-
-                {/* Active Toggle Header inside content */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
+            {/* Config Content */}
+            <div style={{ padding: '32px', border: '1px solid var(--border-color)', borderRadius: '24px', background: 'var(--bg-lite)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
                     <div>
-                        <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-main)', fontWeight: '700' }}>
-                            {tabs.find(t => t.id === subTab)?.label}
+                        <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-main)', fontWeight: '800' }}>
+                            {tabs.find(t => t.id === subTab)?.label} Settings
                         </h3>
                         {isActive(subTab) ? (
-                            <p style={{ fontSize: '0.8rem', color: '#10b981', margin: '4px 0 0', fontWeight: '600' }}>Active Provider</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                                <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '700' }}>Active Provider</span>
+                            </div>
                         ) : (
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: '4px 0 0' }}>Inactive</p>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: '6px 0 0' }}>Method Configured (Inactive)</p>
                         )}
                     </div>
 
@@ -2686,54 +2500,67 @@ const StorageSettings = ({ settings, setSettings }) => {
                             type="button"
                             onClick={() => setSettings({ ...settings, storage: { ...settings.storage, activeProvider: subTab } })}
                             style={{
-                                padding: '6px 16px',
+                                padding: '10px 24px',
                                 borderRadius: '50px',
                                 background: 'transparent',
-                                border: '1px solid var(--primary-color)',
+                                border: '1.5px solid var(--primary-color)',
                                 color: 'var(--primary-color)',
-                                fontSize: '0.75rem',
-                                fontWeight: '700',
-                                cursor: 'pointer'
+                                fontSize: '0.85rem',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.background = 'var(--primary-color)';
+                                e.currentTarget.style.color = 'white';
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = 'var(--primary-color)';
                             }}
                         >
-                            Set as Active
+                            Activate Provider
                         </button>
                     )}
                     {isActive(subTab) && (
-                        <span style={{
-                            padding: '6px 16px',
+                        <div style={{
+                            padding: '8px 20px',
                             borderRadius: '50px',
                             background: 'rgba(16, 185, 129, 0.1)',
                             color: '#10b981',
-                            fontSize: '0.75rem',
-                            fontWeight: '700',
-                            border: '1px solid rgba(16, 185, 129, 0.2)'
+                            fontSize: '0.8rem',
+                            fontWeight: '800',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
                         }}>
-                            Enabled
-                        </span>
+                            <ShieldCheck size={16} /> Primary
+                        </div>
                     )}
                 </div>
 
                 {subTab === 'local' && (
-                    <div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '1.25rem' }}>
-                            Store files on the same server as the application. Best for lower costs and simple setups.
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-sub)', margin: 0 }}>
+                            Stored on the local file system of your VPS. Ideal for high performance and low latency.
                         </p>
                         <InputGroup
-                            label="Upload Path"
+                            label="Local Storage Directory"
                             value={settings.storage.local.uploadPath}
                             onChange={v => setSettings({ ...settings, storage: { ...settings.storage, local: { ...settings.storage.local, uploadPath: v } } })}
-                            placeholder="uploads/"
+                            placeholder="e.g., uploads/"
+                            icon={HardDrive}
                         />
                     </div>
                 )}
 
                 {subTab === 'cloudinary' && (
-                    <div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '1.25rem' }}>
-                            Optimized for media management and delivery. Requires API credentials.
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-sub)', margin: 0 }}>
+                            Professional media management and CDN delivery.
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.25rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                             <InputGroup
                                 label="Cloud Name"
                                 value={settings.storage.cloudinary.cloudName}
@@ -2755,63 +2582,79 @@ const StorageSettings = ({ settings, setSettings }) => {
                 )}
 
                 {subTab === 'gcs' && (
-                    <div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '1.25rem' }}>
-                            Scalable object storage by Google. Requires a service account JSON key.
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-sub)', margin: 0 }}>
+                            Enterprise-grade object storage with global scalability.
                         </p>
-                        <InputGroup
-                            label="Bucket Name"
-                            value={settings.storage.gcs.bucketName}
-                            onChange={v => setSettings({ ...settings, storage: { ...settings.storage, gcs: { ...settings.storage.gcs, bucketName: v } } })}
-                        />
-                        <InputGroup
-                            label="Project ID"
-                            value={settings.storage.gcs.projectId}
-                            onChange={v => setSettings({ ...settings, storage: { ...settings.storage, gcs: { ...settings.storage.gcs, projectId: v } } })}
-                        />
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                            <InputGroup
+                                label="Bucket Name"
+                                value={settings.storage.gcs.bucketName}
+                                onChange={v => setSettings({ ...settings, storage: { ...settings.storage, gcs: { ...settings.storage.gcs, bucketName: v } } })}
+                            />
+                            <InputGroup
+                                label="Project ID"
+                                value={settings.storage.gcs.projectId}
+                                onChange={v => setSettings({ ...settings, storage: { ...settings.storage, gcs: { ...settings.storage.gcs, projectId: v } } })}
+                            />
+                        </div>
 
-                        <div style={{ marginTop: '1rem' }}>
-                            <label style={LabelStyle}>Service Account Key (JSON) *</label>
-                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                <label style={{ ...InputStyle, display: 'flex', alignItems: 'center', cursor: 'pointer', background: 'var(--bg-color)', width: 'auto', paddingRight: '20px' }}>
-                                    <span style={{ marginRight: '10px', background: 'var(--border-color)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>Choose File</span>
-                                    <span style={{ color: 'var(--text-sub)', fontSize: '0.85rem' }}>{settings.storage.gcs.serviceAccountKeyJson ? 'Key File Uploaded' : 'No file chosen'}</span>
-                                    <input
-                                        type="file"
-                                        hidden
-                                        accept=".json"
-                                        onChange={async (e) => {
-                                            const file = e.target.files[0];
-                                            if (!file) return;
-
-                                            const formData = new FormData();
-                                            formData.append('gcsKeyJson', file);
-                                            const loadToast = toast.loading('Uploading GCS Key...');
-                                            try {
-                                                const res = await api.put('/settings', formData, {
-                                                    headers: { 'Content-Type': 'multipart/form-data' }
-                                                });
-                                                if (res.data.success) {
-                                                    const data = res.data.data;
-                                                    setSettings(prev => ({
-                                                        ...prev,
-                                                        storage: { ...prev.storage, ...(data.storage || {}) }
-                                                    }));
-                                                    toast.success('GCS Key uploaded', { id: loadToast });
+                        <div style={{ marginTop: '1rem', padding: '24px', background: 'var(--card-bg)', borderRadius: '20px', border: '1px dotted var(--border-color)' }}>
+                            <label style={{ ...LabelStyle, marginBottom: '12px', display: 'block' }}>Service Account Key (.json)</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                <div style={{ flex: 1 }}>
+                                    {settings.storage.gcs.serviceAccountKey ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '750' }}>
+                                            <ShieldCheck size={20} /> Key Uploaded Successfully
+                                        </div>
+                                    ) : (
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', margin: 0 }}>No key file uploaded. Required for GCS access.</p>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => document.getElementById('gcs-key-upload').click()}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'var(--primary-color)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        fontSize: '0.85rem',
+                                        fontWeight: '800',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {settings.storage.gcs.serviceAccountKey ? 'Update Key' : 'Upload Key'}
+                                </button>
+                                <input
+                                    id="gcs-key-upload"
+                                    type="file"
+                                    accept=".json"
+                                    style={{ display: 'none' }}
+                                    onChange={e => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => {
+                                                try {
+                                                    const json = JSON.parse(event.target.result);
+                                                    setSettings({ ...settings, storage: { ...settings.storage, gcs: { ...settings.storage.gcs, serviceAccountKey: json } } });
+                                                } catch (err) {
+                                                    alert('Invalid JSON file');
                                                 }
-                                            } catch (error) {
-                                                toast.error('Upload failed', { id: loadToast });
-                                            }
-                                        }}
-                                    />
-                                </label>
+                                            };
+                                            reader.readAsText(file);
+                                        }
+                                    }}
+                                />
                             </div>
                         </div>
                     </div>
                 )}
 
-            </div>
-        </section>
+            </div >
+        </section >
     );
 };
 
@@ -2822,71 +2665,97 @@ const PaymentSettings = ({ settings, setSettings }) => {
     const activeIndex = settings.paymentGateways.findIndex(g => g.name === activeGatewayName);
     const activeGateway = settings.paymentGateways[activeIndex] || settings.paymentGateways[0];
 
-    return (
-        <section className="settings-section-card responsive-section-card">
-            <SectionTitle label="Payment Gateways" icon={CreditCard} color="var(--primary-color)" />
-            <p style={{ color: 'var(--text-sub)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-                Configure multiple payment options for your customers.
-            </p>
+    const getIcon = (name) => {
+        switch (name) {
+            case 'Stripe': return ShieldCheck;
+            case 'PayPal': return CreditCard;
+            case 'Razorpay': return Zap;
+            default: return CreditCard;
+        }
+    };
 
-            {/* Tabs */}
+    const getColor = (name) => {
+        switch (name) {
+            case 'Stripe': return '#6366f1';
+            case 'PayPal': return '#0070ba';
+            case 'Razorpay': return '#2b3bca';
+            default: return 'var(--primary-color)';
+        }
+    };
+
+    const ActiveIcon = getIcon(activeGateway.name);
+
+    return (
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <div style={{ marginBottom: '2.5rem' }}>
+                <SectionTitle label="Payment Gateways" icon={CreditCard} color="var(--primary-color)" />
+                <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                    Configure secure checkout options for your platform. Enable multiple gateways to provide flexible payment methods to your customers.
+                </p>
+            </div>
+
+            {/* Provider Tabs */}
             <div style={{ marginBottom: '2rem' }}>
-                <label style={LabelStyle}>Quick Setup</label>
+                <label style={{ ...LabelStyle, marginBottom: '16px', display: 'block' }}>Select Gateway to Configure</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                    {settings.paymentGateways.map(gateway => (
-                        <button
-                            key={gateway.name}
-                            type="button"
-                            onClick={() => setActiveGatewayName(gateway.name)}
-                            style={{
-                                padding: '12px 28px',
-                                borderRadius: '14px',
-                                border: activeGatewayName === gateway.name ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                background: activeGatewayName === gateway.name ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                color: activeGatewayName === gateway.name ? 'white' : 'var(--text-sub)',
-                                cursor: 'pointer',
-                                fontWeight: '750',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.2s ease',
-                                boxShadow: activeGatewayName === gateway.name ? '0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            {gateway.name}
-                            {gateway.enabled && (
-                                <div style={{
-                                    width: '6px',
-                                    height: '6px',
-                                    borderRadius: '50%',
-                                    background: activeGatewayName === gateway.name ? 'white' : '#10b981'
-                                }} />
-                            )}
-                        </button>
-                    ))}
+                    {settings.paymentGateways.map(gateway => {
+                        const Icon = getIcon(gateway.name);
+                        return (
+                            <button
+                                key={gateway.name}
+                                type="button"
+                                onClick={() => setActiveGatewayName(gateway.name)}
+                                style={{
+                                    padding: '14px 28px',
+                                    borderRadius: '16px',
+                                    border: activeGatewayName === gateway.name ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                    background: activeGatewayName === gateway.name ? 'var(--primary-color)' : 'var(--bg-lite)',
+                                    color: activeGatewayName === gateway.name ? 'white' : 'var(--text-sub)',
+                                    cursor: 'pointer',
+                                    fontWeight: '800',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: activeGatewayName === gateway.name ? '0 8px 20px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}
+                            >
+                                <Icon size={18} color={activeGatewayName === gateway.name ? 'white' : getColor(gateway.name)} />
+                                {gateway.name}
+                                {gateway.enabled && (
+                                    <div style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        background: activeGatewayName === gateway.name ? 'white' : '#10b981',
+                                        marginLeft: '4px'
+                                    }} />
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* Content Body */}
-            <div style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'var(--bg-color)' }}>
-
-                {/* Header inside content */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--bg-lite)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {activeGateway.name === 'Stripe' && <ShieldCheck size={20} color="#6366f1" />}
-                            {activeGateway.name === 'PayPal' && <CreditCard size={20} color="#0070ba" />}
-                            {activeGateway.name === 'Razorpay' && <Zap size={20} color="#2b3bca" />}
+            {/* Gateway Configuration Body */}
+            <div style={{ padding: '32px', border: '1px solid var(--border-color)', borderRadius: '24px', background: 'var(--bg-lite)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ActiveIcon size={24} color={getColor(activeGateway.name)} />
                         </div>
                         <div>
-                            <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-main)', fontWeight: '700' }}>
+                            <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-main)', fontWeight: '800' }}>
                                 {activeGateway.name} Integration
                             </h3>
                             {activeGateway.enabled ? (
-                                <p style={{ fontSize: '0.8rem', color: '#10b981', margin: '4px 0 0', fontWeight: '600' }}>Payment Method Active</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                                    <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '700' }}>Active & Ready</span>
+                                </div>
                             ) : (
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: '4px 0 0' }}>Currently Disabled</p>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: '6px 0 0' }}>Configuration Pending (Disabled)</p>
                             )}
                         </div>
                     </div>
@@ -2899,32 +2768,35 @@ const PaymentSettings = ({ settings, setSettings }) => {
                             setSettings({ ...settings, paymentGateways: ng });
                         }}
                         style={{
-                            padding: '8px 20px',
+                            padding: '10px 24px',
                             borderRadius: '50px',
                             background: activeGateway.enabled ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
                             color: activeGateway.enabled ? '#ef4444' : 'var(--primary-color)',
-                            border: activeGateway.enabled ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--primary-color)',
-                            fontSize: '0.75rem',
-                            fontWeight: '700',
+                            border: activeGateway.enabled ? '1.5px solid rgba(239, 68, 68, 0.2)' : '1.5px solid var(--primary-color)',
+                            fontSize: '0.85rem',
+                            fontWeight: '800',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px'
+                            gap: '8px',
+                            transition: 'all 0.2s'
                         }}
                     >
-                        {activeGateway.enabled ? 'Disable' : 'Enable Method'}
+                        {activeGateway.enabled ? 'Disable Gateway' : 'Enable Gateway'}
                     </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
                     <div style={{ gridColumn: '1 / -1' }}>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                            {activeGateway.name === 'Razorpay' ?
-                                'Secure Indian payment gateway. Supports UPI, Cards, Netbanking.' :
-                                activeGateway.name === 'Stripe' ?
-                                    'Global payment processing platform. Supports Credit Cards, Apple Pay, Google Pay.' :
-                                    'Worldwide online payments system.'}
-                        </p>
+                        <div style={{ padding: '16px 20px', background: 'color-mix(in srgb, var(--primary-color) 5%, transparent)', borderLeft: '4px solid var(--primary-color)', borderRadius: '8px' }}>
+                            <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', margin: 0, lineHeight: '1.6', fontWeight: '500' }}>
+                                {activeGateway.name === 'Razorpay' ?
+                                    'Scale your business in India with India\'s most reliable payment gateway. Supports UPI, All major cards, Netbanking, and Wallets.' :
+                                    activeGateway.name === 'Stripe' ?
+                                        'Accept payments globally with Stripe\'s unified API. Supports high-converting checkout experiences, Apple Pay, Google Pay, and localized methods.' :
+                                        'Connect with over 400 million active users worldwide. Trusted online payment processing with built-in fraud protection.'}
+                            </p>
+                        </div>
                     </div>
 
                     <InputGroup
@@ -2935,7 +2807,7 @@ const PaymentSettings = ({ settings, setSettings }) => {
                             ng[activeIndex].apiKey = v;
                             setSettings({ ...settings, paymentGateways: ng });
                         }}
-                        placeholder={`Enter ${activeGateway.name} Public Key`}
+                        placeholder={`Enter your ${activeGateway.name} production key`}
                     />
                     <InputGroup
                         label={activeGateway.name === 'PayPal' ? 'Secret Key' : 'Secret / Private Key'}
@@ -2946,18 +2818,17 @@ const PaymentSettings = ({ settings, setSettings }) => {
                             ng[activeIndex].apiSecret = v;
                             setSettings({ ...settings, paymentGateways: ng });
                         }}
-                        placeholder={`Enter ${activeGateway.name} Secret Key`}
+                        placeholder={`Enter your ${activeGateway.name} secret key`}
                     />
                 </div>
-
             </div>
         </section>
     );
 };
 
+
 const GoogleAuthSettings = ({ settings, setSettings }) => {
     const handleUpdate = (field, value) => {
-        // Trim string values to avoid accidental whitespace
         const cleanValue = typeof value === 'string' ? value.trim() : value;
         setSettings({
             ...settings,
@@ -2968,106 +2839,105 @@ const GoogleAuthSettings = ({ settings, setSettings }) => {
         });
     };
 
+    const isEnabled = settings.googleAuth.enabled;
+
     return (
-        <section className="settings-section-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
-                <SectionTitle label="Google Authentication" icon={ShieldCheck} color="var(--primary-color)" />
-                <button
-                    type="button"
-                    onClick={() => handleUpdate('enabled', !settings.googleAuth.enabled)}
-                    style={{
-                        padding: '12px 28px',
-                        borderRadius: '14px',
-                        background: settings.googleAuth.enabled ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-lite)',
-                        border: `1px solid ${settings.googleAuth.enabled ? 'rgba(16, 185, 129, 0.2)' : 'var(--border-color)'}`,
-                        color: settings.googleAuth.enabled ? '#10b981' : 'var(--text-sub)',
-                        fontWeight: '750',
-                        fontSize: '0.9rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        boxShadow: settings.googleAuth.enabled ? '0 4px 12px rgba(16, 185, 129, 0.15)' : 'none'
-                    }}
-                >
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div style={{ flex: 1, minWidth: '300px' }}>
+                    <SectionTitle label="Google Authentication" icon={ShieldCheck} color="var(--primary-color)" />
+                    <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem', maxWidth: '600px' }}>
+                        Configure Google OAuth credentials to enable secure, unified sign-in across your Web, Android, and iOS applications.
+                    </p>
+                </div>
+
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: isEnabled ? 'color-mix(in srgb, var(--success-color) 15%, transparent)' : 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
+                    padding: '8px 18px',
+                    borderRadius: '20px',
+                    border: `1px solid ${isEnabled ? 'color-mix(in srgb, var(--success-color) 30%, transparent)' : 'color-mix(in srgb, var(--text-sub) 20%, transparent)'}`,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                }} onClick={() => handleUpdate('enabled', !isEnabled)}>
                     <div style={{
                         width: '8px',
                         height: '8px',
                         borderRadius: '50%',
-                        background: settings.googleAuth.enabled ? '#10b981' : 'var(--text-sub)'
+                        background: isEnabled ? 'var(--success-color)' : 'var(--text-sub)'
                     }} />
-                    {settings.googleAuth.enabled ? 'ENABLED' : 'DISABLED'}
-                </button>
+                    <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        color: isEnabled ? 'var(--success-color)' : 'var(--text-sub)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        {isEnabled ? 'Active' : 'Inactive'}
+                    </span>
+                </div>
             </div>
 
-            <div style={{ marginBottom: '2rem' }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-sub)', lineHeight: '1.6', margin: 0 }}>
-                    Enable and configure Google OAuth credentials to allow users to sign in using their Google accounts across Web, Android, and iOS applications.
-                </p>
-            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                {/* Web Configuration Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                        <div style={{ padding: '8px', background: 'var(--card-bg)', borderRadius: '10px', display: 'flex' }}>
+                            <Globe size={18} color="var(--primary-color)" />
+                        </div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Web Configuration</h4>
+                    </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                <div style={{ gridColumn: '1 / -1' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-                        <Globe size={16} color="var(--primary-color)" />
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>Web Configuration</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <InputGroup
+                            label="Web Client ID"
+                            value={settings.googleAuth.webClientId}
+                            onChange={v => handleUpdate('webClientId', v)}
+                            placeholder="Enter Google Web Client ID"
+                        />
+                        <InputGroup
+                            label="Web Client Secret"
+                            type="password"
+                            value={settings.googleAuth.webClientSecret}
+                            onChange={v => handleUpdate('webClientSecret', v)}
+                            placeholder="Enter Google Web Client Secret"
+                        />
                     </div>
                 </div>
-                <InputGroup
-                    label="Web Client ID"
-                    value={settings.googleAuth.webClientId}
-                    onChange={v => handleUpdate('webClientId', v)}
-                    placeholder="Enter Google Web Client ID"
-                />
-                <InputGroup
-                    label="Web Client Secret"
-                    type="password"
-                    value={settings.googleAuth.webClientSecret}
-                    onChange={v => handleUpdate('webClientSecret', v)}
-                    placeholder="Enter Google Web Client Secret"
-                />
 
-                <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-                        <Zap size={16} color="var(--primary-color)" />
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>Mobile Platforms</h4>
+                {/* Mobile Platforms Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                        <div style={{ padding: '8px', background: 'var(--card-bg)', borderRadius: '10px', display: 'flex' }}>
+                            <Zap size={18} color="var(--primary-color)" />
+                        </div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Mobile Platforms</h4>
                     </div>
-                </div>
-                <InputGroup
-                    label="Android Client ID"
-                    value={settings.googleAuth.androidClientId}
-                    onChange={v => handleUpdate('androidClientId', v)}
-                    placeholder="Enter Android Client ID from Google Console"
-                />
-                <InputGroup
-                    label="iOS Client ID"
-                    value={settings.googleAuth.iosClientId}
-                    onChange={v => handleUpdate('iosClientId', v)}
-                    placeholder="Enter iOS Client ID from Google Console"
-                />
-            </div>
 
-            <div style={{
-                marginTop: '2.5rem',
-                padding: '1.5rem',
-                background: 'rgba(var(--primary-rgb), 0.03)',
-                borderRadius: '16px',
-                border: '1px solid rgba(var(--primary-rgb), 0.1)'
-            }}>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <ExternalLink size={20} color="var(--primary-color)" style={{ flexShrink: 0 }} />
-                    <div>
-                        <h5 style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 6px 0' }}>Configuration Tip</h5>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', margin: 0, lineHeight: '1.5' }}>
-                            Ensure you have added your application's domain (e.g., <code>http://localhost:3000</code>) to the <b>Authorized JavaScript Origins</b> in your Google Cloud Console project settings.
-                        </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <InputGroup
+                            label="Android Client ID"
+                            value={settings.googleAuth.androidClientId}
+                            onChange={v => handleUpdate('androidClientId', v)}
+                            placeholder="Android Client ID from Console"
+                        />
+                        <InputGroup
+                            label="iOS Client ID"
+                            value={settings.googleAuth.iosClientId}
+                            onChange={v => handleUpdate('iosClientId', v)}
+                            placeholder="iOS Client ID from Console"
+                        />
                     </div>
                 </div>
             </div>
+
+
         </section>
     );
 };
+
 
 const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRemoveAsset }) => {
     const mobileLogoInputRef = useRef(null);
@@ -3081,18 +2951,24 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
     };
 
     const AssetUploadBox = ({ label, value, onRemove, inputRef, fieldForUpload, hint }) => (
-        <div style={{ marginBottom: '1.5rem' }}>
-            <label style={LabelStyle}>
-                {label}
-                {hint && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: 'var(--primary-color)', opacity: 0.8, fontWeight: '500' }}>({hint})</span>}
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ flex: 1, minWidth: '240px' }}>
+            <label style={{ ...LabelStyle, marginBottom: '12px' }}>{label}</label>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1.25rem',
+                padding: '16px',
+                background: 'var(--card-bg)',
+                borderRadius: '20px',
+                border: '1px solid var(--border-color)',
+                transition: 'all 0.3s ease'
+            }}>
                 <div
                     onClick={() => inputRef.current?.click()}
                     style={{
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '16px',
+                        width: '72px',
+                        height: '72px',
+                        borderRadius: '14px',
                         background: 'var(--bg-lite)',
                         display: 'flex',
                         alignItems: 'center',
@@ -3101,43 +2977,64 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
                         border: '1px solid var(--border-color)',
                         cursor: 'pointer',
                         position: 'relative',
-                        transition: 'all 0.3s'
+                        transition: 'all 0.2s',
+                        flexShrink: 0
                     }}>
                     {value ? (
                         <img
                             src={getImageUrl(value)}
                             alt={label}
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }}
                         />
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                             <Image color="var(--text-sub)" size={20} style={{ opacity: 0.5 }} />
-                            <span style={{ fontSize: '0.6rem', color: 'var(--text-sub)', fontWeight: '600' }}>UPLOAD</span>
+                            <span style={{ fontSize: '0.6rem', color: 'var(--text-sub)', fontWeight: '800' }}>SVG/PNG</span>
                         </div>
                     )}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <button
-                        type="button"
-                        onClick={() => inputRef.current?.click()}
-                        style={UploadButtonStyle}
-                    >
-                        Update {label}
-                    </button>
-                    {value && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                             type="button"
-                            onClick={onRemove}
+                            onClick={() => inputRef.current?.click()}
                             style={{
-                                ...UploadButtonStyle,
-                                background: 'transparent',
-                                color: 'var(--danger-color)',
-                                borderColor: 'var(--danger-color)'
+                                padding: '8px 14px',
+                                borderRadius: '10px',
+                                background: 'var(--primary-color)',
+                                color: 'white',
+                                border: 'none',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
                             }}
                         >
-                            Remove
+                            <Upload size={14} />
+                            Upload
                         </button>
-                    )}
+                        {value && (
+                            <button
+                                type="button"
+                                onClick={onRemove}
+                                style={{
+                                    padding: '8px 14px',
+                                    borderRadius: '10px',
+                                    background: 'transparent',
+                                    color: 'var(--danger-color)',
+                                    border: '1px solid var(--danger-color)',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
+                    </div>
+                    {hint && <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: '500' }}>{hint}</span>}
                     <input
                         ref={inputRef}
                         type="file"
@@ -3151,111 +3048,175 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
     );
 
     return (
-        <section className="settings-section-card">
-            <SectionTitle label="Mobile App Branding" icon={Smartphone} color="var(--primary-color)" />
+        <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
+            <div style={{ marginBottom: '2rem' }}>
+                <SectionTitle label="Mobile App Branding" icon={Smartphone} color="var(--primary-color)" />
+                <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                    Customize the appearance and identity of your mobile application for Android and iOS platforms.
+                </p>
+            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-                <div >
-                    <AssetUploadBox
-                        label="App Logo"
-                        value={settings.mobileApp.appLogo}
-                        onRemove={() => handleRemoveAsset('appLogo')}
-                        inputRef={mobileLogoInputRef}
-                        fieldForUpload="mobileLogo"
-                        hint="Recommended: 1024x1024 px"
-                    />
-                    <AssetUploadBox
-                        label="Splash/Flash Icon"
-                        value={settings.mobileApp.splashIcon}
-                        onRemove={() => handleRemoveAsset('splashIcon')}
-                        inputRef={splashIconInputRef}
-                        fieldForUpload="splashIcon"
-                        hint="Recommended: 1024x1024 px"
-                    />
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Branding & Visuals Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Palette size={18} color="var(--primary-color)" /> Visual Identity
+                    </h4>
 
-                <div>
-                    <InputGroup
-                        label="Application Name"
-                        value={settings.mobileApp.appName}
-                        onChange={v => handleUpdate('appName', v)}
-                        placeholder="e.g. Buddy AI Assistant"
-                    />
-                    <InputGroup
-                        label="App Version"
-                        value={settings.mobileApp.appVersion}
-                        onChange={v => handleUpdate('appVersion', v)}
-                        placeholder="1.0.0"
-                    />
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+                        <AssetUploadBox
+                            label="App Icon"
+                            value={settings.mobileApp.appLogo}
+                            onRemove={() => handleRemoveAsset('appLogo')}
+                            inputRef={mobileLogoInputRef}
+                            fieldForUpload="mobileLogo"
+                            hint="Recommended: 1024x1024 px PNG/SVG"
+                        />
+                        <AssetUploadBox
+                            label="Splash Screen Icon"
+                            value={settings.mobileApp.splashIcon}
+                            onRemove={() => handleRemoveAsset('splashIcon')}
+                            inputRef={splashIconInputRef}
+                            fieldForUpload="splashIcon"
+                            hint="Recommended: 512x512 px Optimized"
+                        />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
                         <div>
-                            <label style={LabelStyle}>Primary Color</label>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <input
-                                    type="color"
-                                    value={settings.mobileApp.primaryColor || '#0075ff'}
-                                    onChange={e => handleUpdate('primaryColor', e.target.value)}
-                                    style={{ width: '40px', height: '40px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }}
+                            <label style={{ ...LabelStyle, marginBottom: '8px' }}>Theme Primary Color</label>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--card-bg)', padding: '10px', borderRadius: '15px', border: '1px solid var(--border-color)' }}>
+                                <div
+                                    onClick={() => document.getElementById('mobilePrimaryColorPicker').click()}
+                                    style={{ width: '32px', height: '32px', borderRadius: '8px', background: settings.mobileApp.primaryColor || '#0075ff', cursor: 'pointer', border: '1px solid var(--border-color)' }}
                                 />
                                 <input
                                     type="text"
-                                    value={settings.mobileApp.primaryColor}
-                                    onChange={e => handleUpdate('primaryColor', e.target.value)}
-                                    style={{ ...InputStyle, flex: 1 }}
+                                    value={settings.mobileApp.primaryColor?.toUpperCase()}
+                                    onChange={(e) => handleUpdate('primaryColor', e.target.value)}
+                                    style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '700', fontFamily: 'monospace', flex: 1, border: 'none', background: 'transparent', outline: 'none' }}
                                 />
+                                <input id="mobilePrimaryColorPicker" type="color" value={settings.mobileApp.primaryColor || '#0075ff'} onChange={e => handleUpdate('primaryColor', e.target.value)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
                             </div>
                         </div>
                         <div>
-                            <label style={LabelStyle}>Secondary Color</label>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <input
-                                    type="color"
-                                    value={settings.mobileApp.secondaryColor || '#ffffff'}
-                                    onChange={e => handleUpdate('secondaryColor', e.target.value)}
-                                    style={{ width: '40px', height: '40px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }}
+                            <label style={{ ...LabelStyle, marginBottom: '8px' }}>Theme Secondary Color</label>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--card-bg)', padding: '10px', borderRadius: '15px', border: '1px solid var(--border-color)' }}>
+                                <div
+                                    onClick={() => document.getElementById('mobileSecondaryColorPicker').click()}
+                                    style={{ width: '32px', height: '32px', borderRadius: '8px', background: settings.mobileApp.secondaryColor || '#ffffff', cursor: 'pointer', border: '1px solid var(--border-color)' }}
                                 />
                                 <input
                                     type="text"
-                                    value={settings.mobileApp.secondaryColor}
-                                    onChange={e => handleUpdate('secondaryColor', e.target.value)}
-                                    style={{ ...InputStyle, flex: 1 }}
+                                    value={settings.mobileApp.secondaryColor?.toUpperCase()}
+                                    onChange={(e) => handleUpdate('secondaryColor', e.target.value)}
+                                    style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '700', fontFamily: 'monospace', flex: 1, border: 'none', background: 'transparent', outline: 'none' }}
                                 />
+                                <input id="mobileSecondaryColorPicker" type="color" value={settings.mobileApp.secondaryColor || '#ffffff'} onChange={e => handleUpdate('secondaryColor', e.target.value)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <SectionTitle label="Platform Identification" icon={ShieldCheck} color="var(--primary-color)" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                <InputGroup
-                    label="Android Package Name"
-                    value={settings.mobileApp.androidPackageName}
-                    onChange={v => handleUpdate('androidPackageName', v)}
-                    placeholder="com.company.buddy"
-                />
-                <InputGroup
-                    label="iOS Bundle Identifier"
-                    value={settings.mobileApp.iosBundleId}
-                    onChange={v => handleUpdate('iosBundleId', v)}
-                    placeholder="com.company.buddy"
-                />
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                    {/* Basic Info & Versioning */}
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Smartphone size={18} color="var(--primary-color)" /> General Information
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <InputGroup
+                                label="App Name"
+                                value={settings.mobileApp.appName}
+                                onChange={v => handleUpdate('appName', v)}
+                                placeholder="e.g. Buddy AI"
+                            />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <InputGroup
+                                    label="Build Version"
+                                    value={settings.mobileApp.appVersion}
+                                    onChange={v => handleUpdate('appVersion', v)}
+                                    placeholder="1.0.0"
+                                />
+                                <InputGroup
+                                    label="Latest Release"
+                                    value={settings.mobileApp.latestAppVersion}
+                                    onChange={v => handleUpdate('latestAppVersion', v)}
+                                    placeholder="1.0.1"
+                                />
+                            </div>
+                        </div>
+                    </div>
 
-            <SectionTitle label="Support Information" icon={Mail} color="var(--primary-color)" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1.5rem' }}>
-                <InputGroup
-                    label="Mobile Support Email"
-                    value={settings.mobileApp.supportEmail}
-                    onChange={v => handleUpdate('supportEmail', v)}
-                    placeholder="app-support@company.com"
-                />
-                <InputGroup
-                    label="Mobile Support Phone"
-                    value={settings.mobileApp.supportPhone}
-                    onChange={v => handleUpdate('supportPhone', v)}
-                    placeholder="+1 234 567 890"
-                />
+                    {/* Platform Identification */}
+                    <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <ShieldCheck size={18} color="var(--primary-color)" /> Platform IDs
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <InputGroup
+                                label="Android Package Name"
+                                value={settings.mobileApp.androidPackageName}
+                                onChange={v => handleUpdate('androidPackageName', v)}
+                                placeholder="com.company.app"
+                            />
+                            <InputGroup
+                                label="iOS Bundle Identifier"
+                                value={settings.mobileApp.iosBundleId}
+                                onChange={v => handleUpdate('iosBundleId', v)}
+                                placeholder="com.company.app"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Updates & Distribution Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <RefreshCw size={18} color="var(--primary-color)" /> Distribution & Updates
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                        <InputGroup
+                            label="APK Download / Update URL"
+                            value={settings.mobileApp.updateUrl}
+                            onChange={v => handleUpdate('updateUrl', v)}
+                            placeholder="https://example.com/builds/app.apk"
+                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <label style={{ ...LabelStyle, marginBottom: 0 }}>Update Enforcement</label>
+                            <CustomSelect
+                                value={settings.mobileApp.mandatoryUpdate ? 'true' : 'false'}
+                                onChange={e => handleUpdate('mandatoryUpdate', e.target.value === 'true')}
+                                options={[
+                                    { value: 'false', label: 'Optional Update (User Choice)' },
+                                    { value: 'true', label: 'Mandatory Update (Blocking)' }
+                                ]}
+                            />
+                        </div>
+                    </div>
+                </div>
+                {/* Support Information Card */}
+                <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Mail size={18} color="var(--primary-color)" /> Support Information
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                        <InputGroup
+                            label="Mobile Support Email"
+                            value={settings.mobileApp.supportEmail}
+                            onChange={v => handleUpdate('supportEmail', v)}
+                            placeholder="app-support@company.com"
+                            icon={Mail}
+                        />
+                        <InputGroup
+                            label="Mobile Support Phone"
+                            value={settings.mobileApp.supportPhone}
+                            onChange={v => handleUpdate('supportPhone', v)}
+                            placeholder="+1 234 567 890"
+                            icon={Smartphone}
+                        />
+                    </div>
+                </div>
             </div>
         </section>
     );

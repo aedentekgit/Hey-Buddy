@@ -44,7 +44,18 @@ exports.processVoice = async (req, res) => {
         // 3. Save Interaction and return immediately (Client uses High-Speed Local TTS)
         const updatedConversationId = await (userId ? contextService.saveInteraction(userId, conversationId, text, aiResponse.reply) : Promise.resolve(conversationId));
 
-        const audio = null; // Disable server-side TTS wait for "Very Very Fast" response speed
+        let audio = null;
+        try {
+            const userPrefs = user?.voicePreferences || {};
+            const gender = userPrefs.gender || 'female';
+            const tone = userPrefs.tone || 'soft';
+            const ttsResult = await ttsService.generateAudio(aiResponse.reply, gender, tone, language);
+            if (ttsResult && ttsResult.audio) {
+                audio = ttsResult.audio;
+            }
+        } catch (audioErr) {
+            console.warn('[VoiceV2] Audio generation failed:', audioErr.message);
+        }
 
 
         // 4. Return result
@@ -134,13 +145,31 @@ exports.previewVoice = async (req, res) => {
         const tone = req.query.tone || userPrefs.tone || 'soft';
         const language = req.query.language || 'en-US';
         const text = req.query.text || "Hi! I am Buddy. I am ready to help you.";
+        const platform = req.headers['x-platform'] || 'web';
 
-        const result = await ttsService.generateAudio(text, gender, tone, language);
+        // 1. Properly map tone to a distinct configuration in the backend
+        let pitch = 1.0;
+        let speechRate = platform === 'mobile' ? 0.5 : 1.0;
+
+        if (gender === 'male') { pitch = 0.8; } else { pitch = 1.1; }
+        if (tone === 'soft') { speechRate = platform === 'mobile' ? 0.4 : 0.85; pitch -= 0.1; }
+        else if (tone === 'energetic') { speechRate = platform === 'mobile' ? 0.6 : 1.15; pitch += 0.1; }
+
+        const resolvedConfig = { pitch, speechRate };
+
+        // 2. Try TTS Service for high quality server audio, but if it fails, the config is still sent!
+        let result = null;
+        try {
+            result = await ttsService.generateAudio(text, gender, tone, language);
+        } catch (e) {
+            console.warn('[Preview] TTS failed, falling back to client native synthesis', e.message);
+        }
 
         res.status(200).json({
             success: true,
-            audio: result.audio,
-            voiceName: result.voiceName
+            audio: result ? result.audio : null,
+            voiceName: result ? result.voiceName : 'Native Voice',
+            resolvedVoiceConfig: resolvedConfig
         });
 
     } catch (error) {
@@ -181,16 +210,22 @@ exports.getLocalNews = async (req, res) => {
         }
 
         // Use Gemini to get 3 interesting local/regional news points
-        const prompt = `Act as a news curator for ${cityStr}. Provide exactly 3 short, interesting current affairs or news points (max 12 words each) relevant to this location or its region. Format them as an array of strings. Ensure they are recent (around February 2026). Include emojis.`;
+        const prompt = `Act as a local curator for ${cityStr}. Provide exactly 3 short, interesting simulated local updates or news points (max 12 words each) relevant to this location or its region. You must return EXACTLY 3 lines of text, one point per line, with no bullet points, no markdown formatting, no JSON, and absolutely no conversational filler. Do not apologize. Include emojis.`;
 
         const aiResponse = await geminiService.generateResponse(prompt, userId, { userContext: { timeZone: 'Asia/Kolkata' } });
 
         // Match only strings that look like news (Gemini might return a list)
         let news = [];
         try {
-            // Very basic extraction if Gemini doesn't return clean array
-            const textLines = aiResponse.reply.split('\n').filter(l => l.trim().length > 5);
-            news = textLines.slice(0, 3).map(l => l.replace(/^\d+\.\s*/, '').replace(/^- \s*/, '').trim());
+            // Strip any markdown blocks and split by new lines
+            const cleanReply = aiResponse.reply.replace(/```(json)?/gi, '').replace(/[\[\]]/g, '');
+            const textLines = cleanReply.split('\n').filter(l => l.trim().length > 5);
+            news = textLines.slice(0, 3).map(l => l.replace(/^\d+\.\s*/, '').replace(/^[-*]\s*/, '').replace(/^["']|["']$/g, '').trim());
+
+            // If the AI apologized or failed to generate 3 points, force the fallback
+            if (news.length === 0 || news[0].toLowerCase().includes("sorry") || news[0].toLowerCase().includes("unable") || news[0].toLowerCase().includes("as an ai")) {
+                throw new Error("AI returned apology or failure message");
+            }
         } catch (e) {
             news = ["Local weather updates for your area today 🌤️", "Upcoming cultural events in your city center 🎭", "New infrastructure developments ongoing nearby 🚧"];
         }

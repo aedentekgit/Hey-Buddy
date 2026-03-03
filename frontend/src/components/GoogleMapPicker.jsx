@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, Circle, DirectionsService, DirectionsRenderer } from '@react-google-maps/api';
 import { useSettings } from '../context/SettingsContext';
 import { MapPin, Target, AlertTriangle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const libraries = ['places', 'geometry'];
 const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '16px' };
@@ -107,9 +108,14 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
                     map?.panTo({ lat, lng });
                     map?.setZoom(15);
                 },
-                () => {
-                    alert("Could not get current location.");
-                }
+                (error) => {
+                    if (error.code === 2) {
+                        toast.error("Location unavailable. Please check if your device's location services are enabled.");
+                    } else {
+                        toast.error(error.message || "Could not get current location.");
+                    }
+                },
+                { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
             );
         } else {
             alert("Geolocation is not supported by this browser.");

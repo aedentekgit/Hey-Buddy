@@ -61,22 +61,14 @@ class _SignupScreenState extends State<SignupScreen> {
     final branding = Provider.of<BrandingProvider>(context);
     
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFFF9FAFF),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const SizedBox(height: 48),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Color(0xFF1E293B)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+              const Spacer(flex: 2),
               if (branding.logoUrl != null)
                 CachedNetworkImage(
                   imageUrl: branding.logoUrl!,
@@ -95,13 +87,13 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               Text(
-                "Join Dialogue to experience private AI",
+                "Join ${branding.appName} to experience private AI",
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xFF64748B),
                 ),
               ),
-              const SizedBox(height: 40),
+              const Spacer(flex: 2),
               _buildTextField(
                 controller: _nameController,
                 label: "Full Name",
@@ -170,14 +162,14 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 40),
+              const Spacer(flex: 3),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
                   onPressed: _handleSignup,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E293B),
+                    backgroundColor: branding.primaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
@@ -186,7 +178,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       : Text("Create Account", style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -203,7 +195,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 40),
+              const Spacer(flex: 2),
             ],
           ),
         ),

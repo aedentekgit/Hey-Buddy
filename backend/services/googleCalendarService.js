@@ -3,15 +3,13 @@ const User = require('../models/User');
 const Settings = require('../models/Settings');
 
 async function getGoogleCredentials() {
-    const settings = await Settings.findOne();
+    const settings = await Settings.findOne().select('+googleCalendar.clientSecret');
     const googleConfig = settings?.googleCalendar;
-    const activeAccount = googleConfig?.activeAccount || 'personal';
-    const accountConfig = googleConfig?.accounts?.[activeAccount];
 
     return {
-        clientId: accountConfig?.clientId || process.env.GOOGLE_CLIENT_ID,
-        clientSecret: accountConfig?.clientSecret || process.env.GOOGLE_CLIENT_SECRET,
-        redirectUri: accountConfig?.redirectUri || process.env.GOOGLE_REDIRECT_URI
+        clientId: googleConfig?.clientId,
+        clientSecret: googleConfig?.clientSecret,
+        redirectUri: googleConfig?.redirectUri || process.env.GOOGLE_REDIRECT_URI
     };
 }
 
@@ -50,6 +48,8 @@ function parseTime(timeStr) {
 
 exports.createGoogleCalendarEvent = async (userId, reminderData) => {
     try {
+        const user = await User.findById(userId);
+        const userTimeZone = user?.timezone || 'Asia/Kolkata';
         const auth = await getOauth2Client(userId);
         const calendar = google.calendar({ version: 'v3', auth });
 
@@ -66,8 +66,8 @@ exports.createGoogleCalendarEvent = async (userId, reminderData) => {
             summary: reminderData.title,
             location: reminderData.location,
             description: reminderData.description || `Created via Buddy AI.`,
-            start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-            end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
+            start: { dateTime: startDateTime.toISOString(), timeZone: userTimeZone },
+            end: { dateTime: endDateTime.toISOString(), timeZone: userTimeZone },
         };
 
         const response = await calendar.events.insert({ calendarId: 'primary', resource: event });
@@ -80,6 +80,8 @@ exports.createGoogleCalendarEvent = async (userId, reminderData) => {
 
 exports.updateGoogleCalendarEvent = async (userId, eventId, reminderData) => {
     try {
+        const user = await User.findById(userId);
+        const userTimeZone = user?.timezone || 'Asia/Kolkata';
         const auth = await getOauth2Client(userId);
         const calendar = google.calendar({ version: 'v3', auth });
 
@@ -96,8 +98,8 @@ exports.updateGoogleCalendarEvent = async (userId, eventId, reminderData) => {
             summary: reminderData.title,
             location: reminderData.location,
             description: reminderData.description || `Updated via Buddy AI.`,
-            start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
-            end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Kolkata' },
+            start: { dateTime: startDateTime.toISOString(), timeZone: userTimeZone },
+            end: { dateTime: endDateTime.toISOString(), timeZone: userTimeZone },
         };
 
         await calendar.events.patch({

@@ -63,7 +63,7 @@ const reminderSchema = new mongoose.Schema({
     },
     bufferTime: {
         type: Number,
-        default: 15 // minutes
+        default: 0 // trigger exactly at specified time
     },
     geofenceRadius: {
         type: Number,

@@ -49,18 +49,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               onRefresh: () => provider.loadTasks(),
               child: ListView.builder(
                 padding: const EdgeInsets.all(20),
-                itemCount: provider.tasks.length,
+                itemCount: provider.processedTasks.length,
                 itemBuilder: (context, index) {
-                  final task = provider.tasks[index];
+                  final task = provider.processedTasks[index];
+                  final bool isOverdue = task['_isOverdue'] ?? false;
                   final dateStr = task['date'];
-                  bool isOverdue = false;
-                  
-                  if (dateStr != null && task['status'] != 'completed') {
-                    final reminderDate = DateTime.parse(dateStr);
-                    final parsedTime = TaskUtils.parseTime(reminderDate, task['time']);
-                    final finalDate = parsedTime ?? DateTime(reminderDate.year, reminderDate.month, reminderDate.day, 23, 59);
-                    isOverdue = DateTime.now().isAfter(finalDate);
-                  }
             
                   final loc = task['location'];
                   final hasLocation = loc != null && loc.toString().isNotEmpty && loc != 'No Location';

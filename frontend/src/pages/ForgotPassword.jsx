@@ -26,7 +26,7 @@ const ForgotPassword = () => {
 
     return (
         <div className="forgot-password-container">
-                        <motion.div
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
@@ -198,6 +198,7 @@ const ForgotPassword = () => {
                     position: relative;
                     display: flex;
                     align-items: center;
+                    width: 100%;
                 }
 
                 .input-icon {
@@ -208,28 +209,29 @@ const ForgotPassword = () => {
                 }
 
                 .input-wrapper input {
-                    width: 100%;
-                    padding: 10px 14px 10px 40px;
-                    background: var(--bg-lite);
-                    border: 1px solid var(--border-color);
-                    border-radius: 12px;
-                    font-size: 0.95rem;
-                    color: var(--text-main);
-                    font-weight: 500;
-                    outline: none;
-                    transition: all 0.2s;
-                    height: 44px;
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                    padding: 10px 14px 10px 40px !important;
+                    background: var(--bg-lite) !important;
+                    border: 1px solid var(--border-color) !important;
+                    border-radius: 12px !important;
+                    font-size: 0.95rem !important;
+                    color: var(--text-main) !important;
+                    font-weight: 500 !important;
+                    outline: none !important;
+                    transition: all 0.2s !important;
+                    height: 44px !important;
                 }
 
                 .input-wrapper input:focus {
-                    background: var(--card-bg);
-                    border-color: var(--primary-color);
-                    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
+                    background: var(--card-bg) !important;
+                    border-color: var(--primary-color) !important;
+                    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 10%, transparent) !important;
                 }
 
                 .input-wrapper input::placeholder {
-                    color: var(--text-sub);
-                    opacity: 0.5;
+                    color: var(--text-sub) !important;
+                    opacity: 0.5 !important;
                 }
 
                 .submit-button {
@@ -329,9 +331,12 @@ const ForgotPassword = () => {
 
                 input:-webkit-autofill,
                 input:-webkit-autofill:hover,
-                input:-webkit-autofill:focus {
+                input:-webkit-autofill:focus,
+                input:-webkit-autofill:active {
                     -webkit-box-shadow: 0 0 0 1000px var(--bg-lite) inset !important;
                     -webkit-text-fill-color: var(--text-main) !important;
+                    caret-color: var(--text-main) !important;
+                    transition: background-color 5000s ease-in-out 0s;
                 }
 
                 @media (max-width: 480px) {

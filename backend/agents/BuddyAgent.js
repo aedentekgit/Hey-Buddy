@@ -82,18 +82,27 @@ class BuddyAgent extends EventEmitter {
                    - NEVER ask "Do you mean [Date]?", just assume you are correct and trigger the 'create_reminder' tool right away.
                    - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
 
-                4. MULTILINGUAL SUPPORT: 
+                5. MULTILINGUAL SUPPORT: 
                    - You are a native speaker of multiple languages including **Tamil**, Hindi, Spanish, French, etc. 
                    - You MUST respond in the language the user speaks OR explicitly requests (e.g., "speak in Tamil").
                    - If the user switches language, you MUST switch with them immediately.
                    - NEVER refuse a request to speak a different language. You are fully capable of it.
-                   - Be professional, sympathetic, and concise.`;
+                
+                6. VOICE & TTS OPTIMIZATION: 
+                   - Your responses are spoken aloud. 
+                   - NEVER use bullet points like "*" or "-". Use words like "First", "Next", "Also", "Finally" to list items.
+                   - NEVER include markdown characters like "\`\`\`", "**", or "__".
+                   - NEVER include technical terms like "json" or "markdown" in your speech.
+                   - Keep responses concise and avoid using more than one emoji per turn.
+                   - Speak in a natural, conversational way.
+                
+                Be professional, sympathetic, and concise.`;
 
             // 4. Connect with instruction and voice
             const aiConnectStart = Date.now();
             this.ai.connect(systemInstruction, personality.voice);
             this.ai.on('ready', () => {
-                console.log(`[BuddyAgent] AI Ready in ${Date.now() - aiConnectStart}ms (Total init: ${Date.now() - contextStartTime}ms)`);
+                console.log(`[BuddyAgent] AI Ready in ${Date.now() - aiConnectStart} ms(Total init: ${Date.now() - contextStartTime}ms)`);
             });
 
         } catch (err) {
@@ -107,15 +116,22 @@ class BuddyAgent extends EventEmitter {
             console.log(`[BuddyAgent] ✅ Gemini Ready for ${this.userId}`);
         });
 
+        this.ai.on('error', (err) => {
+            console.error(`[BuddyAgent] ❌ Gemini error:`, err);
+            this.socket.emit('error', 'Gemini error');
+            this.socket.emit('response_done');
+        });
+
         this.ai.on('audio_delta', (base64) => {
             // Send audio back to client if not interrupted by user speech and NOT in standby
             if (!this.isInterrupted && !this.isStandby) {
+                // console.log('[BuddyAgent] 🔊 Sending audio delta');
                 this.socket.emit('audio_out', base64);
             }
         });
 
         this.ai.on('text_delta', (text) => {
-            // console.log(`[BuddyAgent] 💬 AI Delta: ${text}`);
+            console.log(`[BuddyAgent] 💬 AI Delta: ${text} `);
             this.currentOutputText += text;
             if (!this.isStandby) {
                 this.socket.emit('caption', text); // caption = AI speaking or typing
@@ -127,7 +143,7 @@ class BuddyAgent extends EventEmitter {
         const WAKE_WORD_COOLDOWN = 5000; // 5 seconds between wake events
 
         this.ai.on('user_transcript', (text) => {
-            console.log(`[BuddyAgent] 🎙️ User Transcription: ${text}`);
+            console.log(`[BuddyAgent] 🎙️ User Transcription: ${text} `);
 
             // High-Precision Wake Word Detection
             const transcript = text.toLowerCase().trim();
@@ -175,7 +191,8 @@ class BuddyAgent extends EventEmitter {
         });
 
         this.ai.on('response_done', async () => {
-            console.log(`[BuddyAgent] 🏁 Turn complete in ${Date.now() - this.turnStartTime}ms`);
+            const duration = this.turnStartTime ? Date.now() - this.turnStartTime : 0;
+            console.log(`[BuddyAgent] 🏁 Turn complete in ${duration} ms`);
             this.socket.emit('response_done');
 
             // Save conversation history
@@ -210,7 +227,7 @@ class BuddyAgent extends EventEmitter {
         });
 
         this.ai.on('interrupted', () => {
-            console.log(`[BuddyAgent] 🛑 Audio generation interrupted by Gemini (User Voice Activity Detected)`);
+            console.log(`[BuddyAgent] 🛑 Audio generation interrupted by Gemini(User Voice Activity Detected)`);
             this.interrupt();
         });
 
@@ -218,7 +235,7 @@ class BuddyAgent extends EventEmitter {
             const functionCalls = toolCall.functionCalls || toolCall.function_calls;
             if (!functionCalls) return;
 
-            console.log(`[BuddyAgent] 🛠️ Executing tools for ${this.userId}:`, functionCalls.map(f => f.name));
+            console.log(`[BuddyAgent] 🛠️ Executing tools for ${this.userId}: `, functionCalls.map(f => f.name));
 
             const results = [];
             for (const call of functionCalls) {
@@ -228,12 +245,14 @@ class BuddyAgent extends EventEmitter {
                 if (handler) {
                     try {
                         const toolResult = await handler(this.userId, call.args, this.userContext);
+                        console.log(`[BuddyAgent] ✅ Tool ${call.name} result: `, JSON.stringify(toolResult).substring(0, 100));
                         results.push({
                             name: call.name,
                             id: callId,
                             response: { result: toolResult }
                         });
                     } catch (err) {
+                        console.error(`[BuddyAgent] ❌ Tool ${call.name} failed: `, err.message);
                         results.push({
                             name: call.name,
                             id: callId,
@@ -241,6 +260,7 @@ class BuddyAgent extends EventEmitter {
                         });
                     }
                 } else {
+                    console.warn(`[BuddyAgent] ⚠️ Tool ${call.name} not found`);
                     results.push({
                         name: call.name,
                         id: callId,
@@ -249,6 +269,7 @@ class BuddyAgent extends EventEmitter {
                 }
             }
 
+            console.log(`[BuddyAgent] 📤 Sending ${results.length} tool responses to Gemini`);
             this.ai.sendToolResponse(results);
         });
     }
@@ -270,12 +291,30 @@ class BuddyAgent extends EventEmitter {
      * Handle text messages from the client
      */
     handleText(text) {
-        if (!this.ai.isConnected) return;
         this.isInterrupted = false;
         this.lastInputType = 'text';
         this.currentInputText = text;
 
-        console.log(`[BuddyAgent] ⌨️ Handling text input: ${text}`);
+        if (this.isStandby) {
+            console.log(`[BuddyAgent] 🚀 Session Activated via Text Input`);
+            this.isStandby = false;
+        }
+
+        if (!this.ai || !this.ai.isConnected) {
+            console.log(`[BuddyAgent] ⚠️ AI not connected yet, queueing text: ${text}`);
+            if (this.ai) {
+                this.ai.once('ready', () => {
+                    console.log(`[BuddyAgent] ⌨️ Sending queued text input: ${text} `);
+                    this.ai.sendText(text);
+                });
+            } else {
+                this.socket.emit('error', 'AI not initialized');
+                this.socket.emit('response_done');
+            }
+            return;
+        }
+
+        console.log(`[BuddyAgent] ⌨️ Handling text input: ${text} `);
         this.ai.sendText(text);
     }
 
@@ -297,13 +336,13 @@ class BuddyAgent extends EventEmitter {
     }
 
     say(text) {
-        console.log(`[BuddyAgent] 🎙️ AI Injecting Speech: ${text}`);
+        console.log(`[BuddyAgent] 🎙️ AI Injecting Speech: ${text} `);
         this.isInterrupted = false;
         this.ai.sendText(text);
     }
 
     cleanup() {
-        console.log(`[BuddyAgent] 🛑 Cleaning up session: ${this.userId}`);
+        console.log(`[BuddyAgent] 🛑 Cleaning up session: ${this.userId} `);
         this.ai.disconnect();
         this.removeAllListeners();
     }

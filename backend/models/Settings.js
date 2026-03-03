@@ -147,27 +147,10 @@ const settingsSchema = new mongoose.Schema({
         enabled: { type: Boolean, default: false }
     },
     googleCalendar: {
-        activeAccount: { type: String, default: '' },
-        accounts: {
-            personal: {
-                clientId: String,
-                clientSecret: { type: String, select: false },
-                redirectUri: { type: String, default: config.GOOGLE_REDIRECT_URI },
-                enabled: { type: Boolean, default: false }
-            },
-            work: {
-                clientId: String,
-                clientSecret: { type: String, select: false },
-                redirectUri: { type: String, default: config.GOOGLE_REDIRECT_URI },
-                enabled: { type: Boolean, default: false }
-            },
-            business: {
-                clientId: String,
-                clientSecret: { type: String, select: false },
-                redirectUri: { type: String, default: config.GOOGLE_REDIRECT_URI },
-                enabled: { type: Boolean, default: false }
-            }
-        }
+        clientId: String,
+        clientSecret: { type: String, select: false },
+        redirectUri: { type: String, default: config.GOOGLE_REDIRECT_URI },
+        enabled: { type: Boolean, default: false }
     },
     googleMaps: {
         apiKey: String,
@@ -184,6 +167,9 @@ const settingsSchema = new mongoose.Schema({
         androidPackageName: String,
         iosBundleId: String,
         appVersion: { type: String, default: '1.0.0' },
+        latestAppVersion: { type: String, default: '1.0.0' },
+        mandatoryUpdate: { type: Boolean, default: false },
+        updateUrl: { type: String, default: '' },
         primaryColor: { type: String, default: '#0075ff' },
         secondaryColor: { type: String, default: '#ffffff' },
         supportEmail: String,
