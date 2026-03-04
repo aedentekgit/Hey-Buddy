@@ -100,11 +100,20 @@ class BuddyProvider with ChangeNotifier {
         
         final response = await http.get(url, headers: {
           'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
         });
         
         bool playedCustom = false;
         if (response.statusCode == 200) {
           final body = json.decode(response.body);
+
+          // SYNC TONE: Apply server-resolved configuration to local TTS fallback
+          if (body['resolvedVoiceConfig'] != null) {
+            final config = body['resolvedVoiceConfig'];
+            await _flutterTts.setPitch((config['pitch'] as num?)?.toDouble() ?? 1.0);
+            await _flutterTts.setSpeechRate((config['speechRate'] as num?)?.toDouble() ?? 0.5);
+          }
+
           if (body['success'] == true && body['audio'] != null) {
             final audioBytes = base64Decode(body['audio']);
             
@@ -142,7 +151,8 @@ class BuddyProvider with ChangeNotifier {
   }
 
   void _setupSocketListeners() {
-    _flutterTts.setSpeechRate(0.5); // More natural speed
+    // Default settings (will be dynamically updated by server responses)
+    _flutterTts.setSpeechRate(0.5); 
     _flutterTts.setPitch(1.0);
     _flutterTts.setVolume(1.0);
     _flutterTts.awaitSpeakCompletion(true); 
@@ -282,10 +292,19 @@ class BuddyProvider with ChangeNotifier {
           
           final response = await http.get(url, headers: {
             'Authorization': 'Bearer $token',
+            'x-platform': 'mobile',
           });
 
           if (response.statusCode == 200) {
             final body = json.decode(response.body);
+
+            // SYNC TONE: Even for alerts, ensure local fallback matches the personality
+            if (body['resolvedVoiceConfig'] != null) {
+              final config = body['resolvedVoiceConfig'];
+              await _flutterTts.setPitch((config['pitch'] as num?)?.toDouble() ?? 1.0);
+              await _flutterTts.setSpeechRate((config['speechRate'] as num?)?.toDouble() ?? 0.5);
+            }
+
             if (body['success'] == true && body['audio'] != null) {
               await _flutterTts.stop(); // Clear local TTS
               final audioBytes = base64Decode(body['audio']);
@@ -413,7 +432,12 @@ class BuddyProvider with ChangeNotifier {
           final audioBytes = base64Decode(audioBase64);
           await _audioPlayer.play(BytesSource(audioBytes));
       } else {
-          _flutterTts.setSpeechRate(0.5); // Optimal for Android emulators
+          // SYNC TONE: Apply server-resolved configuration to local TTS fallback
+          if (response['data']['resolvedVoiceConfig'] != null) {
+            final config = response['data']['resolvedVoiceConfig'];
+            await _flutterTts.setPitch((config['pitch'] as num?)?.toDouble() ?? 1.0);
+            await _flutterTts.setSpeechRate((config['speechRate'] as num?)?.toDouble() ?? 0.5);
+          }
           await _flutterTts.speak(reply);
       }
 

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
+import 'package:buddy_mobile/features/home/screens/memory_details_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
 
@@ -114,6 +115,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                     'icon': LucideIcons.brain,
                     'color': const Color(0xFF0284C7),
                     'task': null,
+                    'memory': m,
                   };
                 }).toList();
 
@@ -131,6 +133,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                     'icon': LucideIcons.brain,
                     'color': const Color(0xFF0284C7),
                     'task': null,
+                    'memory': null,
                   }));
                 }
 
@@ -250,16 +253,15 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
       onTap: () {
         if (item['task'] != null) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => SmartDetailsScreen(task: item['task'])));
+        } else if (item['memory'] != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => MemoryDetailsScreen(item: item['memory'])));
         } else if (item['title'] != null) {
           // If it's a general suggestion, switch to Dialogue and send it
           final buddyProvider = Provider.of<BuddyProvider>(context, listen: false);
           
-          // Switch to dialogue tab first (assuming you have access to the parent controller, or we just rely on the existing integration)
-          // For now, we'll just send the message. Note: the user might need to switch tabs manually if we don't handle it here.
           buddyProvider.addMessage('user', item['title']);
           buddyProvider.sendMessage(item['title'], language: 'en-US');
           
-          // Show a brief toast or indication
           ScaffoldMessenger.of(context).showSnackBar(
              SnackBar(
                content: Text('Asking Buddy: "${item['title']}"...'),
