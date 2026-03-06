@@ -171,7 +171,31 @@
     },
     {
       "role": "assistant",
-      "content": "Hello. I am here and ready to help. What can I do for you?"
+      "content": "Hello. I am here and ready to help. What is on your mind today?"
+    },
+    {
+      "role": "user",
+      "content": "okay is there any reminder for ne"
+    },
+    {
+      "role": "assistant",
+      "content": "You have a doctor appointment that was scheduled for 9:00 AM today and a reminder to Check in with Sabari at 10:00 AM."
+    },
+    {
+      "role": "user",
+      "content": "where is y wallet?"
+    },
+    {
+      "role": "assistant",
+      "content": "Your wallet is in your college bag, Sabari."
+    },
+    {
+      "role": "user",
+      "content": "hey buddy is there any reminders for me"
+    },
+    {
+      "role": "assistant",
+      "content": "You have a doctor appointment that was scheduled for 9:00 AM today and a reminder to check in with you at 10:00 AM."
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSettings } from './SettingsContext';
@@ -53,11 +53,14 @@ export const VoiceAssistantProvider = ({ children }) => {
                     return;
                 }
 
-                console.error('[VoiceContext] Speech Recognition Error:', event.error);
+                console.warn('[VoiceContext] Speech Recognition Error:', event.error);
                 if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
                     isIntentionalStop.current = true;
                     setStatus('IDLE');
-                    toast.error('Microphone access denied. Please check permissions.');
+                    // Only show toast if it's a real failure, not just a splash-page block
+                    if (!preventProcessing) {
+                        toast.error('Microphone access denied. Please check permissions.');
+                    }
                 }
             };
 
@@ -135,22 +138,22 @@ export const VoiceAssistantProvider = ({ children }) => {
     useEffect(() => {
         if (!recognitionRef.current) return;
 
-        // Only start recognition if user is authenticated AND processing is not inhibited
-        if (preventProcessing || !user) {
-            console.log(`[VoiceContext] ✋ Inhibiting global recognition (${!user ? 'No user' : 'Inhibited'})`);
+        if (preventProcessing) {
+            console.log('[VoiceContext] ✋ Inhibiting global recognition');
             isIntentionalStop.current = true;
-            try {
-                recognitionRef.current.stop();
-            } catch (e) { }
+            try { recognitionRef.current.stop(); } catch (e) { }
         } else {
-            console.log('[VoiceContext] 🎧 Resuming global recognition');
-            isIntentionalStop.current = false;
+            // DO NOT auto-start on mount. Wait for user to enable it once or stick to intentional starts.
+            if (isIntentionalStop.current) return;
+
+            console.log('[VoiceContext] 🎧 Attempting to resume global recognition');
             try {
-                // Only start if not already active
                 recognitionRef.current.start();
-            } catch (e) { }
+            } catch (e) {
+                // Silently fail if blocked, don't trigger error state yet
+            }
         }
-    }, [preventProcessing, user]);
+    }, [preventProcessing]);
 
     // Turn-taking logic with inhibit check
     const processInteraction = async (text) => {
@@ -289,7 +292,7 @@ export const VoiceAssistantProvider = ({ children }) => {
         }
     };
 
-    const value = {
+    const value = useMemo(() => ({
         status,
         transcript,
         setTranscript,
@@ -297,13 +300,13 @@ export const VoiceAssistantProvider = ({ children }) => {
         conversationHistory,
         setConversationHistory,
         toggleAssistant,
-        toggleListening: toggleAssistant, // Aliased for legacy components
+        toggleListening: toggleAssistant,
         speak,
         setPreventProcessing,
         isListening: status === 'LISTENING',
         isProcessing: status === 'PROCESSING',
         isSpeaking: status === 'SPEAKING'
-    };
+    }), [status, transcript, language, conversationHistory]);
 
     return (
         <VoiceAssistantContext.Provider value={value}>

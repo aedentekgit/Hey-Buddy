@@ -478,6 +478,11 @@ class TimingMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         elapsed = time.perf_counter() - t0
         path = request.url.path
+        
+        # Skip logging for common heartbeat or browser-internal requests to keep logs clean
+        if path == "/favicon.ico":
+            return response
+            
         logger.info("[REQUEST] %s %s -> %s (%.3fs)", request.method, path, response.status_code, elapsed)
         return response
 
@@ -539,6 +544,16 @@ async def health():
         "realtime_service": realtime_service is not None,
         "chat_service": chat_service is not None
     }
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """
+    Handle browser's automatic favicon request to avoid 404 logs.
+    Returns a 204 No Content status.
+    """
+    from fastapi import Response
+    return Response(status_code=204)
 
 
 @app.post("/chat", response_model=ChatResponse)

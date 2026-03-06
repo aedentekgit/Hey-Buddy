@@ -412,7 +412,20 @@ function init() {
     initOrb();
     initSpeech();
     initWakeWord();
-    startWakeWord(); // Enable auto-wake by default
+    // startWakeWord(); // Don't start immediately to avoid "not-allowed" error
+
+    // Start wake word only after first user interaction (click/touch)
+    const unlockWake = () => {
+        if (!isListening && !isStreaming) {
+            startWakeWord();
+            console.log('[WAKE] Background listening activated after user gesture');
+        }
+        window.removeEventListener('click', unlockWake);
+        window.removeEventListener('keydown', unlockWake);
+    };
+    window.addEventListener('click', unlockWake);
+    window.addEventListener('keydown', unlockWake);
+
     checkHealth();
     bindEvents();
     autoResizeInput();
@@ -696,9 +709,9 @@ function initWakeWord() {
     };
 
     wakeRecognition.onerror = (err) => {
-        console.warn('Wake word error:', err.error);
+        console.warn('[WAKE] Wake word error:', err.error);
         if (err.error === 'not-allowed') {
-            stopWakeWord(); // Permission denied
+            stopWakeWord(); // Permission denied or no user gesture yet
         }
     };
 }
