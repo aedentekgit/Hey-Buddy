@@ -1,0 +1,13 @@
+{
+  "session_id": "403dfeef-6c64-4e70-8562-b0d9d651c882",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hey Buddy, remind me to call John in 10 minutes\""
+    },
+    {
+      "role": "assistant",
+      "content": "You got it, Sabari. I'll remind you to call John at 1:34 PM. [[ACTION:CREATE_REMINDER:{\"title\": \"Call John\", \"time\": \"2026-03-05T13:34:30\"}]]"
+    }
+  ]
+}

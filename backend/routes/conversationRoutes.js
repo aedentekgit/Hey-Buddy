@@ -5,8 +5,14 @@ const {
     getConversations,
     getConversationById,
     deleteConversation,
-    deleteAllConversations
+    deleteAllConversations,
+    syncConversation,
+    getLatestConversationByUserId
 } = require('../controllers/conversationController');
+
+// Allow internal AI service to sync and fetch conversations
+router.post('/sync', syncConversation);
+router.get('/internal/:userId', getLatestConversationByUserId);
 
 router.use(protect);
 

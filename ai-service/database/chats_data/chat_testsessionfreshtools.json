@@ -1,0 +1,13 @@
+{
+  "session_id": "test-session-fresh-tools",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Schedule a reminder that I have a doctor appointment on 2026-03-06 at 9:00 AM."
+    },
+    {
+      "role": "assistant",
+      "content": "I am scheduling a reminder for your doctor's appointment on 2026-03-06 at 9:00 AM."
+    }
+  ]
+}

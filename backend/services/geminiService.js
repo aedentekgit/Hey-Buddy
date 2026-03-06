@@ -1,14 +1,54 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Reminder = require('../models/Reminder');
 const Memory = require('../models/Memory');
-// const { geocodeAddress } = require('./smartReminderService'); // Moved inside tool handler to avoid circular dependency
+const Settings = require('../models/Settings');
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const config = require('../config/env');
 
 // Configuration
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-    console.error('GEMINI_API_KEY is missing in backend .env');
+let genAI = null;
+
+async function getGenAI() {
+    if (genAI) return genAI;
+
+    // Try env first
+    let apiKey = process.env.GEMINI_API_KEY;
+
+    // Check if env key is just a placeholder
+    if (apiKey && (apiKey === 'your_gemini_api_key_here' || apiKey.trim() === '')) {
+        apiKey = null;
+    }
+
+    // Fallback to DB Settings if missing or invalid in env
+    if (!apiKey) {
+        console.log('[GeminiService] No valid key in .env, checking Database Settings...');
+        try {
+            const settings = await Settings.findOne().select('+ai.geminiApiKey');
+            apiKey = settings?.ai?.geminiApiKey;
+            if (apiKey) {
+                console.log('[GeminiService] Successfully loaded API Key from Database.');
+            }
+        } catch (err) {
+            console.error('[GeminiService] Database error while fetching key:', err.message);
+        }
+    }
+
+    if (!apiKey || apiKey.trim() === '') {
+        console.error('[GeminiService] ERROR: No Gemini API Key found in .env or Settings collection.');
+        return null;
+    }
+
+    try {
+        genAI = new GoogleGenerativeAI(apiKey.trim());
+        console.log('[GeminiService] Google AI Engine initialized.');
+        return genAI;
+    } catch (e) {
+        console.error('[GeminiService] Initialization error:', e.message);
+        return null;
+    }
 }
-const genAI = new GoogleGenerativeAI(apiKey);
 
 // Tool Implementation Logic
 const toolHandlers = {
@@ -110,6 +150,29 @@ const toolHandlers = {
             content,
             category: category || 'general'
         });
+
+        // Sync with Python Vector Store
+        try {
+            const aiServiceUrl = config.AI_SERVICE_URL;
+            const learningDataDir = path.join(__dirname, '../../ai-service/database/learning_data');
+
+            // Ensure directory exists
+            if (!fs.existsSync(learningDataDir)) {
+                fs.mkdirSync(learningDataDir, { recursive: true });
+            }
+
+            // Append to user-specific learning file
+            const userFile = path.join(learningDataDir, `memories_${userId}.txt`);
+            fs.appendFileSync(userFile, `\n${content}`);
+
+            // Trigger Python to reload the vector store
+            await axios.post(`${aiServiceUrl}/system/reload`).catch(e => console.error('[MemorySync] Reload trigger failed:', e.message));
+
+            console.log(`[MemorySync] Memory synced to Python vector store for user ${userId}`);
+        } catch (syncErr) {
+            console.error('[MemorySync] Failed to sync memory to Python:', syncErr.message);
+        }
+
         return { status: 'success', message: 'Memory saved.', data: memory };
     },
     list_reminders: async (userId, args, userContext) => {
@@ -228,6 +291,22 @@ const toolHandlers = {
     },
     search_memories: async (userId, args) => {
         const { query: searchStr } = args;
+
+        try {
+            console.log(`[GeminiTools] Performing semantic memory search for: ${searchStr}`);
+            const aiServiceUrl = config.AI_SERVICE_URL;
+            const resp = await axios.get(`${aiServiceUrl}/tools/memory`, {
+                params: { query: searchStr, k: 7 }
+            });
+
+            if (resp.data && resp.data.results && resp.data.results.length > 0) {
+                return { status: 'success', results: resp.data.results };
+            }
+        } catch (err) {
+            console.error('[GeminiTools] Semantic search failed, falling back to regex:', err.message);
+        }
+
+        // Fallback to simple MongoDB regex search
         const memories = await Memory.find({
             userId,
             content: { $regex: searchStr, $options: 'i' }
@@ -252,27 +331,30 @@ const toolHandlers = {
             }
         };
     },
-    google_search: async (userId, args) => {
+    navigate_to: async (userId, args) => {
+        const { screen } = args;
+        return {
+            status: 'success',
+            message: `Redirecting to ${screen} page...`,
+            screen: screen
+        };
+    },
+    web_search: async (userId, args) => {
         const { query } = args;
-        console.log(`[GeminiTools] 🔍 Start internal search for: "${query}"`);
         try {
-            const searchModel = genAI.getGenerativeModel({
-                model: "gemini-1.5-flash", // Use latest flash for reliability in subcalls
-                tools: [{ googleSearch: {} }]
+            console.log(`[GeminiTools] Performing premium web search for: ${query}`);
+            const aiServiceUrl = config.AI_SERVICE_URL;
+            const resp = await axios.get(`${aiServiceUrl}/tools/search`, {
+                params: { query }
             });
 
-            // Set a timeout for the search call
-            const searchPromise = searchModel.generateContent(`Find current events in Feb 2026 about: ${query}. Provide a concise summary. NO MARKDOWN, NO BULLET POINTS (*,-), NO EMOJIS. PLAIN TEXT ONLY.`);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Search Timeout')), 8000));
-
-            const result = await Promise.race([searchPromise, timeoutPromise]);
-            const response = await result.response;
-            const text = response.text();
-            console.log(`[GeminiTools] ✅ Search complete: ${text.substring(0, 50)}...`);
-            return { status: 'success', data: text };
+            if (resp.data && resp.data.formatted) {
+                return { status: 'success', results: resp.data.formatted };
+            }
+            return { status: 'error', message: 'No results found.' };
         } catch (err) {
-            console.error('[GeminiTools] ❌ Search failed:', err.message);
-            return { status: 'error', message: 'Currently unable to fetch live news. Please try again later.' };
+            console.error('[GeminiTools] Web search failed:', err.message);
+            return { status: 'error', message: 'Deep search service is currently unavailable.' };
         }
     }
 };
@@ -396,6 +478,17 @@ const buddyTools = [
                 }
             },
             {
+                name: 'web_search',
+                description: 'Search the live web for real-time information, news, current events, or deep research topics.',
+                parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                        query: { type: 'STRING', description: 'The search query' }
+                    },
+                    required: ['query']
+                }
+            },
+            {
                 name: 'get_medication_info',
                 description: 'Get detailed information about a medication.',
                 parameters: {
@@ -412,14 +505,17 @@ const buddyTools = [
                 parameters: { type: 'OBJECT', properties: {} }
             },
             {
-                name: 'google_search',
-                description: 'Search Google for real-time news, current affairs, or information not present in your training data.',
+                name: 'navigate_to',
+                description: 'Navigate the user to a specific screen in the app. Available screens: "dialogue", "explore", "memories", "settings", "reminders".',
                 parameters: {
                     type: 'OBJECT',
                     properties: {
-                        query: { type: 'STRING', description: 'The search query to look up.' }
+                        screen: {
+                            type: 'STRING',
+                            description: 'The screen to navigate to. "dialogue" for Chat, "explore" for Explore/Suggestions, "memories" for Saved Memories list, "settings" for Account Settings, "reminders" for the full Reminder/Task list.'
+                        }
                     },
-                    required: ['query']
+                    required: ['screen']
                 }
             }
         ]
@@ -448,6 +544,9 @@ const geminiService = {
                 userContext.voicePreferences?.tone || 'normal'
             );
 
+            const activeGenAI = await getGenAI();
+            if (!activeGenAI) throw new Error("Gemini API Key not configured.");
+
             const notLoggedInInstruction = !userId ? `
                 5. GUEST USER RULE (CRITICAL):
                    - The user is currently NOT LOGGED IN.
@@ -455,70 +554,67 @@ const geminiService = {
                    - **RESTRICTED**: If the user asks for *their own* personal data (e.g., "What are *my* reminders?", "Check *my* memory", "Save this as *my* note"), you MUST refuse and reply with: "Please login to check or save your personal reminders and memories."
                    - Do NOT call any tools relating to memories or reminders for a guest user.` : ``;
 
-            const model = genAI.getGenerativeModel({
+            const modelTools = userId ? [...buddyTools] : [];
+            modelTools.push({ googleSearch: {} }); // Add native Google Search capabilities for news/general facts
+
+            const model = activeGenAI.getGenerativeModel({
                 model: "gemini-2.0-flash",
                 systemInstruction: `SYSTEM IDENTITY:
-                - Your name is Buddy.
-                - PERSONALITY: ${personality.description}
-                - WRITING STYLE: ${personality.writingStyle}
-                - REAL-TIME CAPABILITY: You can look up real-time news and current events using the 'google_search' tool. Use it whenever you need to provide up-to-date information.
-                
-                VOICE CONTEXT: You are communicating with the user using the '${personality.voice}' voice. Your written responses MUST reflect this persona's tone.
-                
-                USER CONTEXT:
-                - Current User Date: ${userContext.localDate} (${new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: userContext.timeZone })})
-                - User Timezone: ${userContext.timeZone}
-                - Real-time: ${new Date().toLocaleString('en-US', { timeZone: userContext.timeZone })}
-                - User Language Preference: ${targetLanguage}
-                - Preferred Date Format for Replies: ${userContext.dateFormat}
-                - Preferred Time Format for Replies: ${userContext.timeFormat}-Hour
-                (CRUCIAL INSTRUCTION: When you reply to the user with a date or time in text, you strictly format ALL dates as ${userContext.dateFormat} and ALL times as ${userContext.timeFormat}-Hour time.)
-                
-                RECENT MEMORIES (Facts/Notes):
-                ${context.memories && context.memories.length > 0 ? context.memories.join('\n') : 'No recent memories found.'}
-                
-                STRICT RULES FOR DATA INTEGRITY AND VOICE OUTPUT:
-                1. NO EMOJIS:
-                   - DO NOT USE ANY EMOJIS in your responses. Your text is sent directly to a Text-to-Speech voice synthesizer which will literally read the emoji descriptions out loud. NO EMOJIS.
-                   
-                2. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
-                   - If the user asks a general question like "is there any reminder for me?" or "what are my reminders?", you MUST ONLY mention reminders where the date exactly matches TODAY (${userContext.localDate}). Do NOT read future reminders unless the user explicitly asks for future dates (e.g., "what do I have later this week").
-                   - If there are no reminders for TODAY, just say "You have no reminders for today." DO NOT list the upcoming ones unless they ask.
-                   - As a GUEST, YOU MUST NOT search reminders or memories. Always use your internal training data for general questions.
-                   - Requests about schedule, tasks, or "what do I have to do" MUST use 'list_reminders' if not in the UPCOMING REMINDERS list above.
-                   - Requests about facts, "where is my [item]", or past events MUST use 'search_memories' or 'list_memories' if not in the RECENT MEMORIES list above.
-                3. NO HALLUCINATION:
-                   - If the user asks for reminders or personal facts, you MUST refuse and tell them to login. NEVER make them up. If asked for general news or facts, you SHOULD use 'google_search' to find accurate real-time information before answering.
-                   - If user asks for today's reminders and they aren't in the list above, call 'list_reminders' with date="today".
-                   - If the tool response returns 'hasReminders: false' or an empty list, you MUST tell the user: "You have no reminders scheduled for today."
-                   - ALWAYS use 'google_search' for real-time news, current affairs, or information not in your training data.
-                   - NEVER infer reminders or facts exist if neither the context nor the tools show them.
-                
-                4. DATE, LOCATION & ACTION SENSITIVITY:
-                   - "Today" is ${userContext.localDate}.
-                   - You MUST resolve relative dates like "tomorrow", "yesterday", or "next Monday" into the exact YYYY-MM-DD format using today's date. 
-                   - NEVER ask the user for confirmation if they give a relative date and time (e.g. "tomorrow at 5pm"). Calculate it yourself and call the tool IMMEDIATELY.
-                   - NEVER ask "Do you mean [Date]?", just assume you are correct and trigger the 'create_reminder' tool right away.
-                   - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
-                
-                5. MULTILINGUAL SUPPORT: 
-                   - You are a native speaker of multiple languages including **Tamil**, Hindi, Spanish, French, etc. 
-                   - You MUST respond in the language the user speaks OR explicitly requests (e.g., "speak in Tamil").
-                   - If the user switches language, you MUST switch with them immediately.
-                   - NEVER refuse a request to speak a different language. You are fully capable of it.
-                   - Be professional, sympathetic, and concise.${notLoggedInInstruction}`,
-                tools: buddyTools
+- Your name is Buddy.
+- PERSONALITY: ${personality.description}
+- WRITING STYLE: ${personality.writingStyle}
+
+CRITICAL: YOUR FINAL HUMAN-LIKE ANSWER MUST START WITH THE MARKER "[ACK]". Output absolutely NOTHING before "[ACK]". If you are searching, do it perfectly silently. DO NOT generate ANY text until you have the final conversational reply starting with "[ACK]". Example: "[ACK] The T20 World Cup format is..."
+
+VOICE CONTEXT: You are communicating with the user using the '${personality.voice}' voice. Your responses MUST reflect this persona's tone.
+
+USER CONTEXT:
+- Current User Date: ${userContext.localDate}
+- User Timezone: ${userContext.timeZone}
+- User Language Preference: ${targetLanguage}
+
+RECENT MEMORIES (Facts/Notes):
+${context.memories && context.memories.length > 0 ? context.memories.join('\\n') : 'No recent memories found.'}
+
+UPCOMING REMINDERS:
+${context.reminders && context.reminders.length > 0 ? context.reminders.map(r => '- ' + r.title + ' at ' + r.time + ' (' + r.date + ')').join('\\n') : 'No upcoming reminders found.'}
+
+STRICT RULES:
+1. DO NOT THINK ALOUD OR NARRATE ACTIONS (CRITICAL): You must execute your tool calls perfectly silently. NEVER output ANY transitional phrases. NEVER say "Initiating search", "I am starting research", "I've initiated searches", "My next step is", or "I'll summarize". NEVER say "I am checking your reminders". 
+2. Just reply naturally like a human WITHOUT explaining your internal thought process. ONLY output the direct, final conversational reply to the user.
+3. INTERNAL REASONING IS FORBIDDEN: NEVER include sentences about your planning, focus, or interpretation of user intent. (e.g., "I'm focusing on...", "I'll use...", "I've decided to...", "My primary focus is...").
+4. NO SEARCH COMMENTARY: When you find information via Google Search, DO NOT explain that you are finding it. Just provide the final answer immediately. Your entire response should ONLY consist of the final information the user requested. NEVER explain how you will synthesize key points.
+
+5. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
+   - Schedule/Tasks -> Use 'list_reminders' with date="today" if not in UPCOMING list.
+   - Facts/Notes/History -> Use 'search_memories' or 'list_memories'.
+
+5. NO HALLUCINATION: If the tool result is empty, say so. Do NOT invent data. For general queries like "who is the cm in tn" or global news, use your knowledge base or google search tool to answer it natively!
+
+6. DATE, LOCATION & ACTION SENSITIVITY:
+   - "Today" is ${userContext.localDate}.
+   - You MUST resolve relative dates like "tomorrow", "yesterday", or "next Monday" into the exact YYYY-MM-DD format using today's date. 
+   - NEVER ask the user for confirmation if they give a relative date and time (e.g. "tomorrow at 5pm"). Calculate it yourself and call the tool IMMEDIATELY.
+   - NEVER ask "Do you mean [Date]?", just assume you are correct and trigger the 'create_reminder' tool right away.
+   - If a user mentions a place (e.g., "at school", "in Periyar bus stand"), you MUST extract this into the 'location' parameter when calling 'create_reminder'.
+
+7. MULTILINGUAL SUPPORT: 
+   - You are a native speaker of multiple languages including **Tamil**, Hindi, Spanish, French, etc. 
+   - You MUST respond in the language the user speaks OR explicitly requests (e.g., "speak in Tamil").
+   - If the user switches language, you MUST switch with them immediately.
+   - NEVER refuse a request to speak a different language. You are fully capable of it.
+   - Be professional, sympathetic, and concise.
+
+8. DO NOT EXPLAIN: Never explain your internal reasonings, constraints, or capabilities. IF you know the answer to a question, yield the answer DIRECTLY without an apology or clarification of your persona.${notLoggedInInstruction}`,
+                tools: modelTools
             });
 
             // Convert history from DB format {role, content} to Gemini format {role, parts: [{text}]}
-            // Also map 'assistant' -> 'model' as Gemini requires
+            // Also map 'assistant' -> 'model' as Gemini require
             let geminiHistory = (context.history || []).map(m => ({
                 role: m.role === 'assistant' ? 'model' : m.role,
                 parts: [{ text: m.content || '' }]
             }));
-
-            // Gemini SDK requirement: The history must start with a message from the 'user' role.
-            // If our sliced history starts with 'model', we must remove it until we find a 'user' message.
             while (geminiHistory.length > 0 && geminiHistory[0].role === 'model') {
                 geminiHistory.shift();
             }
@@ -542,6 +638,8 @@ const geminiService = {
 
             // Handle Function Calls
             const calls = response.functionCalls();
+            let navigationScreen = null;
+
             if (calls && calls.length > 0) {
                 const functionResponses = [];
                 for (const call of calls) {
@@ -549,12 +647,16 @@ const geminiService = {
                     const handler = toolHandlers[call.name];
                     if (handler) {
                         try {
-                            // Check if this is a personal data tool that requires login
-                            const personalDataTools = ['create_reminder', 'list_reminders', 'update_reminder', 'delete_reminder', 'save_memory', 'list_memories', 'update_memory', 'delete_memory', 'search_memories', 'analyze_health_summary'];
-                            if (!userId && personalDataTools.includes(call.name)) {
+                            if (!userId) {
                                 throw new Error("User must be logged in to use this feature. Tell the user exactly: 'Please login to check or save your reminders and memories.'");
                             }
                             const toolResult = await handler(userId, call.args, userContext);
+
+                            // Capture navigation screen if it's a navigation action
+                            if (call.name === 'navigate_to' && toolResult.screen) {
+                                navigationScreen = toolResult.screen;
+                            }
+
                             functionResponses.push({
                                 functionResponse: {
                                     name: call.name,
@@ -577,12 +679,83 @@ const geminiService = {
                 response = result.response;
             }
 
-            const reply = response.text();
+            let reply = '';
+            try {
+                reply = response.text() || '';
+            } catch (e) {
+                console.warn('[GeminiService] No text parts found in AI response (likely a tool call or safety block).');
+            }
+
+            // 1. Strip the [ACK] Marker and everything before it
+            if (reply.includes('[ACK]')) {
+                reply = reply.substring(reply.indexOf('[ACK]') + 5);
+            }
+
+            // 2. Remove bold markdown headers
+            reply = reply.replace(/\*\*.*?\*\*/g, '');
+
+            // 2. Advanced Scrubbing - Strip AI meta-commentary sentences
+            let cleanLines = reply.split('\n').map(line => {
+                let trimmed = line.trim();
+                if (!trimmed) return '';
+
+                let lineContent = trimmed;
+
+                // Completely remove lines that start with known internal narration/thought preambles
+                const forbiddenStarters = [
+                    "i need to use the", "i will respond to the user", "i'll get that search underway",
+                    "i will check the", "i'm going to search", "let me check",
+                    "i've carefully assessed", "refining", "confidence score",
+                    "analyzing", "leveraging", "assessing", "initiating", "i am starting with",
+                    "based on your active reminders", "checking your reminders",
+                    "i am preparing to", "i'll utilize the", "i just checked",
+                    "i have found", "i've found", "searching for", "investigating",
+                    "my next step", "i will now", "let's look at", "i'll then",
+                    "gathering information", "synthesizing", "i've initiated",
+                    "based on my research", "based on the search results",
+                    "i have searched", "i've searched", "here is what i found",
+                    "i will now search", "after searching", "to answer your question i will",
+                    "pinpointing", "zeroed in", "my aim is", "my expectation is",
+                    "streamlining my method", "formulated the precise", "i've specified the",
+                    "i'm now streamlining", "core step in answering",
+                    "clarifying city intent", "i've hit a snag", "too vague for me to",
+                    "location-specific information", "no specialized tools are required",
+                    "determining the", "discovering the", "i'm currently focused on", "i'm using a search",
+                    "since the event is", "to uncover the most", "formulating a", "i have just initiated"
+                ];
+
+                for (const starter of forbiddenStarters) {
+                    if (lineContent.toLowerCase().startsWith(starter)) {
+                        return ''; // Discard the whole line
+                    }
+                }
+
+                // Filter out internal tool names if they leaked into the text
+                const forbiddenWords = ['google_search', 'list_reminders', 'create_reminder', 'navigate_to'];
+                for (const word of forbiddenWords) {
+                    if (lineContent.toLowerCase().includes(word)) return '';
+                }
+
+                return lineContent;
+            }).filter(l => l.length > 0);
+
+            reply = cleanLines.join('\n').trim();
+
+            // 3. Fallback if the AI's entire response was just an internal thought that we scrubbed away
+            if (!reply) {
+                // If the AI was making a tool call in the background
+                if (calls && calls.length > 0) {
+                    reply = "Let me check that for you...";
+                } else {
+                    reply = "I'm ready to help! What's on your mind?";
+                }
+            }
 
             return {
                 reply,
                 voice_reply: reply,
-                type: (calls && calls.length > 0) ? 'action' : 'chat'
+                type: (calls && calls.length > 0) ? 'action' : 'chat',
+                screen: navigationScreen
             };
 
         } catch (error) {

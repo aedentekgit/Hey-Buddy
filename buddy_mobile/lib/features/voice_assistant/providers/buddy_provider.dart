@@ -38,6 +38,15 @@ class BuddyProvider with ChangeNotifier {
   final List<String> _ttsQueue = [];
   bool _isSpeakingQueue = false;
 
+  String _currentGender = 'female';
+  String _currentTone = 'soft';
+
+  void syncVoicePreferences(String gender, String tone) {
+    _currentGender = gender;
+    _currentTone = tone;
+    _configureLocalTts(gender, tone);
+  }
+
   void clearNeedsLogin() {
     _needsLogin = false;
     notifyListeners();
@@ -84,6 +93,61 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _configureLocalTts(String gender, String tone) async {
+    try {
+      double speechRate = 0.5;
+      double pitch = 1.0;
+
+      // Try setting an actual male/female voice from the system
+      final voices = await _flutterTts.getVoices;
+      if (voices != null) {
+        List<dynamic> voiceList = List<dynamic>.from(voices);
+        Map<dynamic, dynamic>? selectedVoice;
+
+        for (var v in voiceList) {
+          final name = v['name']?.toString().toLowerCase() ?? '';
+          final locale = v['locale']?.toString().toLowerCase() ?? '';
+          if (locale.startsWith('en')) {
+            if (gender == 'male' && (name.contains('male') || name.contains('iom') || name.contains('tpd') || name.contains('rjs') || name.contains('daniel'))) {
+              selectedVoice = v;
+              break;
+            } else if (gender == 'female' && (name.contains('female') || name.contains('sfg') || name.contains('tpf') || name.contains('samantha'))) {
+              selectedVoice = v;
+              break;
+            }
+          }
+        }
+
+        if (selectedVoice != null) {
+          await _flutterTts.setVoice({
+            "name": selectedVoice["name"].toString(),
+            "locale": selectedVoice["locale"].toString()
+          });
+        }
+      }
+
+      // Fallback Pitch/Rate if specific voice mapping wasn't enough
+      if (gender == 'male') {
+        pitch = 0.8;
+      } else {
+        pitch = 1.1;
+      }
+
+      if (tone == 'soft') {
+        speechRate = 0.45;
+        pitch -= 0.05;
+      } else if (tone == 'energetic') {
+        speechRate = 0.6;
+        pitch += 0.1;
+      }
+
+      await _flutterTts.setPitch(pitch);
+      await _flutterTts.setSpeechRate(speechRate);
+    } catch (e) {
+      print("Error configuring local TTS: $e");
+    }
+  }
+
   Future<void> _processTtsQueue() async {
     if (_isSpeakingQueue || _ttsQueue.isEmpty) return;
     _isSpeakingQueue = true;
@@ -96,6 +160,15 @@ class BuddyProvider with ChangeNotifier {
       try {
         final token = await _storage.read(key: 'jwt'); 
         final baseUrl = AppConfig.baseUrl;
+        
+        // Fetch current user prefs for the voice query
+        String gender = 'female';
+        String tone = 'soft';
+
+        // Note: In a production app, we'd ideally have the UserProvider's current state passed in,
+        // but for high-speed local processing, we will hit the preview-voice with the latest available params if we can.
+        // For now, hit it with the simple text. The backend will use DB defaults or we can pass gender/tone if we had access here easily.
+        
         final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(sentence)}');
         
         final response = await http.get(url, headers: {
@@ -107,7 +180,7 @@ class BuddyProvider with ChangeNotifier {
         if (response.statusCode == 200) {
           final body = json.decode(response.body);
 
-          // SYNC TONE: Apply server-resolved configuration to local TTS fallback
+          // Config logic - always apply the server's resolved preferences to our local engine
           if (body['resolvedVoiceConfig'] != null) {
             final config = body['resolvedVoiceConfig'];
             await _flutterTts.setPitch((config['pitch'] as num?)?.toDouble() ?? 1.0);
@@ -139,10 +212,13 @@ class BuddyProvider with ChangeNotifier {
         }
 
         if (!playedCustom) {
+           // If we fall back to local TTS, ensure it's configured for the user's current gender/tone
+           await _configureLocalTts(_currentGender, _currentTone);
            await _flutterTts.speak(sentence);
         }
       } catch (e) {
         print("TTS Error: $e");
+        await _configureLocalTts(_currentGender, _currentTone);
         await _flutterTts.speak(sentence);
       }
     }
@@ -283,6 +359,9 @@ class BuddyProvider with ChangeNotifier {
       final tone = data['tone'] ?? 'soft';
 
       try {
+          // Pre-configure the local engine to match the voice alert gender
+          await _configureLocalTts(gender, tone);
+          
           // Speak immediately using local TTS for maximum speed
           await _flutterTts.speak(text);
           

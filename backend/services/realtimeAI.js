@@ -12,9 +12,11 @@ class OpenAIRealtimeService extends EventEmitter {
         this.isConnected = false;
     }
 
-    connect() {
-        console.log('[OpenAI Service] Connecting...');
-        const url = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview";
+    connect(instructions = null, voice = 'alloy', useTools = true, model = 'gpt-4o-realtime-preview') {
+        const url = `wss://api.openai.com/v1/realtime?model=${model}`;
+        console.log(`[OpenAI Service] 🤖 Dynamic Initialization: ${model} (Voice: ${voice})...`);
+        this.instructionsOverride = instructions;
+        this.voiceOverride = voice;
 
         this.ws = new WebSocket(url, {
             headers: {
@@ -63,8 +65,8 @@ class OpenAIRealtimeService extends EventEmitter {
             type: "session.update",
             session: {
                 modalities: ["text", "audio"],
-                instructions: "You are 'Buddy', a helpful assistant. Be concise and friendly.",
-                voice: "alloy",
+                instructions: this.instructionsOverride || "You are 'Buddy', a helpful assistant.",
+                voice: this.voiceOverride || "alloy",
                 input_audio_format: "pcm16",
                 output_audio_format: "pcm16",
                 input_audio_transcription: { model: "whisper-1" },

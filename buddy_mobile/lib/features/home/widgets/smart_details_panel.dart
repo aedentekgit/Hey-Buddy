@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
@@ -113,9 +112,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       }
       
       // Fallback matching website if location unavailable or specifically for demo
-      if (currentPosition == null) {
-        // Madurai fallback
-        currentPosition = Position(
+      currentPosition ??= Position(
           latitude: 9.9252, 
           longitude: 78.1198, 
           timestamp: DateTime.now(), 
@@ -127,7 +124,6 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           altitudeAccuracy: 0,
           headingAccuracy: 0,
         );
-      }
 
       if (mounted && coordinates != null) {
         _fetchRoute();
@@ -1143,6 +1139,7 @@ class _AlertTile extends StatelessWidget {
 
   const _AlertTile({required this.icon, required this.label, required this.sub, required this.value, required this.onChanged});
 
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),

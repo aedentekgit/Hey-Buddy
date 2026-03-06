@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'dart:io';
-import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -10,19 +9,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
-import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:buddy_mobile/features/auth/screens/splash_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_field.dart';
-import 'package:buddy_mobile/features/voice_assistant/widgets/typewriter_text.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:buddy_mobile/shared/widgets/keyboard_guided_hover.dart';
 
@@ -43,7 +37,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   final SpeechToText _speechToText = SpeechToText();
   
   bool _isListening = false;
-  String _selectedLanguage = "en-US";
+  final String _selectedLanguage = "en-US";
   File? _selectedImage;
   int _messageLimit = 15;
 
@@ -283,7 +277,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 ),
               ),
 
-              if (provider.isThinking) _buildThinkingIndicator(branding),
+              // if (provider.isThinking) _buildThinkingIndicator(branding),
               _buildInputArea(provider, branding, auth),
             ],
           ),
@@ -415,7 +409,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   ...provider.localNews.map((news) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _buildSuggestionItem(news, branding),
-                  )).toList(),
+                  )),
               ],
             ),
           ),

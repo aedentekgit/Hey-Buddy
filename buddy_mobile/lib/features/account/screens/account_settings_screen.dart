@@ -9,7 +9,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -85,6 +84,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
             final prefs = user['voicePreferences'] as Map<String, dynamic>? ?? {};
             _localVoiceGender = prefs['gender'] ?? 'female';
             _localVoiceTone = prefs['tone'] ?? 'soft';
+
+            // Sync with BuddyProvider immediately
+            Provider.of<buddy.BuddyProvider>(context, listen: false).syncVoicePreferences(_localVoiceGender, _localVoiceTone);
           });
         }
       });
@@ -247,6 +249,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
     if (!mounted) return;
     if (success) {
       ToastUtils.showSuccessToast('Voice preferences saved');
+      // Sync with BuddyProvider immediately
+      if (mounted) {
+        Provider.of<buddy.BuddyProvider>(context, listen: false).syncVoicePreferences(_localVoiceGender, _localVoiceTone);
+      }
       setState(() => _currentView = _SettingsView.menu);
     } else {
       ToastUtils.showErrorToast('Failed to save voice preferences');

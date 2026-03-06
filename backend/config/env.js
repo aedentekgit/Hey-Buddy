@@ -12,6 +12,7 @@ const config = {
 
     // Services
     API_URL: process.env.API_URL || `http://localhost:${process.env.PORT || 5001}/api`,
+    AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000',
 
     // Third Party
     GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || (

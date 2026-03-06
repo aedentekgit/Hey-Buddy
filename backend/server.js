@@ -10,7 +10,6 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 console.log('--- [Server Diagnostic] ---');
 console.log('PORT:', process.env.PORT);
 console.log('JWT_SECRET Status:', process.env.JWT_SECRET ? 'LOADED' : 'MISSING');
-console.log('OPENAI_API_KEY Status:', process.env.OPENAI_API_KEY ? 'LOADED' : 'MISSING');
 console.log('MONGODB_URI Status:', process.env.MONGODB_URI ? 'LOADED' : 'MISSING');
 
 const app = express();
@@ -20,8 +19,7 @@ app.use(cors({
     origin: [
         config.FRONTEND_URL,
         config.FRONTEND_URL_ALT,
-        'http://localhost:3000',
-        'http://localhost:5173',
+        config.AI_SERVICE_URL,
         'https://ayuskart.com',
         'https://staging.ayuskart.com'
     ].filter(Boolean),
@@ -50,6 +48,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const visionRoutes = require('./routes/visionRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const ragRoutes = require('./routes/ragRoutes');
+const aiRoutes = require('./routes/ai/aiRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -64,6 +63,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/vision', visionRoutes);
 app.use('/api/automations', webhookRoutes);
 app.use('/api/knowledge', ragRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Routes placeholders
 app.get('/', (req, res) => {
@@ -103,8 +103,7 @@ const io = new Server(server, {
         origin: [
             config.FRONTEND_URL,
             config.FRONTEND_URL_ALT,
-            'http://localhost:3000',
-            'http://localhost:5173',
+            config.AI_SERVICE_URL,
             'https://ayuskart.com',
             'https://staging.ayuskart.com'
         ].filter(Boolean),
@@ -124,7 +123,7 @@ const PORT = config.PORT;
 const { startReminderWorker } = require('./services/reminderWorker');
 const { startSmartReminderScheduler } = require('./schedulers/smartReminderScheduler');
 
-server.listen(PORT, () => {
+server.listen(PORT, '::', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Backend fully initialized at ${new Date().toISOString()}`);
     startReminderWorker(io);

@@ -1,0 +1,13 @@
+{
+  "session_id": "4dc41280-6bf8-4143-9af9-9894c38e108e",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What can you do?"
+    },
+    {
+      "role": "assistant",
+      "content": "I can answer questions, open apps or websites, generate images, play music, write content, and search for information. [[ACTION:SEARCH:What can you do]]"
+    }
+  ]
+}

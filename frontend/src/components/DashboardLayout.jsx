@@ -89,11 +89,13 @@ const DashboardLayout = ({ children }) => {
 
     return (
         <div className="layout-wrapper">
-                        <Sidebar
-                isOpen={sidebarOpen}
-                setIsOpen={setSidebarOpen}
-                isCollapsed={isCollapsed}
-            />
+            {!isBuddyPage && (
+                <Sidebar
+                    isOpen={sidebarOpen}
+                    setIsOpen={setSidebarOpen}
+                    isCollapsed={isCollapsed}
+                />
+            )}
 
             {isBuddyPage ? (
                 <div style={{ flex: 1, minHeight: '100vh', position: 'relative' }}>

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../services/task_service.dart';
 
@@ -12,9 +11,11 @@ class TasksProvider with ChangeNotifier {
   List<Map<String, dynamic>> get processedTasks => _processedTasks;
   bool get isLoading => _isLoading;
 
-  Future<void> loadTasks() async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> loadTasks({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     try {
       final res = await _taskService.fetchReminders();

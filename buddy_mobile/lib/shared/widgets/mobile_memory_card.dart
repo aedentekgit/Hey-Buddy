@@ -74,7 +74,7 @@ class MobileMemoryCard extends StatelessWidget {
     final String? patientName = (!isMemory && extracted != null) ? extracted['patientName'] : null;
     final String? doctorName = (!isMemory && extracted != null) ? extracted['doctorName'] : null;
     final String? contentTeaser = isMemory && (item['content']?.length ?? 0) > 80
-        ? (item['content'] as String).substring(0, 120) + "..."
+        ? "${(item['content'] as String).substring(0, 120)}..."
         : null;
 
     return Container(

@@ -76,7 +76,7 @@ const AdminSettings = () => {
             { name: 'Razorpay', apiKey: '', apiSecret: '', callbackUrl: '', enabled: false }
         ],
         socialMedia: { facebook: '', instagram: '', whatsapp: '', twitter: '', linkedin: '', youtube: '' },
-        ai: { activeModel: 'anthropic/claude-3.5-sonnet', consensusMode: false, listeningDuration: 5, models: { gpt4o: 'openai/gpt-4o-mini', claude: 'anthropic/claude-3.5-sonnet', deepseek: 'deepseek/deepseek-chat' }, geminiApiKey: '' },
+        ai: { activeModel: 'anthropic/claude-3.5-sonnet', consensusMode: false, listeningDuration: 5, models: { gpt4o: 'openai/gpt-4o-mini', claude: 'anthropic/claude-3.5-sonnet', deepseek: 'deepseek/deepseek-chat', groq: 'groq/llama-3.3-70b-versatile' }, geminiApiKey: '', groqApiKey: '' },
         googleCalendar: {
             clientId: '',
             clientSecret: '',
@@ -144,7 +144,15 @@ const AdminSettings = () => {
                         notification: { ...settings.notification, ...(data.notification || {}) },
                         storage: { ...settings.storage, ...(data.storage || {}) },
                         socialMedia: { ...settings.socialMedia, ...(data.socialMedia || {}) },
-                        ai: { ...settings.ai, ...(data.ai || {}) },
+                        ai: {
+                            ...settings.ai,
+                            ...(data.ai || {}),
+                            geminiApiKey: data.ai?.geminiApiKey || '',
+                            openaiApiKey: data.ai?.openaiApiKey || '',
+                            claudeApiKey: data.ai?.claudeApiKey || '',
+                            deepseekApiKey: data.ai?.deepseekApiKey || '',
+                            groqApiKey: data.ai?.groqApiKey || ''
+                        },
                         googleCalendar: { ...settings.googleCalendar, ...(data.googleCalendar || {}) },
                         googleAuth: { ...settings.googleAuth, ...(data.googleAuth || {}) },
                         googleMaps: { ...settings.googleMaps, ...(data.googleMaps || {}) },
@@ -216,7 +224,15 @@ const AdminSettings = () => {
                         ...prev,
                         ...data,
                         smtp: { ...prev.smtp, ...(data.smtp || {}), password: prev.smtp?.password || data.smtp?.password || '' }, // Keep current pw in field
-                        ai: { ...prev.ai, ...(data.ai || {}), geminiApiKey: prev.ai?.geminiApiKey || data.ai?.geminiApiKey || '' }, // Keep current key in field
+                        ai: {
+                            ...prev.ai,
+                            ...(data.ai || {}),
+                            geminiApiKey: prev.ai?.geminiApiKey || data.ai?.geminiApiKey || '',
+                            openaiApiKey: prev.ai?.openaiApiKey || data.ai?.openaiApiKey || '',
+                            claudeApiKey: prev.ai?.claudeApiKey || data.ai?.claudeApiKey || '',
+                            deepseekApiKey: prev.ai?.deepseekApiKey || data.ai?.deepseekApiKey || '',
+                            groqApiKey: prev.ai?.groqApiKey || data.ai?.groqApiKey || ''
+                        },
                         googleAuth: { ...prev.googleAuth, ...(data.googleAuth || {}), webClientSecret: prev.googleAuth?.webClientSecret || data.googleAuth?.webClientSecret || '' }, // Keep secret
                         googleCalendar: { ...prev.googleCalendar, ...(data.googleCalendar || {}), clientSecret: prev.googleCalendar?.clientSecret || data.googleCalendar?.clientSecret || '' } // Keep secret
                     }));
@@ -1119,28 +1135,156 @@ const AdminSettings = () => {
                                                         { value: 'openai/gpt-4o-mini', label: 'GPT-4o-mini (Fast & Efficient)' },
                                                         { value: 'deepseek/deepseek-chat', label: 'DeepSeek V3 (Economic)' },
                                                         { value: 'google/gemini-2.0-flash-exp:free', label: 'Gemini 2.0 Flash (Free Tier)' },
+                                                        { value: 'groq/llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Groq - Ultra Fast)' },
                                                         { value: 'openrouter/free', label: 'Smart Router (Auto-Free)' },
                                                         { value: 'google/gemini-flash-1.5-8b', label: 'Gemini Flash 1.5 (Lite)' }
                                                     ]}
                                                 />
                                             </div>
 
-                                            {/* Gemini Key with visibility toggle */}
+                                            {/* Voice Model Selection */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Voice Intelligence</h4>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '20px' }}>Select the model for real-time voice sessions (Gemini Live).</p>
+                                                <CustomSelect
+                                                    value={settings.ai.activeVoiceModel}
+                                                    onChange={e => setSettings({ ...settings, ai: { ...settings.ai, activeVoiceModel: e.target.value } })}
+                                                    options={[
+                                                        { value: 'gemini-pro-latest', label: 'Gemini Pro (Advanced Intelligence)' },
+                                                        { value: 'gemini-flash-lite-latest', label: 'Gemini Flash Lite (Fastest)' },
+                                                        { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Standard)' }
+                                                    ]}
+                                                />
+                                            </div>
+                                            {/* Gemini Key */}
                                             <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                                     <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Gemini Pro Access</h4>
-                                                    {settings.ai.geminiApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>KEY ACTIVE</div>}
+                                                    {settings.ai.geminiApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>ACTIVE</div>}
                                                 </div>
-                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '20px' }}>Provide your own Google AI Studio key to unlock dedicated Gemini Pro processing.</p>
                                                 <InputGroup
-                                                    label="Google Gemini API Key"
+                                                    label="Google Gemini Key"
                                                     type="password"
-                                                    placeholder="Enter your API Key"
                                                     value={settings.ai.geminiApiKey || ''}
                                                     onChange={v => setSettings({ ...settings, ai: { ...settings.ai, geminiApiKey: v } })}
                                                 />
                                             </div>
+
+                                            {/* OpenAI Key */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>OpenAI Access</h4>
+                                                    {settings.ai.openaiApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>ACTIVE</div>}
+                                                </div>
+                                                <InputGroup
+                                                    label="OpenAI API Key"
+                                                    type="password"
+                                                    value={settings.ai.openaiApiKey || ''}
+                                                    onChange={v => setSettings({ ...settings, ai: { ...settings.ai, openaiApiKey: v } })}
+                                                />
+                                            </div>
+
+                                            {/* Claude Key */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Claude Access</h4>
+                                                    {settings.ai.claudeApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>ACTIVE</div>}
+                                                </div>
+                                                <InputGroup
+                                                    label="Anthropic Claude Key"
+                                                    type="password"
+                                                    value={settings.ai.claudeApiKey || ''}
+                                                    onChange={v => setSettings({ ...settings, ai: { ...settings.ai, claudeApiKey: v } })}
+                                                />
+                                            </div>
+
+                                            {/* DeepSeek Key */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>DeepSeek Access</h4>
+                                                    {settings.ai.deepseekApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>ACTIVE</div>}
+                                                </div>
+                                                <InputGroup
+                                                    label="DeepSeek V3 Key"
+                                                    type="password"
+                                                    value={settings.ai.deepseekApiKey || ''}
+                                                    onChange={v => setSettings({ ...settings, ai: { ...settings.ai, deepseekApiKey: v } })}
+                                                />
+                                            </div>
+
+                                            {/* Groq Key */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Groq Access (Ultra Fast)</h4>
+                                                    {settings.ai.groqApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>ACTIVE</div>}
+                                                </div>
+                                                <InputGroup
+                                                    label="Groq API Key"
+                                                    type="password"
+                                                    value={settings.ai.groqApiKey || ''}
+                                                    onChange={v => setSettings({ ...settings, ai: { ...settings.ai, groqApiKey: v } })}
+                                                />
+                                            </div>
+
+
+
+                                            {/* AI Assistant API URL (Python project) */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', gridColumn: '1 / -1' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Assistant Interface Source</h4>
+                                                <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginBottom: '20px' }}>Enter the URL of the Python-based AI Assistant frontend (e.g., http://localhost:8000/app/). Leave empty to use default.</p>
+                                                <InputGroup
+                                                    label="Interface URL"
+                                                    placeholder="e.g. http://localhost:8000/app/"
+                                                    value={settings.ai.aiAssistantApiUrl || ''}
+                                                    onChange={v => setSettings({ ...settings, ai: { ...settings.ai, aiAssistantApiUrl: v } })}
+                                                />
+                                            </div>
+
+                                            {/* Token Usage Tracker */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Usage Statistics</h4>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSettings({ ...settings, ai: { ...settings.ai, totalTokensUsed: 0 } })}
+                                                        style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}
+                                                    >
+                                                        RESET COUNTER
+                                                    </button>
+                                                </div>
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                    <div style={{ textAlign: 'left' }}>
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: '700', textTransform: 'uppercase' }}>Spent</span>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>{(settings.ai.totalTokensUsed || 0).toLocaleString()}</div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: '700', textTransform: 'uppercase' }}>Balance</span>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: '800', color: (settings.ai.tokenLimit - settings.ai.totalTokensUsed) < 10000 ? '#f43f5e' : '#10b981' }}>
+                                                            {Math.max(0, (settings.ai.tokenLimit || 0) - (settings.ai.totalTokensUsed || 0)).toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Progress Bar */}
+                                                <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--border-color)', overflow: 'hidden', marginBottom: '15px' }}>
+                                                    <div style={{
+                                                        width: `${Math.min(100, ((settings.ai.totalTokensUsed || 0) / (settings.ai.tokenLimit || 1000000)) * 100)}%`,
+                                                        height: '100%',
+                                                        background: 'var(--primary-color)',
+                                                        transition: 'width 0.5s ease'
+                                                    }} />
+                                                </div>
+
+                                                <InputGroup
+                                                    label="Monthly Token Quota (Limit)"
+                                                    type="number"
+                                                    value={settings.ai.tokenLimit || 1000000}
+                                                    onChange={v => setSettings({ ...settings, ai: { ...settings.ai, tokenLimit: parseInt(v) } })}
+                                                />
+                                            </div>
                                         </div>
+
 
                                         {/* Consensus & Accuracy */}
                                         <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>

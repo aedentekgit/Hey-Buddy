@@ -1,0 +1,13 @@
+{
+  "session_id": "79a65826-2e84-4a4d-aee4-c81eb98ea5a8",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hey buddy is there any reminders for me right now"
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ]
+}

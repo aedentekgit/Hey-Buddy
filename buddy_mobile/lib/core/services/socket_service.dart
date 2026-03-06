@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'dart:convert';
 
 class SocketService {
   IO.Socket? socket;

@@ -1,5 +1,6 @@
 const GeminiLiveService = require('./geminiLiveService');
 const { getPersonality } = require('../utils/personality');
+const Settings = require('../models/Settings');
 
 /**
  * ttsService: Generates high-quality AI audio from text.
@@ -14,8 +15,12 @@ class TTSService {
      * Internal method to establish a connection
      */
     async _createSession(personality, language = 'en-US') {
+        const settings = await Settings.findOne().select('+ai.geminiApiKey');
+        const apiKey = settings?.ai?.geminiApiKey || process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error("Gemini API Key for TTS not configured.");
+
         return new Promise((resolve, reject) => {
-            const ai = new GeminiLiveService(process.env.GEMINI_API_KEY);
+            const ai = new GeminiLiveService(apiKey);
             const timeout = setTimeout(() => {
                 ai.disconnect();
                 reject(new Error("TTS Connection Timeout"));

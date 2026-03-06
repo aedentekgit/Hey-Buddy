@@ -1,16 +1,24 @@
 const { OpenAI } = require('openai');
 const axios = require('axios');
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    timeout: 30000,
-});
+const Settings = require('../models/Settings');
 
 const nluService = {
+
     /**
      * Generates a structured response based on user input and context
      */
     generateResponse: async (text, context, targetLanguage = 'en-US') => {
+        const settings = await Settings.findOne().select('+ai.openaiApiKey ai.activeModel');
+        const apiKey = settings?.ai?.openaiApiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) throw new Error("OpenAI API Key not configured.");
+
+        // Dynamic model selection for OpenAI
+        const activeModel = settings?.ai?.activeModel;
+        let modelName = activeModel && activeModel.startsWith('openai/')
+            ? activeModel.replace('openai/', '')
+            : "gpt-4o-mini"; // Fallback to schema default if needed
+
+        const openai = new OpenAI({ apiKey, timeout: 30000 });
         // Calculate current time in User's Timezone
         const timeZone = context.userContext?.timeZone || 'UTC';
         const userTime = new Date().toLocaleString('en-US', {
@@ -50,7 +58,7 @@ Return ONLY a JSON object:
 
         try {
             const response = await openai.chat.completions.create({
-                model: "gpt-4o-mini", // Default to a fast model
+                model: modelName,
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: text }

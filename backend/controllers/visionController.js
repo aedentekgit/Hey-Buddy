@@ -4,9 +4,16 @@ const path = require('path');
 const Reminder = require('../models/Reminder');
 const Notification = require('../models/Notification');
 const { uploadFile } = require('../services/fileService');
+const Settings = require('../models/Settings');
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Helper to get genAI instance dynamically
+async function getGenAI() {
+    const settings = await Settings.findOne().select('+ai.geminiApiKey');
+    const apiKey = settings?.ai?.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("Gemini API Key not configured.");
+    return new GoogleGenerativeAI(apiKey);
+}
+
 
 exports.analyzeImage = async (req, res) => {
     try {
@@ -14,6 +21,7 @@ exports.analyzeImage = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No image uploaded' });
         }
 
+        const genAI = await getGenAI();
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         // Helper to convert memory buffer to GoogleGenerativeAI.Part object

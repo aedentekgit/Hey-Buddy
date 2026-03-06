@@ -13,13 +13,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:buddy_mobile/core/services/notification_service.dart';
+import 'package:buddy_mobile/shared/widgets/update_wrapper.dart';
+
+final GlobalKey<NavigatorState> globalNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize Firebase in the background without blocking the splash screen
   unawaited(Firebase.initializeApp().then((_) async {
-    print("Firebase initialized successfully");
+    debugPrint("Firebase initialized successfully");
     
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -27,7 +30,7 @@ void main() async {
     final notificationService = NotificationService();
     await notificationService.initialize();
   }).catchError((e) {
-    print("Firebase/Notification background initialization failed: $e");
+    debugPrint("Firebase/Notification background initialization failed: $e");
   }));
   
   // Pre-load SharedPreferences to eliminate hydration lag
@@ -56,10 +59,14 @@ class BuddyApp extends StatelessWidget {
     return Consumer<BrandingProvider>(
       builder: (context, branding, _) {
         return MaterialApp(
+          navigatorKey: globalNavigatorKey,
           title: branding.appName,
           debugShowCheckedModeBanner: false,
           theme: branding.themeData,
           home: const SplashScreen(),
+          builder: (context, child) {
+            return UpdateWrapper(child: child!);
+          },
         );
       },
     );

@@ -1,5 +1,4 @@
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:buddy_mobile/features/voice_assistant/screens/buddy_assistant_page.dart';
@@ -12,7 +11,6 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/account/screens/account_settings_screen.dart';
-import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 
@@ -37,6 +35,16 @@ class _MainScreenState extends State<MainScreen> {
         _tabHistory.add(index);
       }
     });
+
+    // Automatically refresh data when switching to Explore tab
+    if (index == 0) {
+      Future.microtask(() {
+        if (mounted) {
+          Provider.of<TasksProvider>(context, listen: false).loadTasks(silent: true);
+          Provider.of<MemoriesProvider>(context, listen: false).loadMemories(silent: true);
+        }
+      });
+    }
   }
 
   @override

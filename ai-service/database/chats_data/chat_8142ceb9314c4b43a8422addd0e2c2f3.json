@@ -1,0 +1,13 @@
+{
+  "session_id": "8142ceb9-314c-4b43-a842-2addd0e2c2f3",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What can you do?"
+    },
+    {
+      "role": "assistant",
+      "content": "I can answer questions, open apps or websites, generate images, play music, write content, and search for information. I can also schedule reminders and save important memories for you."
+    }
+  ]
+}

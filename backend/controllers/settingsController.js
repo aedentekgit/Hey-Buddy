@@ -7,7 +7,7 @@ const { uploadFile } = require('../services/fileService');
 
 const getSettings = async (req, res) => {
     try {
-        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +googleCalendar.clientSecret');
+        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +googleCalendar.clientSecret');
         res.json({ success: true, data: settings || {} });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -218,7 +218,7 @@ const updateSettings = async (req, res) => {
                 upsert: false,
                 runValidators: false,
             }
-        ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +googleCalendar.clientSecret');
+        ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +googleCalendar.clientSecret');
 
         invalidatePublicCache(); // Invalidate on update
 

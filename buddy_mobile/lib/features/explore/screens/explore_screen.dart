@@ -33,8 +33,8 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
     super.initState();
     // Load memories and tasks if not already loaded to show in "Explore More"
     Future.microtask(() {
-      Provider.of<MemoriesProvider>(context, listen: false).loadMemories();
-      Provider.of<TasksProvider>(context, listen: false).loadTasks();
+      Provider.of<MemoriesProvider>(context, listen: false).loadMemories(silent: true);
+      Provider.of<TasksProvider>(context, listen: false).loadTasks(silent: true);
     });
   }
 

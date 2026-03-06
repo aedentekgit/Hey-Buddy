@@ -1,10 +1,18 @@
 const Document = require('../models/Document');
+const Settings = require('../models/Settings');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require('fs');
 const { uploadFile } = require('../services/fileService');
 const path = require('path');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Helper to get genAI instance dynamically
+async function getGenAI() {
+    const settings = await Settings.findOne().select('+ai.geminiApiKey');
+    const apiKey = settings?.ai?.geminiApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("Gemini API Key not configured.");
+    return new GoogleGenerativeAI(apiKey);
+}
+
 
 exports.uploadDocument = async (req, res) => {
     try {
@@ -12,6 +20,7 @@ exports.uploadDocument = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
+        const genAI = await getGenAI();
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         const imagePart = {
@@ -65,7 +74,8 @@ exports.queryKnowledge = async (req, res) => {
             contextText = allDocs.map(d => d.content).join("\n\n");
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const genAI = await getGenAI();
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
         const prompt = `
             You are Buddy Assistant's Knowledge Core. Use the following user documents to answer their question.
             If the answer isn't in the documents, say "I couldn't find that specifically in your items, but based on general knowledge..."
