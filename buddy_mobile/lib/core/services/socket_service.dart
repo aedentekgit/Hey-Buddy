@@ -21,6 +21,11 @@ class SocketService {
   Stream<Map<String, dynamic>> get wakeWordStream => _wakeWordStreamController.stream;
 
   void connect() async {
+    if (socket?.connected == true) {
+      print('Socket already connected, skipping initialization');
+      return;
+    }
+
     final token = await _storage.read(key: 'jwt');
     
     print('Attempting to connect to socket: ${AppConfig.socketUrl}');
@@ -40,6 +45,16 @@ class SocketService {
     );
 
     socket?.connect();
+
+    // CLEAR PREVIOUS LISTENERS to prevent duplicates if connect() is called multiple times
+    socket?.off('connect');
+    socket?.off('disconnect');
+    socket?.off('audio_out');
+    socket?.off('caption');
+    socket?.off('error');
+    socket?.off('connect_error');
+    socket?.off('voice_alert');
+    socket?.off('wake_word_detected');
 
     socket?.onConnect((_) {
       print('Socket Connected successfully to ${AppConfig.socketUrl}');

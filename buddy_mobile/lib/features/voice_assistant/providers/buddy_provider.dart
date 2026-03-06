@@ -54,8 +54,18 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  bool _socketListenersSet = false;
+
   BuddyProvider() {
     _setupSocketListeners();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    _flutterTts.stop();
+    socketService.dispose();
+    super.dispose();
   }
 
   bool get isRealtimeEnabled => _isRealtimeEnabled;
@@ -237,6 +247,9 @@ class BuddyProvider with ChangeNotifier {
   }
 
   void _setupSocketListeners() {
+    if (_socketListenersSet) return;
+    _socketListenersSet = true;
+    
     // Default settings (will be dynamically updated by server responses)
     _flutterTts.setSpeechRate(0.5); 
     _flutterTts.setPitch(1.0);
