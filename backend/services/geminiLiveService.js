@@ -11,17 +11,22 @@ class GeminiLiveService extends EventEmitter {
         this.apiKey = apiKey;
         this.ws = null;
         this.isConnected = false;
-        this.model = "models/gemini-2.5-flash-native-audio-latest";
+        this.model = null; // Set dynamically from Admin Dashboard
     }
 
 
     connect(systemInstruction = null, voice = 'Aoede', useTools = true, modelOverride = null) {
+        // Use provided model or throw error—No more hardcoded fallbacks in backend
         if (modelOverride) this.model = modelOverride;
-        console.log(`[Gemini Live] Connecting to ${this.model} with voice: ${voice} (Tools: ${useTools})...`);
+        if (!this.model) {
+            this.emit('error', 'No AI model selected in settings.');
+            return;
+        }
+
+        console.log(`[Gemini Live] 🔗 Dynamic Initialization: ${this.model} (Voice: ${voice})...`);
         this.systemInstructionOverride = systemInstruction;
         this.voiceOverride = voice;
         this.useTools = useTools;
-        // Standard URL for Gemini Multimodal Live WebSocket
         const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
 
         this.ws = new WebSocket(url);
@@ -49,7 +54,8 @@ class GeminiLiveService extends EventEmitter {
         this.ws.on('close', (code, reason) => {
             console.log(`[Gemini Live] 🛑 Connection closed: ${code} - ${reason}`);
             this.isConnected = false;
-            this.emit('close', code, reason);
+            this.emit('close', code, reason || code);
+            this.emit('turn_complete'); // Ensure thinking clears
         });
     }
 
@@ -57,7 +63,7 @@ class GeminiLiveService extends EventEmitter {
         const modelName = this.model;
         console.log(`[Gemini Live] 📤 Sending setup with model: ${modelName}...`);
 
-        const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant. Never narrate your thought process or mention the internal tools you are using to the user. Simply execute the tools silently and provide a brief, professional confirmation to the user.`;
+        const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant. 1. DO NOT THINK ALOUD OR NARRATE ACTIONS (CRITICAL): You must execute your tool calls perfectly silently. NEVER output transitional phrases like "I will search google for...", "Initiating search", or "I am starting research". NEVER say "I've decided to use...". Just reply naturally like a human WITHOUT explaining what you are doing. 2. NO INTERNAL REASONING: NEVER include your internal thoughts, planning, or focus in the response. (e.g., "My next step is", "I'll then prepare"). 3. NO SEARCH COMMENTARY: When using Google Search, DO NOT explain that you are searching. Just provide the final answer immediately. 4. NO MARKDOWN HEADERS: NEVER use bold headers like "**Noting Contextual Details**" or emojis. Just give a direct, final, simple answer.`;
 
         const setupMessage = {
             setup: {
@@ -75,9 +81,12 @@ class GeminiLiveService extends EventEmitter {
                 system_instruction: {
                     parts: [{ text: systemInstruction }]
                 },
-                tools: this.useTools ? buddyTools.map(t => ({
-                    function_declarations: t.functionDeclarations
-                })) : []
+                tools: this.useTools ? [
+                    ...buddyTools.map(t => ({
+                        function_declarations: t.functionDeclarations
+                    })),
+                    { googleSearch: {} }
+                ] : []
             }
         };
         console.log('[Gemini Live] 🚀 Setup Payload:', JSON.stringify(setupMessage, null, 2));
@@ -94,6 +103,14 @@ class GeminiLiveService extends EventEmitter {
         if (response.error) {
             console.error('[Gemini Live] ❌ Gemini Server Error:', this.model, JSON.stringify(response.error, null, 2));
             this.emit('error', response.error);
+            this.emit('turn_complete'); // Stop thinking circle
+        }
+
+        // Handle Usage Metadata
+        const usage = response.usageMetadata || response.usage_metadata;
+        if (usage) {
+            // console.log('[Gemini Live] 📊 Usage Metadata:', usage);
+            this.emit('usage', usage.totalTokenCount || usage.total_token_count);
         }
 
         // Handle Server Content (Audio/Interim Transcripts)

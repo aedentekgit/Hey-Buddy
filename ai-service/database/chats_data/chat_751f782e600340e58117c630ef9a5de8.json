@@ -1,0 +1,13 @@
+{
+  "session_id": "751f782e-6003-40e5-8117-c630ef9a5de8",
+  "messages": [
+    {
+      "role": "user",
+      "content": "where is my wallet"
+    },
+    {
+      "role": "assistant",
+      "content": "I don't know where it is, Sabari. I can't track physical objects unless you tell me where you put them. Check your pockets, the car, or near the door."
+    }
+  ]
+}

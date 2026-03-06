@@ -1,0 +1,13 @@
+{
+  "session_id": "7dc37915-3a9f-4710-ace6-89b61a29ccf2",
+  "messages": [
+    {
+      "role": "user",
+      "content": "where is my walllet"
+    },
+    {
+      "role": "assistant",
+      "content": "I don't know where your wallet is, Sabari. You might want to try checking your pockets, the car, or near the door where you usually keep it."
+    }
+  ]
+}

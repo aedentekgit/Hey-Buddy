@@ -1,0 +1,29 @@
+{
+  "session_id": "0a74e826-0e1e-4651-87aa-ad4cc4ee3bbe",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Open YouTube for me"
+    },
+    {
+      "role": "assistant",
+      "content": "Opening YouTube for you."
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey Sabari! What can I do for you today?"
+    },
+    {
+      "role": "user",
+      "content": "wat are you doing"
+    },
+    {
+      "role": "assistant",
+      "content": "Just waiting to help you out with anything you need."
+    }
+  ]
+}

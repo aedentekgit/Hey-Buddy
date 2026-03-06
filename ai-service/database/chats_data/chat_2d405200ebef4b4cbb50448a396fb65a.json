@@ -1,0 +1,21 @@
+{
+  "session_id": "2d405200-ebef-4b4c-bb50-448a396fb65a",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi buddy"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey Sabari, good to see you. What's on your mind?"
+    },
+    {
+      "role": "user",
+      "content": "is there any reminder for me?"
+    },
+    {
+      "role": "assistant",
+      "content": "I do not have access to your personal reminders, Sabari."
+    }
+  ]
+}

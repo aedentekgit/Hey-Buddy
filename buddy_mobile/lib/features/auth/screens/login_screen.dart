@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -55,10 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     } else {
-      // Don't show error if cancelled, AuthProvider already handles logging errors
       if (auth.isLoading == false && auth.token == null) {
-        // Only show toast if it wasn't a manual cancellation
-        // ToastUtils.showErrorToast('Google login failed');
+        // AuthProvider handles logging errors
       }
     }
   }
@@ -200,6 +199,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     const Spacer(flex: 1),
+                    FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Text(
+                              "Version: ${snapshot.data!.version}",
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ],
                 ),
               ),

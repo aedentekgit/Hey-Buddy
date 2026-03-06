@@ -1,0 +1,13 @@
+{
+  "session_id": "d1cafe16-a6a6-4583-bcdf-1e2f5469f614",
+  "messages": [
+    {
+      "role": "user",
+      "content": "where is my Apple phone bill"
+    },
+    {
+      "role": "assistant",
+      "content": "Your Apple phone bill is in your document files, Sabari."
+    }
+  ]
+}

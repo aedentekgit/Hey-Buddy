@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
-import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -37,27 +34,23 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 1)); // Extra total splash time for branding
     if (!mounted) return;
     
-    // Check for app update
+    // Check for app update (Temporarily disabled)
+    /*
     if (branding.latestAppVersion != null && branding.latestAppVersion!.isNotEmpty) {
       try {
         PackageInfo packageInfo = await PackageInfo.fromPlatform();
         String currentVersion = packageInfo.version;
         if (_isUpdateAvailable(currentVersion, branding.latestAppVersion!)) {
-          bool shouldUpdate = await _showUpdateDialog(branding.latestAppVersion!, branding.mandatoryUpdate);
-          if (shouldUpdate && branding.updateUrl != null) {
-            final uri = Uri.parse(branding.updateUrl!);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          }
-          if (branding.mandatoryUpdate) {
-            return; // Halt app progression
+          if (branding.updateUrl != null && branding.updateUrl!.isNotEmpty) {
+            showInAppUpdateDialog(context, branding.updateUrl!);
+            return; // Halt app progression completely until updated
           }
         }
       } catch (e) {
         debugPrint("Update check failed: $e");
       }
     }
+    */
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.tryAutoLogin();
@@ -91,48 +84,7 @@ class _SplashScreenState extends State<SplashScreen> {
     return false;
   }
 
-  Future<bool> _showUpdateDialog(String newVersion, bool isMandatory) async {
-    return await showDialog<bool>(
-      context: context,
-      barrierDismissible: !isMandatory,
-      builder: (BuildContext context) {
-        return WillPopScope(
-          onWillPop: () async => !isMandatory,
-          child: AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text(
-              "Update Available", 
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold)
-            ),
-            content: Text(
-              "Version $newVersion is now available. Please update the app to get the latest features and bug fixes.",
-              style: GoogleFonts.inter(color: Colors.black87),
-            ),
-            actions: <Widget>[
-              if (!isMandatory)
-                TextButton(
-                  child: Text("Later", style: GoogleFonts.inter(color: Colors.grey[600], fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    Navigator.of(context).pop(false);
-                  },
-                ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-                ),
-                child: Text("Update Now", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  if (!isMandatory) Navigator.of(context).pop(true); // Pop first if voluntary
-                  else Navigator.of(context).pop(true); // We will route to store and come back, maybe block input. For now just pop.
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    ) ?? false;
-  }
+
 
   @override
   Widget build(BuildContext context) {

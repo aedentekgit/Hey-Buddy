@@ -1,0 +1,13 @@
+{
+  "session_id": "68d27102-8f5a-42f4-8e48-7c346dfa1ace",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Open YouTube for me"
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ]
+}

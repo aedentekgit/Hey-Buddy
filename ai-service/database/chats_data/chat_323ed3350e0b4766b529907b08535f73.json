@@ -1,0 +1,13 @@
+{
+  "session_id": "323ed335-0e0b-4766-b529-907b08535f73",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What can you do?"
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ]
+}

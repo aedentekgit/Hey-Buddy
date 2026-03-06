@@ -5,6 +5,7 @@ import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -196,6 +197,24 @@ class _SignupScreenState extends State<SignupScreen> {
                 ],
               ),
               const Spacer(flex: 2),
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        "Version: ${snapshot.data!.version}",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ),
         ),
@@ -244,17 +263,6 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _socialButton(IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(50),
-      ),
-      child: Icon(icon, color: color, size: 24),
     );
   }
 }

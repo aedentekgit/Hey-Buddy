@@ -130,14 +130,23 @@ const settingsSchema = new mongoose.Schema({
     },
     ai: {
         activeModel: { type: String, default: 'openai/gpt-4o-mini' },
+        activeVoiceModel: { type: String, default: 'google/gemini-2.5-flash-native-audio-latest' },
         consensusMode: { type: Boolean, default: false },
         listeningDuration: { type: Number, default: 2 }, // Seconds to listen
         models: {
             gpt4o: { type: String, default: 'openai/gpt-4o-mini' },
             claude: { type: String, default: 'anthropic/claude-3.5-sonnet' },
-            deepseek: { type: String, default: 'deepseek/deepseek-chat' }
+            deepseek: { type: String, default: 'deepseek/deepseek-chat' },
+            groq: { type: String, default: 'groq/llama-3.3-70b-versatile' }
         },
-        geminiApiKey: { type: String, select: false }
+        geminiApiKey: { type: String, select: false },
+        openaiApiKey: { type: String, select: false },
+        claudeApiKey: { type: String, select: false },
+        deepseekApiKey: { type: String, select: false },
+        groqApiKey: { type: String, select: false },
+        aiAssistantApiUrl: { type: String, default: '' },
+        tokenLimit: { type: Number, default: 1000000 },
+        totalTokensUsed: { type: Number, default: 0 }
     },
     googleAuth: {
         webClientId: String,

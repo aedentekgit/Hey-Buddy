@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/widgets/mobile_header.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class MainMapScreen extends StatefulWidget {
   const MainMapScreen({super.key});

@@ -1,0 +1,29 @@
+{
+  "session_id": "3955e4ad-646f-49e0-a239-5089611a7429",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What can you do?"
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey buddy, I can answer questions, set reminders, save memories, open apps/websites, and more. How can I help you today?"
+    },
+    {
+      "role": "user",
+      "content": "stop"
+    },
+    {
+      "role": "assistant",
+      "content": "I've stopped. Need anything else?"
+    }
+  ]
+}

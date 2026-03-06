@@ -6,10 +6,16 @@ const fs = require('fs');
 const { OpenAI } = require('openai');
 const paginate = require('../utils/paginate');
 const { uploadFile, deleteFile } = require('../services/fileService');
+const Settings = require('../models/Settings');
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
+// Helper to get openai instance dynamically
+async function getOpenAI() {
+    const settings = await Settings.findOne().select('+ai.openaiApiKey');
+    const apiKey = settings?.ai?.openaiApiKey || process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error("OpenAI API Key not configured.");
+    return new OpenAI({ apiKey });
+}
+
 
 const recordController = {
     uploadPrescription: async (req, res) => {
@@ -25,6 +31,7 @@ const recordController = {
 
             const prompt = `Extract medical info from this prescription as JSON: {patientName, doctorName, medicines: [{name, dosage, frequency: {morning, afternoon, night}, timing, duration, instructions}], notes, warnings, summary}. Language: ${language}`;
 
+            const openai = await getOpenAI();
             const response = await openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [{ role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: dataUrl } }] }],

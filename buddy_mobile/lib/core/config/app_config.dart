@@ -10,19 +10,15 @@ class AppConfig {
   static const String localhostHost = '10.0.2.2:5001'; // 10.0.2.2 is local loopback for Android Emulator
 
   static String get host {
-    // Priority 1: Manual override via --dart-define=API_URL=...
+    // Priority 1: Manual override via --dart-define=API_URL=... (e.g. for CI or local IP)
     const String envUrl = String.fromEnvironment('API_URL');
     if (envUrl.isNotEmpty) return envUrl;
 
-    // Priority 2: Localhost for Android Emulator only if specifically requested
-    // Use: flutter run --dart-define=LOCAL_DEV=true
-    const bool isLocalDev = bool.fromEnvironment('LOCAL_DEV', defaultValue: kDebugMode);
-    if (isLocalDev && Platform.isAndroid) {
-       return localhostHost;
+    // Priority 2: Use Localhost in Debug mode, Staging in Release mode
+    if (kDebugMode) {
+      return localhostHost;
     }
-
-    // Priority 3: Default to Staging for all other cases (Real phones, Release APKs, etc.)
-    return stagingHost;
+    return stagingHost; 
   }
 
   static String get protocol {

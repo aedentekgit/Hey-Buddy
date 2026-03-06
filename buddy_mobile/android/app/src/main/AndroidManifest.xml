@@ -3,6 +3,7 @@
         android:label="Hey Buddy"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
+        android:roundIcon="@mipmap/launcher_icon"
         android:networkSecurityConfig="@xml/network_security_config"
         android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true">
@@ -47,6 +48,22 @@
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />
+
+        <receiver android:name="sk.fourq.otaupdate.InstallResultReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="${applicationId}.ACTION_INSTALL_COMPLETE"/>
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="sk.fourq.otaupdate.OtaUpdateFileProvider"
+            android:authorities="${applicationId}.ota_update_provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/filepaths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -71,4 +88,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 </manifest>

@@ -1,0 +1,13 @@
+{
+  "session_id": "8bbaf816-b503-4c14-bd58-9e84a254d254",
+  "messages": [
+    {
+      "role": "user",
+      "content": "where is my wallet"
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ]
+}

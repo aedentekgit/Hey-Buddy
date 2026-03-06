@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/services/memory_service.dart';
 import 'dart:io';
 
@@ -12,9 +11,11 @@ class MemoriesProvider extends ChangeNotifier {
   List<dynamic> get memories => _memories;
   bool get isLoading => _isLoading;
 
-  Future<void> loadMemories() async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> loadMemories({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     try {
       final fetched = await _memoryService.fetchMemories();

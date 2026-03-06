@@ -1,7 +1,6 @@
 const axios = require('axios');
-const nluService = require('../services/nluService');
-const geminiService = require('../services/geminiService');
 const contextService = require('../services/contextService');
+const aiController = require('./ai/aiController');
 const Reminder = require('../models/Reminder');
 const { createGoogleCalendarEvent } = require('../services/googleCalendarService');
 const GeminiLiveService = require('../services/geminiLiveService');
@@ -10,6 +9,8 @@ const User = require('../models/User');
 // const { geocodeAddress } = require('../services/smartReminderService'); // Moved inside function to avoid circular dependency
 
 const { getPersonality } = require('../utils/personality');
+const geminiService = require('../services/geminiService');
+const config = require('../config/env');
 
 /**
  * Buddy 2.0 Voice Controller
@@ -22,7 +23,9 @@ exports.processVoice = async (req, res) => {
         const userId = req.user?._id;
 
         console.log('--- [VoiceV2 Request Start] ---');
-        console.log('Body:', JSON.stringify(req.body));
+        const logBody = { ...req.body };
+        if (logBody.image) logBody.image = '[BASE64_IMAGE_DATA_OMITTED]';
+        console.log('Body:', JSON.stringify(logBody));
         console.log('User ID:', userId);
         console.log('Auth Header:', req.headers.authorization ? 'Present' : 'Missing');
 
@@ -32,17 +35,50 @@ exports.processVoice = async (req, res) => {
 
         console.log(`[VoiceV2] Processing via Gemini: "${text}" for user ${userId} (TimeZone: ${timeZone})`);
 
-        // 1. Get Context and Voice Prefs (Parallelized)
-        const [context, user] = await Promise.all([
+        // 1. Get Context and Voice Prefs + AI Config
+        const [context, user, aiConfig] = await Promise.all([
             contextService.getContext(userId, conversationId, timeZone),
-            userId ? User.findById(userId).select('voicePreferences') : Promise.resolve(null)
+            userId ? User.findById(userId).select('voicePreferences') : Promise.resolve(null),
+            aiController.getAiConfig()
         ]);
 
-        // 2. Generate AI Response
-        const aiResponse = await geminiService.generateResponse(text, userId, context, language, image);
+        let memoryString = "User Memories: \n";
+        if (context.memories) {
+            context.memories.forEach(m => { memoryString += `- ${m}\n` });
+        }
+
+        // 2. Generate AI Response via Python Gateway
+        let replyText = "I'm sorry, I'm having trouble thinking right now. Please try again soon.";
+        let sessionIdRes = conversationId;
+        try {
+            const aiServiceUrl = config.AI_SERVICE_URL;
+            console.log(`[VoiceV2] Proxying to Python Brain: ${aiServiceUrl}/chat/realtime`);
+            const pythonResponse = await axios.post(`${aiServiceUrl}/chat/realtime`, {
+                message: text,
+                session_id: conversationId || null,
+                tts: false,
+                api_key: aiConfig.apiKey,
+                provider: aiConfig.provider,
+                model: aiConfig.model,
+                userId: userId ? userId.toString() : null,
+                memory_context: memoryString
+            }, { timeout: 15000 }); // 15s timeout for deep search
+
+            if (pythonResponse.data && pythonResponse.data.response) {
+                replyText = pythonResponse.data.response;
+                sessionIdRes = pythonResponse.data.session_id;
+                console.log(`[VoiceV2] Python Brain Replied: ${replyText.substring(0, 50)}...`);
+            }
+        } catch (e) {
+            console.error('[VoiceV2] Error connecting to Python AI Service:', e.message);
+            // Fallback: If Python fails, use a gentle message
+            replyText = "I'm having a little trouble connecting to my deep search brain. I can still help with your basics though!";
+        }
+
+        const aiResponse = { reply: replyText, type: 'chat' };
 
         // 3. Save Interaction and return immediately (Client uses High-Speed Local TTS)
-        const updatedConversationId = await (userId ? contextService.saveInteraction(userId, conversationId, text, aiResponse.reply) : Promise.resolve(conversationId));
+        const updatedConversationId = await (userId ? contextService.saveInteraction(userId, sessionIdRes, text, aiResponse.reply) : Promise.resolve(sessionIdRes));
 
         let audio = null;
         try {
@@ -59,11 +95,15 @@ exports.processVoice = async (req, res) => {
 
 
         // 4. Return result
+        const prefs = user?.voicePreferences || { gender: 'female', tone: 'soft' };
+        const platform = req.headers['x-platform'] || 'web';
+
         res.status(200).json({
             success: true,
             data: {
                 ...aiResponse,
-                audio: audio
+                audio: audio,
+                resolvedVoiceConfig: require('../utils/personality').resolveVoiceConfig(prefs, platform)
             },
             meta: {
                 conversationId: updatedConversationId,
@@ -209,8 +249,12 @@ exports.getLocalNews = async (req, res) => {
             }
         }
 
-        // Use Gemini to get 3 interesting local/regional news points
-        const prompt = `Act as a local curator for ${cityStr}. Provide exactly 3 short, interesting simulated local updates or news points (max 12 words each) relevant to this location or its region. You must return EXACTLY 3 lines of text, one point per line, with no bullet points, no markdown formatting, no JSON, and absolutely no conversational filler. Do not apologize. Include emojis.`;
+        // Use Gemini to get 3 interesting points (2 local, 1 global)
+        const prompt = `Act as a news curator for ${cityStr}. Provide exactly 3 short, interesting news points (max 12 words each).
+        - Point 1 & 2: Local news relevant to ${cityStr} or its region.
+        - Point 3: A major global/international news headline from today.
+        
+        You must return EXACTLY 3 lines of text, one point per line, with no bullet points, no markdown, and absolutely no conversational filler. Do not apologize. Include emojis. Use your Google Search tool to ensure these are real, current headlines.`;
 
         const aiResponse = await geminiService.generateResponse(prompt, userId, { userContext: { timeZone: 'Asia/Kolkata' } });
 

@@ -1,0 +1,13 @@
+{
+  "session_id": "bc457120-81f3-435c-98e0-cb4e142db380",
+  "messages": [
+    {
+      "role": "user",
+      "content": "right now"
+    },
+    {
+      "role": "assistant",
+      "content": "Just here, ready to assist you. What can I do for you, Sabari?"
+    }
+  ]
+}

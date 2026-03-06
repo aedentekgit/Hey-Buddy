@@ -1,0 +1,21 @@
+{
+  "session_id": "2ca91eeb-f2df-445b-8cb5-80a4784142c8",
+  "messages": [
+    {
+      "role": "user",
+      "content": "what are you doing"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm ready to assist you, Sabari. Let me know what you need."
+    },
+    {
+      "role": "user",
+      "content": "hey can you speak in Tamil"
+    },
+    {
+      "role": "assistant",
+      "content": "கண்டிப்பாக, நான் தமிழில் பேச முடியும். உங்களுக்கு என்ன உதவி தேவை? [[ACTION:SEARCH:Translate to English: Certainly, I can speak in Tamil. What help do you need?]]"
+    }
+  ]
+}
