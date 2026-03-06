@@ -257,41 +257,35 @@ class BuddyProvider with ChangeNotifier {
         _isThinking = false;
       }
 
-      // Sentence parsing for TTS Streaming (Sanitize for voice)
-      String sanitizedText = text
-          .replaceAll('*', '')
-          .replaceAll('`', '')
-          .replaceAll('#', '')
-          .replaceAll(RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false), '')
-          .replaceAll(RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]', unicode: true), '');
+      // ONLY parse for local TTS if NOT in realtime mode with server audio
+      // In the new Python-powered mode, we prefer the server's premium edge-tts voice.
+      if (!_isRealtimeEnabled) {
+        // Sentence parsing for local TTS fallback
+        String sanitizedText = text
+            .replaceAll('*', '')
+            .replaceAll('`', '')
+            .replaceAll('#', '')
+            .replaceAll(RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false), '')
+            .replaceAll(RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]', unicode: true), '');
 
-      _ttsBuffer += sanitizedText;
-      List<String> sentences = [];
-      String tempBuffer = _ttsBuffer;
-      
-      // PARSER: Split by punctuation OR if buffer is getting too long (for lower latency)
-      final sentenceRegEx = RegExp(r'[^.!?]+[.!?]+');
-      Iterable<Match> matches = sentenceRegEx.allMatches(tempBuffer);
-      
-      int lastMatchEnd = 0;
-      for (final match in matches) {
-          sentences.add(match.group(0)!);
-          lastMatchEnd = match.end;
-      }
-      
-      // If no punctuation yet but buffer is very long, force a chunk to reduce latency
-      if (sentences.isEmpty && tempBuffer.length > 80) {
-        int lastSpace = tempBuffer.lastIndexOf(' ');
-        if (lastSpace > 40) {
-          sentences.add(tempBuffer.substring(0, lastSpace));
-          lastMatchEnd = lastSpace;
+        _ttsBuffer += sanitizedText;
+        List<String> sentences = [];
+        String tempBuffer = _ttsBuffer;
+        
+        final sentenceRegEx = RegExp(r'[^.!?]+[.!?]+');
+        Iterable<Match> matches = sentenceRegEx.allMatches(tempBuffer);
+        
+        int lastMatchEnd = 0;
+        for (final match in matches) {
+            sentences.add(match.group(0)!);
+            lastMatchEnd = match.end;
         }
-      }
-
-      if (sentences.isNotEmpty) {
-          _ttsBuffer = tempBuffer.substring(lastMatchEnd);
-          _ttsQueue.addAll(sentences);
-          _processTtsQueue();
+        
+        if (sentences.isNotEmpty) {
+            _ttsBuffer = tempBuffer.substring(lastMatchEnd);
+            _ttsQueue.addAll(sentences);
+            _processTtsQueue();
+        }
       }
 
       notifyListeners();
@@ -319,8 +313,8 @@ class BuddyProvider with ChangeNotifier {
             _messages.last['isPartial'] = false;
         }
         
-        // Flush any remaining text in buffer to TTS
-        if (_ttsBuffer.trim().isNotEmpty) {
+        // Flush any remaining text in buffer to local TTS ONLY if server audio not used
+        if (!_isRealtimeEnabled && _ttsBuffer.trim().isNotEmpty) {
            _ttsQueue.add(_ttsBuffer.trim());
            _ttsBuffer = '';
            _processTtsQueue();
@@ -331,8 +325,19 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.audioStream.listen((base64Audio) async {
-       // Gemini 2.0 Live returns raw PCM chunks which the native AudioPlayer cannot play gracefully.
-       // We rely on the local TTS chunking implemented above in captionStream for high-speed voice.
+       // PREMIUM EXPERIENCE: Play high-quality MP3 from the Python Brain
+       if (base64Audio.isNotEmpty) {
+          try {
+            await _flutterTts.stop(); // Stop local fallback immediately
+            _ttsQueue.clear();
+            _ttsBuffer = '';
+
+            final audioBytes = base64Decode(base64Audio);
+            await _audioPlayer.play(BytesSource(audioBytes), mode: PlayerMode.lowLatency);
+          } catch (e) {
+            print("Error playing server audio: $e");
+          }
+       }
     });
 
 

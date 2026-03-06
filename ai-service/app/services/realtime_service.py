@@ -552,7 +552,8 @@ class RealtimeGroqService(GroqService):
                 question, chat_history,
                 extra_system_parts=extra_parts,
                 mode_addendum=REALTIME_CHAT_ADDENDUM,  # Realtime-specific instructions for the LLM.
-                memory_context=memory_context
+                memory_context=memory_context,
+                user_id=user_id
             )
 
             # Step 4: Call the LLM with multi-key fallback (inherited from GroqService).
@@ -599,7 +600,8 @@ class RealtimeGroqService(GroqService):
                 question, chat_history,
                 extra_system_parts=extra_parts,
                 mode_addendum=REALTIME_CHAT_ADDENDUM,
-                memory_context=memory_context
+                memory_context=memory_context,
+                user_id=user_id
             )
             yield from self._stream_llm(prompt, messages, question, system_message, user_id=user_id)
             logger.info("[REALTIME] Stream completed for: %s", search_query)

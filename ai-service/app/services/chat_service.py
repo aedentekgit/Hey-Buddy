@@ -221,8 +221,9 @@ class ChatService:
                         ]
                         self.sessions[session_id] = messages
                         logger.info(f"Successfully restored history for session {session_id} from MongoDB")
-                        # Optionally save it locally now so next time it's on disk
-                        self.save_chat_session(session_id, log_timing=False)
+                        # Local caching to disk is disabled per user request. 
+                        # The session is now only held in memory for this run.
+                        # self.save_chat_session(session_id, log_timing=False)
                         return True
             except Exception as ex:
                 logger.warning(f"Failed to fetch session {session_id} from backend: {ex}")
@@ -657,10 +658,10 @@ class ChatService:
                 # We're mutating the ChatMessage object in-place — no need to replace it.
                 self.sessions[session_id][-1].content += chunk
                 chunk_count += 1
-                # Periodic disk flush — balance between data safety and I/O overhead.
-                # The modulo check (%) is cheap (single CPU instruction).
-                if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
-                    self.save_chat_session(session_id, log_timing=False)
+                # Removed mid-stream DB sync to prevent excessive background threads which cause delays.
+                # The session will be synced once at the end of the stream in the `finally` block.
+                # if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
+                #     self.save_chat_session(session_id, log_timing=False)
                 # Yield to the caller — this is what makes this function a generator.
                 # The API route receives this chunk and sends it to the client via SSE.
                 yield chunk
@@ -719,8 +720,9 @@ class ChatService:
                     continue
                 self.sessions[session_id][-1].content += chunk
                 chunk_count += 1
-                if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
-                    self.save_chat_session(session_id, log_timing=False)
+                # Removed mid-stream DB sync to prevent excessive background threads.
+                # if chunk_count % SAVE_EVERY_N_CHUNKS == 0:
+                #     self.save_chat_session(session_id, log_timing=False)
                 yield chunk
         finally:
             final_response = self.sessions[session_id][-1].content
@@ -788,54 +790,42 @@ class ChatService:
             return
 
         messages = self.sessions[session_id]
-        # Must match the sanitization in load_session_from_disk().
-        # If these two methods use different sanitization, sessions saved by one
-        # can't be found by the other — a subtle bug.
-        safe_session_id = session_id.replace("-", "").replace(" ", "_")
-        filename = f"chat_{safe_session_id}.json"
-        filepath = CHATS_DATA_DIR / filename
-
-        # Build the JSON structure: session_id + flat list of {role, content} dicts.
-        # We store the original (unsanitized) session_id so we can match it later.
-        chat_dict = {
+        # Build the sync structure: session_id + flat list of {role, content} dicts.
+        sync_payload = {
             "session_id": session_id,
-            "messages": [{"role": msg.role, "content": msg.content} for msg in messages]
+           "messages": [{"role": msg.role, "content": msg.content} for msg in messages]
         }
 
-        try:
-            t0 = time.perf_counter() if log_timing else 0
-            with open(filepath, "w", encoding="utf-8") as f:
-                # indent=2 for human readability; ensure_ascii=False for Unicode support.
-                json.dump(chat_dict, f, indent=2, ensure_ascii=False)
-            if log_timing:
-                logger.info("[TIMING] save_session_json: %.3fs", time.perf_counter() - t0)
+        # Fire-and-forget background sync to MongoDB via Node.js backend
+        def _sync_to_db():
+            logger.info(f"Syncing conversation {session_id} to MongoDB...")
+            try:
+                # Use environment variable for backend URL, default to 5001 if not set
+                backend_url = os.getenv("NODE_BACKEND_URL", "http://localhost:5001")
+                # Use the provided userId for sync if available, fallback to session_id
+                sync_user_id = self.session_user_map.get(session_id, session_id)
                 
-            # Fire-and-forget background sync to MongoDB via Node.js backend
-            def _sync_to_db():
-                logger.info(f"Syncing conversation {session_id} to MongoDB...")
-                try:
-                    backend_url = os.getenv("BACKEND_URL", "http://127.0.0.1:5001")
-                    # Use the provided userId for sync if available, fallback to session_id
-                    sync_user_id = self.session_user_map.get(session_id, session_id)
-                    
-                    # Filter out messages with empty content to avoid Mongoose validation errors
-                    sync_messages = [{"role": msg["role"], "content": msg["content"]} for msg in chat_dict["messages"] if msg["content"] and msg["content"].strip()]
-                    
-                    payload = {
-                        "userId": sync_user_id,
-                        "messages": sync_messages
-                    }
-                    resp = requests.post(f"{backend_url}/api/conversations/sync", json=payload, timeout=5)
-                    if resp.status_code == 200:
-                        logger.info(f"Successfully synced conversation for user {sync_user_id} to MongoDB")
-                    else:
-                        logger.warning(f"Failed to sync conversation to db, status={resp.status_code}, error={resp.text}")
-                except Exception as ex:
-                    logger.warning(f"Error syncing conversation to db in background thread: {ex}")
-            
-            threading.Thread(target=_sync_to_db, daemon=True).start()
+                # Filter out messages with empty content to avoid validation errors.
+                # Only sync non-empty strings.
+                messages_to_sync = [
+                    {"role": m["role"], "content": m["content"]} 
+                    for m in sync_payload["messages"] 
+                    if m.get("content") and m["content"].strip()
+                ]
                 
-        except Exception as e:
-            # Log but don't raise — the conversation continues even if save fails.
-            # The in-memory session is still intact, and the next save attempt may succeed.
-             logger.error("Failed to save chat session %s: %s", session_id, e)
+                payload = {
+                    "userId": sync_user_id,
+                    "messages": messages_to_sync
+                }
+                
+                resp = requests.post(f"{backend_url}/api/conversations/sync", json=payload, timeout=5)
+                if resp.status_code == 200:
+                    logger.info(f"Successfully synced conversation for user {sync_user_id} to MongoDB")
+                else:
+                    logger.warning(f"Failed to sync conversation to db, status={resp.status_code}, error={resp.text}")
+            except Exception as ex:
+                logger.warning(f"Error syncing conversation to db in background thread: {ex}")
+        
+        # Start the background sync thread. 
+        # Using daemon=True so the server can exit even if the sync is pending.
+        threading.Thread(target=_sync_to_db, daemon=True).start()

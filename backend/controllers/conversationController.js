@@ -112,3 +112,15 @@ exports.getLatestConversationByUserId = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+exports.getAllConversationsInternal = async (req, res) => {
+    try {
+        const conversations = await Conversation.find({});
+        res.status(200).json({
+            success: true,
+            data: conversations
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

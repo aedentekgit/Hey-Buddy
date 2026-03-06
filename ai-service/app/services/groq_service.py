@@ -512,6 +512,7 @@ class GroqService:
             logger.info(f"Streaming with endpoint #{i + 1}/{n} ({provider})")
             llm_with_tools = llm.bind_tools(tools) if tools else llm
 
+            yielded_in_this_connection = False
             try:
                 current_msgs = prompt.format_messages(system_message=system_message, history=messages, question=question)
                 chunk_count = 0
@@ -537,6 +538,7 @@ class GroqService:
                                 first_chunk_time = time.perf_counter() - stream_start
                                 _log_timing("first_chunk", first_chunk_time)
                             chunk_count += 1
+                            yielded_in_this_connection = True
                             yield content
 
                     if hasattr(accumulated_chunk, "tool_calls") and accumulated_chunk.tool_calls:
@@ -557,10 +559,19 @@ class GroqService:
 
             except Exception as e:
                 last_exc = e
+                # CRITICAL FIX: If we have already yielded content to the user, we CANNOT fallback
+                # to a new key because that key would start the response from the beginning,
+                # resulting in duplicated text in the UI.
+                if yielded_in_this_connection:
+                    logger.error(f"Stream failed mid-way on endpoint #{i + 1} ({provider}). "
+                                 f"Yielded {chunk_count} chunks. Aborting fallback to prevent text duplication.")
+                    raise e
+
                 if _is_rate_limit_error(e):
                     logger.warning(f"Endpoint #{i + 1}/{n} ({provider}) rate limited")
                 else:
                     logger.warning(f"Endpoint #{i + 1}/{n} failed: {provider} - {str(e)[:100]}")
+                
                 if i < n - 1:
                     logger.info("Falling back to next provider for stream...")
                     continue
@@ -590,7 +601,8 @@ class GroqService:
         chat_history: Optional[List[tuple]] = None,
         extra_system_parts: Optional[List[str]] = None,
         mode_addendum: str = "",
-        memory_context: str = ""
+        memory_context: str = "",
+        user_id: Optional[str] = None
     ) -> tuple:
         """
         Retrieve context from the vector store and assemble the full LLM prompt.
@@ -662,27 +674,21 @@ class GroqService:
             chat_history: List of (user_text, assistant_text) tuples.
             extra_system_parts: Optional strings to append (e.g. search results).
             mode_addendum: Role-specific instructions (general vs realtime).
+            memory_context: High-priority memories from the main DB.
+            user_id: The ID of the current user (for privacy-filtered RAG).
 
         Returns:
-            (prompt, messages) where:
-              - prompt: A ChatPromptTemplate ready to be piped into an LLM.
-              - messages: List of HumanMessage/AIMessage for the history placeholder.
+            (prompt, messages, system_message)
         """
         # ── Step 1: Retrieve context from the vector store (RAG) ──
         # This is the "R" in RAG. We search for document chunks that are
-        # semantically similar to the user's question.
+        # semantically similar to the user's question, FILTERED by user_id.
         context = ""
         context_sources = []
         t0 = time.perf_counter()
         try:
-            # get_retriever(k=10) returns a LangChain retriever that, when called,
-            # performs a similarity search in the vector store and returns the
-            # k nearest document chunks. Under the hood, this computes the cosine
-            # similarity between the question's embedding and all stored embeddings.
-            retriever = self.vector_store_service.get_retriever(k=10)
-            # .invoke(question) runs the actual similarity search against the
-            # embedded question and returns a list of Document objects.
-            # Each Document has .page_content (the text) and .metadata (source info).
+            # Pass user_id to ensure we only get chunks this user is allowed to see.
+            retriever = self.vector_store_service.get_retriever(k=10, user_id=user_id)
             context_docs = retriever.invoke(question)
             if context_docs:
                 # Concatenate all chunk texts. Each doc.page_content is a text chunk
@@ -729,6 +735,26 @@ class GroqService:
         if mode_addendum:
             # Layer 5: mode-specific instructions (e.g. "use the search results").
             system_message += f"\n\n{mode_addendum}"
+
+        # ── Step 2.5: Guest Access Restriction ──
+        # If the user is unauthenticated (guest), they should not be able to 
+        # inquire about personal data. We force the AI to ask for a login.
+        # Handle various representations of "guest" or "null" from frontends.
+        is_guest = (
+            not user_id or 
+            str(user_id).lower() in ["null", "none", "undefined", "unknown"] or 
+            str(user_id).startswith("guest_")
+        )
+
+        if is_guest:
+            system_message += (
+                "\n\n=== GUEST SECURITY POLICY ===\n"
+                "The current user is NOT logged in. They are a guest.\n"
+                "If they ask for ANY personal details, reminders, memories, "
+                "addresses, phone numbers, or past private conversation history, "
+                "you MUST refuse and reply exactly: 'Please login to check the details.'\n"
+                "Do not try to find or provide this info even if you think you have it."
+            )
 
         # ── Step 3: Build the LangChain prompt template ──
         # ChatPromptTemplate.from_messages() creates a template with three slots:
@@ -797,7 +823,10 @@ class GroqService:
         """
         try:
             prompt, messages, system_message = self._build_prompt_and_messages(
-                question, chat_history, mode_addendum=GENERAL_CHAT_ADDENDUM,
+                question, chat_history, 
+                mode_addendum=GENERAL_CHAT_ADDENDUM,
+                user_id=user_id,
+                memory_context=memory_context
             )
             t0 = time.perf_counter()
             result = self._invoke_llm(prompt, messages, question, system_message, user_id=user_id)
@@ -836,7 +865,8 @@ class GroqService:
         try:
             prompt, messages, system_message = self._build_prompt_and_messages(
                 question, chat_history, mode_addendum=GENERAL_CHAT_ADDENDUM,
-                memory_context=memory_context
+                memory_context=memory_context,
+                user_id=user_id
             )
             yield from self._stream_llm(prompt, messages, question, system_message, user_id=user_id)
         except AllGroqApisFailedError:

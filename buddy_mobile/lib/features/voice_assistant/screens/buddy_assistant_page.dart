@@ -463,14 +463,23 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     int totalMessages = provider.messages.length;
     int displayCount = totalMessages > _messageLimit ? _messageLimit : totalMessages;
     bool hasMore = totalMessages > _messageLimit;
+    bool showThinking = provider.isThinking;
+
+    int itemCount = displayCount + 1 + (showThinking ? 1 : 0);
 
     return ListView.builder(
       reverse: true,
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      itemCount: displayCount + 1,
+      itemCount: itemCount,
       itemBuilder: (context, index) {
-        if (index == displayCount) {
+        if (showThinking && index == 0) {
+          return _buildThinkingBubble(branding);
+        }
+
+        int msgIndex = showThinking ? index - 1 : index;
+
+        if (msgIndex == displayCount) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 24.0, top: 8),
             child: Row(
@@ -496,7 +505,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           );
         }
 
-        final msg = provider.messages[totalMessages - 1 - index];
+        final msg = provider.messages[totalMessages - 1 - msgIndex];
         final isUser = msg['type'] == 'user';
 
         return Padding(
@@ -606,6 +615,81 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildThinkingBubble(BrandingProvider branding) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildAssistantAvatar(branding),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6, left: 4, right: 4),
+                  child: Text(
+                    "Buddy (Assistant)",
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(10),
+                    bottomLeft: Radius.circular(10),
+                    bottomRight: Radius.circular(10),
+                  ),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.7),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          topRight: Radius.circular(10),
+                          bottomLeft: Radius.circular(10),
+                          bottomRight: Radius.circular(10),
+                        ),
+                        border: Border.all(
+                          color: Colors.black.withOpacity(0.06),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        "Thinking...",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF64748B),
+                          fontStyle: FontStyle.italic,
+                          fontSize: 14.5,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
     );
   }
 

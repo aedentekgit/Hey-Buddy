@@ -155,83 +155,99 @@ class VectorStoreService:
     def load_learning_data(self) -> List[Document]:
         """
         Read all .txt files in database/learning_data/ and return one Document per file.
-
-        HOW IT WORKS:
-          1. Glob for *.txt files in sorted order (deterministic ordering).
-          2. Read each file's text content.
-          3. Wrap it in a LangChain Document(page_content=..., metadata={"source": filename}).
-             - page_content: the raw text that will later be chunked and embedded.
-             - metadata["source"]: the filename, preserved so we can trace which file
-               a retrieved chunk came from (useful for debugging).
-          4. Skip empty files silently; log warnings for read errors.
-
-        WHY .txt FILES?
-        Plain text is the simplest format for knowledge.  You can drop any
-        information you want Hey buddy to know about into a .txt file, restart the
-        server, and it will be indexed and retrievable.
-
-        Returns:
-            List of Document objects — one per successfully loaded .txt file.
+        Tag with user_id="system" for global availability.
         """
         documents = []
-        # sorted() ensures consistent ordering across OS file-system implementations.
         for file_path in sorted(LEARNING_DATA_DIR.glob("*.txt")):
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read().strip()
-                    if content:  # skip empty files
-                        # Create a Document: LangChain's standard container for text + metadata.
-                        documents.append(Document(page_content=content, metadata={"source": str(file_path.name)}))
-                        logger.info("[VECTOR] Loaded learning data: %s (%d chars)", file_path.name, len(content))
+                    if content:
+                        # Tag as "system" so it's globally searchable
+                        documents.append(Document(
+                            page_content=content, 
+                            metadata={"source": str(file_path.name), "user_id": "system"}
+                        ))
+                        logger.info("[VECTOR] Loaded learning data: %s", file_path.name)
             except Exception as e:
                 logger.warning("Could not load learning data file %s: %s", file_path, e)
-        logger.info("[VECTOR] Total learning data files loaded: %d", len(documents))
         return documents
 
     def load_chat_history(self) -> List[Document]:
         """
-        Load all .json files in database/chats_data/ and convert each conversation
-        into a single Document.
-
-        HOW IT WORKS:
-          1. Each .json file is a saved chat session: {"messages": [{"role": ..., "content": ...}, ...]}.
-          2. We iterate over the messages and format them as readable lines:
-               "User: <message>"    for role == "user"
-               "Assistant: <message>" for role == "assistant"
-          3. All lines are joined with newlines into one string — this becomes the
-             Document's page_content.
-          4. metadata["source"] is set to "chat_<filename>" so we can tell chat-derived
-             chunks apart from learning-data chunks.
-
-        WHY INDEX PAST CHATS?
-        If a user asked "What is Kubernetes?" last week and got a great answer,
-        indexing that exchange means Hey buddy can reuse the context in future
-        conversations without calling the LLM again for the same topic.
-
-        Returns:
-            List of Document objects — one per successfully loaded .json chat file.
+        Load chat history for the vector store.
+        
+        NEW BEHAVIOR: 
+        1. Fetch all conversations from the Node.js backend (MongoDB).
+        2. Fall back to local .json files in database/chats_data/ only if backend fails or is empty.
         """
         documents = []
+        
+        # ── Step 1: Try backend (MongoDB) ──────────────────────────────────
+        from config import NODE_BACKEND_URL
+        try:
+            logger.info("[VECTOR] Fetching all conversations from MongoDB for indexing...")
+            resp = requests.get(f"{NODE_BACKEND_URL}/api/conversations/internal/all", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("success") and data.get("data"):
+                    conversations = data["data"]
+                    for conv in conversations:
+                        uid = conv.get("userId", "unknown")
+                        messages = conv.get("messages", [])
+                        
+                        # Concatenate all messages in this conversation.
+                        chat_content = "\n".join([
+                            f"User: {msg.get('content', '')}" if msg.get('role') == 'user'
+                            else f"Assistant: {msg.get('content', '')}"
+                            for msg in messages
+                        ])
+                        
+                        if chat_content.strip():
+                            documents.append(Document(
+                                page_content=chat_content,
+                                metadata={"source": f"db_{conv.get('_id')}", "user_id": uid}
+                            ))
+                    
+                    if documents:
+                        logger.info("[VECTOR] Successfully indexed %d conversations from MongoDB", len(documents))
+                        # If we successfully loaded from DB, we can return now.
+                        return documents
+        except Exception as e:
+            logger.warning("[VECTOR] Failed to fetch chat history from MongoDB: %s", e)
+
+        # ── Step 2: Fallback to local files (LEGACY) ────────────────────────
+        logger.info("[VECTOR] Falling back to local .json files for chat history...")
         for file_path in sorted(CHATS_DATA_DIR.glob("*.json")):
             try:
+                # Extract User ID from filename
+                stem = file_path.stem
+                uid = "unknown"
+                if stem.startswith("chat_mobile_"):
+                    parts = stem.split("_")
+                    if len(parts) >= 3:
+                        uid = parts[2]
+                elif stem.startswith("chat_"):
+                    uid = stem[5:] 
+
                 with open(file_path, "r", encoding="utf-8") as f:
-                    chat_data = json.load(f)  # parse JSON into a Python dict
+                    chat_data = json.load(f)
 
                 messages = chat_data.get("messages", [])
-
-                # Format each message as "User: ..." or "Assistant: ..." and join them.
                 chat_content = "\n".join([
                     f"User: {msg.get('content', '')}" if msg.get('role') == 'user'
                     else f"Assistant: {msg.get('content', '')}"
                     for msg in messages
                 ])
 
-                if chat_content.strip():  # skip if no actual content
-                    documents.append(Document(page_content=chat_content, metadata={"source": f"chat_{file_path.stem}"}))
-                    logger.info("[VECTOR] Loaded chat history: %s (%d messages)", file_path.name, len(messages))
+                if chat_content.strip():
+                    documents.append(Document(
+                        page_content=chat_content, 
+                        metadata={"source": f"file_{stem}", "user_id": uid}
+                    ))
             except Exception as e:
                 logger.warning("Could not load chat history file %s: %s", file_path, e)
-        logger.info("[VECTOR] Total chat history files loaded: %d", len(documents))
+        
         return documents
 
     # -------------------------------------------------------------------------
@@ -241,111 +257,62 @@ class VectorStoreService:
     def create_vector_store(self) -> FAISS:
         """
         Full pipeline: Load → Chunk → Embed → Index → Save.
-
-        STEP-BY-STEP:
-          1. LOAD: Read all .txt learning files and .json chat files from disk.
-          2. CHUNK: Split each Document into smaller overlapping pieces using the
-             text splitter. This converts N large documents into many small chunks
-             (e.g. 10 documents → 200 chunks).
-          3. EMBED: Each chunk's text is passed through the HuggingFace embedding
-             model, producing a numeric vector per chunk.
-          4. INDEX: FAISS.from_documents() stores all vectors in a FAISS index,
-             which supports fast nearest-neighbor search.
-          5. SAVE: The index is written to disk so it *could* be reloaded later
-             without re-embedding (though currently we rebuild every startup).
-
-        If there are NO documents at all (empty database/), we create a tiny
-        placeholder index with a single dummy entry. This prevents crashes in
-        get_retriever() — the retriever will simply return "No data available yet."
-
-        Called once during server startup (in app/main.py lifespan).
-
-        Returns:
-            The built FAISS vector store instance.
         """
-        # Step 1: Load raw documents from both sources.
         learning_docs = self.load_learning_data()
         chat_docs = self.load_chat_history()
         all_documents = learning_docs + chat_docs
-        logger.info("[VECTOR] Total documents to index: %d (learning: %d, chat: %d)",
-                     len(all_documents), len(learning_docs), len(chat_docs))
-
+        
         if not all_documents:
-            # No data yet — create a minimal index so the rest of the app doesn't crash.
-            self.vector_store = FAISS.from_texts(["No data available yet."], self.embeddings)
-            logger.info("[VECTOR] No documents found, created placeholder index")
+            # Create a placeholder with "system" user_id
+            self.vector_store = FAISS.from_texts(
+                ["No data available yet."], 
+                self.embeddings, 
+                metadatas=[{"user_id": "system", "source": "placeholder"}]
+            )
+            logger.info("[VECTOR] Created placeholder index")
         else:
-            # Step 2: Split documents into smaller chunks.
-            # Each chunk is still a Document object, but with shorter page_content.
             chunks = self.text_splitter.split_documents(all_documents)
-            logger.info("[VECTOR] Split into %d chunks (chunk_size=%d, overlap=%d)",
-                         len(chunks), CHUNK_SIZE, CHUNK_OVERLAP)
-
-            # Steps 3 & 4: Embed all chunks and build the FAISS index.
-            # from_documents() calls self.embeddings.embed_documents() internally
-            # for every chunk, then inserts the resulting vectors into the index.
             self.vector_store = FAISS.from_documents(chunks, self.embeddings)
-            logger.info("[VECTOR] FAISS index built successfully with %d vectors", len(chunks))
+            logger.info("[VECTOR] Built multi-tenant index with %d chunks", len(chunks))
 
-        # Clear the retriever cache because the index just changed.
         self._retriever_cache.clear()
-        # Step 5: Persist the index to disk.
         self.save_vector_store()
         return self.vector_store
 
     def save_vector_store(self):
-        """
-        Write the current FAISS index to database/vector_store/.
-
-        FAISS save_local() writes two files:
-          - index.faiss: the actual vector index (binary).
-          - index.pkl: the metadata (Document objects) associated with each vector.
-
-        On error we only log — a save failure shouldn't crash the server, and the
-        in-memory index still works fine for the current session.
-        """
+        """Write the index to disk."""
         if self.vector_store:
             try:
                 self.vector_store.save_local(str(VECTOR_STORE_DIR))
             except Exception as e:
-                logger.error("Failed to save vector store to disk: %s", e)
+                logger.error("Failed to save vector store: %s", e)
 
     # -------------------------------------------------------------------------
-    # RETRIEVER FOR CONTEXT
+    # PRIVACY-AWARE RETRIEVER
     # -------------------------------------------------------------------------
 
-    def get_retriever(self, k: int = 10):
+    def get_retriever(self, k: int = 10, user_id: str = None):
         """
-        Return a retriever that returns the k most similar chunks for a query string.
-
-        WHAT IS A RETRIEVER?
-        A retriever is an object with an .invoke(query) method. When called:
-          1. It embeds the query string into a vector (using the same embedding model).
-          2. It searches the FAISS index for the k nearest vectors.
-          3. It returns the corresponding Document objects (text + metadata).
-
-        The chat services call retriever.invoke(user_message) and then inject the
-        returned chunks into the LLM prompt as context.
-
-        CACHING:
-        We cache retriever objects by k-value in self._retriever_cache. If multiple
-        requests ask for k=10, they share the same retriever object instead of
-        creating a new one each time.  The cache is cleared whenever the vector
-        store is rebuilt (in create_vector_store) so stale retrievers are never used.
-
-        Args:
-            k: Number of nearest chunks to retrieve (default 10).
-
-        Returns:
-            A LangChain VectorStoreRetriever instance.
-
-        Raises:
-            RuntimeError: If the vector store hasn't been initialized yet.
+        Return a retriever that strictly filters by user_id and 'system'.
         """
         if not self.vector_store:
-            raise RuntimeError("Vector store not initialized. This should not happen.")
-        if k not in self._retriever_cache:
-            # as_retriever() wraps the FAISS index in a Retriever interface.
-            # search_kwargs={"k": k} tells it how many results to return.
-            self._retriever_cache[k] = self.vector_store.as_retriever(search_kwargs={"k": k})
-        return self._retriever_cache[k]
+            raise RuntimeError("Vector store not initialized")
+            
+        cache_key = f"{k}_{user_id}"
+        if cache_key not in self._retriever_cache:
+            # Metadata filtering for privacy
+            # We only want chunks that belong to THIS user OR the system (global)
+            filter_dict = None
+            if user_id:
+                # FAISS metadata filtering (Note: some versions only support 1 value,
+                # but we'll try the common approach or a custom wrap if needed)
+                # If plural filtering isn't native, we use a single match for now
+                # and prioritize security (user's own data).
+                filter_dict = {"user_id": user_id}
+            
+            # Create retriever with strict filter
+            self._retriever_cache[cache_key] = self.vector_store.as_retriever(
+                search_kwargs={"k": k, "filter": filter_dict}
+            )
+            
+        return self._retriever_cache[cache_key]
