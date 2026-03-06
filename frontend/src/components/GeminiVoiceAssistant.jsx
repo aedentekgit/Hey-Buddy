@@ -17,8 +17,10 @@ const GeminiVoiceAssistant = ({ onBack, user }) => {
         return () => window.removeEventListener('message', handleMessage);
     }, [navigate]);
 
-    // Use dynamic URL from settings or fallback to Python AI service port (8000)
-    const baseAssistantUrl = settings?.ai?.aiAssistantApiUrl || 'http://localhost:8000/app/';
+    // Use dynamic URL from settings or fallback to local port 8000 if localhost
+    const baseAssistantUrl = settings?.ai?.aiAssistantApiUrl ||
+        (window.location.hostname === 'localhost' ? 'http://localhost:8000/app/' : `${window.location.origin}/assistant/app/`);
+
 
     // Prepare query parameters for proxying and auth
     const token = localStorage.getItem('token');

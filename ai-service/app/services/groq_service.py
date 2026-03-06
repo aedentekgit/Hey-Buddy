@@ -53,7 +53,7 @@ FLOW:
 Context is only what we retrieve (not a full dump of learning data), so token usage stays bounded.
 """
 
-from typing import List, Optional, Iterator
+from typing import List, Optional, Iterator, Any
 # ─── LANGCHAIN IMPORTS ───────────────────────────────────────────────────────
 # LangChain is a framework that provides abstractions for working with LLMs.
 # Instead of making raw HTTP requests to the Groq API, we use LangChain's
@@ -446,7 +446,7 @@ class GroqService:
                     else:
                         if i > 0:
                             logger.info(f"Fallback successful: endpoint #{i + 1}/{n} ({provider}) succeeded")
-                        return response.content
+                        return self.get_text_content(response.content)
             except Exception as e:
                 last_exc = e
                 # Get a clean error message
@@ -561,9 +561,9 @@ class GroqService:
 
                         content = ""
                         if hasattr(chunk, "content"):
-                            content = chunk.content or ""
+                            content = self.get_text_content(chunk.content)
                         elif isinstance(chunk, dict) and "content" in chunk:
-                            content = chunk.get("content", "") or ""
+                            content = self.get_text_content(chunk.get("content", ""))
 
                         if isinstance(content, str) and content:
                             if first_chunk_time is None:
@@ -651,9 +651,23 @@ class GroqService:
     #
     # Each layer is optional (except Layer 1) and is only added if content exists.
 
+    def get_text_content(self, content: Any) -> str:
+        """Helper to extract plain text from potentially multi-modal content."""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            text_parts = []
+            for part in content:
+                if isinstance(part, dict) and "text" in part:
+                    text_parts.append(part["text"])
+                elif isinstance(part, str):
+                    text_parts.append(part)
+            return " ".join(text_parts)
+        return str(content)
+
     def _build_prompt_and_messages(
         self,
-        question: str,
+        question: Any,
         chat_history: Optional[List[tuple]] = None,
         extra_system_parts: Optional[List[str]] = None,
         mode_addendum: str = "",
@@ -745,7 +759,8 @@ class GroqService:
         try:
             # Pass user_id to ensure we only get chunks this user is allowed to see.
             retriever = self.vector_store_service.get_retriever(k=10, user_id=user_id)
-            context_docs = retriever.invoke(question)
+            search_query = self.get_text_content(question)
+            context_docs = retriever.invoke(search_query)
             if context_docs:
                 # Concatenate all chunk texts. Each doc.page_content is a text chunk
                 # from a learning file or past chat session. We join with newlines

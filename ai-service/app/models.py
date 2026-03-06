@@ -50,7 +50,7 @@ HOW THESE MODELS MAP TO API ENDPOINTS
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 
 
 # =============================================================================
@@ -71,11 +71,10 @@ class ChatMessage(BaseModel):
     Fields:
         role:    "user" (human) or "assistant" (Hey buddy). Mirrors the OpenAI/Groq
                  message format so we can pass messages directly to the LLM.
-        content: The message text. Can be any length (no validation here because
-                 this model is only used internally, not for user input).
+        content: The message text or complex content (List/Dict).
     """
     role: str      # Either "user" (human) or "assistant" (Hey buddy).
-    content: str   # The message text.
+    content: Any   # The message text or complex content.
 
 
 class ChatRequest(BaseModel):
@@ -87,12 +86,8 @@ class ChatRequest(BaseModel):
 
     Fields:
         message:    Required (the ... default means "no default — must be provided").
-                    min_length=1 prevents empty strings.
-                    max_length=32,000 prevents absurdly long inputs that would
-                    blow up the LLM's token limit or waste resources.
-                    If validation fails, FastAPI returns HTTP 422 with an error
-                    message explaining which constraint was violated.
-
+                    Accepts str or complex multi-modal content (Any).
+                    
         session_id: Optional. If omitted (None), the server creates a brand-new
                     session and returns the generated ID in the response.
                     If provided, the server loads that session's history from disk
@@ -102,8 +97,7 @@ class ChatRequest(BaseModel):
                     response alongside the text reply.
     """
     # Field(...) means "required" — the `...` is Pydantic's sentinel for "no default value".
-    # min_length and max_length are Pydantic field validators that run automatically.
-    message: str = Field(..., min_length=1, max_length=32_000)
+    message: Any = Field(...)
     session_id: Optional[str] = None
     tts: bool = False
     api_key: Optional[str] = None

@@ -26,6 +26,7 @@ const currentDir = `${BASE_DIR}/current`;
 
 const backendArchiveName = `backend-${timestamp}.tar.gz`;
 const frontendArchiveName = `frontend-${timestamp}.tar.gz`;
+const aiArchiveName = `ai-service-${timestamp}.tar.gz`;
 
 console.log(`\n🚀 Starting ZERO-DOWNTIME deployment to [${env.toUpperCase()}] environment...`);
 console.log(`📂 Release ID: ${timestamp}\n`);
@@ -44,11 +45,15 @@ try {
     const excludeFlags = `--exclude='./node_modules' --exclude='./.env' --exclude='./.git' --exclude='./uploads' --exclude='./backend' --exclude='*.tar.gz'`;
     execSync(`cd backend && tar ${excludeFlags} -czvf ../${backendArchiveName} .`, { stdio: 'inherit' });
 
+    // Package AI Service
+    const aiExcludeFlags = `--exclude='./venv' --exclude='./__pycache__' --exclude='./.env' --exclude='./.git' --exclude='./database/chats_data' --exclude='./database/vector_store' --exclude='*.tar.gz'`;
+    execSync(`cd ai-service && tar ${aiExcludeFlags} -czvf ../${aiArchiveName} .`, { stdio: 'inherit' });
+
     // Step 3: Ensure server directories exist and upload archives
     console.log(`\n[3/6] 📤 Uploading packages to VPS (${SERVER})...`);
     console.log(`(You may be asked for the VPS password)`);
-    execSync(`ssh ${SERVER} "mkdir -p ${releaseDir}/backend ${releaseDir}/frontend ${sharedDir}/uploads"`, { stdio: 'inherit' });
-    execSync(`scp ${backendArchiveName} ${frontendArchiveName} ${SERVER}:${releaseDir}/`, { stdio: 'inherit' });
+    execSync(`ssh ${SERVER} "mkdir -p ${releaseDir}/backend ${releaseDir}/frontend ${releaseDir}/ai-service ${sharedDir}/uploads"`, { stdio: 'inherit' });
+    execSync(`scp ${backendArchiveName} ${frontendArchiveName} ${aiArchiveName} ${SERVER}:${releaseDir}/`, { stdio: 'inherit' });
 
     // Step 4: Extract code and install dependencies securely on the server
     console.log(`\n[4/6] ⚙️  Extracting backend and frontend code...`);
@@ -57,11 +62,22 @@ try {
         cd ${releaseDir} &&
         tar -xzvf ${backendArchiveName} -C backend &&
         tar -xzvf ${frontendArchiveName} -C frontend &&
-        rm -f ${backendArchiveName} ${frontendArchiveName} &&
+        tar -xzvf ${aiArchiveName} -C ai-service &&
+        rm -f ${backendArchiveName} ${frontendArchiveName} ${aiArchiveName} &&
+        
         cd backend &&
         ln -nfs ${sharedDir}/.env .env &&
         ln -nfs ${sharedDir}/uploads uploads &&
-        npm install --omit=dev
+        npm install --omit=dev &&
+        
+        cd ../ai-service &&
+        ln -nfs ${sharedDir}/ai.env .env &&
+        
+        # Virtual Environment setup to avoid PEP 668 issues
+        if [ ! -d "${sharedDir}/venv" ]; then
+            python3 -m venv ${sharedDir}/venv
+        fi
+        ${sharedDir}/venv/bin/pip install -r requirements.txt
     `;
     execSync(`ssh ${SERVER} '${extractCommand}'`, { stdio: 'inherit' });
 
@@ -74,6 +90,9 @@ try {
         cd ${currentDir}/backend &&
         pm2 delete ${PM2_NAME} || true &&
         pm2 start server.js --name ${PM2_NAME} &&
+        cd ../ai-service &&
+        pm2 delete ${PM2_NAME}-ai || true &&
+        pm2 start "${sharedDir}/venv/bin/python3 run.py" --name ${PM2_NAME}-ai &&
         pm2 save
     `;
     execSync(`ssh ${SERVER} '${updateCommand}'`, { stdio: 'inherit' });
@@ -82,6 +101,7 @@ try {
     console.log(`\n[6/6] 🧹 Cleaning up local temporary files...`);
     fs.unlinkSync(backendArchiveName);
     fs.unlinkSync(frontendArchiveName);
+    fs.unlinkSync(aiArchiveName);
 
     console.log(`\n✅ DEPLOYMENT SUCCESSFUL!`);
     console.log(`The ${env} environment is now running release: ${timestamp}`);
@@ -89,12 +109,20 @@ try {
     console.log(`Ensure your Nginx server config root points to:`);
     console.log(`root ${currentDir}/frontend/dist;`);
 
+    // Step 7: Cleanup old releases (keep only last 5)
+    console.log(`\n[7/7] 🧹 Pruning old releases on VPS (keeping last 5)...`);
+    const cleanupCommand = `cd ${BASE_DIR}/releases && ls -t | tail -n +6 | xargs rm -rf`;
+    execSync(`ssh ${SERVER} '${cleanupCommand}'`, { stdio: 'inherit' });
+
+    console.log(`\n✨ DONE! Server space optimized.`);
+
 } catch (error) {
     console.error(`\n❌ DEPLOYMENT FAILED:`, error.message);
 
     // Attempt local cleanup if it failed
     if (fs.existsSync(backendArchiveName)) fs.unlinkSync(backendArchiveName);
     if (fs.existsSync(frontendArchiveName)) fs.unlinkSync(frontendArchiveName);
+    if (fs.existsSync(aiArchiveName)) fs.unlinkSync(aiArchiveName);
 
     process.exit(1);
 }

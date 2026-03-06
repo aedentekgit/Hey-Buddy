@@ -11,9 +11,9 @@ echo "Starting VPS Setup for Buddy..."
 # 1. Update System
 apt update && apt upgrade -y
 
-# 2. Install Node.js
+# 2. Install Node.js & Python
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs
+apt install -y nodejs python3 python3-pip libmagic-dev build-essential
 
 # 3. Install MongoDB
 apt-get install -y gnupg curl

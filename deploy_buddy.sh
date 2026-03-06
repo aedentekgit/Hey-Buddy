@@ -1,47 +1,57 @@
 #!/bin/bash
 
 # --- Buddy Deployment Script (Run on VPS) ---
-# This script will re-build the frontend and restart all backend processes.
+# Usage: ./deploy_buddy.sh [staging|production]
 
 set -e
 
-echo "🚀 Starting Buddy Deployment Workflow..."
+ENV=$1
+
+if [[ "$ENV" != "staging" && "$ENV" != "production" ]]; then
+    echo "❌ Usage: ./deploy_buddy.sh [staging|production]"
+    exit 1
+fi
+
+echo "🚀 Starting Buddy Deployment Workflow for environment: $ENV..."
 
 # 1. Update Dependencies (Backend)
 echo "📦 Updating Backend Dependencies..."
 cd backend
 npm install
+cp .env.$ENV .env
 cd ..
 
 # 2. Update Dependencies (AI Service)
 echo "📦 Updating AI Service Dependencies..."
 cd ai-service
 pip install -r requirements.txt || pip3 install -r requirements.txt
+cp .env.$ENV .env
 cd ..
 
-# 3. Build Frontend (for Staging/Production)
+# 3. Build Frontend
 echo "🏗️  Building Frontend..."
 cd frontend
 npm install
+# Copy correct env for frontend build
+cp .env.$ENV .env
 npm run build
-# (Assumes your site serves from the 'dist' or 'build' folder)
 cd ..
 
 # 4. Starting/Restarting Node Backend with PM2
 echo "🔄 Restarting Node Backend..."
 cd backend
-pm2 restart server.js --name Buddy-Backend || pm2 start server.js --name Buddy-Backend
+pm2 restart server.js --name Buddy-Backend-$ENV || pm2 start server.js --name Buddy-Backend-$ENV
 cd ..
 
 # 5. Starting/Restarting Python AI Service with PM2
 echo "🔄 Restarting Python AI Service..."
 cd ai-service
-pm2 restart "python3 run.py" --name Buddy-AI-Service || pm2 start "python3 run.py" --name Buddy-AI-Service
+pm2 restart "python3 run.py" --name Buddy-AI-Service-$ENV || pm2 start "python3 run.py" --name Buddy-AI-Service-$ENV
 cd ..
 
 # 6. Success
-echo "✅ Buddy Deployment Complete!"
+echo "✅ Buddy Deployment Complete ($ENV)!"
 echo "📡 Node Backend: Running on 5001"
 echo "🧠 AI Service: Running on 8000"
-echo "🌐 Make sure Nginx is configured to proxy /api and /socket.io correctly."
-echo "   Refer to STAGING_DEPLOY_GUIDE.md for details."
+echo "🌐 URL: $(grep VITE_FRONTEND_URL frontend/.env.$ENV | cut -d'=' -f2)"
+

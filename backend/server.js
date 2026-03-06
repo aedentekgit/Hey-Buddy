@@ -32,7 +32,10 @@ app.use(cors({
         'null',
         'capacitor://localhost',
         'http://localhost',
-        'http://localhost:5001'
+        'http://localhost:5001',
+        'http://localhost:8000',
+        'http://localhost:3000',
+        'http://localhost:5173'
     ].filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

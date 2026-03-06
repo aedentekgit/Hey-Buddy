@@ -59,10 +59,9 @@ class BrandingProvider extends ChangeNotifier {
   String? get updateUrl => _updateUrl;
 
   Future<void> fetchBranding() async {
-    // Don't set _isLoading = true here if we already have local data to show
-    // only if we want to show a spinner. But the user wants NO flash.
     try {
-      final result = await _settingsService.getPublicSettings().timeout(const Duration(seconds: 10));
+      debugPrint('[BRANDING] Fetching public settings from: ${AppConfig.baseUrl}');
+      final result = await _settingsService.getPublicSettings().timeout(const Duration(seconds: 30));
       if (result['success'] == true) {
         final data = result['data'];
         if (data != null) {

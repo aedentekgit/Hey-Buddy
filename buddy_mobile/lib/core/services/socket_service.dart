@@ -35,10 +35,6 @@ class SocketService {
         .setAuth({'token': token})
         .setReconnectionAttempts(20) // Increased for robustness
         .setReconnectionDelay(3000)
-        .setExtraHeaders({
-          'origin': 'capacitor://localhost',
-          'access-control-allow-origin': '*',
-        })
         .disableAutoConnect() // Keep discovery manual
         .setQuery({'platform': 'mobile'})
         .build()

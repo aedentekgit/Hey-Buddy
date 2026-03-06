@@ -47,7 +47,10 @@ exports.getAiConfig = getAiConfig;
 exports.proxyChatToPython = async (req, res) => {
     try {
         const { message, session_id, tts } = req.body;
-        const userId = req.user._id;
+
+        // Handle Guest Mode (no token found)
+        const userId = req.user ? req.user._id : `guest_${Date.now()}`;
+        const finalSessionId = session_id || userId.toString();
 
         // Path detection (supporting /chat/stream and /chat/realtime/stream)
         // Path detection (supporting /chat/stream and /chat/realtime/stream)
@@ -139,7 +142,12 @@ exports.proxyChatToPython = async (req, res) => {
 
     } catch (error) {
         const errorMessage = error.response?.data?.detail || error.message;
-        console.error('[AI Gateway] Error proxying to Python:', errorMessage);
+        console.error('[AI Gateway] Error proxying to Python:', {
+            path: req.path,
+            url: pythonEndpoint,
+            status: error.response?.status || 0,
+            message: errorMessage
+        });
         res.status(error.response?.status || 500).json({ success: false, message: errorMessage });
     }
 };
