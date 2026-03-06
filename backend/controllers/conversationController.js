@@ -4,8 +4,7 @@ exports.getConversations = async (req, res) => {
     try {
         const conversations = await Conversation.find({ userId: req.user._id })
             .select('title createdAt updatedAt')
-            .sort({ updatedAt: -1 })
-            .limit(1);
+            .sort({ updatedAt: -1 });
 
         res.status(200).json({
             success: true,

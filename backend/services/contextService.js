@@ -9,13 +9,21 @@ const contextService = {
      * @param {string} conversationId 
      * @returns {Promise<Object>} History and relevant memories
      */
-    getContext: async (userId, conversationId = null, timeZone = 'UTC') => {
+    getContext: async (userId, conversationId = null, preferredTimeZone = 'UTC') => {
         let history = [];
         let memories = [];
         let recentReminders = [];
 
         try {
-            // 1. Define all queries: Always fetch the most recent conversation for the user
+            // 1. Fetch User Config First (needed for timezone/date logic)
+            const mongoose = require('mongoose');
+            const User = mongoose.model('User') || require('../models/User');
+            const userDoc = userId ? await User.findById(userId).select('voicePreferences dateFormat timeFormat timezone') : null;
+
+            // Use stored timezone if available
+            const timeZone = userDoc?.timezone || preferredTimeZone;
+
+            // 2. Define other queries
             const historyPromise = userId
                 ? Conversation.findOne({ userId }).sort({ updatedAt: -1 })
                 : Promise.resolve(null);
@@ -25,43 +33,36 @@ const contextService = {
             const now = new Date();
             let userDate;
             try {
+                // 'en-CA' yields YYYY-MM-DD format
                 userDate = now.toLocaleDateString('en-CA', { timeZone: timeZone });
             } catch (e) {
                 console.warn(`[ContextService] Invalid timezone "${timeZone}", falling back to UTC:`, e.message);
                 userDate = now.toLocaleDateString('en-CA', { timeZone: 'UTC' });
             }
+
+            // Only fetch reminders for TODAY or FUTURE
             const remindersPromise = userId ? Reminder.find({
                 userId,
                 date: { $gte: userDate }
-            }).sort({ date: 1, time: 1 }).limit(5) : Promise.resolve([]);
+            }).sort({ date: 1, time: 1 }).limit(10) : Promise.resolve([]);
 
-            const mongoose = require('mongoose');
-            const User = mongoose.model('User') || require('../models/User');
-            const userPromise = userId ? User.findById(userId).select('voicePreferences dateFormat timeFormat') : Promise.resolve(null);
-
-            // 2. Execute all in parallel
-            const [conversation, memoriesDocs, recentRemindersDocs, userDoc] = await Promise.all([
+            // 3. Execute in parallel
+            const [conversation, memoriesDocs, recentRemindersDocs] = await Promise.all([
                 historyPromise,
                 memoriesPromise,
-                remindersPromise,
-                userPromise
+                remindersPromise
             ]);
 
-            // 3. Process results
+            // 4. Process results
             if (conversation) {
                 history = conversation.messages.slice(-5);
             }
             memories = memoriesDocs || [];
             recentReminders = recentRemindersDocs || [];
 
-            let voicePreferences = { gender: 'female', tone: 'soft' };
-            let dateFormat = 'DD/MM/YYYY';
-            let timeFormat = '12';
-            if (userDoc) {
-                if (userDoc.voicePreferences) voicePreferences = userDoc.voicePreferences;
-                if (userDoc.dateFormat) dateFormat = userDoc.dateFormat;
-                if (userDoc.timeFormat) timeFormat = userDoc.timeFormat;
-            }
+            let voicePreferences = userDoc?.voicePreferences || { gender: 'female', tone: 'soft' };
+            let dateFormat = userDoc?.dateFormat || 'DD/MM/YYYY';
+            let timeFormat = userDoc?.timeFormat || '12';
 
             return {
                 history: history.map(m => ({ role: m.role, content: m.content })),

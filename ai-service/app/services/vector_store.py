@@ -3,15 +3,15 @@ VECTOR STORE SERVICE MODULE
 ===========================
 
 This service builds and queries the FAISS vector index used for context retrieval.
-Learning data (database/learning_data/*.txt) and past chats (database/chats_data/*.json)
+Learning data (database/learning_data/*.txt) and past chats (restored from MongoDB)
 are loaded at startup, split into chunks, embedded with HuggingFace, and stored in FAISS.
 When the user asks a question we embed it and retrieve the k most similar chunks; only
 those chunks are sent to the LLM, so token usage is bounded.
 
 LIFECYCLE:
-  - create_vector_store(): Load all .txt and .json, chunk, embed, build FAISS, save to disk.
-    Called once at startup. Restart the server after adding new .txt files so they are included.
-  - get_retriever(k): Return a retriever that fetches k nearest chunks for a query string.
+  - create_vector_store(): Load all .txt (from disk) and chat history (from DB), chunk, embed, build FAISS, save index to disk.
+    Called once at startup. Restart the server after adding new .txt files or many new conversations.
+    - get_retriever(k): Return a retriever that fetches k nearest chunks for a query string.
   - save_vector_store(): Write the current FAISS index to database/vector_store/ (called after create).
 
 Embeddings run locally (sentence-transformers); no extra API key. Groq and Realtime services
@@ -77,7 +77,6 @@ from langchain_core.documents import Document
 
 from config import (
     LEARNING_DATA_DIR,   # Path to database/learning_data/ (contains .txt knowledge files)
-    CHATS_DATA_DIR,      # Path to database/chats_data/ (contains .json past-conversation files)
     VECTOR_STORE_DIR,    # Path to database/vector_store/ (where the FAISS index is saved on disk)
     EMBEDDING_MODEL,     # Name of the HuggingFace model, e.g. "all-MiniLM-L6-v2"
     CHUNK_SIZE,          # Maximum characters per text chunk (e.g. 1000)
@@ -94,7 +93,7 @@ logger = logging.getLogger("Hey buddy")
 
 class VectorStoreService:
     """
-    Builds a FAISS index from learning_data .txt files and chats_data .json files,
+    Builds a FAISS index from learning_data .txt files and MongoDB-sourced chats,
     and provides a retriever to fetch the k most relevant chunks for a query.
 
     TYPICAL USAGE (inside app startup):
@@ -286,38 +285,6 @@ class VectorStoreService:
         except Exception as e:
             logger.warning("[VECTOR] Failed to fetch chat history from MongoDB: %s", e)
 
-        # ── Step 2: Fallback to local files (LEGACY) ────────────────────────
-        logger.info("[VECTOR] Falling back to local .json files for chat history...")
-        for file_path in sorted(CHATS_DATA_DIR.glob("*.json")):
-            try:
-                # Extract User ID from filename
-                stem = file_path.stem
-                uid = "unknown"
-                if stem.startswith("chat_mobile_"):
-                    parts = stem.split("_")
-                    if len(parts) >= 3:
-                        uid = parts[2]
-                elif stem.startswith("chat_"):
-                    uid = stem[5:] 
-
-                with open(file_path, "r", encoding="utf-8") as f:
-                    chat_data = json.load(f)
-
-                messages = chat_data.get("messages", [])
-                chat_content = "\n".join([
-                    f"User: {msg.get('content', '')}" if msg.get('role') == 'user'
-                    else f"Assistant: {msg.get('content', '')}"
-                    for msg in messages
-                ])
-
-                if chat_content.strip():
-                    documents.append(Document(
-                        page_content=chat_content, 
-                        metadata={"source": f"file_{stem}", "user_id": uid}
-                    ))
-            except Exception as e:
-                logger.warning("Could not load chat history file %s: %s", file_path, e)
-        
         return documents
 
     # -------------------------------------------------------------------------
@@ -372,19 +339,21 @@ class VectorStoreService:
             
         cache_key = f"{k}_{user_id}"
         if cache_key not in self._retriever_cache:
-            # Metadata filtering for privacy
-            # We only want chunks that belong to THIS user OR the system (global)
-            filter_dict = None
-            if user_id:
-                # FAISS metadata filtering (Note: some versions only support 1 value,
-                # but we'll try the common approach or a custom wrap if needed)
-                # If plural filtering isn't native, we use a single match for now
-                # and prioritize security (user's own data).
-                filter_dict = {"user_id": user_id}
+            # Metadata filtering for privacy & shared knowledge
+            # We want chunks that belong to THIS user OR the system (global knowledge)
+            def _multi_tenant_filter(metadata):
+                # Always allow system documents (learning data)
+                # Also allow documents belonging to this specific user
+                allowed_ids = ["system", "global"]
+                if user_id:
+                    allowed_ids.append(str(user_id))
+                
+                doc_uid = str(metadata.get("user_id", "unknown"))
+                return doc_uid in allowed_ids
             
-            # Create retriever with strict filter
+            # Create retriever with multi-tenant filter
             self._retriever_cache[cache_key] = self.vector_store.as_retriever(
-                search_kwargs={"k": k, "filter": filter_dict}
+                search_kwargs={"k": k, "filter": _multi_tenant_filter}
             )
             
         return self._retriever_cache[cache_key]

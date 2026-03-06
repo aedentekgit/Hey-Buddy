@@ -13,6 +13,7 @@ import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/account/screens/account_settings_screen.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -50,6 +51,10 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Request location permission centrally as splash screen is removed
+    _requestLocationPermission();
+
     _pages = [
       ExploreScreen(
         onMemoryTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemoryListScreen())),
@@ -87,6 +92,17 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     _updateTab(index);
+  }
+
+  Future<void> _requestLocationPermission() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+    } catch (e) {
+      debugPrint("Location permission request failed: $e");
+    }
   }
 
   @override

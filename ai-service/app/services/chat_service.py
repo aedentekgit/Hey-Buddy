@@ -66,10 +66,9 @@ from pathlib import Path
 from typing import List, Optional, Dict, Iterator
 import uuid
 
-# CHATS_DATA_DIR: the folder where session JSON files are persisted (database/chats_data/).
 # MAX_CHAT_HISTORY_TURNS: cap on how many (user, assistant) pairs we send to the LLM
 # to keep the prompt within token limits (e.g. 20 turns).
-from config import CHATS_DATA_DIR, MAX_CHAT_HISTORY_TURNS, NODE_BACKEND_URL
+from config import MAX_CHAT_HISTORY_TURNS, NODE_BACKEND_URL
 from app.models import ChatMessage, ChatHistory
 from app.services.groq_service import GroqService
 from app.services.realtime_service import RealtimeGroqService
@@ -104,8 +103,8 @@ class ChatService:
       - All state for active sessions is in self.sessions (a plain dict).
         This is intentionally simple — no database ORM, no Redis. For a
         single-user assistant, an in-memory dict is fast and sufficient.
-      - Saving to disk is done after each message so conversations survive
-        restarts. The trade-off is a small I/O cost per message.
+      - Sessions are synchronized to MongoDB via background threads after 
+        each interaction so conversations survive restarts.
       - The class accepts GroqService and RealtimeGroqService via constructor
         injection (dependency injection pattern), making it easy to test or
         swap implementations.
@@ -165,90 +164,44 @@ class ChatService:
     #   first, the common case (ongoing conversation) is extremely fast.
     # -------------------------------------------------------------------------
 
-    def load_session_from_disk(self, session_id: str) -> bool:
+    def load_session_from_backend(self, session_id: str) -> bool:
         """
-        Attempt to load a previously saved session from the JSON file on disk.
+        Attempt to load a previously saved session from the MongoDB database
+        via the Node.js backend proxy.
 
         HOW IT WORKS:
-          1. Sanitize the session_id to build a safe filename:
-             "abc-123" → "abc123" → "chat_abc123.json"
-          2. Check if that file exists in CHATS_DATA_DIR.
-          3. If yes, read the JSON, convert each message dict back into a
-             ChatMessage object, and store the list in self.sessions[session_id].
+          1. Send a GET request to the Node.js internal conversation endpoint.
+          2. If found, deserialize the messages and store them in memory.
 
         WHY THIS EXISTS:
-          When the server restarts, self.sessions is empty. If a client sends a
-          request with a session_id from a previous run, we need to reload the
-          conversation so the user doesn't lose context.
-
-        SERIALIZATION FORMAT:
-          The JSON file looks like:
-            {
-              "session_id": "abc-123",
-              "messages": [
-                {"role": "user", "content": "Hello!"},
-                {"role": "assistant", "content": "Hi there!"}
-              ]
-            }
-          We reconstruct ChatMessage objects from these dicts.
-
-        Args:
-            session_id: The session identifier to look up on disk.
-
-        Returns:
-            True if the session was successfully loaded into memory.
-            False if the file doesn't exist or couldn't be read.
+          Local disk persistence is disabled. Each time the server restarts,
+          active sessions are restored from the database on-demand.
         """
-        # Sanitize ID for use in filename (no dashes or spaces).
-        # This must match the sanitization logic in save_chat_session().
-        safe_session_id = session_id.replace("-", "").replace(" ", "_")
-        filename = f"chat_{safe_session_id}.json"
-        filepath = CHATS_DATA_DIR / filename
-
-        if not filepath.exists():
-            # FALLBACK: Try to fetch from Node.js backend if disk file doesn't exist
-            try:
-                backend_url = NODE_BACKEND_URL
-                logger.info(f"Session {session_id} not on disk, trying backend fallback...")
-                resp = requests.get(f"{backend_url}/api/conversations/internal/{session_id}", timeout=5)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if data.get("success") and data.get("data"):
-                        conv = data["data"]
-                        messages = [
-                            ChatMessage(role=msg.get("role"), content=msg.get("content"))
-                            for msg in conv.get("messages", [])
-                        ]
-                        self.sessions[session_id] = messages
-                        logger.info(f"Successfully restored history for session {session_id} from MongoDB")
-                        # Local caching to disk is disabled per user request. 
-                        # The session is now only held in memory for this run.
-                        # self.save_chat_session(session_id, log_timing=False)
-                        return True
-            except Exception as ex:
-                logger.warning(f"Failed to fetch session {session_id} from backend: {ex}")
-            return False
-
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                chat_dict = json.load(f)
-            # Convert stored dicts back to ChatMessage objects.
-            # The JSON structure is: {"session_id": "...", "messages": [{"role": "...", "content": "..."}, ...]}
-            # We use .get() with defaults to handle any missing fields gracefully.
-            messages = [
-                ChatMessage(role=msg.get("role"), content=msg.get("content"))
-                for msg in chat_dict.get("messages", [])
-            ]
-            # Store the loaded messages in the in-memory dict so subsequent
-            # requests for this session don't need to touch disk again.
-            self.sessions[session_id] = messages
-            return True
-        except Exception as e:
-            # Don't crash — if one session file is corrupt, the rest still work.
-            # This is a defensive pattern: log the error and return False so the
-            # caller (get_or_create_session) will create a fresh session instead.
-            logger.warning("Failed to load session %s from disk: %s", session_id, e)
-            return False
+            backend_url = os.getenv("NODE_BACKEND_URL", "http://localhost:5001")
+            logger.info(f"Session {session_id} not in memory, restoring from MongoDB...")
+            
+            # The backend route is /api/conversations/internal/:userId
+            # Note: session_id is often the userId or a composite.
+            resp = requests.get(f"{backend_url}/api/conversations/internal/{session_id}", timeout=5)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("success") and data.get("data"):
+                    conv = data["data"]
+                    messages = [
+                        ChatMessage(role=msg.get("role"), content=msg.get("content"))
+                        for msg in conv.get("messages", [])
+                    ]
+                    self.sessions[session_id] = messages
+                    logger.info(f"Successfully restored history for session {session_id} from MongoDB")
+                    return True
+            else:
+                logger.debug(f"No history found for session {session_id} in MongoDB (Status: {resp.status_code})")
+        except Exception as ex:
+            logger.warning(f"Failed to fetch session {session_id} from backend: {ex}")
+        
+        return False
 
     def validate_session_id(self, session_id: str) -> bool:
         """
@@ -344,10 +297,10 @@ class ChatService:
             logger.info("[TIMING] session_get_or_create: %.3fs (memory)", time.perf_counter() - t0)
             return session_id
 
-        # Medium path: session was saved to disk in a previous server run.
-        # load_session_from_disk() reads the JSON file and populates self.sessions.
-        if self.load_session_from_disk(session_id):
-            logger.info("[TIMING] session_get_or_create: %.3fs (disk)", time.perf_counter() - t0)
+        # Medium path: session was saved to the database in a previous server run.
+        # load_session_from_backend() fetches from Node.js and populates self.sessions.
+        if self.load_session_from_backend(session_id):
+            logger.info("[TIMING] session_get_or_create: %.3fs (mongodb)", time.perf_counter() - t0)
             return session_id
 
         # New session with this ID (e.g. client sent an ID that was never saved).
@@ -759,31 +712,15 @@ class ChatService:
 
     def save_chat_session(self, session_id: str, log_timing: bool = True):
         """
-        Write this session's messages to database/chats_data/chat_{safe_id}.json.
-
-        FILENAME SANITIZATION:
-          The session_id (typically a UUID like "a1b2c3d4-e5f6-...") is sanitized
-          by removing dashes and replacing spaces with underscores. This ensures
-          the filename is safe on all operating systems (Windows, macOS, Linux).
-          Example: "a1b2c3d4-e5f6" → "chat_a1b2c3d4e5f6.json"
+        Synchronize this session's messages to MongoDB via the Node.js backend.
 
         WHEN THIS IS CALLED:
           - After each completed message (blocking mode).
-          - Every SAVE_EVERY_N_CHUNKS chunks during streaming.
           - Once at the end of streaming (in the `finally` block).
-
-        SAFETY:
-          - If the session doesn't exist or is empty, we silently return (no-op).
-            This prevents creating empty JSON files for sessions with no messages.
-          - If the write fails (disk full, permissions, etc.), we log the error
-            but don't crash — the in-memory session is still intact.
-          - We use ensure_ascii=False so non-English characters are preserved
-            (e.g. Chinese, Arabic, emoji all save correctly).
 
         Args:
             session_id: The session to persist.
-            log_timing: If False, skip the timing log. Used during periodic chunk
-                        saves to avoid flooding the log during streaming.
+            log_timing: If False, skip the timing log.
         """
         # Guard: don't create empty files for non-existent or empty sessions.
         if session_id not in self.sessions or not self.sessions[session_id]:

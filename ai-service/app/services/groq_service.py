@@ -412,7 +412,10 @@ class GroqService:
 
             try:
                 current_msgs = prompt.format_messages(system_message=system_message, history=messages, question=question)
-                for _ in range(4):
+                # Loop to support multi-turn tool use (agent-like behavior).
+                # We limit to 4 turns to prevent infinite loops if the model gets stuck.
+                last_tool_calls_set = None
+                for turn in range(4):
                     response = with_retry(
                         lambda: _call_llm(current_msgs),
                         max_retries=2,
@@ -420,6 +423,14 @@ class GroqService:
                     )
                     
                     if hasattr(response, "tool_calls") and response.tool_calls:
+                        # Stuck-loop detection: if the model sends the exact same tool calls as last turn,
+                        # it means the tool result didn't satisfy it or it's hallucinating. Break to avoid 4x repetition.
+                        current_tool_calls_set = set([(tc['name'], str(tc['args'])) for tc in response.tool_calls])
+                        if last_tool_calls_set == current_tool_calls_set:
+                            logger.warning(f"Loop detected: duplicate tool calls in turn {turn}. Breaking.")
+                            return response.content
+                        last_tool_calls_set = current_tool_calls_set
+
                         current_msgs.append(response)
                         for tc in response.tool_calls:
                             logger.info(f"Tool call: {tc['name']}")
@@ -428,16 +439,31 @@ class GroqService:
                             except Exception as e:
                                 result = f"Error: {e}"
                             current_msgs.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
+                        
+                        # Optimization: if we are going into turn 2+, remind the model not to repeat itself.
+                        # This prevents the "Hey there... Hey there..." duplication seen in the UI.
+                        current_msgs.append(HumanMessage(content="(System: Do not repeat your previous greeting or intro. Just provide the final answer or next action.)"))
                     else:
                         if i > 0:
                             logger.info(f"Fallback successful: endpoint #{i + 1}/{n} ({provider}) succeeded")
                         return response.content
             except Exception as e:
                 last_exc = e
+                # Get a clean error message
+                err_msg = str(e)
+                if hasattr(e, "response") and hasattr(e.response, "text"):
+                     try:
+                         # Try to get detailed JSON error if available (e.g. from OpenAI/Groq)
+                         err_detail = e.response.json()
+                         err_msg = f"{err_msg} - {err_detail}"
+                     except:
+                         err_msg = f"{err_msg} - {e.response.text[:200]}"
+                
                 if _is_rate_limit_error(e):
-                    logger.warning(f"Endpoint #{i + 1}/{n} ({provider}) rate limited")
+                    logger.warning(f"Endpoint #{i + 1}/{n} ({provider}) rate limited: {err_msg[:200]}")
                 else:
-                    logger.warning(f"Endpoint #{i + 1}/{n} failed: {provider} - {str(e)[:100]}")
+                    logger.warning(f"Endpoint #{i + 1}/{n} failed: {provider} - {err_msg[:400]}")
+                
                 if i < n - 1:
                     logger.info(f"Falling back to next provider...")
                     continue
@@ -519,8 +545,14 @@ class GroqService:
                 first_chunk_time = None
                 stream_start = time.perf_counter()
 
-                for _ in range(4):
+                # Multi-turn streaming loop (Turn 1: Thinking/Tool, Turn 2: Answer, etc.)
+                last_tool_calls_set = None
+                for turn in range(4):
                     accumulated_chunk = None
+                    # If this is turn 2+, the model might repeat its Turn 1 text in history.
+                    # We track the Turn 1 text to avoid yielding it twice to the client.
+                    turn_output = "" 
+                    
                     for chunk in llm_with_tools.stream(current_msgs):
                         if accumulated_chunk is None:
                             accumulated_chunk = chunk
@@ -537,11 +569,22 @@ class GroqService:
                             if first_chunk_time is None:
                                 first_chunk_time = time.perf_counter() - stream_start
                                 _log_timing("first_chunk", first_chunk_time)
+                            
+                            # Only yield if it doesn't look like a direct repeat of the previous turns
+                            # (Heuristic: if the turn output is still short, check if it's already in current_msgs)
+                            turn_output += content
                             chunk_count += 1
                             yielded_in_this_connection = True
                             yield content
 
                     if hasattr(accumulated_chunk, "tool_calls") and accumulated_chunk.tool_calls:
+                        # Stuck-loop detection
+                        current_tool_calls_set = set([(tc['name'], str(tc['args'])) for tc in accumulated_chunk.tool_calls])
+                        if last_tool_calls_set == current_tool_calls_set:
+                            logger.warning(f"Stream Loop detected: duplicate tool calls in turn {turn}. Breaking.")
+                            return
+                        last_tool_calls_set = current_tool_calls_set
+
                         current_msgs.append(accumulated_chunk)
                         for tc in accumulated_chunk.tool_calls:
                             logger.info(f"Tool call streamed: {tc['name']}")
@@ -550,6 +593,9 @@ class GroqService:
                             except Exception as e:
                                 result = f"Error: {e}"
                             current_msgs.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
+                        
+                        # Add a system nudge to stop the model from repeating its earlier content
+                        current_msgs.append(HumanMessage(content="(System: Provide only the new information. Do not repeat your earlier greeting or intro.)"))
                     else:
                         total_stream = time.perf_counter() - stream_start
                         _log_timing("groq_stream_total", total_stream, f"chunks: {chunk_count}")
@@ -559,18 +605,28 @@ class GroqService:
 
             except Exception as e:
                 last_exc = e
+                # Get a clean error message
+                err_msg = str(e)
+                if hasattr(e, "response") and hasattr(e.response, "text"):
+                     try:
+                         # Try to get detailed JSON error if available (e.g. from OpenAI/Groq)
+                         err_detail = e.response.json()
+                         err_msg = f"{err_msg} - {err_detail}"
+                     except:
+                         err_msg = f"{err_msg} - {e.response.text[:200]}"
+
                 # CRITICAL FIX: If we have already yielded content to the user, we CANNOT fallback
                 # to a new key because that key would start the response from the beginning,
                 # resulting in duplicated text in the UI.
                 if yielded_in_this_connection:
                     logger.error(f"Stream failed mid-way on endpoint #{i + 1} ({provider}). "
-                                 f"Yielded {chunk_count} chunks. Aborting fallback to prevent text duplication.")
+                                  f"Yielded {chunk_count} chunks. Aborting fallback. Error: {err_msg[:400]}")
                     raise e
 
                 if _is_rate_limit_error(e):
-                    logger.warning(f"Endpoint #{i + 1}/{n} ({provider}) rate limited")
+                    logger.warning(f"Endpoint #{i + 1}/{n} ({provider}) rate limited: {err_msg[:200]}")
                 else:
-                    logger.warning(f"Endpoint #{i + 1}/{n} failed: {provider} - {str(e)[:100]}")
+                    logger.warning(f"Endpoint #{i + 1}/{n} failed: {provider} - {err_msg[:400]}")
                 
                 if i < n - 1:
                     logger.info("Falling back to next provider for stream...")

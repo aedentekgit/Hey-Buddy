@@ -9,6 +9,8 @@ import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 
+import 'package:buddy_mobile/features/home/screens/main_screen.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -20,18 +22,15 @@ final GlobalKey<NavigatorState> globalNavigatorKey = GlobalKey<NavigatorState>()
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase in the background without blocking the splash screen
-  unawaited(Firebase.initializeApp().then((_) async {
-    debugPrint("Firebase initialized successfully");
-    
-    // Register background handler
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    final notificationService = NotificationService();
-    await notificationService.initialize();
-  }).catchError((e) {
-    debugPrint("Firebase/Notification background initialization failed: $e");
-  }));
+  // Initialize Firebase in the background
+  try {
+     await Firebase.initializeApp();
+     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+     final notificationService = NotificationService();
+     await notificationService.initialize();
+  } catch (e) {
+    debugPrint("Firebase/Notification initialization failed: $e");
+  }
   
   // Pre-load SharedPreferences to eliminate hydration lag
   final prefs = await SharedPreferences.getInstance();
@@ -40,7 +39,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => BrandingProvider(prefs)..fetchBranding()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()..tryAutoLogin()),
         ChangeNotifierProvider(create: (_) => MemoriesProvider()),
         ChangeNotifierProvider(create: (_) => TasksProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
@@ -63,7 +62,7 @@ class BuddyApp extends StatelessWidget {
           title: branding.appName,
           debugShowCheckedModeBanner: false,
           theme: branding.themeData,
-          home: const SplashScreen(),
+          home: const MainScreen(),
           builder: (context, child) {
             return UpdateWrapper(child: child!);
           },

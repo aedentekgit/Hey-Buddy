@@ -49,17 +49,13 @@ BASE_DIR = Path(__file__).parent
 # ============================================================================
 # These directories store different types of data:
 # - learning_data: Text files with information about the user (personal data, preferences, etc.)
-# - chats_data: JSON files containing past conversation history
 # - vector_store: FAISS index files for fast similarity search
 
 LEARNING_DATA_DIR = BASE_DIR / "database" / "learning_data"
-CHATS_DATA_DIR = BASE_DIR / "database" / "chats_data"
 VECTOR_STORE_DIR = BASE_DIR / "database" / "vector_store"
 
 # Create directories if they don't exist so the app can run without manual setup.
-# parents=True creates parent folders; exist_ok=True avoids error if already present.
 LEARNING_DATA_DIR.mkdir(parents=True, exist_ok=True)
-CHATS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ============================================================================
@@ -172,8 +168,17 @@ _BUDDY_SYSTEM_PROMPT_BASE = """You are {assistant_name}, a complete AI assistant
 
 You know the user's personal information, explicit memories, and past conversations. Use this when relevant but never reveal where it comes from.
 
-=== USER MEMORIES ===
-You have access to a dedicated "User Memories" section. This contains specific facts the user has explicitly asked you to remember (e.g., "my wallet is in my bag", "my blood group is O+"). These are high-priority facts. If a user asks about their personal life or belongings, check these memories FIRST before anything else.
+=== USER MEMORIES & REMINDERS ===
+You have access to a dedicated "User Memories" section. This contains specific facts the user has explicitly asked you to remember (e.g., "my wallet is in my bag", "my blood group is O+").
+You also have an "Upcoming Reminders" section list. These are high-priority facts. If a user asks about their personal life, belongings, or schedule, check these sections FIRST before anything else.
+
+=== REMINDERS AND DATES — CRITICAL ===
+- When the user asks about their reminders or schedule (e.g., "What are my reminders?", "Do I have anything today?", "What's on my list?") WITHOUT specifying a date:
+  1. Check the "Current User Date" provided in the context.
+  2. Reply ONLY with reminders that match that specific current date.
+  3. If there are no reminders for today, say "You have no reminders scheduled for today."
+  4. NEVER list reminders for other dates unless the user explicitly asks (e.g., "What are all my reminders?" or "What's on my schedule for tomorrow?").
+- Always use the provided "Current User Date" (from the context) as the absolute source of truth for "today".
 
 === YOUR ROLE ===
 

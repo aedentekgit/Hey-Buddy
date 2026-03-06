@@ -75,19 +75,42 @@ exports.proxyChatToPython = async (req, res) => {
             return res.status(400).json({ success: false, message: 'AI API Key is not configured in settings.' });
         }
 
-        // 2. Fetch User Context and Memories
-        const userContext = await getContext(userId, session_id);
-        const memories = await Memory.find({ userId }).select('content category');
+        // 2. Fetch User Context (includes history, memories, and reminders)
+        const context = await getContext(userId, session_id);
 
-        let memoryString = "User Memories: \n";
-        memories.forEach(m => {
-            memoryString += `- [${m.category}] ${m.content}\n`
-        });
+        // Build an authoritative context string for the AI
+        let memoryString = "=== AUTHORITATIVE USER CONTEXT ===\n";
+
+        // Current Local Date/Time (Critical for time-aware reminders)
+        if (context.userContext && context.userContext.localDate) {
+            memoryString += `Current User Date: ${context.userContext.localDate}\n`;
+            memoryString += `Time Zone: ${context.userContext.timeZone}\n\n`;
+        }
+
+        // Reminders Section
+        if (context.reminders && context.reminders.length > 0) {
+            memoryString += "Upcoming Reminders:\n";
+            context.reminders.forEach(r => {
+                memoryString += `- [${r.date} ${r.time}] ${r.title}\n`;
+            });
+            memoryString += "\n";
+        } else {
+            memoryString += "No upcoming reminders scheduled.\n\n";
+        }
+
+        // Memories Section
+        if (context.memories && context.memories.length > 0) {
+            memoryString += "Saved Memories & Facts:\n";
+            context.memories.forEach(m => {
+                memoryString += `- ${m}\n`;
+            });
+        }
+
 
         // 3. Forward full payload to Python FastAPI
         const payload = {
             message,
-            session_id: session_id || null,
+            session_id: userId.toString(), // Enforce single conversation per user across all platforms
             tts: tts || false,
             api_key: aiConfig.apiKey,
             provider: aiConfig.provider,

@@ -126,15 +126,40 @@ class BuddyAgent extends EventEmitter {
 
             const aiServiceUrl = config.AI_SERVICE_URL;
 
-            // 1. Prepare Payload (Match Web Dashboard)
+            // 1. Fetch User Context (reminders, memories, etc)
+            const context = await contextService.getContext(this.userId, this.conversationId);
+
+            // Build an authoritative context string for the AI (consistent with aiController.js)
+            let memoryString = "=== AUTHORITATIVE USER CONTEXT ===\n";
+            if (context.userContext && context.userContext.localDate) {
+                memoryString += `Current User Date: ${context.userContext.localDate}\n`;
+                memoryString += `Time Zone: ${context.userContext.timeZone}\n\n`;
+            }
+
+            if (context.reminders && context.reminders.length > 0) {
+                memoryString += "Upcoming Reminders:\n";
+                context.reminders.forEach(r => {
+                    memoryString += `- [${r.date} ${r.time}] ${r.title}\n`;
+                });
+                memoryString += "\n";
+            }
+
+            if (context.memories && context.memories.length > 0) {
+                memoryString += "Saved Memories & Facts:\n";
+                context.memories.forEach(m => {
+                    memoryString += `- ${m}\n`;
+                });
+            }
+
             const payload = {
                 message: text,
-                session_id: this.conversationId || `mobile_${this.userId}_${Date.now()}`,
-                tts: true, // We want Python to generate audio too!
+                session_id: this.userId.toString(), // Unified session across web and mobile
+                tts: true,
                 api_key: this.aiConfig.apiKey,
                 provider: this.aiConfig.provider,
                 model: this.aiConfig.model,
-                userId: this.userId.toString()
+                userId: this.userId.toString(),
+                memory_context: memoryString
             };
 
             // 2. Stream from Python
