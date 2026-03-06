@@ -31,7 +31,7 @@ export const VoiceAssistantProvider = ({ children }) => {
     const recognitionRef = useRef(null);
     const isSpeakingRef = useRef(false);
     const silenceTimerRef = useRef(null);
-    const isIntentionalStop = useRef(false);
+    const isIntentionalStop = useRef(true);
 
     // Sync settings
     const language = settings?.general?.language || 'en-US';
@@ -138,8 +138,9 @@ export const VoiceAssistantProvider = ({ children }) => {
     useEffect(() => {
         if (!recognitionRef.current) return;
 
-        if (preventProcessing) {
-            console.log('[VoiceContext] ✋ Inhibiting global recognition');
+        // Only start recognition if user is authenticated AND processing is not inhibited
+        if (preventProcessing || !user) {
+            console.log(`[VoiceContext] ✋ Inhibiting global recognition (${!user ? 'No user' : 'Inhibited'})`);
             isIntentionalStop.current = true;
             try { recognitionRef.current.stop(); } catch (e) { }
         } else {
@@ -153,7 +154,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                 // Silently fail if blocked, don't trigger error state yet
             }
         }
-    }, [preventProcessing]);
+    }, [preventProcessing, user]);
 
     // Turn-taking logic with inhibit check
     const processInteraction = async (text) => {

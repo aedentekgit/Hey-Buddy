@@ -196,6 +196,14 @@
     {
       "role": "assistant",
       "content": "You have a doctor appointment that was scheduled for 9:00 AM today and a reminder to check in with you at 10:00 AM."
+    },
+    {
+      "role": "user",
+      "content": "hi dear"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello, Sabari. I am here and ready to help. What is on your mind?"
     }
   ]
 }
