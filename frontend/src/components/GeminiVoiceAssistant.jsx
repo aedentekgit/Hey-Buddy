@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSettings } from '../context/SettingsContext';
+import { config } from '../config/env';
 
 const GeminiVoiceAssistant = ({ onBack, user }) => {
     const { settings } = useSettings();
@@ -9,7 +10,7 @@ const GeminiVoiceAssistant = ({ onBack, user }) => {
 
     // Prepare query parameters for proxying and auth
     const token = localStorage.getItem('token');
-    const apiBase = window.location.protocol + '//' + window.location.hostname + ':5001/api/ai';
+    const apiBase = `${config.API_URL}/ai`;
 
     const url = new URL(baseAssistantUrl);
     url.searchParams.set('apiBase', apiBase);

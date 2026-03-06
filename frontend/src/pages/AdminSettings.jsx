@@ -1150,6 +1150,8 @@ const AdminSettings = () => {
                                                     value={settings.ai.activeVoiceModel}
                                                     onChange={e => setSettings({ ...settings, ai: { ...settings.ai, activeVoiceModel: e.target.value } })}
                                                     options={[
+                                                        { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (Voice Optimized)' },
+                                                        { value: 'gemini-1.5-flash-002', label: 'Gemini 1.5 Flash (Production)' },
                                                         { value: 'gemini-pro-latest', label: 'Gemini Pro (Advanced Intelligence)' },
                                                         { value: 'gemini-flash-lite-latest', label: 'Gemini Flash Lite (Fastest)' },
                                                         { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Standard)' }

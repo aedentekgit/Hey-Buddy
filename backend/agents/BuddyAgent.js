@@ -147,8 +147,8 @@ STRICT RULES:
                     if (isCompatible) {
                         targetModel = `models/${voiceModelId}`;
                     } else {
-                        console.warn(`[BuddyAgent] ⚠️ Incompatible Voice Model detected: "${voiceModelId}". Falling back to gemini-2.0-flash.`);
-                        targetModel = 'models/gemini-1.5-flash';
+                        console.warn(`[BuddyAgent] ⚠️ Incompatible Voice Model detected: "${voiceModelId}". Falling back to gemini-2.0-flash-exp.`);
+                        targetModel = 'models/gemini-2.0-flash-exp';
                     }
                     console.info(`[BuddyAgent] 🧠 Resolving "${modelId}" -> "${targetModel}" (Voice Optimization)`);
                 } else {

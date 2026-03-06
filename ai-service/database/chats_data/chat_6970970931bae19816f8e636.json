@@ -204,6 +204,14 @@
     {
       "role": "assistant",
       "content": "Hello, Sabari. I am here and ready to help. What is on your mind?"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello, Sabari. I am here. What can I do for you?"
     }
   ]
 }
