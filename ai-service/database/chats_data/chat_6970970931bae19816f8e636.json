@@ -164,6 +164,14 @@
     {
       "role": "assistant",
       "content": "Hello. I am here and ready to assist you. What is on your mind?"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello. I am here and ready to help. What can I do for you?"
     }
   ]
 }

@@ -135,10 +135,13 @@ export const VoiceAssistantProvider = ({ children }) => {
     useEffect(() => {
         if (!recognitionRef.current) return;
 
-        if (preventProcessing) {
-            console.log('[VoiceContext] ✋ Inhibiting global recognition');
+        // Only start recognition if user is authenticated AND processing is not inhibited
+        if (preventProcessing || !user) {
+            console.log(`[VoiceContext] ✋ Inhibiting global recognition (${!user ? 'No user' : 'Inhibited'})`);
             isIntentionalStop.current = true;
-            recognitionRef.current.stop();
+            try {
+                recognitionRef.current.stop();
+            } catch (e) { }
         } else {
             console.log('[VoiceContext] 🎧 Resuming global recognition');
             isIntentionalStop.current = false;
@@ -147,7 +150,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                 recognitionRef.current.start();
             } catch (e) { }
         }
-    }, [preventProcessing]);
+    }, [preventProcessing, user]);
 
     // Turn-taking logic with inhibit check
     const processInteraction = async (text) => {
