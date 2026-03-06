@@ -12,6 +12,7 @@ import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
@@ -524,11 +525,13 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6, left: 4, right: 4),
                       child: Text(
-                        isUser ? "You" : "Buddy (Assistant)",
+                        isUser 
+                          ? "You • ${DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch))}" 
+                          : "Buddy (Assistant) • ${DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch))}",
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF64748B), // Muted Slate
+                          color: const Color(0xFF94A3B8), // Muted Slate
                         ),
                       ),
                     ),
@@ -634,11 +637,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6, left: 4, right: 4),
                   child: Text(
-                    "Buddy (Assistant)",
+                    "Buddy (Assistant) • ${DateFormat('h:mm a').format(DateTime.now())}",
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF64748B),
+                      color: const Color(0xFF94A3B8),
                     ),
                   ),
                 ),
@@ -852,6 +855,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           AnimatedAIInputField(
             controller: _inputController,
             isListening: _isListening,
+            isSpeaking: provider.isSpeaking,
             isEnabled: true,
             onMicPressed: _isListening ? _stopListening : _startListening,
             onAttachPressed: _pickImage,

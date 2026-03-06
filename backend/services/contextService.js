@@ -23,7 +23,13 @@ const contextService = {
             const memoriesPromise = userId ? Memory.find({ userId }).sort({ createdAt: -1 }).limit(10) : Promise.resolve([]);
 
             const now = new Date();
-            const userDate = now.toLocaleDateString('en-CA', { timeZone: timeZone });
+            let userDate;
+            try {
+                userDate = now.toLocaleDateString('en-CA', { timeZone: timeZone });
+            } catch (e) {
+                console.warn(`[ContextService] Invalid timezone "${timeZone}", falling back to UTC:`, e.message);
+                userDate = now.toLocaleDateString('en-CA', { timeZone: 'UTC' });
+            }
             const remindersPromise = userId ? Reminder.find({
                 userId,
                 date: { $gte: userDate }

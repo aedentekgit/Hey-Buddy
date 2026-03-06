@@ -50,7 +50,7 @@ class BuddyService {
           'timeZone': DateTime.now().timeZoneName,
           'clientTimestamp': DateTime.now().millisecondsSinceEpoch,
         }),
-      );
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -209,7 +209,7 @@ class BuddyService {
       final response = await http.get(
         Uri.parse(url),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }

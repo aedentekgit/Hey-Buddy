@@ -1178,9 +1178,13 @@ function addMessage(role, text) {
 
     const label = document.createElement('div');
     label.className = 'msg-label';
+
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
     label.textContent = role === 'assistant'
-        ? `Hey buddy (${currentMode === 'realtime' ? 'Realtime' : 'General'})`
-        : 'You';
+        ? `Hey buddy (${currentMode === 'realtime' ? 'Realtime' : 'General'}) • ${timeString}`
+        : `You • ${timeString}`;
 
     const content = document.createElement('div');
     content.className = 'msg-content';
@@ -1221,7 +1225,11 @@ function addTypingIndicator() {
 
     const label = document.createElement('div');
     label.className = 'msg-label';
-    label.textContent = `Hey buddy (${currentMode === 'realtime' ? 'Realtime' : 'General'})`;
+
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    label.textContent = `Hey buddy (${currentMode === 'realtime' ? 'Realtime' : 'General'}) • ${timeString}`;
 
     const content = document.createElement('div');
     content.className = 'msg-content';

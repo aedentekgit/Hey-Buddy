@@ -3,7 +3,10 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const { protect } = require('../middlewares/auth');
-const { uploadDocument, queryKnowledge, getDocuments } = require('../controllers/ragController');
+const { uploadDocument, queryKnowledge, getDocuments, getAllKnowledge } = require('../controllers/ragController');
+
+// Consolidated Knowledge for AI Vector indexing
+router.get('/internal/all-knowledge', getAllKnowledge);
 
 router.use(protect);
 

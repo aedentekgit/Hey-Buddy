@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { config } from '../config/env';
 
 const GeminiVoiceAssistant = ({ onBack, user }) => {
     const { settings } = useSettings();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const handleMessage = (event) => {
+            if (event.data === 'go_home') {
+                navigate('/admin/dashboard');
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [navigate]);
 
     // Use dynamic URL from settings or fallback to Python AI service port (8000)
     const baseAssistantUrl = settings?.ai?.aiAssistantApiUrl || 'http://localhost:8000/app/';

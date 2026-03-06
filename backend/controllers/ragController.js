@@ -1,4 +1,7 @@
 const Document = require('../models/Document');
+const Memory = require('../models/Memory');
+const Reminder = require('../models/Reminder');
+const Prescription = require('../models/Prescription');
 const Settings = require('../models/Settings');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require('fs');
@@ -97,6 +100,33 @@ exports.getDocuments = async (req, res) => {
     try {
         const docs = await Document.find({ userId: req.user._id }).sort({ createdAt: -1 });
         res.status(200).json({ success: true, data: docs });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * INTERNAL USE ONLY: Fetch absolutely everything for Python RAG indexing
+ * Consolidated across all knowledge-base models
+ */
+exports.getAllKnowledge = async (req, res) => {
+    try {
+        // We fetch everything. The Python side will handle chunking and multi-tenant isolation via metadata.
+        const [docs, memories, reminders, prescriptions] = await Promise.all([
+            Document.find({}).lean(),
+            Memory.find({}).lean(),
+            Reminder.find({}).lean(),
+            Prescription.find({}).lean()
+        ]);
+
+        const consolidated = {
+            documents: docs,
+            memories: memories,
+            reminders: reminders,
+            prescriptions: prescriptions
+        };
+
+        res.status(200).json({ success: true, data: consolidated });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

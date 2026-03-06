@@ -61,6 +61,7 @@ to convert a piece of text into a fixed-size numeric vector (e.g. 384 dimensions
 
 import json
 import logging
+import requests
 from pathlib import Path
 from typing import List, Optional
 
@@ -173,6 +174,75 @@ class VectorStoreService:
                 logger.warning("Could not load learning data file %s: %s", file_path, e)
         return documents
 
+    def load_user_knowledge(self) -> List[Document]:
+        """
+        Consolidated loader for User Knowledge (Reminders, Memories, Docs, Prescriptions).
+        Fetches everything from the Node.js backend's all-knowledge endpoint.
+        """
+        documents = []
+        from config import NODE_BACKEND_URL
+        
+        try:
+            logger.info("[VECTOR] Fetching consolidated knowledge from MongoDB...")
+            resp = requests.get(f"{NODE_BACKEND_URL}/api/knowledge/internal/all-knowledge", timeout=15)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("success") and data.get("data"):
+                    knowledge = data["data"]
+                    
+                    # 1. Process Memories
+                    for mem in knowledge.get("memories", []):
+                        uid = mem.get("userId", "unknown")
+                        content = mem.get("content", "")
+                        if content.strip():
+                            documents.append(Document(
+                                page_content=f"Memory: {content} (Category: {mem.get('category', 'general')})",
+                                metadata={"source": f"memory_{mem.get('_id')}", "user_id": uid, "type": "memory"}
+                            ))
+
+                    # 2. Process Reminders
+                    for rem in knowledge.get("reminders", []):
+                        uid = rem.get("userId", "unknown")
+                        title = rem.get("title", "")
+                        desc = rem.get("description", "") or rem.get("notes", "")
+                        reminder_text = f"Reminder: {title}\nDetails: {desc}\nDate: {rem.get('date')}\nTime: {rem.get('time')}\nLocation: {rem.get('location', 'N/A')}\nStatus: {rem.get('status')}"
+                        
+                        if title.strip():
+                            documents.append(Document(
+                                page_content=reminder_text,
+                                metadata={"source": f"reminder_{rem.get('_id')}", "user_id": uid, "type": "reminder"}
+                            ))
+
+                    # 3. Process Documents (PDF/Image extractions)
+                    for doc in knowledge.get("documents", []):
+                        uid = doc.get("userId", "unknown")
+                        content = doc.get("content", "")
+                        if content.strip():
+                            documents.append(Document(
+                                page_content=f"Document ({doc.get('fileName')}): {content}",
+                                metadata={"source": f"doc_{doc.get('_id')}", "user_id": uid, "type": "document"}
+                            ))
+
+                    # 4. Process Prescriptions
+                    for pres in knowledge.get("prescriptions", []):
+                        uid = pres.get("userId", "unknown")
+                        summary = pres.get("summary", "")
+                        ext_data = pres.get("extractedData", {})
+                        pres_text = f"Prescription Summary: {summary}\nExtracted Meds: {json.dumps(ext_data.get('medicines', []))}"
+                        
+                        if summary.strip():
+                            documents.append(Document(
+                                page_content=pres_text,
+                                metadata={"source": f"prescription_{pres.get('_id')}", "user_id": uid, "type": "prescription"}
+                            ))
+
+                    logger.info("[VECTOR] Loaded %d items from backend knowledge pools", len(documents))
+        except Exception as e:
+            logger.warning("[VECTOR] Knowledge fetch failed: %s", e)
+
+        return documents
+
     def load_chat_history(self) -> List[Document]:
         """
         Load chat history for the vector store.
@@ -260,7 +330,9 @@ class VectorStoreService:
         """
         learning_docs = self.load_learning_data()
         chat_docs = self.load_chat_history()
-        all_documents = learning_docs + chat_docs
+        knowledge_docs = self.load_user_knowledge()
+        
+        all_documents = learning_docs + chat_docs + knowledge_docs
         
         if not all_documents:
             # Create a placeholder with "system" user_id

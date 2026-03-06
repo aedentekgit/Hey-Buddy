@@ -15,15 +15,28 @@ console.log('MONGODB_URI Status:', process.env.MONGODB_URI ? 'LOADED' : 'MISSING
 const app = express();
 
 // Middleware
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/voice/parse')) {
+        console.log(`[CORS] Incoming ${req.method} to ${req.path} from Origin: ${req.headers.origin}`);
+    }
+    next();
+});
+
 app.use(cors({
     origin: [
         config.FRONTEND_URL,
         config.FRONTEND_URL_ALT,
         config.AI_SERVICE_URL,
         'https://ayuskart.com',
-        'https://staging.ayuskart.com'
+        'https://staging.ayuskart.com',
+        'null',
+        'capacitor://localhost',
+        'http://localhost',
+        'http://localhost:5001'
     ].filter(Boolean),
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-platform']
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -105,7 +118,11 @@ const io = new Server(server, {
             config.FRONTEND_URL_ALT,
             config.AI_SERVICE_URL,
             'https://ayuskart.com',
-            'https://staging.ayuskart.com'
+            'https://staging.ayuskart.com',
+            'null',
+            'capacitor://localhost',
+            'http://localhost',
+            'http://localhost:5001'
         ].filter(Boolean),
         credentials: true
     },

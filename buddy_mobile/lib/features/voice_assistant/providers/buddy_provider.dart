@@ -31,7 +31,9 @@ class BuddyProvider with ChangeNotifier {
   List<String> _localNews = [];
   String? _localCity;
   bool _needsLogin = false;
+  bool _isSpeaking = false;
   bool get needsLogin => _needsLogin;
+  bool get isSpeaking => _isSpeaking;
 
   // TTS Buffering Variables
   String _ttsBuffer = '';
@@ -87,6 +89,7 @@ class BuddyProvider with ChangeNotifier {
     _ttsQueue.clear();
     _ttsBuffer = '';
     _isSpeakingQueue = false;
+    _isSpeaking = false;
     socketService.interrupt(); // TELL BACKEND TO STOP STREAMING
     await _flutterTts.stop();
     await _audioPlayer.stop();
@@ -201,12 +204,15 @@ class BuddyProvider with ChangeNotifier {
                if (state == PlayerState.stopped && !completer.isCompleted) completer.complete();
             });
             
+            _isSpeaking = true;
+            notifyListeners();
             await _audioPlayer.play(BytesSource(audioBytes));
             await completer.future;
             
             await compSub.cancel();
             await stateSub.cancel();
-            
+            _isSpeaking = false;
+            notifyListeners();
             playedCustom = true;
           }
         }
@@ -214,7 +220,11 @@ class BuddyProvider with ChangeNotifier {
         if (!playedCustom) {
            // If we fall back to local TTS, ensure it's configured for the user's current gender/tone
            await _configureLocalTts(_currentGender, _currentTone);
+           _isSpeaking = true;
+           notifyListeners();
            await _flutterTts.speak(sentence);
+           _isSpeaking = false;
+           notifyListeners();
         }
       } catch (e) {
         print("TTS Error: $e");
@@ -293,7 +303,6 @@ class BuddyProvider with ChangeNotifier {
 
     socketService.socket?.on('turn_started', (_) async {
         _isThinking = true;
-        await stopAllAudio(); // Use the consolidated stop method
         notifyListeners();
     });
 
@@ -333,9 +342,20 @@ class BuddyProvider with ChangeNotifier {
             _ttsBuffer = '';
 
             final audioBytes = base64Decode(base64Audio);
-            await _audioPlayer.play(BytesSource(audioBytes), mode: PlayerMode.lowLatency);
+            _isSpeaking = true;
+            notifyListeners();
+            await _audioPlayer.play(BytesSource(audioBytes));
+            
+            // Since this is a stream of chunks, we might want to track if it's still playing
+            // but for now, simple toggle
+            _audioPlayer.onPlayerComplete.first.then((_) {
+                _isSpeaking = false;
+                notifyListeners();
+            });
           } catch (e) {
             print("Error playing server audio: $e");
+            _isSpeaking = false;
+            notifyListeners();
           }
        }
     });
@@ -460,15 +480,24 @@ class BuddyProvider with ChangeNotifier {
     final conv = await _buddyService.getConversationById(id);
     if (conv.isNotEmpty) {
       _currentConversationId = id;
-      _messages = (conv['messages'] as List).map((m) => {
-        'id': DateTime.now().millisecondsSinceEpoch.toString() + m['content'].hashCode.toString(),
-        'type': m['role'] == 'user' ? 'user' : 'ai',
-        'text': m['content'],
-        'image': null,
-        'shouldType': false, // History should not type
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      _messages = (conv['messages'] as List).map((m) {
+        int timestamp = DateTime.now().millisecondsSinceEpoch;
+        if (m['timestamp'] != null) {
+          try {
+            timestamp = DateTime.parse(m['timestamp']).toLocal().millisecondsSinceEpoch;
+          } catch (e) {
+            // fallback
+          }
+        }
+        return {
+          'id': DateTime.now().millisecondsSinceEpoch.toString() + m['content'].hashCode.toString(),
+          'type': m['role'] == 'user' ? 'user' : 'ai',
+          'text': m['content'],
+          'image': null,
+          'shouldType': false, // History should not type
+          'timestamp': timestamp,
+        };
       }).toList();
-
     }
     _isLoading = false;
     notifyListeners();

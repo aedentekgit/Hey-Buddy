@@ -10,6 +10,7 @@ class AnimatedAIInputField extends StatefulWidget {
   final VoidCallback onAttachPressed;
   final VoidCallback onSendPressed;
   final bool isListening;
+  final bool isSpeaking;
   final bool isEnabled;
 
   const AnimatedAIInputField({
@@ -19,6 +20,7 @@ class AnimatedAIInputField extends StatefulWidget {
     required this.onAttachPressed,
     required this.onSendPressed,
     this.isListening = false,
+    this.isSpeaking = false,
     this.isEnabled = true,
   });
 
@@ -161,18 +163,18 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField> with Ticker
 
           // State-based adjustments
           final double glowIntensity = widget.isEnabled 
-              ? (_isTyping ? 0.2 : (_isFocused ? (0.8 + 0.3 * pulseVal) : (0.4 + 0.4 * hoverVal)))
+              ? (widget.isSpeaking ? (1.0 + 0.4 * pulseVal) : (_isTyping ? 0.2 : (_isFocused ? (0.8 + 0.3 * pulseVal) : (0.4 + 0.4 * hoverVal))))
               : 0.0;
               
-          final yOffset = widget.isEnabled ? (-4.0 * hoverVal) : 0.0;
-          final expansion = focusVal * 4.0; 
+          final yOffset = widget.isEnabled ? (widget.isSpeaking ? -2.0 : -4.0 * hoverVal) : 0.0;
+          final expansion = focusVal * 4.0 + (widget.isSpeaking ? 2.0 : 0.0); 
           
           final List<Color> gradientColors = [
-            const Color(0xFF6366F1).withOpacity(widget.isEnabled ? 1 : 0.3),
-            const Color(0xFF8B5CF6).withOpacity(widget.isEnabled ? 1 : 0.3),
-            const Color(0xFFD946EF).withOpacity(widget.isEnabled ? 1 : 0.3),
+            const Color(0xFF3B82F6).withOpacity(widget.isEnabled ? 1 : 0.3), // Vibrant Blue
+            const Color(0xFF8B5CF6).withOpacity(widget.isEnabled ? 1 : 0.3), // Vibrant Purple
+            const Color(0xFFD946EF).withOpacity(widget.isEnabled ? 1 : 0.3), // Vibrant Pink
+            const Color(0xFF6366F1).withOpacity(widget.isEnabled ? 1 : 0.3), // Indigo
             const Color(0xFF3B82F6).withOpacity(widget.isEnabled ? 1 : 0.3),
-            const Color(0xFF6366F1).withOpacity(widget.isEnabled ? 1 : 0.3),
           ];
 
           return Opacity(
@@ -221,33 +223,35 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField> with Ticker
                           children: [
                             const SizedBox(width: 12),
                             Expanded(
-                              child: TextField(
-                                controller: widget.controller,
-                                focusNode: _focusNode,
-                                enabled: widget.isEnabled,
-                                cursorColor: const Color(0xFF6366F1),
-                                cursorWidth: 2,
-                                cursorRadius: const Radius.circular(2),
-                                style: GoogleFonts.inter(
-                                  fontSize: 15, 
-                                  color: const Color(0xFF1E293B),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: _isFocused ? "I'm listening..." : "Feel free to ask me any questions...",
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                              child: (widget.isListening || widget.isSpeaking) 
+                                ? _buildWaveform()
+                                : TextField(
+                                    controller: widget.controller,
+                                    focusNode: _focusNode,
+                                    enabled: widget.isEnabled,
+                                    cursorColor: const Color(0xFF6366F1),
+                                    cursorWidth: 2,
+                                    cursorRadius: const Radius.circular(2),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15, 
+                                      color: const Color(0xFF1E293B),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: _isFocused ? "I'm listening..." : "Feel free to ask me any questions...",
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
 
-                                  hintStyle: GoogleFonts.inter(
-                                    color: const Color(0xFF94A3B8), 
-                                    fontSize: 14,
+                                      hintStyle: GoogleFonts.inter(
+                                        color: const Color(0xFF94A3B8), 
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    onSubmitted: (_) => widget.onSendPressed(),
                                   ),
-                                ),
-                                onSubmitted: (_) => widget.onSendPressed(),
-                              ),
                             ),
                             
                             // Mic Button
@@ -317,6 +321,27 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField> with Ticker
     );
   }
 
+  Widget _buildWaveform() {
+    return Container(
+      height: 32,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(24, (index) {
+          // Dynamic heights to create a mountain shape
+          double multiplier = 1.0;
+          if (index < 6) multiplier = (index + 1) / 6.0;
+          if (index > 18) multiplier = (24 - index) / 6.0;
+
+          return WaveformBar(
+            index: index,
+            multiplier: multiplier,
+            isActive: true,
+          );
+        }),
+      ),
+    );
+  }
+
   Widget _buildActionIconButton({
     required IconData icon,
     required Color color,
@@ -337,10 +362,94 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField> with Ticker
         ),
         child: Icon(
           icon, 
-          color: color, 
+          color: (isPulsing || widget.isSpeaking) ? const Color(0xFF64748B) : color, 
           size: 20 + (isPulsing ? (2 * pulseVal) : 0),
         ),
       ),
+    );
+  }
+}
+
+class WaveformBar extends StatefulWidget {
+  final int index;
+  final double multiplier;
+  final bool isActive;
+
+  const WaveformBar({
+    super.key,
+    required this.index,
+    required this.multiplier,
+    required this.isActive,
+  });
+
+  @override
+  State<WaveformBar> createState() => _WaveformBarState();
+}
+
+class _WaveformBarState extends State<WaveformBar> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 400 + (widget.index % 5) * 100),
+    );
+    
+    _animation = Tween<double>(begin: 4, end: 24 * widget.multiplier).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+
+    if (widget.isActive) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(WaveformBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _controller.repeat(reverse: true);
+      } else {
+        _controller.stop();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Gradient coloring blue -> purple -> pink
+    Color barColor;
+    if (widget.index < 8) {
+      barColor = Color.lerp(const Color(0xFF3B82F6), const Color(0xFF8B5CF6), widget.index / 8)!;
+    } else if (widget.index < 16) {
+      barColor = Color.lerp(const Color(0xFF8B5CF6), const Color(0xFFD946EF), (widget.index - 8) / 8)!;
+    } else {
+      barColor = Color.lerp(const Color(0xFFD946EF), const Color(0xFFD946EF), (widget.index - 16) / 8)!;
+    }
+
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+          width: 3,
+          height: _animation.value,
+          decoration: BoxDecoration(
+            color: barColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      },
     );
   }
 }
