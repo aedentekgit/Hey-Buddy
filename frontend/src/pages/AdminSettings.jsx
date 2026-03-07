@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
     Settings, Mail, MessageSquare, CreditCard, Share2, Palette, Save, Plus, Trash2, Send, Upload, ChevronRight, Globe,
     Facebook, Instagram, Twitter, Linkedin, Youtube, ExternalLink, RefreshCw, CheckCircle2, ShieldCheck, Zap, Eye, EyeOff, Lock, ChevronDown, Bell, Database, Calendar, Link2,
-    Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image, MapPin, HardDrive, Cloud, Inbox, Cpu, Fingerprint, Layout, Key
+    Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image, MapPin, HardDrive, Cloud, Inbox, Cpu, Fingerprint, Layout, Key, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -2528,16 +2528,30 @@ const NotificationSettings = ({ settings, setSettings }) => {
                             >
                                 <Copy size={16} /> Get My Token
                             </button>
+                            {subTab !== 'backend' && !settings.notification.serviceAccountJson && (
+                                <div style={{ marginRight: '12px', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'rgba(255, 171, 0, 0.1)', borderRadius: '10px', border: '1px solid rgba(255, 171, 0, 0.2)' }}>
+                                    <AlertTriangle size={14} color="#ffab00" />
+                                    <span style={{ fontSize: '0.75rem', color: '#ffab00', fontWeight: '700' }}>Missing Service Key</span>
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 onClick={async () => {
-                                    const token = prompt("Enter Firebase Token:");
+                                    if (!settings.notification.serviceAccountJson) {
+                                        toast.error('Please upload Service Account JSON in the Cloud Messaging tab first.');
+                                        setSubTab('backend');
+                                        return;
+                                    }
+                                    const token = prompt("Enter Firebase Token (or paste your copied token):");
                                     if (!token) return;
                                     const loadToast = toast.loading('Sending test...');
                                     try {
                                         await api.post('/settings/test-notification', { token, title: 'Buddy Test', body: 'Push notifications working! 🚀' });
                                         toast.success('Notification sent!', { id: loadToast });
-                                    } catch (error) { toast.error('Test failed', { id: loadToast }); }
+                                    } catch (error) {
+                                        const errMsg = error.response?.data?.message || 'Test failed';
+                                        toast.error(errMsg, { id: loadToast });
+                                    }
                                 }}
                                 style={{
                                     padding: '10px 24px',

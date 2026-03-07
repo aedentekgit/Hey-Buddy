@@ -122,12 +122,23 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
 
     useEffect(() => {
         const fetchTravelStats = async () => {
-            if (!activeReminder?._id || !activeReminder?.coordinates?.lat) return;
+            // Requirement: Either we have coordinates OR we have a location name to geocode
+            if (!activeReminder?._id || (!activeReminder?.location && !activeReminder?.coordinates?.lat)) return;
+
             try {
                 setLoadingStats(true);
+                // The backend now handles geocoding if coordinates are missing but location name exists
                 const res = await api.get(`/reminders/${activeReminder._id}/travel-stats`);
                 if (res.data.success) {
                     setTravelStats(res.data.data);
+
+                    // If the backend resolved missing coordinates, update our local state and sync with parent
+                    if (res.data.resolvedCoordinates && (!coordinates?.lat || !coordinates?.lng)) {
+                        console.log("Setting resolved coordinates from backend:", res.data.resolvedCoordinates);
+                        setCoordinates(res.data.resolvedCoordinates);
+                        // Trigger a parent update so the list view also gets the new coordinates
+                        onUpdate?.();
+                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch travel stats", err);
@@ -137,7 +148,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
         };
 
         fetchTravelStats();
-    }, [activeReminder?._id, coordinates]);
+    }, [activeReminder?._id, activeReminder?.location, activeReminder?.coordinates?.lat]);
 
     if (!activeReminder) return null;
 
@@ -343,16 +354,20 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                         <div style={{
                             marginBottom: '12px',
                             padding: '10px 14px',
-                            background: 'rgba(245, 158, 11, 0.1)',
+                            background: loadingStats ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)',
                             borderRadius: '10px',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '10px',
-                            border: '1px solid rgba(245, 158, 11, 0.2)'
+                            border: loadingStats ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)'
                         }}>
-                            <AlertCircle size={18} color="#f59e0b" />
-                            <span style={{ fontSize: '0.8rem', color: '#d97706', fontWeight: '600' }}>
-                                Destination not plotted. Enter Edit mode to set coordinates.
+                            {loadingStats ? (
+                                <RefreshCw size={18} className="animate-spin" color="var(--primary-color)" />
+                            ) : (
+                                <AlertCircle size={18} color="#f59e0b" />
+                            )}
+                            <span style={{ fontSize: '0.8rem', color: loadingStats ? 'var(--primary-color)' : '#d97706', fontWeight: '600' }}>
+                                {loadingStats ? "Pinning destination automatically..." : "Destination not plotted. Enter Edit mode to set coordinates."}
                             </span>
                         </div>
                     )}

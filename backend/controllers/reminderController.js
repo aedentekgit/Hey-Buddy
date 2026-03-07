@@ -61,6 +61,21 @@ exports.createReminder = async (req, res) => {
             }
         }
 
+        // AUTO-GEOCODE: Use location name to find coordinates if missing
+        if (location && (!coordinates?.lat || !coordinates?.lng)) {
+            try {
+                const { geocodeAddress } = require('../services/smartReminderService');
+                const user = await User.findById(userId);
+                const coords = await geocodeAddress(location, user?.currentLocation);
+                if (coords) {
+                    coordinates = coords;
+                    console.log(`[ReminderController] Auto-geocoded "${location}" to:`, coords);
+                }
+            } catch (err) {
+                console.warn("[ReminderController] Auto-geocoding failed during Create:", err.message);
+            }
+        }
+
         const reminder = await Reminder.create({
             userId,
             title,
@@ -110,6 +125,21 @@ exports.updateReminder = async (req, res) => {
                 }
             } catch (calError) {
                 console.error("Google Sync Failed during Update:", calError.message);
+            }
+        }
+
+        // AUTO-GEOCODE: Update coordinates if location changed but coordinates missing
+        if (updateData.location && (!updateData.coordinates?.lat || !updateData.coordinates?.lng)) {
+            try {
+                const { geocodeAddress } = require('../services/smartReminderService');
+                const user = await User.findById(userId);
+                const coords = await geocodeAddress(updateData.location, user?.currentLocation);
+                if (coords) {
+                    updateData.coordinates = coords;
+                    console.log(`[ReminderController] Auto-geocoded update for "${updateData.location}":`, coords);
+                }
+            } catch (err) {
+                console.warn("[ReminderController] Auto-geocoding failed during Update:", err.message);
             }
         }
 
@@ -392,14 +422,27 @@ exports.getTravelStats = async (req, res) => {
             origin = user.currentLocation;
         }
 
-        if (!reminder.coordinates?.lat || !reminder.coordinates?.lng) {
-            return res.status(400).json({ success: false, message: 'Reminder location coordinates not found' });
+        const { getTrafficAwareTravelTime, geocodeAddress } = require('../services/smartReminderService');
+        let destCoords = reminder.coordinates;
+
+        // AUTO-GEOCODE: If coordinates missing but location name exists, try to geocode on the fly
+        if ((!destCoords?.lat || !destCoords?.lng) && reminder.location) {
+            console.log(`[ReminderController] Geocoding missing destination for stats: "${reminder.location}"`);
+            const coords = await geocodeAddress(reminder.location, origin);
+            if (coords) {
+                destCoords = coords;
+                // Silently update the reminder for next time
+                await Reminder.findByIdAndUpdate(id, { coordinates: coords });
+            }
         }
 
-        const { getTrafficAwareTravelTime } = require('../services/smartReminderService');
-        const stats = await getTrafficAwareTravelTime(origin, reminder.coordinates);
+        if (!destCoords?.lat || !destCoords?.lng) {
+            return res.status(400).json({ success: false, message: 'Reminder location coordinates not found or could not be resolved' });
+        }
 
-        res.status(200).json({ success: true, data: stats });
+        const stats = await getTrafficAwareTravelTime(origin, destCoords);
+
+        res.status(200).json({ success: true, data: stats, resolvedCoordinates: destCoords });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

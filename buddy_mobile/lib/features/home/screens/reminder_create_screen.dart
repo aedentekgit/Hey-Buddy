@@ -21,6 +21,14 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
   late TextEditingController timeController;
   late TextEditingController locationController;
   Map<String, dynamic>? selectedCoordinates;
+  
+  // Smart Features state
+  bool earlyWarning = false;
+  bool trafficAware = false;
+  bool itemExitGuards = false;
+  bool pushEnabled = true;
+  bool smsEnabled = false;
+  int bufferTime = 15;
 
   @override
   void initState() {
@@ -35,10 +43,21 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
     
     timeController = TextEditingController(text: widget.task?['time'] ?? "10:00");
     locationController = TextEditingController(text: widget.task?['location'] ?? '');
-    
     if (widget.task?['coordinates'] != null) {
       selectedCoordinates = Map<String, dynamic>.from(widget.task!['coordinates']);
     }
+
+    // Initialize Smart Features from task if editing
+    final sf = widget.task?['smartFeatures'] ?? {};
+    earlyWarning = sf['earlyWarning'] ?? false;
+    trafficAware = sf['trafficAware'] ?? false;
+    itemExitGuards = sf['itemExitGuards'] ?? false;
+
+    final al = widget.task?['alerts'] ?? {};
+    pushEnabled = al['push'] ?? true;
+    smsEnabled = al['sms'] ?? false;
+
+    bufferTime = widget.task?['bufferTime'] ?? 15;
   }
 
   Future<void> _handleSave() async {
@@ -53,6 +72,17 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
       'time': timeController.text,
       'location': locationController.text,
       'coordinates': selectedCoordinates,
+      'smartFeatures': {
+        'earlyWarning': earlyWarning,
+        'trafficAware': trafficAware,
+        'itemExitGuards': itemExitGuards,
+      },
+      'alerts': {
+        'push': pushEnabled,
+        'sms': smsEnabled,
+        'email': false, // Email alerts are not yet implemented in the UI
+      },
+      'bufferTime': bufferTime,
     };
 
     final provider = Provider.of<TasksProvider>(context, listen: false);
@@ -114,6 +144,57 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
               },
             ),
             _buildField("Location", locationController, icon: LucideIcons.mapPin, hint: "Where? (Optional)"),
+            
+            const SizedBox(height: 32),
+            Text(
+              "SMART FEATURES",
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildSmartToggle(
+              "Early Warning System",
+              "AI-powered proactive alerts",
+              LucideIcons.shieldAlert,
+              const Color(0xFF6366F1),
+              earlyWarning,
+              (v) => setState(() => earlyWarning = v),
+            ),
+            _buildSmartToggle(
+              "Traffic-Aware ETA",
+              "Real-time traffic adjustments",
+              LucideIcons.car,
+              const Color(0xFF10B981),
+              trafficAware,
+              (v) => setState(() => trafficAware = v),
+            ),
+            _buildSmartToggle(
+              "Item Exit Guards",
+              "Don't leave without your items",
+              LucideIcons.smartphone,
+              const Color(0xFF8B5CF6),
+              itemExitGuards,
+              (v) => setState(() => itemExitGuards = v),
+            ),
+            
+            const SizedBox(height: 24),
+            Text(
+              "NOTIFICATION CHANNELS",
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildChannelToggle("Push Notifications", LucideIcons.bell, pushEnabled, (v) => setState(() => pushEnabled = v)),
+            _buildChannelToggle("SMS Alerts", LucideIcons.messageSquare, smsEnabled, (v) => setState(() => smsEnabled = v)),
+
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
@@ -138,7 +219,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller, {IconData? icon, String? hint}) {
+   Widget _buildField(String label, TextEditingController controller, {IconData? icon, String? hint}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -178,6 +259,49 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSmartToggle(String title, String sub, IconData icon, Color color, bool value, Function(bool) onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: SwitchListTile.adaptive(
+        value: value,
+        onChanged: onChanged,
+        secondary: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        title: Text(title, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold)),
+        subtitle: Text(sub, style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B))),
+        activeColor: color,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      ),
+    );
+  }
+
+  Widget _buildChannelToggle(String title, IconData icon, bool value, Function(bool) onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: SwitchListTile.adaptive(
+        value: value,
+        onChanged: onChanged,
+        secondary: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
+        title: Text(title, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600)),
+        activeColor: Theme.of(context).primaryColor,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      ),
     );
   }
 }

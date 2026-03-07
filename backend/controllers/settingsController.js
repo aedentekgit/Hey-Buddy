@@ -260,10 +260,19 @@ const testSMS = async (req, res) => {
 const testNotification = async (req, res) => {
     try {
         const { token, title, body } = req.body;
+        if (!token) {
+            return res.status(400).json({ success: false, message: 'FCM Token is required' });
+        }
         await sendPushNotification(token, title, body);
         res.json({ success: true, message: 'Test notification sent successfully' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Test Notification Error:', error);
+        // Provide a more user-friendly message for common setup errors
+        let message = error.message;
+        if (message.includes('Service Account JSON not found')) {
+            message = 'Firebase Service Account JSON is missing. Please upload it in the "Cloud Messaging (FCM)" tab.';
+        }
+        res.status(500).json({ success: false, message });
     }
 };
 

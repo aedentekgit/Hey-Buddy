@@ -70,6 +70,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     alerts = {
       'push': al['push'] ?? true,
       'email': al['email'] ?? false,
+      'sms': al['sms'] ?? false,
     };
 
     priority = r['priority'] ?? 'medium';
@@ -797,12 +798,19 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 value: alerts['push']!,
                 onChanged: (v) => isEditing ? setState(() => alerts['push'] = v) : null,
               ),
-              _AlertTile(
+               _AlertTile(
                 icon: LucideIcons.mail,
                 label: "Email Alerts",
                 sub: "Detailed reports via email",
                 value: alerts['email']!,
                 onChanged: (v) => isEditing ? setState(() => alerts['email'] = v) : null,
+              ),
+              _AlertTile(
+                icon: LucideIcons.messageSquare,
+                label: "SMS Alerts",
+                sub: "Urgent text messages to your phone",
+                value: alerts['sms']!,
+                onChanged: (v) => isEditing ? setState(() => alerts['sms'] = v) : null,
               ),
             ],
           ),
