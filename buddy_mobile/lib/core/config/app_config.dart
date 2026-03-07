@@ -14,11 +14,11 @@ class AppConfig {
     const String envUrl = String.fromEnvironment('API_URL');
     if (envUrl.isNotEmpty) return envUrl;
 
-    // Priority 2: Use Localhost in Debug mode, Staging in Release mode
+    // Priority 2: Use Localhost in Debug mode, Production in Release mode
     if (kDebugMode) {
       return localhostHost;
     }
-    return stagingHost; 
+    return productionHost; 
   }
 
   static String get protocol {
