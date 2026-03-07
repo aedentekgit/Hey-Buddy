@@ -81,6 +81,7 @@ class GeminiLiveService extends EventEmitter {
                 system_instruction: {
                     parts: [{ text: systemInstruction }]
                 },
+                input_audio_transcription: {},
                 tools: this.useTools ? [
                     ...buddyTools.map(t => ({
                         function_declarations: t.functionDeclarations

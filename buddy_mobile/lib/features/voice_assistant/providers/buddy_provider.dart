@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
+import 'package:buddy_mobile/features/voice_assistant/services/audio_stream_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
@@ -13,6 +14,7 @@ import 'package:http/http.dart' as http;
 class BuddyProvider with ChangeNotifier {
   final BuddyService _buddyService = BuddyService();
   final SocketService socketService = SocketService();
+  late final AudioStreamService _audioStreamService;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _storage = const FlutterSecureStorage();
   final FlutterTts _flutterTts = FlutterTts();
@@ -34,6 +36,7 @@ class BuddyProvider with ChangeNotifier {
   bool _isSpeaking = false;
   bool get needsLogin => _needsLogin;
   bool get isSpeaking => _isSpeaking;
+  bool get isStreaming => _audioStreamService.isStreaming;
 
   // TTS Buffering Variables
   String _ttsBuffer = '';
@@ -57,12 +60,14 @@ class BuddyProvider with ChangeNotifier {
   bool _socketListenersSet = false;
 
   BuddyProvider() {
+    _audioStreamService = AudioStreamService(socketService);
     _setupSocketListeners();
   }
 
   @override
   void dispose() {
     _audioPlayer.dispose();
+    _audioStreamService.dispose();
     _flutterTts.stop();
     socketService.dispose();
     super.dispose();
@@ -378,6 +383,10 @@ class BuddyProvider with ChangeNotifier {
       _isRealtimeEnabled = isConnected;
       if (!isConnected) {
         _isThinking = false;
+        _audioStreamService.stopStreaming();
+      } else {
+        // Automatically start streaming when socket connects for wake-word detection
+        _audioStreamService.startStreaming();
       }
       notifyListeners();
     });
@@ -386,6 +395,27 @@ class BuddyProvider with ChangeNotifier {
     socketService.wakeWordStream.listen((data) {
       print('Wake word detected: ${data['transcript']}');
       sendMessage('', isWakeWord: true);
+    });
+
+    // Handle Barge-In (interruption while Buddy is speaking)
+    socketService.bargeInStream.listen((_) {
+      if (_isSpeaking || _isSpeakingQueue) {
+        print('Barge-in detected: Silencing Buddy');
+        _audioPlayer.stop();
+        _flutterTts.stop();
+        _isSpeaking = false;
+        _isSpeakingQueue = false;
+        _ttsQueue.clear();
+        _ttsBuffer = '';
+        notifyListeners();
+      }
+    });
+
+    // Handle Stop Command (explicit stop by user)
+    socketService.stopCommandStream.listen((_) {
+      print('Stop command detected: Returning to Standby');
+      stopAllAudio();
+      notifyListeners();
     });
 
     // Handle Background Voice Alerts (e.g. Traffic, Proximity)

@@ -70,5 +70,9 @@
 	<string>This app needs access to location when open to show your current position on the map and calculate travel times for reminders.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs access to location even in the background to provide smart reminders based on your position.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to your microphone to listen for "Hey Buddy" wake word and voice commands.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app uses speech recognition to convert your voice into text commands.</string>
 </dict>
 </plist>

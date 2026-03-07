@@ -21,6 +21,7 @@ class BuddyAgent extends EventEmitter {
         this.language = language;
         this.conversationId = conversationId;
         this.isStandby = standby;
+        this.isSpeaking = false;
         this.isInterrupted = false;
         this.createdAt = Date.now();
         this.currentInputText = '';
@@ -96,6 +97,44 @@ class BuddyAgent extends EventEmitter {
 
             console.log(`[BuddyAgent] 🎙️ Transcript: "${text}"`);
             this.currentInputText = text;
+
+            // ── STANDBY MODE: scan for wake word only ──────────────────────
+            if (this.isStandby) {
+                if (transcript.includes('hey buddy')) {
+                    console.log('[BuddyAgent] ⚡ Wake Word Detected!');
+                    this.isStandby = false;
+                    this.socket.emit('wake_word_detected');
+
+                    // If the user said "Hey Buddy, [command]", strip the wake word and continue
+                    const refinedText = transcript.replace(/^hey buddy[,!.\s]*/gi, '').trim();
+                    if (!refinedText) return; // Only "hey buddy" was said
+
+                    // Proceed to process the refined command
+                    this.processMessage(refinedText);
+                    return;
+                }
+                return; // Ignore everything else in standby
+            }
+
+            // ── STOP COMMANDS: user wants Buddy to shut up ─────────────────
+            const stopWords = ['stop', 'pause', 'be quiet', 'shut up', 'enough', 'cancel'];
+            if (stopWords.some(w => transcript.includes(w))) {
+                console.log('[BuddyAgent] 🛑 Stop Command Detected');
+                this.isSpeaking = false;
+                this.isStandby = true;  // Go back to standby
+                this.socket.emit('stop_command');
+                this.interrupt(); // Ensure everything stops
+                return;
+            }
+
+            // ── BARGE-IN: user spoke while Buddy was speaking ──────────────
+            if (this.isSpeaking) {
+                console.log('[BuddyAgent] 🎤 Barge-In Detected — interrupting Buddy');
+                this.isSpeaking = false;
+                this.socket.emit('barge_in_detected'); // Tell Flutter to stop audio
+                this.interrupt(); // Kill current thinking/playback
+                // Fall through to process the new command below
+            }
 
             // Emit to UI
             this.socket.emit('user_transcript', text);
@@ -192,7 +231,13 @@ class BuddyAgent extends EventEmitter {
 
                         // 2. Handle Audio Chunks (Premium MP3 sentences)
                         if (data.audio) {
+                            this.isSpeaking = true;
                             this.socket.emit('audio_out', data.audio);
+                            this.socket.emit('buddy_response_audio', data.audio); // Arc consistency
+
+                            // Safety reset if playback finish event never arrives
+                            if (this.speakingTimeout) clearTimeout(this.speakingTimeout);
+                            this.speakingTimeout = setTimeout(() => { this.isSpeaking = false; }, 30000);
                         }
 
                         // 3. Handle Session Sync
@@ -250,6 +295,7 @@ class BuddyAgent extends EventEmitter {
     interrupt() {
         this.isInterrupted = true;
         this.isThinking = false;
+        this.isSpeaking = false;
         if (this.ai) this.ai.cancelResponse();
         this.socket.emit('clear_audio_queue');
         this.socket.emit('response_done');

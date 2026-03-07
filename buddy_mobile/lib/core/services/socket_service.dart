@@ -13,12 +13,16 @@ class SocketService {
   final _statusStreamController = StreamController<bool>.broadcast();
   final _voiceAlertStreamController = StreamController<Map<String, dynamic>>.broadcast();
   final _wakeWordStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  final _bargeInController = StreamController<dynamic>.broadcast();
+  final _stopCmdController = StreamController<dynamic>.broadcast();
 
   Stream<String> get audioStream => _audioStreamController.stream;
   Stream<String> get captionStream => _captionStreamController.stream;
   Stream<bool> get statusStream => _statusStreamController.stream;
   Stream<Map<String, dynamic>> get voiceAlertStream => _voiceAlertStreamController.stream;
   Stream<Map<String, dynamic>> get wakeWordStream => _wakeWordStreamController.stream;
+  Stream<dynamic> get bargeInStream => _bargeInController.stream;
+  Stream<dynamic> get stopCommandStream => _stopCmdController.stream;
 
   void connect() async {
     if (socket?.connected == true) {
@@ -51,6 +55,8 @@ class SocketService {
     socket?.off('connect_error');
     socket?.off('voice_alert');
     socket?.off('wake_word_detected');
+    socket?.off('barge_in_detected');
+    socket?.off('stop_command');
 
     socket?.onConnect((_) {
       print('Socket Connected successfully to ${AppConfig.socketUrl}');
@@ -100,6 +106,16 @@ class SocketService {
       } else {
         _wakeWordStreamController.add({'transcript': 'hey buddy'});
       }
+    });
+
+    socket?.on('barge_in_detected', (data) {
+      print('Barge-In Detected in Backend: $data');
+      _bargeInController.add(data);
+    });
+
+    socket?.on('stop_command', (data) {
+      print('Stop Command Detected in Backend: $data');
+      _stopCmdController.add(data);
     });
   }
 

@@ -854,7 +854,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ],
           AnimatedAIInputField(
             controller: _inputController,
-            isListening: _isListening,
+            isListening: _isListening || provider.isStreaming,
             isSpeaking: provider.isSpeaking,
             isEnabled: true,
             onMicPressed: _isListening ? _stopListening : _startListening,
