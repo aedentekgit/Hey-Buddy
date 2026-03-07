@@ -28,11 +28,9 @@ const saveFileLocally = async (fileBuffer, destination) => {
                 });
                 if (response.data.success) {
                     console.log(`☁️ Synced ${destination} to VPS Staging!`);
-                    return `/uploads/${destination}`;
                 }
             } catch (syncError) {
                 console.log(`⚠️ VPS Sync failed, falling back to local: ${syncError.message}`);
-                // Proceed to local save fallback
             }
         }
 

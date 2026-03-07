@@ -35,6 +35,7 @@ class BrandingProvider extends ChangeNotifier {
     _logoUrl = prefs.getString('branding_logo_url');
     _splashUrl = prefs.getString('branding_splash_url');
     final savedClientId = prefs.getString('branding_google_client_id');
+    final savedMapsKey = prefs.getString('branding_google_maps_api_key');
     
     // Sync to AppConfig for static access
     AppConfig.appName = _appName;
@@ -42,6 +43,7 @@ class BrandingProvider extends ChangeNotifier {
     AppConfig.logoUrl = _logoUrl;
     AppConfig.splashUrl = _splashUrl;
     AppConfig.googleClientId = savedClientId;
+    if (savedMapsKey != null) AppConfig.googleMapsApiKey = savedMapsKey;
     
     _isLoading = true; // Still loading fresh data from backend
   }
@@ -87,6 +89,12 @@ class BrandingProvider extends ChangeNotifier {
               newGoogleClientId = data['googleAuth']['webClientId'];
             }
 
+            // Capture Google Maps Key
+            String? newGoogleMapsApiKey;
+            if (data['googleMaps'] != null && data['googleMaps']['enabled'] == true) {
+               newGoogleMapsApiKey = data['googleMaps']['apiKey'];
+            }
+
             // Update variables
             _appName = newAppName;
             _primaryColor = newPrimaryColor;
@@ -103,6 +111,7 @@ class BrandingProvider extends ChangeNotifier {
             if (_logoUrl != null) await prefs.setString('branding_logo_url', _logoUrl!);
             if (_splashUrl != null) await prefs.setString('branding_splash_url', _splashUrl!);
             if (newGoogleClientId != null) await prefs.setString('branding_google_client_id', newGoogleClientId);
+            if (newGoogleMapsApiKey != null) await prefs.setString('branding_google_maps_api_key', newGoogleMapsApiKey);
 
             // Update AppConfig
             AppConfig.appName = _appName;
@@ -111,6 +120,9 @@ class BrandingProvider extends ChangeNotifier {
             AppConfig.splashUrl = _splashUrl;
             if (newGoogleClientId != null) {
               AppConfig.googleClientId = newGoogleClientId;
+            }
+            if (newGoogleMapsApiKey != null) {
+              AppConfig.googleMapsApiKey = newGoogleMapsApiKey;
             }
           }
         }

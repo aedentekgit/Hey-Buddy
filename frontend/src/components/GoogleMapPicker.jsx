@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, Circle, DirectionsService, DirectionsRenderer } from '@react-google-maps/api';
 import { useSettings } from '../context/SettingsContext';
-import { MapPin, Target, AlertTriangle } from 'lucide-react';
+import { MapPin, Target, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const libraries = ['places', 'geometry'];
@@ -135,6 +135,7 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
             <div style={{
                 height: '180px',
                 background: 'var(--bg-lite)',
+                border: '1px dashed var(--border-color)',
                 borderRadius: '16px',
                 marginBottom: '20px',
                 display: 'flex',
@@ -142,16 +143,41 @@ const GoogleMapPicker = ({ location, setLocation, coordinates, setCoordinates, i
                 justifyContent: 'center',
                 flexDirection: 'column',
                 position: 'relative',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                textAlign: 'center',
+                padding: '20px'
             }}>
-                <MapPin size={32} color="var(--text-sub)" />
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginTop: '8px' }}>Google Maps not configured</span>
+                <MapPin size={32} color="var(--text-sub)" style={{ marginBottom: '12px', opacity: 0.5 }} />
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>Google Maps Service Not Active</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '4px', maxWidth: '240px' }}>
+                    {!enabled ? "Maps are disabled in settings." : "Missing API Key in settings."}
+                    <br />Go to <strong>Settings &gt; Google Maps</strong> to configure.
+                </span>
             </div>
         );
     }
 
-    if (loadError) return <div>Error loading maps</div>;
-    if (!isLoaded) return <div>Loading Maps...</div>;
+    if (loadError) {
+        return (
+            <div style={{ height: '180px', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.1)', borderRadius: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', textAlign: 'center', padding: '20px' }}>
+                <AlertTriangle size={32} color="#ef4444" style={{ marginBottom: '12px' }} />
+                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#b91c1c' }}>Error Loading Map</span>
+                <span style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px' }}>{loadError.message}</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '8px' }}>
+                    Ensure "Maps JavaScript API" is enabled in your Google Cloud Console.
+                </span>
+            </div>
+        );
+    }
+
+    if (!isLoaded) {
+        return (
+            <div style={{ height: '180px', background: 'var(--bg-lite)', borderRadius: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                <RefreshCw size={24} className="animate-spin" color="var(--primary-color)" />
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginTop: '12px' }}>Loading Maps...</span>
+            </div>
+        );
+    }
 
     const center = coordinates?.lat ? coordinates : (userLocation?.lat ? userLocation : defaultCenter);
 

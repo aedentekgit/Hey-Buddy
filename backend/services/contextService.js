@@ -66,8 +66,9 @@ const contextService = {
 
             return {
                 history: history.map(m => ({ role: m.role, content: m.content })),
-                memories: memories.map(m => m.content),
+                memories: memories.map(m => ({ id: m._id, content: m.content, category: m.category })),
                 reminders: recentReminders.map(r => ({
+                    id: r._id,
                     title: r.title,
                     time: r.time,
                     date: r.date

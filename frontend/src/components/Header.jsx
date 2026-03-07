@@ -18,7 +18,7 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
         transcript, setTranscript, conversationHistory, setConversationHistory
     } = useVoiceAssistant();
     const { user } = useAuth();
-    const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+    const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, dismissIndividualNotification } = useNotifications();
     const [manualInput, setManualInput] = useState('');
     const [isParsing, setIsParsing] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -237,8 +237,25 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                                 >
                                     <div className="dropdown-header">
                                         <h3>Notifications</h3>
-                                        {unreadCount > 0 && (
-                                            <button onClick={() => markAllAsRead()}>Mark all as read</button>
+                                        {notifications.length > 0 && (
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                {unreadCount > 0 && (
+                                                    <button onClick={() => markAllAsRead()}>Mark all as read</button>
+                                                )}
+                                                <button
+                                                    onClick={() => clearAllNotifications()}
+                                                    style={{
+                                                        color: '#f87171',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '600',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Clear all
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                     <div className="notifications-list">
@@ -259,13 +276,18 @@ const Header = ({ onMenuClick, title, hideSearch }) => {
                                                     <div className="notification-content">
                                                         <p className="notif-title">{notif.title}</p>
                                                         <p className="notif-message">{notif.message}</p>
-                                                        <span className="notif-time">{new Date(notif.createdAt).toLocaleDateString()}</span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>
+                                                            <Clock size={10} />
+                                                            <span className="notif-time">
+                                                                {new Date(notif.createdAt).toLocaleDateString()} @ {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     <button
                                                         className="delete-notif"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            deleteNotification(notif._id);
+                                                            dismissIndividualNotification(notif._id);
                                                         }}
                                                     >
                                                         <Trash2 size={14} />

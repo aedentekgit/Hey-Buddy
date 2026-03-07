@@ -103,6 +103,30 @@ export const NotificationProvider = ({ children }) => {
         }
     };
 
+    const clearAllNotifications = async () => {
+        try {
+            await api.put('/notifications/clear-all');
+            setNotifications([]);
+            setUnreadCount(0);
+        } catch (error) {
+            console.error('Error clearing all notifications:', error);
+        }
+    };
+
+    const dismissIndividualNotification = async (id) => {
+        try {
+            await api.put(`/notifications/${id}/dismiss`);
+            setNotifications(prev => prev.filter(n => n._id !== id));
+            // Recalculate unread if needed, but easier to just check if it was unread
+            const wasUnread = notifications.find(n => n._id === id && !n.read);
+            if (wasUnread) {
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            }
+        } catch (error) {
+            console.error('Error dismissing notification:', error);
+        }
+    };
+
     return (
         <NotificationContext.Provider value={{
             notifications,
@@ -111,6 +135,8 @@ export const NotificationProvider = ({ children }) => {
             markAsRead,
             markAllAsRead,
             deleteNotification,
+            clearAllNotifications,
+            dismissIndividualNotification,
             refreshNotifications: fetchNotifications
         }}>
             {children}

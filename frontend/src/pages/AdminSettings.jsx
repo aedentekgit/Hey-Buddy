@@ -35,7 +35,7 @@ const AdminSettings = () => {
         accentColor, setAccentColor,
         secondaryAccent, setSecondaryAccent
     } = useTheme();
-    const { refreshSettings } = useSettings();
+    const { refreshSettings, fetchPublicSettings } = useSettings();
     const logoInputRef = useRef(null);
     const mobileLogoInputRef = useRef(null);
     const splashIconInputRef = useRef(null);
@@ -206,6 +206,7 @@ const AdminSettings = () => {
             if (res.data.success) {
                 toast.success('Settings updated successfully');
                 refreshSettings();
+                fetchPublicSettings(); // Ensure public consumers also get the update
 
                 // Update Global Theme Context immediately
                 setThemeMode(appearance.themeMode);

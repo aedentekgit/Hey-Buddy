@@ -79,16 +79,6 @@ exports.createReminder = async (req, res) => {
             source: googleEventId ? 'google' : 'buddy'
         });
 
-        // Create notification
-        await Notification.create({
-            userId,
-            title: 'New Reminder Created',
-            message: `Reminder "${title}" set for ${new Date(date).toLocaleDateString()} at ${time}`,
-            type: 'reminder',
-            relatedId: reminder._id,
-            onModel: 'Reminder'
-        });
-
         res.status(201).json({ success: true, data: reminder });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

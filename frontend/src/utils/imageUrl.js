@@ -9,13 +9,14 @@ export const getImageUrl = (path) => {
     }
 
     // Standardize base URL from environment variables
-    const backendUrl = config.BACKEND_URL || config.API_URL.replace('/api', '');
+    const rawRoot = config.BACKEND_URL || config.API_URL?.replace('/api', '') || '';
 
-    // Ensure no trailing slash on base URL
-    const cleanRoot = backendUrl.endsWith('/') ? backendUrl.slice(0, -1) : backendUrl;
+    // Ensure no trailing slash on root
+    const root = rawRoot.replace(/\/$/, '');
 
     // Ensure leading slash on path
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-    return `${cleanRoot}${cleanPath}`;
+    // Join them ensuring no double slashes at the join point
+    return `${root}${cleanPath}`;
 };

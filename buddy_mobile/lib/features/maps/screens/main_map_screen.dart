@@ -53,8 +53,13 @@ class _MainMapScreenState extends State<MainMapScreen> {
               child: Stack(
                 children: [
                   GoogleMap(
-                    initialCameraPosition: const CameraPosition(
-                      target: LatLng(37.7749, -122.4194),
+                    initialCameraPosition: CameraPosition(
+                      target: provider.tasks.any((t) => t['coordinates'] != null)
+                        ? LatLng(
+                            provider.tasks.firstWhere((t) => t['coordinates'] != null)['coordinates']['lat'],
+                            provider.tasks.firstWhere((t) => t['coordinates'] != null)['coordinates']['lng']
+                          )
+                        : const LatLng(20.5937, 78.9629), // Center of India
                       zoom: 12,
                     ),
                     onMapCreated: (controller) => _mapController = controller,

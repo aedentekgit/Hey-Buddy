@@ -153,7 +153,12 @@ const Roles = () => {
             const res = await api.delete(`/roles/${id}`);
             if (res.data.success) {
                 toast.success('Role deleted');
-                fetchRoles();
+                // Refresh the current page from the backend
+                if (roles.length === 1 && pagination.currentPage > 1) {
+                    fetchRoles(pagination.currentPage - 1);
+                } else {
+                    fetchRoles(pagination.currentPage);
+                }
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Delete failed');
@@ -165,7 +170,7 @@ const Roles = () => {
 
     return (
         <div style={{ color: 'var(--text-main)' }} className="roles-page">
-                        <div className="table-container">
+            <div className="table-container">
                 <div className="search-management-header">
                     <div className="buddy-search-box hide-on-mobile">
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />

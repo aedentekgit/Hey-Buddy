@@ -14,10 +14,11 @@ const triggerNotification = async (reminder, user, io) => {
     // 1. Create Internal Notification & Emit (if In-App enabled)
     let notification = null;
     if (user.notificationPreferences?.inApp?.enabled !== false) {
+        const formattedDate = reminder.date ? reminder.date.split('-').reverse().join('/') : ''; // DD/MM/YYYY
         notification = await Notification.create({
             userId: user._id,
             title: `Reminder: ${reminder.intent ? reminder.intent.toUpperCase() : 'ALERT'}`,
-            message: reminder.title,
+            message: `${reminder.title} - Set for ${formattedDate} at ${reminder.time}`,
             type: 'reminder',
             relatedId: reminder._id,
             onModel: 'Reminder',

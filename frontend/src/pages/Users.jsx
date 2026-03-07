@@ -236,7 +236,12 @@ const Users = () => {
             const res = await api.delete(`/users/${id}`);
             if (res.data.success) {
                 toast.success('User deleted');
-                fetchUsers();
+                // Refresh the current page from the backend
+                if (users.length === 1 && pagination.currentPage > 1) {
+                    fetchUsers(pagination.currentPage - 1);
+                } else {
+                    fetchUsers(pagination.currentPage);
+                }
             }
         } catch (error) {
             toast.error('Delete failed');
@@ -248,7 +253,7 @@ const Users = () => {
 
     return (
         <div style={{ color: 'var(--text-main)' }} className="users-page">
-                        <div className="table-container">
+            <div className="table-container">
                 <div className="search-management-header">
                     <div className="buddy-search-box hide-on-mobile">
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />

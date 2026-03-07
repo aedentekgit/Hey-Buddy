@@ -11,6 +11,7 @@ import MobileMemoryCard from '../components/MobileMemoryCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
+import { getImageUrl } from '../utils/imageUrl';
 import { config as envConfig } from '../config/env';
 
 const Memories = () => {
@@ -115,7 +116,12 @@ const Memories = () => {
 
             if (res.success) {
                 toast.success(deleteModal.type === 'memory' ? "Memory forgotten" : "Document deleted");
-                setItems(items.filter(i => i._id !== deleteModal.id));
+                // Refresh the current page from the backend
+                if (items.length === 1 && pagination.currentPage > 1) {
+                    fetchAllItems(pagination.currentPage - 1);
+                } else {
+                    fetchAllItems(pagination.currentPage);
+                }
                 setDeleteModal({ isOpen: false, id: null, type: null });
             }
         } catch (err) {
@@ -186,9 +192,7 @@ const Memories = () => {
 
 
     const getFileUrl = (path) => {
-        if (!path) return '#';
-        if (path.startsWith('http')) return path;
-        return `${API_URL.replace('/api', '')}/${path.replace(/\\/g, '/')}`;
+        return getImageUrl(path) || '#';
     };
 
     return (
@@ -381,12 +385,22 @@ const Memories = () => {
                 {viewModal.item && (
                     <>
                         {viewModal.item.type === 'memory' ? (
-                            <DetailCard title={<><Brain size={20} color="var(--primary-color)" /> Insight</>}>
-                                <p style={{ fontSize: '1.1rem', color: 'var(--text-main)', lineHeight: '1.6' }}>{viewModal.item.content}</p>
-                                <div style={{ marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Clock size={14} /> Recorded on {formatDate(viewModal.item.createdAt, user?.dateFormat)} {formatTime(new Date(viewModal.item.createdAt).getHours() + ':' + new Date(viewModal.item.createdAt).getMinutes(), user?.timeFormat)}
-                                </div>
-                            </DetailCard>
+                            <>
+                                <DetailCard title={<><Brain size={20} color="var(--primary-color)" /> Insight</>}>
+                                    <p style={{ fontSize: '1.1rem', color: 'var(--text-main)', lineHeight: '1.6' }}>{viewModal.item.content}</p>
+                                    <div style={{ marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Clock size={14} /> Recorded on {formatDate(viewModal.item.createdAt, user?.dateFormat)} {formatTime(new Date(viewModal.item.createdAt).getHours() + ':' + new Date(viewModal.item.createdAt).getMinutes(), user?.timeFormat)}
+                                    </div>
+                                </DetailCard>
+                                {viewModal.item.fileUrl && (
+                                    <DetailCard title="Memory Attachment">
+                                        <div className="img-container" style={{ maxHeight: '300px' }}>
+                                            <img src={getFileUrl(viewModal.item.fileUrl)} alt="Attachment" onError={(e) => e.target.src = 'https://via.placeholder.com/400x600?text=Scan+Not+Found'} style={{ maxHeight: '300px', width: 'auto' }} />
+                                            <a href={getFileUrl(viewModal.item.fileUrl)} target="_blank" rel="noreferrer" className="view-link"><ExternalLink size={14} /> Full View</a>
+                                        </div>
+                                    </DetailCard>
+                                )}
+                            </>
                         ) : (
                             <>
                                 <DetailCard title={<><FileText size={20} color="var(--primary-color)" /> Information</>}>

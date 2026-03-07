@@ -94,7 +94,7 @@ exports.proxyChatToPython = async (req, res) => {
         if (context.reminders && context.reminders.length > 0) {
             memoryString += "Upcoming Reminders:\n";
             context.reminders.forEach(r => {
-                memoryString += `- [${r.date} ${r.time}] ${r.title}\n`;
+                memoryString += `- [ID: ${r.id}] [${r.date} ${r.time}] ${r.title}\n`;
             });
             memoryString += "\n";
         } else {
@@ -105,7 +105,7 @@ exports.proxyChatToPython = async (req, res) => {
         if (context.memories && context.memories.length > 0) {
             memoryString += "Saved Memories & Facts:\n";
             context.memories.forEach(m => {
-                memoryString += `- ${m}\n`;
+                memoryString += `- [ID: ${m.id}] [Category: ${m.category}] ${m.content}\n`;
             });
         }
 
@@ -183,6 +183,29 @@ exports.proxyActionToPython = async (req, res) => {
             return res.status(200).json({ success: true, message: 'Reminder action executed' });
         }
 
+        if (act === 'UPDATE_REMINDER') {
+            let reminderData = val;
+            const reminderId = req.body.id;
+            if (typeof val === 'string') {
+                try { reminderData = JSON.parse(val); } catch (e) { }
+            }
+
+            // Remove null fields from updateData to avoid overwriting with nulls
+            Object.keys(reminderData).forEach(key => reminderData[key] === null && delete reminderData[key]);
+
+            const mockReq = {
+                params: { id: reminderId },
+                body: reminderData,
+                user: { _id: userId, googleRefreshToken: null }
+            };
+            const mockRes = {
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Update Reminder Result:', data) })
+            };
+
+            await reminderController.updateReminder(mockReq, mockRes);
+            return res.status(200).json({ success: true, message: 'Update reminder action executed' });
+        }
+
         if (act === 'SAVE_MEMORY' || act === 'CREATE_MEMORY') {
             let memoryData = val;
             if (typeof val === 'string') {
@@ -199,6 +222,29 @@ exports.proxyActionToPython = async (req, res) => {
 
             await recordController.createMemory(mockReq, mockRes);
             return res.status(200).json({ success: true, message: 'Memory action executed' });
+        }
+
+        if (act === 'UPDATE_MEMORY') {
+            let memoryData = val;
+            const memoryId = req.body.id;
+            if (typeof val === 'string') {
+                try { memoryData = JSON.parse(val); } catch (e) { }
+            }
+
+            // Remove null fields
+            Object.keys(memoryData).forEach(key => memoryData[key] === null && delete memoryData[key]);
+
+            const mockReq = {
+                params: { id: memoryId },
+                body: memoryData,
+                user: { _id: userId }
+            };
+            const mockRes = {
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Update Memory Result:', data) })
+            };
+
+            await recordController.updateMemory(mockReq, mockRes);
+            return res.status(200).json({ success: true, message: 'Update memory action executed' });
         }
 
         // --- 2. Python-Proxied Actions (System/Local) ---

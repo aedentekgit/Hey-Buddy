@@ -17,12 +17,14 @@ import {
     Plus,
     Eye,
     Cpu,
-    BookOpen
+    BookOpen,
+    Fingerprint
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import { config as envConfig } from '../config/env';
+import { getImageUrl } from '../utils/imageUrl';
 
 const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
     const { user, logout } = useAuth();
@@ -59,7 +61,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
             items: [
                 { id: 'users', name: 'Users', icon: Users, path: '/admin/users' },
                 { id: 'management', name: 'Admin Management', icon: ShieldCheck, path: '/admin/management' },
-                { id: 'roles', name: 'Roles', icon: ShieldCheck, path: '/admin/roles' },
+                { id: 'roles', name: 'Roles', icon: Fingerprint, path: '/admin/roles' },
                 { id: 'settings', name: 'System Settings', icon: Settings, path: '/admin/settings' },
                 { id: 'profile', name: 'My Settings', icon: User, path: '/user/settings' }
             ].filter(item => {
@@ -78,11 +80,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
     ].filter(group => group.items.length > 0);
 
     const getLogoUrl = () => {
-        if (!branding.logo) return null;
-        if (branding.logo.startsWith('http')) return branding.logo;
-        const backendUrl = (envConfig.BACKEND_URL || '').replace(/\/$/, '');
-        const logoPath = branding.logo.replace(/^\//, '');
-        return `${backendUrl}/${logoPath}`;
+        return getImageUrl(branding.logo);
     };
 
     return (

@@ -82,7 +82,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
     const [location, setLocation] = useState('');
     const [coordinates, setCoordinates] = useState({ lat: null, lng: null });
 
-    const [bufferTime, setBufferTime] = useState(15);
+    const [bufferTime, setBufferTime] = useState(0);
     const [geofenceRadius, setGeofenceRadius] = useState(500);
     const [alerts, setAlerts] = useState({ push: true, sms: false, email: false });
     const [priority, setPriority] = useState('medium');
@@ -101,7 +101,7 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
             setTime(formatTimeForInput(reminder.time) || '');
             setLocation(reminder.location || '');
             setCoordinates(reminder.coordinates || { lat: null, lng: null });
-            setBufferTime(reminder.bufferTime || 15);
+            setBufferTime(reminder.bufferTime ?? 0);
             setGeofenceRadius(reminder.geofenceRadius || 500);
             setAlerts(reminder.alerts || { push: true, sms: false, email: false });
             setPriority(reminder.priority || 'medium');

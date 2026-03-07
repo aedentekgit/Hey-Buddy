@@ -36,6 +36,10 @@ const NotificationSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    dismissed: {
+        type: Boolean,
+        default: false
+    },
     actionUrl: {
         type: String
     }

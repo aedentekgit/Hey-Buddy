@@ -7,7 +7,7 @@ const { uploadFile } = require('../services/fileService');
 
 const getSettings = async (req, res) => {
     try {
-        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +googleCalendar.clientSecret');
+        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +googleCalendar.clientSecret +googleMaps.apiKey');
         res.json({ success: true, data: settings || {} });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -22,7 +22,7 @@ const getPublicSettings = async (req, res) => {
             return res.json({ success: true, data: publicSettingsCache });
         }
 
-        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled googleMaps');
+        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled googleMaps.apiKey googleMaps.enabled');
         publicSettingsCache = settings;
         res.json({ success: true, data: settings });
     } catch (error) {
@@ -96,6 +96,10 @@ const updateSettings = async (req, res) => {
                 const sif = req.files['splashIcon'][0];
                 const dest = `mobile/splash-${Date.now()}${path.extname(sif.originalname)}`;
                 updateData.mobileApp.splashIcon = await uploadFile(sif.buffer, dest, sif.mimetype);
+            }
+
+            if (updateData.googleMaps) {
+                updateData.googleMaps = typeof updateData.googleMaps === 'string' ? JSON.parse(updateData.googleMaps) : updateData.googleMaps;
             }
         }
 

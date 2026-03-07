@@ -4,7 +4,7 @@ const { sendPushNotification } = require('../services/notificationService');
 
 exports.getNotifications = async (req, res) => {
     try {
-        const notifications = await Notification.find({ userId: req.user._id })
+        const notifications = await Notification.find({ userId: req.user._id, dismissed: { $ne: true } })
             .sort({ createdAt: -1 })
             .limit(50);
 
@@ -89,6 +89,36 @@ exports.deleteNotification = async (req, res) => {
         }
 
         res.status(200).json({ success: true, message: 'Notification deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.dismissNotification = async (req, res) => {
+    try {
+        const notification = await Notification.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user._id },
+            { dismissed: true },
+            { new: true }
+        );
+
+        if (!notification) {
+            return res.status(404).json({ success: false, message: 'Notification not found' });
+        }
+
+        res.status(200).json({ success: true, data: notification });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.dismissAllNotifications = async (req, res) => {
+    try {
+        await Notification.updateMany(
+            { userId: req.user._id, dismissed: { $ne: true } },
+            { dismissed: true }
+        );
+
+        res.status(200).json({ success: true, message: 'All notifications cleared' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

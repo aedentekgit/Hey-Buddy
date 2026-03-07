@@ -95,7 +95,12 @@ const Reminders = () => {
             const res = await voiceService.deleteReminder(id);
             if (res.success) {
                 toast.success("Reminder deleted");
-                setReminders(reminders.filter(r => r._id !== id));
+                // Refresh the current page from the backend
+                if (reminders.length === 1 && pagination.currentPage > 1) {
+                    fetchReminders(pagination.currentPage - 1);
+                } else {
+                    fetchReminders(pagination.currentPage);
+                }
                 setDeleteModal({ isOpen: false, id: null });
             }
         } catch (err) {
