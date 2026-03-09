@@ -10,8 +10,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -26,7 +24,7 @@ class AccountSettingsScreen extends StatefulWidget {
   State<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
 }
 
-enum _SettingsView { menu, editProfile, notifications, integrations, voicePersonality }
+enum _SettingsView { menu, editProfile, notifications, integrations }
 
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen> with WidgetsBindingObserver {
@@ -43,14 +41,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final FlutterTts _flutterTts = FlutterTts();
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isPlaying = false;
   
   String _dateFormat = 'DD/MM/YYYY';
   String _timeFormat = '12';
-  String _localVoiceGender = 'female';
-  String _localVoiceTone = 'soft';
 
   File? _imageFile;
 
@@ -81,12 +74,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
             _addressController.text = user['address'] ?? '';
             _dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
             _timeFormat = user['timeFormat'] ?? '12';
-            final prefs = user['voicePreferences'] as Map<String, dynamic>? ?? {};
-            _localVoiceGender = prefs['gender'] ?? 'female';
-            _localVoiceTone = prefs['tone'] ?? 'soft';
-
-            // Sync with BuddyProvider immediately
-            Provider.of<buddy.BuddyProvider>(context, listen: false).syncVoicePreferences(_localVoiceGender, _localVoiceTone);
           });
         }
       });
@@ -99,110 +86,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _flutterTts.stop();
-    _audioPlayer.dispose();
     super.dispose();
   }
 
   // --- Handlers ---
   
-  Future<void> _testVoice(String gender, String tone) async {
-    if (_isPlaying) return;
-    setState(() => _isPlaying = true);
-    
-    final text = "Hello, I am Buddy, your AI assistant. This is how I will sound.";
-    
-    try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final token = auth.token;
-      
-      if (token != null) {
-        final baseUrl = AppConfig.baseUrl;
-        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(text)}&gender=$gender&tone=$tone');
-        
-        final response = await http.get(url, headers: {
-          'Authorization': 'Bearer $token',
-        });
-        
-        if (response.statusCode == 200) {
-          final body = json.decode(response.body);
-          if (body['success'] == true && body['audio'] != null) {
-            final audioBytes = base64Decode(body['audio']);
-            
-            _audioPlayer.onPlayerComplete.listen((_) {
-              if (mounted) setState(() => _isPlaying = false);
-            });
-            
-            await _audioPlayer.play(BytesSource(audioBytes));
-            return;
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Error fetching backend preview voice: $e");
-    }
-
-    // Fallback to local device TTS
-    try {
-      double speechRate = 0.5;
-      double pitch = 1.0;
-
-      // Try setting an actual male/female voice from the system
-      final voices = await _flutterTts.getVoices;
-      if (voices != null) {
-        try {
-          List<dynamic> voiceList = List<dynamic>.from(voices);
-          Map<dynamic, dynamic>? selectedVoice;
-
-          for (var v in voiceList) {
-            final name = v['name'].toString().toLowerCase();
-            final locale = v['locale'].toString().toLowerCase();
-            if (locale.startsWith('en')) {
-              if (gender == 'male' && (name.contains('male') || name.contains('iom') || name.contains('tpd') || name.contains('rjs') || name.contains('daniel'))) {
-                selectedVoice = v;
-                break;
-              } else if (gender == 'female' && (name.contains('female') || name.contains('sfg') || name.contains('tpf') || name.contains('samantha'))) {
-                selectedVoice = v;
-                break;
-              }
-            }
-          }
-
-          if (selectedVoice != null) {
-            await _flutterTts.setVoice({"name": selectedVoice["name"].toString(), "locale": selectedVoice["locale"].toString()});
-          }
-        } catch (e) {
-          debugPrint("Voice mapping error: $e");
-        }
-      }
-
-      if (gender == 'male') {
-        pitch = 0.5; // More distinct male pitch as fallback if actual voice fetch fails
-      } else {
-        pitch = 1.1;
-      }
-
-      if (tone == 'soft') {
-        speechRate = 0.45;
-        pitch -= 0.1;
-      } else if (tone == 'energetic') {
-        speechRate = 0.6;
-        pitch += 0.1;
-      }
-
-      await _flutterTts.setLanguage('en-US');
-      await _flutterTts.setSpeechRate(speechRate);
-      await _flutterTts.setVolume(1.0);
-      await _flutterTts.setPitch(pitch);
-      await _flutterTts.speak(text);
-      
-      _flutterTts.setCompletionHandler(() {
-        if (mounted) setState(() => _isPlaying = false);
-      });
-    } catch (e) {
-      if (mounted) setState(() => _isPlaying = false);
-    }
-  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -239,23 +127,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
       setState(() => _currentView = _SettingsView.menu); 
     } else {
       ToastUtils.showErrorToast('Failed to save changes');
-    }
-  }
-
-  Future<void> _handleSaveVoicePreferences() async {
-    final success = await Provider.of<UserProvider>(context, listen: false).updateVoicePreferences(
-      {'gender': _localVoiceGender, 'tone': _localVoiceTone},
-    );
-    if (!mounted) return;
-    if (success) {
-      ToastUtils.showSuccessToast('Voice preferences saved');
-      // Sync with BuddyProvider immediately
-      if (mounted) {
-        Provider.of<buddy.BuddyProvider>(context, listen: false).syncVoicePreferences(_localVoiceGender, _localVoiceTone);
-      }
-      setState(() => _currentView = _SettingsView.menu);
-    } else {
-      ToastUtils.showErrorToast('Failed to save voice preferences');
     }
   }
 
@@ -396,7 +267,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
     if (_currentView == _SettingsView.editProfile) title = "Edit Profile";
     if (_currentView == _SettingsView.notifications) title = "Notifications";
     if (_currentView == _SettingsView.integrations) title = "Integrations";
-    if (_currentView == _SettingsView.voicePersonality) title = "Voice Personality";
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -427,8 +297,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
         return _buildNotifications();
       case _SettingsView.integrations:
         return _buildIntegrations();
-      case _SettingsView.voicePersonality:
-        return _buildVoicePersonality();
     }
   }
 
@@ -784,11 +652,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
           _buildSectionHeader("PREFERENCES"),
           
           _buildSettingsTile(
-            icon: LucideIcons.mic,
-            title: "Voice Personality",
-            onTap: () => setState(() => _currentView = _SettingsView.voicePersonality),
-          ),
-          _buildSettingsTile(
             icon: LucideIcons.bell,
             title: "Notifications",
             onTap: () => setState(() => _currentView = _SettingsView.notifications),
@@ -994,7 +857,15 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
           
           _buildTextField(_nameController, "Full Name", LucideIcons.user),
           const SizedBox(height: 16),
+          // Email — read-only (login identity, cannot be changed)
+          _buildReadOnlyField(
+            "Email Address",
+            user['email'] ?? 'No email on file',
+            LucideIcons.mail,
+          ),
+          const SizedBox(height: 16),
           _buildTextField(_phoneController, "Phone Number", LucideIcons.phone),
+
           const SizedBox(height: 16),
            _buildTextField(_addressController, "Address", LucideIcons.mapPin, maxLines: 3),
           const SizedBox(height: 24),
@@ -1094,6 +965,64 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
     );
   }
 
+  Widget _buildReadOnlyField(String label, String value, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[600])),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.lock, size: 9, color: Colors.grey[400]),
+                  const SizedBox(width: 3),
+                  Text(
+                    'cannot be changed',
+                    style: GoogleFonts.outfit(fontSize: 9, color: Colors.grey[400], fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(icon, size: 18, color: Colors.grey[350]),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text(
+                    value,
+                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.grey[500]),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+
   Widget _buildDropdown({
     required String label,
     required String value,
@@ -1136,155 +1065,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
           ),
         ),
       ],
-    );
-  }
-
-  // --- VOICE PERSONALITY VIEW ---
-  Widget _buildVoicePersonality() {
-    final userProvider = Provider.of<UserProvider>(context);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildLabel("Voice Gender"),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildChoiceCard(
-                  title: "Female",
-                  icon: LucideIcons.user,
-                  isSelected: _localVoiceGender == 'female',
-                  onTap: () => setState(() => _localVoiceGender = 'female'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildChoiceCard(
-                  title: "Male",
-                  icon: LucideIcons.user,
-                  isSelected: _localVoiceGender == 'male',
-                  onTap: () => setState(() => _localVoiceGender = 'male'),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 32),
-          
-          _buildLabel("Voice Tone"),
-          const SizedBox(height: 12),
-          Column(
-            children: [
-              _buildToneOption("Soft & Calm", "Gentle and patient delivery", 'soft', _localVoiceTone, () => setState(() => _localVoiceTone = 'soft')),
-              _buildToneOption("Normal", "Natural, conversational tone", 'normal', _localVoiceTone, () => setState(() => _localVoiceTone = 'normal')),
-              _buildToneOption("Energetic", "Enthusiastic and fast-paced", 'energetic', _localVoiceTone, () => setState(() => _localVoiceTone = 'energetic')),
-            ],
-          ),
-          
-          const SizedBox(height: 40),
-          
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _isPlaying ? null : () => _testVoice(_localVoiceGender, _localVoiceTone),
-                  icon: Icon(_isPlaying ? LucideIcons.loader : LucideIcons.playCircle, size: 20),
-                  label: Text(_isPlaying ? "Playing" : "Test Voice", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    foregroundColor: Theme.of(context).primaryColor,
-                    side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.5)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  onPressed: userProvider.isLoading ? null : _handleSaveVoicePreferences,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 4,
-                  ),
-                  child: userProvider.isLoading 
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text("Save Preferences", style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChoiceCard({required String title, required IconData icon, required bool isSelected, required VoidCallback onTap}) {
-    final primaryColor = Theme.of(context).primaryColor;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? primaryColor : Colors.grey[200]!, width: isSelected ? 2 : 1),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: isSelected ? primaryColor : Colors.grey[400], size: 28),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? primaryColor : const Color(0xFF1E293B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToneOption(String title, String subtitle, String value, String currentValue, VoidCallback onTap) {
-    final isSelected = value == currentValue;
-    final primaryColor = Theme.of(context).primaryColor;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? primaryColor : Colors.grey[200]!, width: isSelected ? 2 : 1),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 16, color: const Color(0xFF1E293B))),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: GoogleFonts.outfit(color: Colors.grey[500], fontSize: 13)),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(LucideIcons.checkCircle2, color: primaryColor)
-            else
-              const Icon(LucideIcons.circle, color: Colors.grey),
-          ],
-        ),
-      ),
     );
   }
 }

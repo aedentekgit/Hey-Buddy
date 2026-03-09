@@ -185,12 +185,7 @@ _BUDDY_SYSTEM_PROMPT_BASE = """You are {assistant_name}, a sharp and warm AI ass
 _BUDDY_SYSTEM_PROMPT_BASE_FMT = _BUDDY_SYSTEM_PROMPT_BASE.format(assistant_name=ASSISTANT_NAME)
 BUDDY_SYSTEM_PROMPT = _BUDDY_SYSTEM_PROMPT_BASE_FMT
 
-# Build final system prompt: assistant name and optional user title from ENV (no hardcoded names).
-_BUDDY_SYSTEM_PROMPT_BASE_FMT = _BUDDY_SYSTEM_PROMPT_BASE.format(assistant_name=ASSISTANT_NAME)
-if BUDDY_USER_TITLE:
-    BUDDY_SYSTEM_PROMPT = _BUDDY_SYSTEM_PROMPT_BASE_FMT + f"\n- When appropriate, you may address the user as: {BUDDY_USER_TITLE}"
-else:
-    BUDDY_SYSTEM_PROMPT = _BUDDY_SYSTEM_PROMPT_BASE_FMT
+
 
 
 GENERAL_CHAT_ADDENDUM = """

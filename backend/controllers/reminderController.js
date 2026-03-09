@@ -13,6 +13,94 @@ const {
     deleteGoogleCalendarEvent
 } = require('../services/googleCalendarService');
 
+// ─── Shared Helper ────────────────────────────────────────────────────────────
+/**
+ * Given a pickup time string ("HH:MM" or "HH:MM AM/PM"), subtract total prepare
+ * minutes and return a formatted adjusted time string.
+ *
+ * @param {string} pickupTime  - "23:00" or "11:00 PM" or "11:00 pm"
+ * @param {number} travelMin   - estimated travel time in minutes
+ * @param {number} bufferMin   - safety buffer in minutes
+ * @param {string} timeFormat  - "12" or "24", defaults to "12"
+ * @returns {{ adjustedTime: string, pickupFormatted: string, totalPrepare: number }}
+ */
+function calcAdjustedNotification(pickupTime, travelMin, bufferMin, timeFormat = '12') {
+    if (!pickupTime) return null;
+    const total = (Number(travelMin) || 0) + (Number(bufferMin) || 0);
+
+    // Parse pickup time (supports "HH:MM", "HH:MM AM", "HH:MM PM")
+    let [timePart, meridiem] = pickupTime.trim().split(' ');
+    let [hStr, mStr] = timePart.split(':');
+    let h = parseInt(hStr, 10);
+    let m = parseInt(mStr, 10);
+    if (isNaN(h) || isNaN(m)) return null;
+
+    if (meridiem) {
+        if (meridiem.toLowerCase() === 'pm' && h < 12) h += 12;
+        if (meridiem.toLowerCase() === 'am' && h === 12) h = 0;
+    }
+
+    // Build a base date (today) and subtract
+    const base = new Date();
+    base.setHours(h, m, 0, 0);
+    const adjusted = new Date(base.getTime() - total * 60000);
+
+    const fmt = (d, fmt12) => {
+        const ah = d.getHours();
+        const am = d.getMinutes();
+        if (fmt12 === '24') {
+            return `${String(ah).padStart(2, '0')}:${String(am).padStart(2, '0')}`;
+        }
+        const period = ah >= 12 ? 'PM' : 'AM';
+        const displayH = ah % 12 || 12;
+        return `${String(displayH).padStart(2, '0')}:${String(am).padStart(2, '0')} ${period}`;
+    };
+
+    return {
+        adjustedTime: fmt(adjusted, timeFormat),
+        pickupFormatted: fmt(base, timeFormat),
+        totalPrepare: total
+    };
+}
+
+// ─── Adjusted Notification Endpoint ──────────────────────────────────────────
+/**
+ * POST /reminders/adjusted-notification
+ * Body: { pickup_time, estimated_travel_time_minutes, safety_buffer_minutes, time_format? }
+ */
+exports.getAdjustedNotification = (req, res) => {
+    try {
+        const { pickup_time, estimated_travel_time_minutes, safety_buffer_minutes, time_format } = req.body;
+        if (!pickup_time) {
+            return res.status(400).json({ success: false, message: 'pickup_time is required' });
+        }
+
+        const travelMin = Number(estimated_travel_time_minutes) || 0;
+        const bufferMin = Number(safety_buffer_minutes) || 0;
+        const fmt = time_format === '24' ? '24' : '12';
+
+        const result = calcAdjustedNotification(pickup_time, travelMin, bufferMin, fmt);
+        if (!result) {
+            return res.status(400).json({ success: false, message: 'Invalid pickup_time format. Use HH:MM or HH:MM AM/PM' });
+        }
+
+        const totalPrepare = travelMin + bufferMin;
+
+        return res.json({
+            success: true,
+            pickup_time: result.pickupFormatted,
+            estimated_travel_time: travelMin > 0 ? `${travelMin} mins` : '0 mins',
+            safety_buffer_time: `${bufferMin} mins`,
+            total_prepare_time: `${totalPrepare} mins`,
+            adjusted_notification_time: result.adjustedTime
+        });
+    } catch (error) {
+        console.error('[AdjustedNotification]', error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
 exports.getReminders = async (req, res) => {
     try {
         const query = {
@@ -88,8 +176,8 @@ exports.createReminder = async (req, res) => {
             intent: intent || 'generic',
             priority: priority || 'medium',
             bufferTime: bufferTime || 0,
-            alerts: alerts || { push: true, sms: false, email: false },
-            smartFeatures: smartFeatures || { earlyWarning: false, trafficAware: false, itemExitGuards: false },
+            alerts: alerts || { push: true, email: true },
+            smartFeatures: smartFeatures || { earlyWarning: true, trafficAware: true, itemExitGuards: true },
             googleEventId,
             source: googleEventId ? 'google' : 'buddy'
         });
@@ -411,11 +499,12 @@ exports.getTravelStats = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Reminder not found' });
         }
 
+        const user = await User.findById(req.user._id);
+
         let origin;
         if (lat && lng) {
             origin = { lat: parseFloat(lat), lng: parseFloat(lng) };
         } else {
-            const user = await User.findById(req.user._id);
             if (!user || !user.currentLocation?.lat || !user.currentLocation?.lng) {
                 return res.status(400).json({ success: false, message: 'User location not available' });
             }
@@ -431,7 +520,6 @@ exports.getTravelStats = async (req, res) => {
             const coords = await geocodeAddress(reminder.location, origin);
             if (coords) {
                 destCoords = coords;
-                // Silently update the reminder for next time
                 await Reminder.findByIdAndUpdate(id, { coordinates: coords });
             }
         }
@@ -440,9 +528,51 @@ exports.getTravelStats = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Reminder location coordinates not found or could not be resolved' });
         }
 
+        // SANITY CHECK: If origin is >1000km from destination (e.g. emulator GPS = San Francisco),
+        // fall back to user's stored currentLocation which is the real location.
+        const haversineKm = (a, b) => {
+            const R = 6371;
+            const dLat = (b.lat - a.lat) * Math.PI / 180;
+            const dLng = (b.lng - a.lng) * Math.PI / 180;
+            const s = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+        };
+
+        const distanceKm = haversineKm(origin, destCoords);
+        if (distanceKm > 1000 && user?.currentLocation?.lat && user?.currentLocation?.lng) {
+            console.log(`[TravelStats] Origin is ${distanceKm.toFixed(0)}km away — likely bad GPS. Falling back to stored user location.`);
+            origin = user.currentLocation;
+        }
+
         const stats = await getTrafficAwareTravelTime(origin, destCoords);
 
-        res.status(200).json({ success: true, data: stats, resolvedCoordinates: destCoords });
+        // ─── Augment with Adjusted Notification Time ──────────────────────────
+        let adjustedNotificationTime = null;
+        let totalPrepareTime = null;
+        if (reminder.time) {
+            const bufferMin = reminder.bufferTime || 5;
+            // durationInTraffic is in seconds; convert to whole minutes
+            const travelMin = stats?.durationInTraffic ? Math.ceil(stats.durationInTraffic / 60) : 0;
+            const user = await User.findById(req.user._id).select('timeFormat');
+            const timeFormat = user?.timeFormat === '24' ? '24' : '12';
+            const adj = calcAdjustedNotification(reminder.time, travelMin, bufferMin, timeFormat);
+            if (adj) {
+                adjustedNotificationTime = adj.adjustedTime;
+                totalPrepareTime = adj.totalPrepare;
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...stats,
+                adjusted_notification_time: adjustedNotificationTime,
+                total_prepare_time: totalPrepareTime
+            },
+            resolvedCoordinates: destCoords
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

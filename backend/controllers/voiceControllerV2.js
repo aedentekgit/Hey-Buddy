@@ -57,13 +57,15 @@ exports.processVoice = async (req, res) => {
         // 2. Generate AI Response via Python Gateway
         let replyText = "I'm sorry, I'm having trouble thinking right now. Please try again soon.";
         let sessionIdRes = conversationId;
+        let audio = null; // To be populated from Python
+
         try {
             const aiServiceUrl = config.AI_SERVICE_URL;
             console.log(`[VoiceV2] Proxying to Python Brain: ${aiServiceUrl}/chat/realtime`);
             const pythonResponse = await axios.post(`${aiServiceUrl}/chat/realtime`, {
                 message: text,
                 session_id: conversationId || null,
-                tts: false,
+                tts: true, // REQUEST RYAN AUDIO!
                 api_key: aiConfig.apiKey,
                 provider: aiConfig.provider,
                 model: aiConfig.model,
@@ -74,7 +76,8 @@ exports.processVoice = async (req, res) => {
             if (pythonResponse.data && pythonResponse.data.response) {
                 replyText = pythonResponse.data.response;
                 sessionIdRes = pythonResponse.data.session_id;
-                console.log(`[VoiceV2] Python Brain Replied: ${replyText.substring(0, 50)}...`);
+                audio = pythonResponse.data.audio; // CAPTURE THE RYAN VOICE
+                console.log(`[VoiceV2] Python Brain Replied with Audio: ${replyText.substring(0, 50)}...`);
             }
         } catch (e) {
             console.error('[VoiceV2] Error connecting to Python AI Service:', e.message);
@@ -84,20 +87,22 @@ exports.processVoice = async (req, res) => {
 
         const aiResponse = { reply: replyText, type: 'chat' };
 
-        // 3. Save Interaction and return immediately (Client uses High-Speed Local TTS)
+        // 3. Save Interaction 
         const updatedConversationId = await (userId ? contextService.saveInteraction(userId, sessionIdRes, text, aiResponse.reply) : Promise.resolve(sessionIdRes));
 
-        let audio = null;
-        try {
-            const userPrefs = user?.voicePreferences || {};
-            const gender = userPrefs.gender || 'female';
-            const tone = userPrefs.tone || 'soft';
-            const ttsResult = await ttsService.generateAudio(aiResponse.reply, gender, tone, language);
-            if (ttsResult && ttsResult.audio) {
-                audio = ttsResult.audio;
+        // 4. Fallback Audio generation ONLY if Python didn't provide it
+        if (!audio) {
+            try {
+                const userPrefs = user?.voicePreferences || {};
+                const gender = userPrefs.gender || 'male'; // Default to male
+                const tone = userPrefs.tone || 'soft';
+                const ttsResult = await ttsService.generateAudio(aiResponse.reply, gender, tone, language);
+                if (ttsResult && ttsResult.audio) {
+                    audio = ttsResult.audio;
+                }
+            } catch (audioErr) {
+                console.warn('[VoiceV2] Local fallback audio failed:', audioErr.message);
             }
-        } catch (audioErr) {
-            console.warn('[VoiceV2] Audio generation failed:', audioErr.message);
         }
 
 

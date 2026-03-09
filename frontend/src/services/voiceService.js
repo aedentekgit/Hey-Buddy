@@ -20,7 +20,10 @@ const voiceService = {
             timeZone,
             clientTimestamp
         }, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'x-platform': 'web'
+            }
         });
         return response.data;
     },

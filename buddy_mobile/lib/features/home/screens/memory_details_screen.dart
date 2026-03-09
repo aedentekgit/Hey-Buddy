@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:buddy_mobile/core/config/app_config.dart';
 
@@ -11,12 +12,19 @@ class MemoryDetailsScreen extends StatelessWidget {
 
   const MemoryDetailsScreen({super.key, required this.item});
 
+  /// Builds a fully qualified URL from a stored path, correctly handling
+  /// relative paths, localhost leakage, and protocol mismatches.
   String _getFileUrl(String? path) {
     if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    
-    final formattedPath = path.startsWith('/') ? path : '/$path';
-    return '${AppConfig.assetBaseUrl}$formattedPath';
+    final formatted = AppConfig.formatImageUrl(path);
+    return formatted ?? '';
+  }
+
+  bool _isImage(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.jpg') || lower.endsWith('.jpeg') ||
+           lower.endsWith('.png') || lower.endsWith('.gif') ||
+           lower.endsWith('.webp') || lower.endsWith('.bmp');
   }
 
   @override
@@ -24,6 +32,9 @@ class MemoryDetailsScreen extends StatelessWidget {
     final type = item['type'] ?? 'memory';
     final bool isMemory = type == 'memory';
     final Color themeColor = isMemory ? const Color(0xFF9333EA) : const Color(0xFF059669);
+    final String? rawFileUrl = item['fileUrl'] as String?;
+    final String fileUrl = _getFileUrl(rawFileUrl);
+    final bool hasFile = fileUrl.isNotEmpty;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -54,6 +65,14 @@ class MemoryDetailsScreen extends StatelessWidget {
                   style: GoogleFonts.outfit(fontSize: 16, height: 1.5, color: const Color(0xFF1E293B)),
                 ),
               ),
+              // ✅ FIX: Show attachment for memory type if fileUrl exists
+              if (hasFile)
+                _DetailCard(
+                  title: "Attachment",
+                  icon: LucideIcons.paperclip,
+                  color: themeColor,
+                  child: _FilePreview(fileUrl: fileUrl, isImage: _isImage(fileUrl)),
+                ),
             ] else ...[
               _DetailCard(
                 title: "Information",
@@ -97,33 +116,114 @@ class MemoryDetailsScreen extends StatelessWidget {
                     ).toList(),
                   ),
                 ),
-              if (item['fileUrl'] != null)
+              if (hasFile)
                 _DetailCard(
                   title: "Document Preview",
                   icon: LucideIcons.image,
                   color: themeColor,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: CachedNetworkImage(
-                      imageUrl: _getFileUrl(item['fileUrl']),
-                      placeholder: (context, url) => Container(
-                        height: 200, 
-                        color: Colors.grey[100], 
-                        child: const Center(child: CircularProgressIndicator())
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        height: 100, 
-                        color: Colors.grey[100], 
-                        child: const Icon(LucideIcons.imageOff)
-                      ),
-                    ),
-                  ),
+                  child: _FilePreview(fileUrl: fileUrl, isImage: _isImage(fileUrl)),
                 ),
             ],
             const SizedBox(height: 40),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Renders an image or a document download chip depending on the file type.
+class _FilePreview extends StatelessWidget {
+  final String fileUrl;
+  final bool isImage;
+  const _FilePreview({required this.fileUrl, required this.isImage});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isImage)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: CachedNetworkImage(
+              imageUrl: fileUrl,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (ctx, url) => Container(
+                height: 200,
+                color: Colors.grey[100],
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (ctx, url, err) => Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(LucideIcons.imageOff, color: Colors.grey[400], size: 32),
+                    const SizedBox(height: 8),
+                    Text('Could not load image', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.fileText, color: Color(0xFF6366F1), size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    fileUrl.split('/').last,
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        // Open in browser link
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: () async {
+            final uri = Uri.tryParse(fileUrl);
+            if (uri != null && await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366F1).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.externalLink, size: 13, color: Color(0xFF6366F1)),
+                const SizedBox(width: 6),
+                Text(
+                  'Open Full View',
+                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF6366F1)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -203,3 +303,4 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
+

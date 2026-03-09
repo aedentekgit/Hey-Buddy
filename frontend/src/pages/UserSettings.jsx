@@ -283,6 +283,9 @@ const UserSettings = () => {
             const res = await api.put('/users/profile', formData);
             if (res.data.success) {
                 toast.success('Profile updated successfully');
+                // Refresh global user state so dateFormat/timeFormat
+                // propagates to all pages immediately without a reload
+                await refreshUser();
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to update profile');

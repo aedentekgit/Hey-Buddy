@@ -1077,33 +1077,38 @@ async def chat_realtime(request: ChatRequest):
     REQUEST BODY:
     {
         "message": "What's the latest AI news?",
-        "session_id": "optional-session-id"
-    }
+    Realtime chat without streaming — POST text, returns JSON response.
     
-    RESPONSE:
-    {
-        "response": "Based on recent search results...",
-        "session_id": "session-id-here"
-    }
+    This endpoint uses the realtime mode (with Tavily web search) but
+    returns the entire response as a single JSON object.
     
-    NOTE: Requires TAVILY_API_KEY to be set in .env file. If not set, realtime mode
-    will not be available and will return a 503 error.
+    If 'tts' is True in the request, it will also generate high-quality
+    Ryan audio (Base64 MP3) using edge-tts before returning.
     """
-    # Guard: both services must be ready.
-    if not chat_service:
-        raise HTTPException(status_code=503, detail="Chat service not initialized")
-    if not realtime_service:
-        raise HTTPException(status_code=503, detail="Realtime service not initialized")
-
-    logger.info("[API /chat/realtime] Incoming | session_id=%s | message_len=%d | message=%.100s",
+    if not chat_service or not realtime_service:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    
+    logger.info("[API /chat/realtime] Incoming | session_id=%s | message_len=%d | message=%.100s", 
                 request.session_id or "new", len(request.message), request.message)
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
-        # process_realtime_message: Tavily search → RAG context → Groq LLM → text
+        # process_realtime_message: Tavily search -> RAG context -> Groq LLM -> text
         response_text = chat_service.process_realtime_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "")
         chat_service.save_chat_session(session_id)
+
+        # GENERATE RYAN AUDIO IF REQUESTED
+        audio_b64 = None
+        if request.tts:
+            try:
+                # Use Ryan (en-GB-RyanNeural) specifically
+                voice = language_service.get_voice_for_text(response_text, default_voice=TTS_VOICE)
+                audio_bytes = _generate_tts_sync(response_text, voice, TTS_RATE)
+                audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
+            except Exception as e:
+                logger.error(f"[API /chat/realtime] TTS generation error: {e}")
+
         logger.info("[API /chat/realtime] Done | session_id=%s | response_len=%d", session_id[:12], len(response_text))
-        return ChatResponse(response=response_text, session_id=session_id)
+        return ChatResponse(response=response_text, session_id=session_id, audio=audio_b64)
     except ValueError as e:
         logger.warning("[API /chat/realtime] Invalid session_id: %s", e)
         raise HTTPException(status_code=400, detail=str(e))

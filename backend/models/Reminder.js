@@ -76,7 +76,7 @@ const reminderSchema = new mongoose.Schema({
     alerts: {
         push: { type: Boolean, default: true },
         sms: { type: Boolean, default: false },
-        email: { type: Boolean, default: false }
+        email: { type: Boolean, default: true }
     },
     backupContacts: [{
         name: String,
@@ -84,9 +84,9 @@ const reminderSchema = new mongoose.Schema({
     }],
 
     smartFeatures: {
-        earlyWarning: { type: Boolean, default: false },
-        trafficAware: { type: Boolean, default: false },
-        itemExitGuards: { type: Boolean, default: false }
+        earlyWarning: { type: Boolean, default: true },
+        trafficAware: { type: Boolean, default: true },
+        itemExitGuards: { type: Boolean, default: true }
     },
     timeline: [{
         action: String,

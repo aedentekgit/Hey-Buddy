@@ -7,6 +7,8 @@ import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/features/home/screens/reminder_create_screen.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 
 class ReminderListScreen extends StatefulWidget {
   const ReminderListScreen({super.key});
@@ -39,10 +41,13 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
         // ],
       ),
       body: SafeArea(
-        child: Consumer<TasksProvider>(
+        // Consumer<UserProvider> outer so list rebuilds when format changes
+        child: Consumer<UserProvider>(
+          builder: (context, userProvider, _) => Consumer<TasksProvider>(
           builder: (context, provider, child) {
             if (provider.isLoading) return const Center(child: CircularProgressIndicator());
             if (provider.tasks.isEmpty) return const Center(child: Text("No reminders found"));
+
 
             return RefreshIndicator(
               onRefresh: () => provider.loadTasks(),
@@ -61,11 +66,16 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                     title: task['title'] ?? 'Untitled',
                     status: isOverdue ? 'Risk Alert' : 'ON TRACK',
                     variant: isOverdue ? 'danger' : 'green',
-                    date: dateStr != null ? TaskUtils.formatDate(dateStr) : null,
-                    time: task['time'] ?? 'All day',
+                    date: dateStr != null
+                        ? DateFormatter.displayDateString(context, dateStr)
+                        : null,
+                    time: DateFormatter.displayTimeString(
+                      context,
+                      task['time'] as String?,
+                    ),
                     location: loc ?? 'No Location',
-                    distance: hasLocation ? '2.3 miles' : null,
-                    eta: hasLocation ? '12 mins' : null,
+                    distance: hasLocation ? (task['_distanceLabel'] as String?) : null,
+                    eta: hasLocation ? (task['_etaLabel'] as String?) : null,
                     headerIcon: TaskUtils.getTaskIcon(task['title'], task['intent']),
                     onView: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SmartDetailsScreen(task: task))),
                     onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ReminderCreateScreen(task: task))),
@@ -95,8 +105,10 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               ),
             );
           },
-        ),
+        ),  // Consumer<TasksProvider>
+        ),  // Consumer<UserProvider>
       ),
     );
+
   }
 }

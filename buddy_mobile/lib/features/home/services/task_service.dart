@@ -145,4 +145,40 @@ class TaskService {
       return false;
     }
   }
+
+  /// Calls POST /reminders/adjusted-notification and returns the adjusted time string.
+  /// Returns null on failure.
+  Future<Map<String, dynamic>?> fetchAdjustedNotification({
+    required String pickupTime,
+    required int travelMinutes,
+    required int bufferMinutes,
+    String timeFormat = '12',
+  }) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+      final response = await http.post(
+        Uri.parse('${_baseUrl}reminders/adjusted-notification'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'x-platform': 'mobile',
+        },
+        body: jsonEncode({
+          'pickup_time': pickupTime,
+          'estimated_travel_time_minutes': travelMinutes,
+          'safety_buffer_minutes': bufferMinutes,
+          'time_format': timeFormat,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true) return body;
+      }
+      return null;
+    } catch (e) {
+      print("Error fetching adjusted notification: $e");
+      return null;
+    }
+  }
 }
+

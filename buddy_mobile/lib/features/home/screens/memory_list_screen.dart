@@ -89,6 +89,7 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
                   final memory = provider.memories[index];
                   return MobileMemoryCard(
                     item: memory,
+                    index: index,
                     onView: () => _showViewDialog(context, memory),
                     onEdit: () => _showEditDialog(context, memory),
                     onDelete: () => _showDeleteDialog(context, memory),

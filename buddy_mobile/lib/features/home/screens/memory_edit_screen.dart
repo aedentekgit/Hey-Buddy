@@ -7,6 +7,8 @@ import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MemoryEditScreen extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -202,7 +204,22 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
               ] else if (widget.item['fileUrl'] != null) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(widget.item['fileUrl'], height: 150, width: double.infinity, fit: BoxFit.cover),
+                  child: CachedNetworkImage(
+                    imageUrl: AppConfig.formatImageUrl(widget.item['fileUrl'] as String?) ?? '',
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (ctx, url) => Container(
+                      height: 150,
+                      color: Colors.grey[100],
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+                    errorWidget: (ctx, url, err) => Container(
+                      height: 80,
+                      color: Colors.grey[100],
+                      child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextButton.icon(

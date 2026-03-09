@@ -23,11 +23,11 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
   Map<String, dynamic>? selectedCoordinates;
   
   // Smart Features state
-  bool earlyWarning = false;
-  bool trafficAware = false;
-  bool itemExitGuards = false;
+  bool earlyWarning = true;
+  bool trafficAware = true;
+  bool itemExitGuards = true;
   bool pushEnabled = true;
-  bool smsEnabled = false;
+
   int bufferTime = 15;
 
   @override
@@ -49,13 +49,13 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
 
     // Initialize Smart Features from task if editing
     final sf = widget.task?['smartFeatures'] ?? {};
-    earlyWarning = sf['earlyWarning'] ?? false;
-    trafficAware = sf['trafficAware'] ?? false;
-    itemExitGuards = sf['itemExitGuards'] ?? false;
+    earlyWarning = sf['earlyWarning'] ?? true;
+    trafficAware = sf['trafficAware'] ?? true;
+    itemExitGuards = sf['itemExitGuards'] ?? true;
 
     final al = widget.task?['alerts'] ?? {};
     pushEnabled = al['push'] ?? true;
-    smsEnabled = al['sms'] ?? false;
+
 
     bufferTime = widget.task?['bufferTime'] ?? 15;
   }
@@ -79,8 +79,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
       },
       'alerts': {
         'push': pushEnabled,
-        'sms': smsEnabled,
-        'email': false, // Email alerts are not yet implemented in the UI
+        'email': true,
       },
       'bufferTime': bufferTime,
     };
@@ -193,7 +192,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
             ),
             const SizedBox(height: 16),
             _buildChannelToggle("Push Notifications", LucideIcons.bell, pushEnabled, (v) => setState(() => pushEnabled = v)),
-            _buildChannelToggle("SMS Alerts", LucideIcons.messageSquare, smsEnabled, (v) => setState(() => smsEnabled = v)),
+
 
             const SizedBox(height: 40),
             SizedBox(

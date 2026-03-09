@@ -119,7 +119,7 @@ const Reminders = () => {
     };
 
     const handleCreateClick = () => {
-        setEditForm({ title: '', date: '', time: '', location: '', coordinates: { lat: null, lng: null }, alerts: { push: true, sms: false, email: false } });
+        setEditForm({ title: '', date: '', time: '', location: '', coordinates: { lat: null, lng: null }, alerts: { push: true, email: true } });
         setEditModal({ isOpen: true, reminder: null, isCreate: true });
     };
 

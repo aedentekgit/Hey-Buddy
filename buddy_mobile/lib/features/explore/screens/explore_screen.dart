@@ -9,6 +9,7 @@ import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/features/home/screens/memory_details_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
+import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 
 class ExploreScreen extends StatefulWidget {
   final VoidCallback? onMemoryTap;
@@ -453,6 +454,40 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                         ),
                       ],
                     ],
+                  ),
+                  // ── Time chip (user-preferred format) ─────────────────
+                  Builder(
+                    builder: (ctx) {
+                      final rawTime = (task['time'] ?? '').toString();
+                      final rawDate = (task['date'] ?? '').toString();
+                      if (rawTime.isEmpty) return const SizedBox.shrink();
+                      final displayedTime = DateFormatter.displayTimeString(ctx, rawTime);
+                      final displayedDate = rawDate.isNotEmpty
+                          ? DateFormatter.displayDateString(ctx, rawDate)
+                          : '';
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(LucideIcons.clock, size: 12, color: iconColor.withOpacity(0.75)),
+                              const SizedBox(width: 4),
+                              Text(
+                                displayedDate.isNotEmpty
+                                    ? '$displayedDate  •  $displayedTime'
+                                    : displayedTime,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: iconColor.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

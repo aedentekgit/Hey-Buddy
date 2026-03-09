@@ -126,21 +126,20 @@ class AuthProvider with ChangeNotifier {
     return false;
   }
 
-  Future<bool> register(String name, String email, String password) async {
+  Future<Map<String, dynamic>> register(String name, String email, String password) async {
     _isLoading = true;
     notifyListeners();
     
-    final result = await _authService.register(name, email, password);
-    
-    if (result['success'] == true) {
+    try {
+      final result = await _authService.register(name, email, password);
+      return result;
+    } catch (e) {
+      debugPrint('Registration Exception: $e');
+      return {'success': false, 'message': e.toString()};
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return true;
     }
-    
-    _isLoading = false;
-    notifyListeners();
-    return false;
   }
 
   Future<void> logout() async {

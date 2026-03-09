@@ -177,7 +177,7 @@ class MobileTaskCard extends StatelessWidget {
                               ),
                             ),
                           ],
-                          if (isDanger) ...[
+                          if (isDanger) ...[ 
                             const SizedBox(width: 8),
                             const Text(
                               "!",

@@ -9,13 +9,15 @@ const {
     batchDeleteReminders,
     shareReminder,
     unshareReminder,
-    getTravelStats
+    getTravelStats,
+    getAdjustedNotification
 } = require('../controllers/reminderController');
 
 router.use(protect);
 
 router.get('/', getReminders);
 router.get('/:id/travel-stats', getTravelStats);
+router.post('/adjusted-notification', getAdjustedNotification);
 router.post('/', createReminder);
 router.post('/batch-delete', batchDeleteReminders);
 router.post('/:id/share', shareReminder);

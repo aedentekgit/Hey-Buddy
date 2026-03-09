@@ -4,11 +4,14 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
 class MobileMemoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onView;
   final VoidCallback onEdit;
   final VoidCallback? onDelete;
+  final int index;
 
   const MobileMemoryCard({
     super.key,
@@ -16,6 +19,7 @@ class MobileMemoryCard extends StatelessWidget {
     required this.onView,
     required this.onEdit,
     this.onDelete,
+    this.index = 0,
   });
 
   @override
@@ -23,28 +27,36 @@ class MobileMemoryCard extends StatelessWidget {
     final String type = item['type'] ?? 'memory';
     final bool isMemory = type == 'memory';
 
-    // Exact HEX colors from Web MobileMemoryCard.jsx
-    final Color purpleBg = const Color(0xFFF3E8FF);
-    final Color purpleBorder = const Color(0xFFD8B4FE);
-    final Color purpleIconBg = const Color(0xFFE9D5FF);
-    final Color purpleIconColor = const Color(0xFF9333EA);
+    // 6-color rotating palette for memory cards
+    const List<List<Color>> memoryPalettes = [
+      // 0 - Purple
+      [Color(0xFFF3E8FF), Color(0xFFD8B4FE), Color(0xFFE9D5FF), Color(0xFF9333EA)],
+      // 1 - Rose
+      [Color(0xFFFFF1F2), Color(0xFFFECACC), Color(0xFFFFE4E6), Color(0xFFE11D48)],
+      // 2 - Amber
+      [Color(0xFFFFFBEB), Color(0xFFFDE68A), Color(0xFFFEF3C7), Color(0xFFD97706)],
+      // 3 - Teal
+      [Color(0xFFEFFAF6), Color(0xFFACE0D6), Color(0xFFCAECE1), Color(0xFF0D9488)],
+      // 4 - Indigo
+      [Color(0xFFEEF2FF), Color(0xFFC7D2FE), Color(0xFFE0E7FF), Color(0xFF4F46E5)],
+      // 5 - Emerald
+      [Color(0xFFECFDF5), Color(0xFF6EE7B7), Color(0xFFD1FAE5), Color(0xFF059669)],
+    ];
 
-    final Color greenBg = const Color(0xFFEFFAF6);
-    final Color greenBorder = const Color(0xFFACE0D6);
-    final Color greenIconBg = const Color(0xFFCAECE1);
-    final Color greenIconColor = const Color(0xFF88B5A8);
+    final palette = isMemory
+        ? memoryPalettes[index % memoryPalettes.length]
+        : [const Color(0xFFEFFAF6), const Color(0xFFACE0D6), const Color(0xFFCAECE1), const Color(0xFF88B5A8)];
 
-    // Active Styles
-    final Color activeBg = isMemory ? purpleBg : greenBg;
-    final Color activeBorder = isMemory ? purpleBorder : greenBorder;
-    final Color activeIconBg = isMemory ? purpleIconBg : greenIconBg;
-    final Color activePrimary = isMemory ? purpleIconColor : greenIconColor;
+    final Color activeBg = palette[0];
+    final Color activeBorder = palette[1];
+    final Color activeIconBg = palette[2];
+    final Color activePrimary = palette[3];
     final IconData icon = isMemory ? LucideIcons.brain : LucideIcons.fileText;
 
-    // Button Styles
-    final Color viewBtnBg = isMemory ? const Color(0xFFFAF5FF) : const Color(0xFFF0FDF4);
-    final Color viewBtnBorder = isMemory ? const Color(0xFFE9D5FF) : const Color(0xFFBBF7D0);
-    final Color viewBtnText = isMemory ? const Color(0xFF9333EA) : const Color(0xFF16A34A);
+    // Button Styles - match the palette primary color
+    final Color viewBtnBg = activeBg;
+    final Color viewBtnBorder = activeIconBg;
+    final Color viewBtnText = activePrimary;
 
     final Color editBtnBg = const Color(0xFFEFF6FF);
     final Color editBtnBorder = const Color(0xFFBFDBFE);
@@ -234,6 +246,64 @@ class MobileMemoryCard extends StatelessWidget {
                               fontStyle: FontStyle.italic,
                             ),
                           ),
+                        // Attachment thumbnail strip
+                        if (item['fileUrl'] != null && (item['fileUrl'] as String).isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: CachedNetworkImage(
+                                  imageUrl: AppConfig.formatImageUrl(item['fileUrl'] as String?) ?? '',
+                                  height: 90,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  placeholder: (ctx, url) => Container(
+                                    height: 90,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                  ),
+                                  errorWidget: (ctx, url, err) => Container(
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(LucideIcons.fileText, size: 16, color: Colors.grey[400]),
+                                        const SizedBox(width: 6),
+                                        Text('Attachment', style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[400])),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 6, right: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(LucideIcons.paperclip, size: 9, color: Colors.white),
+                                      const SizedBox(width: 3),
+                                      Text('Attachment', style: GoogleFonts.outfit(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

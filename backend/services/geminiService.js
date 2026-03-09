@@ -94,9 +94,13 @@ const toolHandlers = {
                 intent: intent,
                 source: 'buddy',
                 smartFeatures: {
-                    earlyWarning: !!(location && coordinates.lat),
-                    trafficAware: !!(location && coordinates.lat),
-                    itemExitGuards: false
+                    earlyWarning: true,
+                    trafficAware: true,
+                    itemExitGuards: true
+                },
+                alerts: {
+                    push: true,
+                    email: true
                 }
             };
 

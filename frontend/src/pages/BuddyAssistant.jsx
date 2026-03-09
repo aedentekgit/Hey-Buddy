@@ -27,6 +27,7 @@ const BuddyAssistant = () => {
     const { settings } = useSettings();
 
     const [parsedReminder, setParsedReminder] = useState(null);
+    const [loginPrompt, setLoginPrompt] = useState({ show: false, reason: '' });
     const [saveDestination, setSaveDestination] = useState('both');
     const [isSaving, setIsSaving] = useState(false);
     const [chatResponse, setChatResponse] = useState(null);
@@ -52,7 +53,23 @@ const BuddyAssistant = () => {
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, type: 'single' });
     const loadIntoChatRef = useRef(null); // Receives the loader fn from GeminiVoiceAssistant
 
+    const ACTION_TOOLS = ['create_reminder', 'save_memory', 'delete_reminder', 'delete_memory', 'confirm_medical', 'analyze_health_summary'];
+    const TOOL_REASON = {
+        create_reminder: 'set a Reminder',
+        save_memory: 'save a Memory',
+        delete_reminder: 'manage Reminders',
+        delete_memory: 'manage Memories',
+        analyze_health_summary: 'view your Health Summary',
+        confirm_medical: 'save Medical Reminders',
+    };
+
     const handleToolCall = async (name, args) => {
+        // LOGIN GUARD: Block account-required actions for guests
+        if (user?.isGuest && ACTION_TOOLS.includes(name)) {
+            setLoginPrompt({ show: true, reason: TOOL_REASON[name] || 'use this feature' });
+            return { status: 'auth_required', message: `Please sign in to ${TOOL_REASON[name] || 'use this feature'}.` };
+        }
+
         if (name === 'create_reminder') {
             const { title, time, notes } = args;
             const reminder = {
@@ -334,11 +351,19 @@ const BuddyAssistant = () => {
 
 
 
+    const requireLogin = (reason, fn) => {
+        if (user?.isGuest) {
+            setLoginPrompt({ show: true, reason });
+        } else {
+            fn();
+        }
+    };
+
     const quickCommands = [
-        { icon: <Plus size={18} />, text: "Create reminder", action: () => toast("Just say 'Set a reminder' to Gemini!") },
-        { icon: <Camera size={18} />, text: "Upload Image", action: () => fileInputRef.current?.click() },
-        { icon: <Brain size={18} />, text: "Remembered things", action: () => navigate('/admin/memories') },
-        { icon: <List size={18} />, text: "Show active reminders", action: () => navigate('/admin/reminders') },
+        { icon: <Plus size={18} />, text: "Create reminder", action: () => requireLogin('set a Reminder', () => toast("Just say 'Set a reminder' to Gemini!")) },
+        { icon: <Camera size={18} />, text: "Upload Image", action: () => requireLogin('analyze an Image', () => fileInputRef.current?.click()) },
+        { icon: <Brain size={18} />, text: "Remembered things", action: () => requireLogin('view Memories', () => navigate('/admin/memories')) },
+        { icon: <List size={18} />, text: "Show active reminders", action: () => requireLogin('view Reminders', () => navigate('/admin/reminders')) },
     ];
 
     return (
@@ -527,6 +552,80 @@ const BuddyAssistant = () => {
                                     ) : null}
                                 </AnimatePresence>
                             </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* LOGIN PROMPT MODAL */}
+                <AnimatePresence>
+                    {loginPrompt.show && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            style={{
+                                position: 'fixed', inset: 0, zIndex: 200,
+                                background: 'rgba(0,0,0,0.45)',
+                                backdropFilter: 'blur(8px)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                padding: '24px'
+                            }}
+                            onClick={() => setLoginPrompt({ show: false, reason: '' })}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                    background: 'white',
+                                    borderRadius: '28px',
+                                    padding: '40px 32px',
+                                    width: '100%',
+                                    maxWidth: '420px',
+                                    textAlign: 'center',
+                                    boxShadow: '0 32px 64px rgba(0,0,0,0.2)'
+                                }}
+                            >
+                                {/* Icon */}
+                                <div style={{
+                                    width: '72px', height: '72px', borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, var(--primary-color), #8b5cf6)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    margin: '0 auto 20px'
+                                }}>
+                                    <span style={{ fontSize: '32px' }}>🔐</span>
+                                </div>
+
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>
+                                    Sign in to {loginPrompt.reason}
+                                </h2>
+                                <p style={{ fontSize: '0.95rem', color: 'var(--text-sub)', lineHeight: '1.6', marginBottom: '28px' }}>
+                                    This feature requires a Buddy account. Create a free account or sign in to {loginPrompt.reason}, access your reminders, and unlock the full Buddy experience.
+                                </p>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <button
+                                        className="btn-premium"
+                                        style={{ width: '100%', height: '52px', borderRadius: '14px', fontSize: '1rem', fontWeight: '700' }}
+                                        onClick={() => { setLoginPrompt({ show: false, reason: '' }); navigate('/login'); }}
+                                    >
+                                        Sign In to Continue →
+                                    </button>
+                                    <button
+                                        style={{
+                                            width: '100%', height: '44px', borderRadius: '14px',
+                                            background: 'transparent', border: '1px solid var(--border-color)',
+                                            cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem',
+                                            color: 'var(--text-sub)'
+                                        }}
+                                        onClick={() => setLoginPrompt({ show: false, reason: '' })}
+                                    >
+                                        Maybe Later
+                                    </button>
+                                </div>
+                            </motion.div>
                         </motion.div>
                     )}
                 </AnimatePresence>

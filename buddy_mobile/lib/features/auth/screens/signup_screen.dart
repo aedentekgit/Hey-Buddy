@@ -45,15 +45,16 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final success = await auth.register(name, email, password);
+    final result = await auth.register(name, email, password);
     
     if (!mounted) return;
     
-    if (success) {
+    if (result['success'] == true) {
       ToastUtils.showSuccessToast('Account created! Please sign in.');
       Navigator.of(context).pop();
     } else {
-      ToastUtils.showErrorToast('Registration failed. Email might be taken.');
+      String error = result['message'] ?? 'Registration failed. Email might be taken.';
+      ToastUtils.showErrorToast(error);
     }
   }
 
@@ -62,39 +63,40 @@ class _SignupScreenState extends State<SignupScreen> {
     final branding = Provider.of<BrandingProvider>(context);
     
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFFF9FAFF),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Spacer(flex: 2),
+              const SizedBox(height: 48),
               if (branding.logoUrl != null)
                 CachedNetworkImage(
                   imageUrl: branding.logoUrl!,
-                  height: 50,
+                  height: 60,
                   errorWidget: (context, url, error) => Icon(Icons.auto_awesome, size: 40, color: branding.primaryColor),
                 )
               else
                 Icon(Icons.auto_awesome, size: 40, color: branding.primaryColor),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Text(
                 "Create Account",
                 style: GoogleFonts.outfit(
-                  fontSize: 24,
+                  fontSize: 28,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF1E293B),
                 ),
               ),
+              const SizedBox(height: 8),
               Text(
                 "Join ${branding.appName} to experience private AI",
                 style: GoogleFonts.inter(
-                  fontSize: 14,
+                  fontSize: 15,
                   color: const Color(0xFF64748B),
                 ),
               ),
-              const Spacer(flex: 2),
+              const SizedBox(height: 40),
               _buildTextField(
                 controller: _nameController,
                 label: "Full Name",
@@ -107,6 +109,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 label: "Email Address",
                 hint: "Enter your email",
                 icon: Icons.alternate_email,
+                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               _buildTextField(
@@ -130,6 +133,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 20),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
                     width: 24,
@@ -158,21 +162,23 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ],
                       ),
-                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
                     ),
                   ),
                 ],
               ),
-              const Spacer(flex: 3),
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _handleSignup,
+                  onPressed: Provider.of<AuthProvider>(context).isLoading ? null : _handleSignup,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: branding.primaryColor,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: branding.primaryColor.withOpacity(0.6),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
                   ),
                   child: Provider.of<AuthProvider>(context).isLoading
                       ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
@@ -196,7 +202,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ],
               ),
-              const Spacer(flex: 2),
+              const SizedBox(height: 48),
               FutureBuilder<PackageInfo>(
                 future: PackageInfo.fromPlatform(),
                 builder: (context, snapshot) {
@@ -230,6 +236,7 @@ class _SignupScreenState extends State<SignupScreen> {
     bool isPassword = false,
     bool obscure = false,
     VoidCallback? onToggle,
+    TextInputType? keyboardType,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,6 +255,7 @@ class _SignupScreenState extends State<SignupScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscure,
+            keyboardType: keyboardType,
             style: GoogleFonts.inter(fontSize: 15),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 20),
@@ -265,4 +273,5 @@ class _SignupScreenState extends State<SignupScreen> {
       ],
     );
   }
+
 }

@@ -161,6 +161,14 @@ class BrandingProvider extends ChangeNotifier {
       primary: _primaryColor,
       surface: Colors.white,
     ),
+    // Enable swipe-to-go-back on ALL platforms (Android + iOS)
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+      },
+    ),
     textTheme: GoogleFonts.plusJakartaSansTextTheme(),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

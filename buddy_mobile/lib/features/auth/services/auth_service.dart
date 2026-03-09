@@ -15,20 +15,20 @@ class AuthService {
       });
       return response.data;
     } on DioException catch (e) {
-      return {'success': false, 'message': e.response?.data['message'] ?? 'Login failed'};
+      return _handleError(e, 'Login failed');
     }
   }
 
   Future<Map<String, dynamic>> register(String name, String email, String password) async {
     try {
-      final response = await _dio.post('auth/register', data: {
+      final response = await _dio.post('auth/signup', data: {
         'name': name,
         'email': email,
         'password': password,
       });
       return response.data;
     } on DioException catch (e) {
-      return {'success': false, 'message': e.response?.data['message'] ?? 'Registration failed'};
+      return _handleError(e, 'Registration failed');
     }
   }
 
@@ -40,9 +40,10 @@ class AuthService {
       });
       return response.data;
     } on DioException catch (e) {
-      return {'success': false, 'message': e.response?.data['message'] ?? 'Google Login failed'};
+      return _handleError(e, 'Google Login failed');
     }
   }
+
   Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
       final response = await _dio.post('auth/forgot-password', data: {
@@ -50,7 +51,7 @@ class AuthService {
       });
       return response.data;
     } on DioException catch (e) {
-      return {'success': false, 'message': e.response?.data['message'] ?? 'Failed to send OTP'};
+      return _handleError(e, 'Failed to send OTP');
     }
   }
 
@@ -62,7 +63,7 @@ class AuthService {
       });
       return response.data;
     } on DioException catch (e) {
-      return {'success': false, 'message': e.response?.data['message'] ?? 'Invalid OTP'};
+      return _handleError(e, 'Invalid OTP');
     }
   }
 
@@ -75,7 +76,17 @@ class AuthService {
       });
       return response.data;
     } on DioException catch (e) {
-      return {'success': false, 'message': e.response?.data['message'] ?? 'Password reset failed'};
+      return _handleError(e, 'Password reset failed');
     }
+  }
+
+  Map<String, dynamic> _handleError(DioException e, String defaultMessage) {
+    String message = defaultMessage;
+    if (e.response?.data != null && e.response?.data is Map) {
+      message = e.response?.data['message'] ?? defaultMessage;
+    } else if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
+      message = 'Connection error. Please check your internet or if the server is running.';
+    }
+    return {'success': false, 'message': message};
   }
 }

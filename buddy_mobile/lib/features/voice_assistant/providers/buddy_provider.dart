@@ -46,7 +46,7 @@ class BuddyProvider with ChangeNotifier {
   final List<String> _ttsQueue = [];
   bool _isSpeakingQueue = false;
 
-  String _currentGender = 'female';
+  String _currentGender = 'male';
   String _currentTone = 'soft';
 
   void syncVoicePreferences(String gender, String tone) {
@@ -183,7 +183,7 @@ class BuddyProvider with ChangeNotifier {
         final baseUrl = AppConfig.baseUrl;
         
         // Fetch current user prefs for the voice query
-        String gender = 'female';
+        String gender = 'male';
         String tone = 'soft';
 
         // Note: In a production app, we'd ideally have the UserProvider's current state passed in,
@@ -442,7 +442,7 @@ class BuddyProvider with ChangeNotifier {
       final text = data['text'] as String?;
       if (text == null) return;
 
-      final gender = data['gender'] ?? 'female';
+      final gender = data['gender'] ?? 'male';
       final tone = data['tone'] ?? 'soft';
 
       try {

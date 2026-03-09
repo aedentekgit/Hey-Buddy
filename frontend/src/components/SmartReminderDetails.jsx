@@ -84,13 +84,13 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
 
     const [bufferTime, setBufferTime] = useState(0);
     const [geofenceRadius, setGeofenceRadius] = useState(500);
-    const [alerts, setAlerts] = useState({ push: true, sms: false, email: false });
+    const [alerts, setAlerts] = useState({ push: true, email: true });
     const [priority, setPriority] = useState('medium');
     const [backupContacts, setBackupContacts] = useState([]);
     const [smartFeatures, setSmartFeatures] = useState({
-        earlyWarning: false,
-        trafficAware: false,
-        itemExitGuards: false
+        earlyWarning: true,
+        trafficAware: true,
+        itemExitGuards: true
     });
 
     useEffect(() => {
@@ -103,13 +103,13 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
             setCoordinates(reminder.coordinates || { lat: null, lng: null });
             setBufferTime(reminder.bufferTime ?? 0);
             setGeofenceRadius(reminder.geofenceRadius || 500);
-            setAlerts(reminder.alerts || { push: true, sms: false, email: false });
+            setAlerts(reminder.alerts || { push: true, email: true });
             setPriority(reminder.priority || 'medium');
             setBackupContacts(reminder.backupContacts || []);
             setSmartFeatures(reminder.smartFeatures || {
-                earlyWarning: false,
-                trafficAware: false,
-                itemExitGuards: false
+                earlyWarning: true,
+                trafficAware: true,
+                itemExitGuards: true
             });
             setIsEditing(initialEditMode);
         }
@@ -120,6 +120,10 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
     const [travelStats, setTravelStats] = useState(null);
     const [loadingStats, setLoadingStats] = useState(false);
 
+    // Backend-calculated adjusted notification time
+    const [adjustedNotif, setAdjustedNotif] = useState(null);
+    const [loadingAdjusted, setLoadingAdjusted] = useState(false);
+
     useEffect(() => {
         const fetchTravelStats = async () => {
             // Requirement: Either we have coordinates OR we have a location name to geocode
@@ -127,16 +131,22 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
 
             try {
                 setLoadingStats(true);
-                // The backend now handles geocoding if coordinates are missing but location name exists
                 const res = await api.get(`/reminders/${activeReminder._id}/travel-stats`);
                 if (res.data.success) {
                     setTravelStats(res.data.data);
+
+                    // AUTO-CALCULATE RADIUS: HALF of Distance (min 200m, max 5km)
+                    if (res.data.data.distance) {
+                        const distanceKm = res.data.data.distance / 1000;
+                        const autoRadiusKm = Math.min(Math.max(distanceKm / 2, 0.2), 5);
+                        setGeofenceRadius(Math.round(autoRadiusKm * 1000));
+                        console.log(`[Geofence] Auto-calculated radius: ${autoRadiusKm.toFixed(2)}km for distance: ${distanceKm.toFixed(2)}km`);
+                    }
 
                     // If the backend resolved missing coordinates, update our local state and sync with parent
                     if (res.data.resolvedCoordinates && (!coordinates?.lat || !coordinates?.lng)) {
                         console.log("Setting resolved coordinates from backend:", res.data.resolvedCoordinates);
                         setCoordinates(res.data.resolvedCoordinates);
-                        // Trigger a parent update so the list view also gets the new coordinates
                         onUpdate?.();
                     }
                 }
@@ -149,6 +159,37 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
 
         fetchTravelStats();
     }, [activeReminder?._id, activeReminder?.location, activeReminder?.coordinates?.lat]);
+
+    // ─── Backend Adjusted Notification Calculation ─────────────────────
+    useEffect(() => {
+        if (!time) { setAdjustedNotif(null); return; }
+
+        setLoadingAdjusted(true);
+        const timer = setTimeout(async () => {
+            try {
+                // durationInTraffic is in seconds from Google Maps API
+                const travelMin = travelStats?.durationInTraffic
+                    ? Math.ceil(travelStats.durationInTraffic / 60)
+                    : 0;
+
+                const res = await api.post('/reminders/adjusted-notification', {
+                    pickup_time: time,
+                    estimated_travel_time_minutes: travelMin,
+                    safety_buffer_minutes: bufferTime,
+                    time_format: user?.timeFormat || '12'
+                });
+                if (res.data.success) {
+                    setAdjustedNotif(res.data);
+                }
+            } catch (err) {
+                console.error('Adjusted notification fetch failed:', err);
+            } finally {
+                setLoadingAdjusted(false);
+            }
+        }, 600);
+
+        return () => clearTimeout(timer);
+    }, [time, bufferTime, travelStats, user?.timeFormat]);
 
     if (!activeReminder) return null;
 
@@ -319,31 +360,31 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                         alignItems: 'center',
                         gap: '16px'
                     }}>
-                        <Clock size={24} color="var(--primary-color)" />
-                        <div>
-                            <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-sub)' }}>Adjusted Notification Time</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--primary-glow)' }}>
-                                {activeReminder.time ? (() => {
-                                    try {
-                                        // Use formatTimeForInput to ensure we have a standard HH:mm (24h) string
-                                        const time24 = formatTimeForInput(activeReminder.time);
-                                        const [h, m] = time24.split(':').map(Number);
-
-                                        // Create a date object to handle math accurately
-                                        const dateObj = new Date();
-                                        dateObj.setHours(h, m, 0, 0);
-
-                                        // Subtract buffer
-                                        dateObj.setMinutes(dateObj.getMinutes() - bufferTime);
-
-                                        // Format back for display
-                                        return formatTime(dateObj, user?.timeFormat);
-                                    } catch (err) {
-                                        console.error("Time math error:", err);
-                                        return '--:--';
-                                    }
-                                })() : '--:--'}
+                        <div style={{
+                            padding: '10px',
+                            background: 'white',
+                            borderRadius: '12px',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                        }}>
+                            <Bell size={18} color="var(--primary-color)" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--primary-color)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Adjusted Notification</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-main)', marginTop: '2px' }}>
+                                {loadingAdjusted ? (
+                                    <span style={{ display: 'inline-block', width: '24px', height: '24px', border: '2px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                ) : (
+                                    adjustedNotif?.adjusted_notification_time || '--:--'
+                                )}
                             </div>
+                            {adjustedNotif && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-sub)', marginTop: '4px' }}>
+                                    {adjustedNotif.pickup_time} &minus; {adjustedNotif.total_prepare_time}
+                                    {adjustedNotif.estimated_travel_time !== '0 mins' && (
+                                        <> &nbsp;({adjustedNotif.estimated_travel_time} travel + {adjustedNotif.safety_buffer_time} buffer)</>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </DetailCard>
@@ -381,15 +422,33 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                         userLocation={user?.currentLocation || { lat: 9.9252, lng: 78.1198 }} // Fallback to Madurai coords if missing
                     />
 
+                    {/* Geofence Radius — auto-calculated when travelStats are available */}
                     <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontWeight: '600', fontSize: '0.9rem' }}>
-                            <span>Geofence Radius</span>
-                            <span style={{ color: 'var(--primary-color)' }}>{geofenceRadius}m</span>
-                        </label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>Geofence Radius</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {travelStats && !isEditing && (
+                                    <span style={{
+                                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                        color: 'white',
+                                        fontSize: '0.6rem',
+                                        fontWeight: '800',
+                                        padding: '2px 7px',
+                                        borderRadius: '6px',
+                                        letterSpacing: '0.05em'
+                                    }}>AUTO</span>
+                                )}
+                                <span style={{ color: 'var(--primary-color)', fontWeight: '700' }}>
+                                    {geofenceRadius >= 1000
+                                        ? `${(geofenceRadius / 1000).toFixed(1)} km`
+                                        : `${geofenceRadius} m`}
+                                </span>
+                            </div>
+                        </div>
                         <input
                             type="range"
-                            min="100"
-                            max="2000"
+                            min="200"
+                            max="5000"
                             step="100"
                             value={geofenceRadius}
                             disabled={!isEditing}
@@ -401,6 +460,11 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                 cursor: !isEditing ? 'not-allowed' : 'pointer'
                             }}
                         />
+                        {!isEditing && (
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', margin: '6px 0 0 0' }}>
+                                Auto-set to half the travel distance. Edit to override.
+                            </p>
+                        )}
                     </div>
 
                     {travelStats && (
@@ -428,6 +492,23 @@ const SmartReminderDetails = ({ reminder, onClose, onUpdate, initialEditMode = f
                                 </div>
                                 <div style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
                                     {Math.round(travelStats.durationInTraffic / 60)} mins
+                                </div>
+                            </div>
+                            {/* Auto-radius row — shows the formula result */}
+                            <div style={{
+                                paddingTop: '8px',
+                                borderTop: '1px solid var(--border-color)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-sub)', fontSize: '0.85rem' }}>
+                                    <span>⬢</span> Geofence Radius
+                                </div>
+                                <div style={{ fontWeight: '800', color: '#6366f1', fontSize: '0.9rem' }}>
+                                    {geofenceRadius >= 1000
+                                        ? `${(geofenceRadius / 1000).toFixed(1)} km`
+                                        : `${geofenceRadius} m`}
                                 </div>
                             </div>
                         </div>
