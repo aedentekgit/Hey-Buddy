@@ -45,7 +45,7 @@ class AppConfig {
   static String? logoUrl;
   static String? splashUrl;
   static String? googleClientId = "653874362760-32gca8aold1hap5s8271ad4803s959h5.apps.googleusercontent.com";
-  static String googleMapsApiKey = "AIzaSyDys6Q4lVtZkq6hqR5kl8ZAfCDzpWXJ1zA";
+  static String googleMapsApiKey = "AIzaSyAdNgoVCokinFU6OD0pRxOg47RCmJ3kaA0";
 
   static String? formatImageUrl(String? path) {
     if (path == null || path.isEmpty || path == "null" || path == "undefined") return null;

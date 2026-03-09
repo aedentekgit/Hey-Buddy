@@ -40,7 +40,7 @@ class GeminiLiveService extends EventEmitter {
         this.ws.on('message', (data) => {
             try {
                 const response = JSON.parse(data);
-                // console.log('[Gemini Live] 📥 Message received:', JSON.stringify(response, null, 2));
+                console.log('[Gemini Live] 📥 Raw Response:', JSON.stringify(response));
                 this.handleResponse(response);
             } catch (err) {
                 console.error('[Gemini Live] ❌ Error parsing message:', err, data.toString());
@@ -81,12 +81,10 @@ class GeminiLiveService extends EventEmitter {
                 system_instruction: {
                     parts: [{ text: systemInstruction }]
                 },
-                input_audio_transcription: {},
                 tools: this.useTools ? [
                     ...buddyTools.map(t => ({
                         function_declarations: t.functionDeclarations
-                    })),
-                    { googleSearch: {} }
+                    }))
                 ] : []
             }
         };
@@ -95,6 +93,7 @@ class GeminiLiveService extends EventEmitter {
     }
 
     handleResponse(response) {
+        console.log('[Gemini Live] 📥 Raw Response:', JSON.stringify(response));
         if (response.setupComplete || response.setup_complete) {
             console.log('[Gemini Live] 🆗 Setup complete for model:', this.model);
             this.emit('setup_complete');
@@ -176,7 +175,7 @@ class GeminiLiveService extends EventEmitter {
                 mediaChunks: [
                     {
                         data: base64Chunk,
-                        mimeType: "audio/pcm"
+                        mimeType: "audio/pcm;rate=16000"
                     }
                 ]
             }

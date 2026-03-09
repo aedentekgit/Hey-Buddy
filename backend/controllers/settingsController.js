@@ -2,7 +2,7 @@ const Settings = require('../models/Settings');
 const path = require('path');
 const { sendTestEmail } = require('../services/emailService');
 const { sendTestSMS } = require('../services/smsService');
-const { sendPushNotification } = require('../services/notificationService');
+const { sendPushNotification, resetFirebase } = require('../services/notificationService');
 const { uploadFile } = require('../services/fileService');
 
 const getSettings = async (req, res) => {
@@ -225,6 +225,11 @@ const updateSettings = async (req, res) => {
         ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +googleCalendar.clientSecret');
 
         invalidatePublicCache(); // Invalidate on update
+
+        // Reset Firebase so it re-initializes on next notification send (picks up new service account / enabled flag)
+        if (updateData.notification) {
+            resetFirebase().catch(e => console.error('[Firebase] Reset error (non-fatal):', e.message));
+        }
 
         res.json({ success: true, data: updatedSettings });
     } catch (error) {

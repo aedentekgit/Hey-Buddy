@@ -18,7 +18,7 @@ const voiceHandler = (io) => {
         const token = socket.handshake.auth.token;
 
         if (!token || token === 'null' || token === 'undefined') {
-            // Allow Guest connections
+            // Allow Guest connections ONLY if no token was attempted
             socket.userId = `guest_${socket.id}`;
             return next();
         }
@@ -28,9 +28,9 @@ const voiceHandler = (io) => {
             socket.userId = decoded.id;
             next();
         } catch (err) {
-            // Even on invalid token, allow as guest for voice assistant
-            socket.userId = `guest_${socket.id}`;
-            next();
+            console.warn(`[Socket] Auth failed for ${socket.id}: ${err.message}`);
+            // Return error instead of guest fallback to force re-login on the app
+            return next(new Error('Authentication failed: session may have expired.'));
         }
     });
 
@@ -49,9 +49,14 @@ const voiceHandler = (io) => {
                 activeAgents.get(socket.id).cleanup();
             }
 
-            const agent = new BuddyAgent(socket.userId, socket, language, conversationId, standby);
-            activeAgents.set(socket.id, agent);
-            console.log(`[Socket] Agent configured for ${socket.id} (Standby: ${standby})`);
+            try {
+                const agent = new BuddyAgent(socket.userId, socket, language, conversationId, standby);
+                activeAgents.set(socket.id, agent);
+                console.log(`[Socket] Agent configured for ${socket.id} (Standby: ${standby})`);
+            } catch (err) {
+                console.error(`[Socket] ❌ Failed to create agent for ${socket.id}:`, err);
+                socket.emit('error', 'Failed to initialize AI assistant.');
+            }
         });
 
         socket.on('audio_chunk', (data) => {

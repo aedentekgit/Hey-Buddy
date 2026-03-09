@@ -21,13 +21,12 @@ exports.processVoice = async (req, res) => {
         const startTime = Date.now();
         const { text, image = null, language = 'auto', conversationId = null, timeZone = 'UTC' } = req.body;
         const userId = req.user?._id;
+        const userFound = !!req.user;
 
-        console.log('--- [VoiceV2 Request Start] ---');
+        console.log(`[VoiceV2] Request from User: ${userId} | Authenticated: ${userFound}`);
         const logBody = { ...req.body };
         if (logBody.image) logBody.image = '[BASE64_IMAGE_DATA_OMITTED]';
         console.log('Body:', JSON.stringify(logBody));
-        console.log('User ID:', userId);
-        console.log('Auth Header:', req.headers.authorization ? 'Present' : 'Missing');
 
         if (!text) {
             return res.status(400).json({ success: false, message: "No text captured." });
@@ -36,11 +35,13 @@ exports.processVoice = async (req, res) => {
         console.log(`[VoiceV2] Processing via Gemini: "${text}" for user ${userId} (TimeZone: ${timeZone})`);
 
         // 1. Get Context and Voice Prefs + AI Config
-        const [context, user, aiConfig] = await Promise.all([
-            contextService.getContext(userId, conversationId, timeZone),
-            userId ? User.findById(userId).select('voicePreferences') : Promise.resolve(null),
+        // OPTIMIZATION: Use req.user (already fetched by middleware) to avoid round-trips
+        const [context, aiConfig] = await Promise.all([
+            contextService.getContext(userId, conversationId, timeZone, req.user),
             aiController.getAiConfig()
         ]);
+
+        const user = req.user;
 
         let memoryString = "User Memories: \n";
         if (context.memories) {

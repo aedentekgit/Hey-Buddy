@@ -16,9 +16,7 @@ const app = express();
 
 // Middleware
 app.use((req, res, next) => {
-    if (req.path.startsWith('/api/voice/parse')) {
-        console.log(`[CORS] Incoming ${req.method} to ${req.path} from Origin: ${req.headers.origin}`);
-    }
+    console.log(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
     next();
 });
 

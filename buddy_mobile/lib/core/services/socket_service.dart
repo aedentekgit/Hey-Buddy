@@ -24,25 +24,42 @@ class SocketService {
   Stream<dynamic> get bargeInStream => _bargeInController.stream;
   Stream<dynamic> get stopCommandStream => _stopCmdController.stream;
 
-  void connect() async {
-    if (socket?.connected == true) {
-      print('Socket already connected, skipping initialization');
-      return;
-    }
+  String? _lastToken;
+  bool _isConnecting = false;
 
-    final token = await _storage.read(key: 'jwt');
-    
-    print('Attempting to connect to socket: ${AppConfig.socketUrl}');
-    socket = IO.io(AppConfig.socketUrl, 
-      IO.OptionBuilder()
-        .setTransports(['websocket', 'polling']) // Allow fallback for unstable networks
-        .setAuth({'token': token})
-        .setReconnectionAttempts(20) // Increased for robustness
-        .setReconnectionDelay(3000)
-        .disableAutoConnect() // Keep discovery manual
-        .setQuery({'platform': 'mobile'})
-        .build()
-    );
+  void connect() async {
+    if (_isConnecting) return;
+    _isConnecting = true;
+
+    try {
+      final token = await _storage.read(key: 'jwt');
+      
+      if (socket?.connected == true && _lastToken == token) {
+        print('Socket already connected with same token, skipping initialization');
+        _isConnecting = false;
+        return;
+      }
+
+      if (socket != null) {
+        print('Refreshing socket connection due to token change or reconnection request');
+        socket?.disconnect();
+        socket?.dispose();
+        socket = null;
+      }
+
+      _lastToken = token;
+      print('Attempting to connect to socket: ${AppConfig.socketUrl} (Token Present: ${token != null})');
+      
+      socket = IO.io(AppConfig.socketUrl, 
+        IO.OptionBuilder()
+          .setTransports(['websocket', 'polling']) 
+          .setAuth({'token': token})
+          .setReconnectionAttempts(20) 
+          .setReconnectionDelay(3000)
+          .disableAutoConnect() 
+          .setQuery({'platform': 'mobile'})
+          .build()
+      );
 
     socket?.connect();
 
@@ -84,10 +101,12 @@ class SocketService {
 
     socket?.on('connect_error', (data) {
       print('Socket Connection Error: $data');
+      _isConnecting = false;
     });
 
     socket?.on('error', (err) {
       print('Socket Error: $err');
+      _isConnecting = false;
     });
     
     socket?.on('voice_alert', (data) {
@@ -117,6 +136,13 @@ class SocketService {
       print('Stop Command Detected in Backend: $data');
       _stopCmdController.add(data);
     });
+    
+    // Successfully started connection flow
+    _isConnecting = false;
+    } catch (e) {
+      print('Unhandled exception in socket connect: $e');
+      _isConnecting = false;
+    }
   }
 
   void sendText(String text) {

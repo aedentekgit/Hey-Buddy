@@ -10,6 +10,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:http/http.dart' as http;
+import 'package:record/record.dart';
 
 class BuddyProvider with ChangeNotifier {
   final BuddyService _buddyService = BuddyService();
@@ -32,10 +33,12 @@ class BuddyProvider with ChangeNotifier {
   bool _isFetchingNews = false;
   List<String> _localNews = [];
   String? _localCity;
-  bool _needsLogin = false;
   bool _isSpeaking = false;
+  bool _isListening = false;
+  bool _needsLogin = false;
   bool get needsLogin => _needsLogin;
   bool get isSpeaking => _isSpeaking;
+  bool get isListening => _isListening;
   bool get isStreaming => _audioStreamService.isStreaming;
 
   // TTS Buffering Variables
@@ -321,16 +324,27 @@ class BuddyProvider with ChangeNotifier {
 
     socketService.socket?.on('turn_started', (_) async {
         _isThinking = true;
+        _isListening = false; // Reset listening UI as processing started
         notifyListeners();
     });
 
-    socketService.socket?.on('error', (_) {
+    socketService.socket?.on('connect_error', (data) {
+        print('Socket Connect Error: $data');
         _isThinking = false;
+        if (data.toString().contains('Authentication failed') || data.toString().contains('session may have expired')) {
+          _needsLogin = true;
+          _isRealtimeEnabled = false;
+        }
         notifyListeners();
     });
 
-    socketService.socket?.on('connect_error', (_) {
+    socketService.socket?.on('error', (err) {
+        print('Socket Error event: $err');
         _isThinking = false;
+        if (err.toString().contains('Authentication failed') || err.toString().contains('session may have expired')) {
+          _needsLogin = true;
+          _isRealtimeEnabled = false;
+        }
         notifyListeners();
     });
 
@@ -394,7 +408,12 @@ class BuddyProvider with ChangeNotifier {
     // Handle Wake Word Detection
     socketService.wakeWordStream.listen((data) {
       print('Wake word detected: ${data['transcript']}');
-      sendMessage('', isWakeWord: true);
+      _isListening = true;
+      notifyListeners();
+      
+      // We don't need to sendMessage('') because the backend is already hearing the trail!
+      // But we can send a "Hey Buddy" text just for the UI history if we want.
+      addMessage('user', 'Hey Buddy', shouldType: false);
     });
 
     // Handle Barge-In (interruption while Buddy is speaking)
@@ -464,10 +483,23 @@ class BuddyProvider with ChangeNotifier {
       });
   }
 
+  Future<void> startWakeWordDetection() async {
+    await _audioStreamService.startStreaming();
+    notifyListeners();
+  }
+
+  Future<void> stopWakeWordDetection() async {
+    await _audioStreamService.stopStreaming();
+    notifyListeners();
+  }
+
+  @override
   void toggleRealtime(bool enable) {
     if (enable) {
       socketService.connect();
+      startWakeWordDetection(); // Start hearing by default
     } else {
+      stopWakeWordDetection();
       socketService.dispose();
       _isRealtimeEnabled = false;
     }

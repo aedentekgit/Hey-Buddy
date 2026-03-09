@@ -34,23 +34,7 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 1)); // Extra total splash time for branding
     if (!mounted) return;
     
-    // Check for app update (Temporarily disabled)
-    /*
-    if (branding.latestAppVersion != null && branding.latestAppVersion!.isNotEmpty) {
-      try {
-        PackageInfo packageInfo = await PackageInfo.fromPlatform();
-        String currentVersion = packageInfo.version;
-        if (_isUpdateAvailable(currentVersion, branding.latestAppVersion!)) {
-          if (branding.updateUrl != null && branding.updateUrl!.isNotEmpty) {
-            showInAppUpdateDialog(context, branding.updateUrl!);
-            return; // Halt app progression completely until updated
-          }
-        }
-      } catch (e) {
-        debugPrint("Update check failed: $e");
-      }
-    }
-    */
+
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.tryAutoLogin();
@@ -71,18 +55,7 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 
-  bool _isUpdateAvailable(String current, String latest) {
-    List<int> currentParts = current.split('.').map((p) => int.tryParse(p) ?? 0).toList();
-    List<int> latestParts = latest.split('.').map((p) => int.tryParse(p) ?? 0).toList();
-    
-    for (int i = 0; i < 3; i++) {
-        int c = i < currentParts.length ? currentParts[i] : 0;
-        int l = i < latestParts.length ? latestParts[i] : 0;
-        if (l > c) return true;
-        if (l < c) return false;
-    }
-    return false;
-  }
+
 
 
 

@@ -42,8 +42,9 @@ class BuddyAgent extends EventEmitter {
 
         try {
             // 1. Fetch AI Config and User Data
+            const isGuest = this.userId.toString().startsWith('guest_');
             const [user, dbSettings, aiConfig] = await Promise.all([
-                User.findById(this.userId).select('timezone voicePreferences'),
+                isGuest ? Promise.resolve(null) : User.findById(this.userId).select('timezone voicePreferences'),
                 Settings.findOne().select('+ai.geminiApiKey'),
                 getAiConfig()
             ]);
@@ -68,10 +69,10 @@ class BuddyAgent extends EventEmitter {
             // We give it a strict system instruction to ONLY transcribe to keep latency low
             // and prevent it from trying to be the brain.
             const sttInstruction = "You are the 'Ears' of Buddy. Listen to the user and transcribe their words exactly. DO NOT RESPOND. Just provide transcripts.";
-            const modelPath = 'models/gemini-2.0-flash'; // High speed for STT
+            const modelPath = 'models/gemini-2.5-flash-native-audio-latest'; // Specially supported Bidi model for this key
 
             if (this.ai) {
-                this.ai.connect(sttInstruction, personality.voice, true, modelPath);
+                this.ai.connect(sttInstruction, personality.voice, false, modelPath);
             }
 
         } catch (err) {
@@ -275,12 +276,14 @@ class BuddyAgent extends EventEmitter {
     finishTurn() {
         if (!this.isThinking) return;
         this.isThinking = false;
+        this.isStandby = true; // Return to waiting for wake word or manual click
         this.socket.emit('response_done');
         this.socket.emit('conversation_updated', { conversationId: this.conversationId });
         console.log(`[BuddyAgent] 🏁 Response Finished`);
     }
 
     handleIncomingAudio(audioBuffer) {
+        console.log(`[BuddyAgent] 📥 Inbound Audio: ${audioBuffer.length} bytes`);
         if (this.ai && this.ai.isConnected) {
             const base64 = Buffer.from(audioBuffer).toString('base64');
             this.ai.sendAudio(base64);
@@ -299,6 +302,12 @@ class BuddyAgent extends EventEmitter {
         if (this.ai) this.ai.cancelResponse();
         this.socket.emit('clear_audio_queue');
         this.socket.emit('response_done');
+    }
+
+    activate() {
+        console.log(`[BuddyAgent] 🏃 Manual Activation — clearing Standby for user: ${this.userId}`);
+        this.isStandby = false;
+        this.interrupt(); // Ensure no previous state blocks new input
     }
 
     cleanup() {

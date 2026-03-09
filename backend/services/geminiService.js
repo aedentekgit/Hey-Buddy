@@ -555,7 +555,8 @@ const geminiService = {
                    - Do NOT call any tools relating to memories or reminders for a guest user.` : ``;
 
             const modelTools = userId ? [...buddyTools] : [];
-            modelTools.push({ googleSearch: {} }); // Add native Google Search capabilities for news/general facts
+            // Remove { googleSearch: {} } as it cannot be combined with custom tools in this API version
+            // Search is already provided as a custom tool via the search_memories/web_search logic.
 
             const model = activeGenAI.getGenerativeModel({
                 model: "gemini-2.0-flash",

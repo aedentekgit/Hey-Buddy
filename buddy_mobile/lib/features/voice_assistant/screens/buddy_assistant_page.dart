@@ -177,6 +177,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     // Send to API
     await provider.sendMessage(text, imagePath: imagePath, language: _selectedLanguage);
     
+    // Restart wake word detection after manual response processed
+    if (!provider.isStreaming) {
+       provider.startWakeWordDetection();
+    }
+
     _scrollToBottom();
   }
 
@@ -209,6 +214,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         
         final provider = Provider.of<BuddyProvider>(context, listen: false);
         await provider.stopAllAudio(); // STOP AI IMMEDIATELY WHEN USER WANTS TO TALK
+        
+        // Stop background wake word streaming to free up mic for local STT
+        await provider.stopWakeWordDetection();
 
         setState(() => _isListening = true);
         await _speechToText.listen(
@@ -854,7 +862,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ],
           AnimatedAIInputField(
             controller: _inputController,
-            isListening: _isListening || provider.isStreaming,
+            isListening: _isListening || provider.isListening,
             isSpeaking: provider.isSpeaking,
             isEnabled: true,
             onMicPressed: _isListening ? _stopListening : _startListening,

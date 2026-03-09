@@ -9,16 +9,21 @@ const contextService = {
      * @param {string} conversationId 
      * @returns {Promise<Object>} History and relevant memories
      */
-    getContext: async (userId, conversationId = null, preferredTimeZone = 'UTC') => {
+    getContext: async (userId, conversationId = null, preferredTimeZone = 'UTC', preFetchedUser = null) => {
         let history = [];
         let memories = [];
         let recentReminders = [];
 
         try {
-            // 1. Fetch User Config First (needed for timezone/date logic)
+            // 1. Resolve User Configuration
+            // We use preFetchedUser if available to reduce DB round-trips (Performance Optimization)
             const mongoose = require('mongoose');
             const User = mongoose.model('User') || require('../models/User');
-            const userDoc = userId ? await User.findById(userId).select('voicePreferences dateFormat timeFormat timezone') : null;
+
+            let userDoc = preFetchedUser;
+            if (!userDoc && userId) {
+                userDoc = await User.findById(userId).select('voicePreferences dateFormat timeFormat timezone');
+            }
 
             // Use stored timezone if available
             const timeZone = userDoc?.timezone || preferredTimeZone;

@@ -758,7 +758,7 @@ class GroqService:
         t0 = time.perf_counter()
         try:
             # Pass user_id to ensure we only get chunks this user is allowed to see.
-            retriever = self.vector_store_service.get_retriever(k=10, user_id=user_id)
+            retriever = self.vector_store_service.get_retriever(k=5, user_id=user_id)
             search_query = self.get_text_content(question)
             context_docs = retriever.invoke(search_query)
             if context_docs:
@@ -817,6 +817,8 @@ class GroqService:
             str(user_id).startswith("guest_")
         )
 
+        logger.info(f"[AUTH] User ID: {user_id} | Is Guest: {is_guest}")
+
         if is_guest:
             system_message += (
                 "\n\n=== GUEST SECURITY POLICY ===\n"
@@ -850,8 +852,8 @@ class GroqService:
                 messages.append(HumanMessage(content=human_msg))
                 messages.append(AIMessage(content=ai_msg))
 
-        logger.info("[PROMPT] System message length: %d chars | History pairs: %d | Question: %.100s",
-                     len(system_message), len(chat_history) if chat_history else 0, question)
+        logger.info("[PROMPT] System message length: %d chars | History pairs: %d | User ID: %s | Is Guest: %s",
+                     len(system_message), len(chat_history) if chat_history else 0, user_id, is_guest)
         # Now it expects system_message, history, question
         return prompt, messages, system_message
 
