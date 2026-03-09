@@ -195,6 +195,7 @@ class UserProvider extends ChangeNotifier {
       final success = await _userService.unlinkCalendar();
       if (success) {
         _user['googleRefreshToken'] = null;
+        _user['googleCalendarConnected'] = false;
         notifyListeners();
         return true;
       }

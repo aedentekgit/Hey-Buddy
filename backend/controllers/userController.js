@@ -252,6 +252,8 @@ const unlinkCalendar = async (req, res) => {
         }
 
         user.googleRefreshToken = null;
+        user.googleCalendarConnected = false;
+        // Keep googleEmail for identification purposes but clear connection status
         await user.save();
 
         res.json({ success: true, message: 'Google Calendar unlinked successfully' });

@@ -52,8 +52,8 @@ class MobileTaskCard extends StatelessWidget {
     } else if (isOrange) {
       baseColor = const Color(0xFFEA580C);
     } else {
-      // Use branding primary color for green variant
-      baseColor = primaryColor;
+      // Use consistent Emerald Green for "ON TRACK" (green variant)
+      baseColor = const Color(0xFF10B981);
     }
 
     // Dynamic color variations
@@ -139,15 +139,17 @@ class MobileTaskCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                             decoration: BoxDecoration(
-                              color: badgeColor,
+                              color: badgeColor.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: badgeColor.withOpacity(0.3), width: 1),
                             ),
                             child: Text(
                               status,
                               style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: badgeColor,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),

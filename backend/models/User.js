@@ -43,6 +43,16 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    googleEmail: {
+        type: String,
+        default: null,
+        trim: true,
+        lowercase: true
+    },
+    googleCalendarConnected: {
+        type: Boolean,
+        default: false
+    },
     fcmTokens: [{
         type: mongoose.Schema.Types.Mixed
     }],

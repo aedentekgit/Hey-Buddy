@@ -159,6 +159,10 @@ const googleLogin = async (req, res) => {
             console.log('[Auth] Syncing new Refresh Token for user:', email);
         }
 
+        // Always store the Google email and mark calendar as connected when user signs in via Google
+        user.googleEmail = email;
+        user.googleCalendarConnected = true;
+
         // Save any changes to the user (e.g. the refresh token or new user creation)
         await user.save();
 
@@ -193,6 +197,9 @@ const googleLogin = async (req, res) => {
                 mobileAccess: role ? role.mobileAccess : true,
                 dateFormat: user.dateFormat || 'DD/MM/YYYY',
                 timeFormat: user.timeFormat || '12',
+                googleEmail: user.googleEmail || null,
+                googleCalendarConnected: user.googleCalendarConnected || false,
+                googleRefreshToken: user.googleRefreshToken ? 'connected' : null, // Don't expose real token
                 token: generateToken(user._id),
             },
         });
@@ -289,6 +296,12 @@ const getMe = async (req, res) => {
         const prefs = userData.voicePreferences || { gender: 'female', tone: 'soft' };
         const platform = req.headers['x-platform'] || 'web';
         userData.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
+
+        // Sanitize: expose only presence of refresh token, not its value
+        userData.googleRefreshToken = userData.googleRefreshToken ? 'connected' : null;
+        // Ensure calendar fields are always present
+        userData.googleEmail = userData.googleEmail || null;
+        userData.googleCalendarConnected = userData.googleCalendarConnected || false;
 
         res.json({ success: true, data: userData });
     } catch (error) {

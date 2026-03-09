@@ -363,7 +363,13 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
     // Use task_utils to get proper branding colors per task category/intent
     final Color fallbackColor = isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981);
     final dynamic fetchedColor = TaskUtils.getTaskColor(title, intent);
-    final Color baseColor = isDanger ? const Color(0xFFE11D48) : (fetchedColor is Color ? fetchedColor : fallbackColor);
+    
+    // If on track and no specific color is found, default to our success green instead of dull slate
+    final Color baseColor = isDanger 
+        ? const Color(0xFFE11D48) 
+        : (fetchedColor is Color && fetchedColor != const Color(0xFF64748B) 
+            ? fetchedColor 
+            : const Color(0xFF10B981));
     final headerIcon = TaskUtils.getTaskIcon(title, intent) as IconData;
 
     final Color bgColor = isDanger 
@@ -429,15 +435,20 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
-                          color: iconColor,
+                          color: (isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981)).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: (isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981)).withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                         child: Text(
                           statusText,
                           style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981),
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),

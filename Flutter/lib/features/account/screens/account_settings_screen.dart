@@ -442,7 +442,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
   Widget _buildIntegrations() {
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.user;
-    final bool isGoogleConnected = user['googleRefreshToken'] != null;
+    final bool isGoogleConnected = user['googleCalendarConnected'] == true || user['googleRefreshToken'] != null;
+    final String? connectedEmail = user['googleEmail'] as String?;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -479,6 +480,54 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
                              Text("Connected", style: GoogleFonts.outfit(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 13))
                            else
                              Text("Not Connected", style: GoogleFonts.outfit(color: Colors.grey, fontSize: 13)),
+                           // Show connected Gmail email if available
+                           if (isGoogleConnected && connectedEmail != null && connectedEmail.isNotEmpty) ...[
+                             const SizedBox(height: 6),
+                             Container(
+                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                               decoration: BoxDecoration(
+                                 color: Colors.green.withOpacity(0.08),
+                                 borderRadius: BorderRadius.circular(20),
+                                 border: Border.all(color: Colors.green.withOpacity(0.2)),
+                               ),
+                               child: Row(
+                                 mainAxisSize: MainAxisSize.min,
+                                 children: [
+                                   // Google "G" logo hint using colored circle
+                                   Container(
+                                     width: 12,
+                                     height: 12,
+                                     decoration: const BoxDecoration(
+                                       shape: BoxShape.circle,
+                                       color: Color(0xFF4285F4),
+                                     ),
+                                     child: const Center(
+                                       child: Text(
+                                         'G',
+                                         style: TextStyle(
+                                           color: Colors.white,
+                                           fontSize: 8,
+                                           fontWeight: FontWeight.bold,
+                                         ),
+                                       ),
+                                     ),
+                                   ),
+                                   const SizedBox(width: 5),
+                                   Flexible(
+                                     child: Text(
+                                       connectedEmail,
+                                       style: GoogleFonts.outfit(
+                                         color: Colors.green[700],
+                                         fontSize: 11,
+                                         fontWeight: FontWeight.w600,
+                                       ),
+                                       overflow: TextOverflow.ellipsis,
+                                     ),
+                                   ),
+                                 ],
+                               ),
+                             ),
+                           ],
                          ],
                        ),
                      ),
