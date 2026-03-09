@@ -19,16 +19,22 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print("[FCM Background] body: ${message.notification?.body}");
   print("[FCM Background] data: ${message.data}");
 
-  // Show local notification so the user sees it when app is background-killed
-  final localNotif = FlutterLocalNotificationsPlugin();
-  const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
-  await localNotif.initialize(const InitializationSettings(android: androidInit));
+  // If the message has a notification payload, Android/iOS OS already shows the banner.
+  // We only need to show a local notification for DATA-ONLY messages (no notification payload).
+  final bool isDataOnly = message.notification == null;
+  final String? title = message.data['title'] as String? ?? 'Buddy';
+  final String? text = isDataOnly
+      ? (message.data['body'] as String?)
+      : message.notification?.body;
 
-  final text = message.notification?.body ?? message.data['body'] as String?;
-  if (text != null && text.isNotEmpty) {
+  if (isDataOnly && text != null && text.isNotEmpty) {
+    final localNotif = FlutterLocalNotificationsPlugin();
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+    await localNotif.initialize(const InitializationSettings(android: androidInit));
+
     await localNotif.show(
       message.hashCode,
-      message.notification?.title ?? 'Buddy',
+      title,
       text,
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -41,8 +47,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         ),
       ),
     );
+  }
 
-    // Voice readout
+  // Voice readout if there's any text (regardless of data-only or not)
+  if (text != null && text.isNotEmpty) {
     try {
       final FlutterTts tts = FlutterTts();
       await tts.awaitSpeakCompletion(true);
@@ -121,18 +129,25 @@ class NotificationService {
       print('[FCM] Permission NOT granted: ${settings.authorizationStatus}');
     }
 
-    // 6. Handle foreground messages — show local notification
+    // 6. Handle foreground messages
+    // IMPORTANT: Only show a local notification for DATA-ONLY messages.
+    // If the FCM payload has a 'notification' object, the OS (Android/iOS) already
+    // shows a system banner. Calling _localNotif.show() on top would create a duplicate.
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       print('[FCM Foreground] Received: ${message.notification?.title}');
       print('[FCM Foreground] Body: ${message.notification?.body}');
       print('[FCM Foreground] Data: ${message.data}');
 
-      final notification = message.notification;
-      final String title = notification?.title ?? message.data['title'] as String? ?? 'Buddy';
-      final String? body = notification?.body ?? message.data['body'] as String?;
+      final bool isDataOnly = message.notification == null;
+      final String? body = isDataOnly
+          ? (message.data['body'] as String?)
+          : message.notification?.body;
+      final String title = isDataOnly
+          ? (message.data['title'] as String? ?? 'Buddy')
+          : (message.notification?.title ?? 'Buddy');
 
-      if (body != null && body.isNotEmpty) {
-        // Show heads-up banner via local notifications
+      if (isDataOnly && body != null && body.isNotEmpty) {
+        // Data-only: OS won't show a banner, so we must show one ourselves
         await _localNotif.show(
           message.hashCode,
           title,
@@ -154,8 +169,10 @@ class NotificationService {
             ),
           ),
         );
+      }
 
-        // Voice readout
+      // Voice readout for all foreground notifications
+      if (body != null && body.isNotEmpty) {
         try {
           final FlutterTts tts = FlutterTts();
           await tts.setVolume(1.0);
