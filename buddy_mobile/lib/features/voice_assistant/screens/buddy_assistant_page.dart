@@ -42,22 +42,29 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   File? _selectedImage;
   int _messageLimit = 15;
 
+  String? _lastKnownToken;
+
   @override
   void initState() {
     super.initState();
     _initSpeech();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<BuddyProvider>(context, listen: false);
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      
       provider.fetchHistory().then((_) {
-        // Scroll to the bottom immediately after history is fetched
         _scrollToBottom(false);
       });
       _initTts();
 
-      // Enable Realtime Socket for Instant Updates (Streaming Response)
+      // Enable Realtime Socket and track auth changes for reconnection
+      _lastKnownToken = auth.token;
       provider.toggleRealtime(true);
 
-      // Setup Realtime Audio Listener - REMOVED: Managed by Provider to prevent conflicts
+      // Listen to auth changes — reconnect socket when user logs in or out
+      // This is the fix for: APK socket connects as guest (null token at startup)
+      // and never reconnects after login.
+      auth.addListener(_onAuthChanged);
 
       // Fetch Local News based on location gracefully
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -65,7 +72,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       double? lon = userProvider.user['currentLocation']?['lng'];
       
       if (lat == null || lon == null) {
-        // First check permission status silently
         Geolocator.checkPermission().then((permission) {
           if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
             Geolocator.getCurrentPosition().then((pos) {
@@ -75,8 +81,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               provider.fetchLocalNews(null, null);
             });
           } else {
-            // Permission not granted already, don't force a prompt in Assistant page
-            // just use basic news (null, null)
             provider.fetchLocalNews(null, null);
           }
         });
@@ -85,6 +89,28 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       }
     });
   }
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentToken = auth.token;
+    
+    // Only reconnect if the token actually changed (login or logout)
+    if (currentToken != _lastKnownToken) {
+      print('[BuddyPage] Auth token changed (${_lastKnownToken == null ? 'was guest' : 'was logged in'} → ${currentToken == null ? 'now guest' : 'now logged in'}). Reconnecting socket...');
+      _lastKnownToken = currentToken;
+      
+      final provider = Provider.of<BuddyProvider>(context, listen: false);
+      // Force a full socket reconnect so it picks up the new JWT
+      provider.toggleRealtime(false);
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          provider.toggleRealtime(true);
+        }
+      });
+    }
+  }
+
 
   Future<void> _initSpeech() async {
     try {
@@ -133,6 +159,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   @override
   void dispose() {
+    // Remove auth listener to prevent memory leaks
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      auth.removeListener(_onAuthChanged);
+    } catch (_) {}
     _inputController.dispose();
     _scrollController.dispose();
     _speechToText.stop();
