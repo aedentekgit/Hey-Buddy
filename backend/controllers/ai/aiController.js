@@ -48,8 +48,10 @@ exports.proxyChatToPython = async (req, res) => {
     try {
         const { message, session_id, tts } = req.body;
 
-        // Handle Guest Mode (no token found)
-        const userId = req.user ? req.user._id : `guest_${Date.now()}`;
+        // Use req.user._id if found in DB, else use decoded JWT userId as fallback
+        // This ensures JWT-verified users are never treated as guests even on cross-DB builds
+        const userId = req.user ? req.user._id : (req.decodedUserId || `guest_${Date.now()}`);
+
         const finalSessionId = session_id || userId.toString();
 
         // Path detection (supporting /chat/stream and /chat/realtime/stream)

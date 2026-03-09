@@ -20,10 +20,16 @@ exports.processVoice = async (req, res) => {
     try {
         const startTime = Date.now();
         const { text, image = null, language = 'auto', conversationId = null, timeZone = 'UTC' } = req.body;
-        const userId = req.user?._id;
-        const userFound = !!req.user;
 
-        console.log(`[VoiceV2] Request from User: ${userId} | Authenticated: ${userFound}`);
+        // Use req.user._id if available, else fall back to req.decodedUserId (valid JWT but user not in this DB)
+        // This prevents the Python AI from treating a JWT-verified user as a guest just because
+        // their account doesn't exist in this specific DB instance (e.g. staging APK + prod account)
+        const userId = req.user?._id || req.decodedUserId || null;
+        const userFound = !!req.user;
+        const isTokenVerifiedUser = !!userId && !req.user; // JWT valid but no DB record
+
+        console.log(`[VoiceV2] Request from User: ${userId} | DB Found: ${userFound} | Token-Only: ${isTokenVerifiedUser}`);
+
         const logBody = { ...req.body };
         if (logBody.image) logBody.image = '[BASE64_IMAGE_DATA_OMITTED]';
         console.log('Body:', JSON.stringify(logBody));

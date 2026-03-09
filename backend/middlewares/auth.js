@@ -31,7 +31,10 @@ const protect = async (req, res, next) => {
 
                 req.user = await User.findById(decoded.id).select('-password');
                 if (!req.user) {
-                    console.warn(`[AUTH] User not found in database for ID: ${decoded.id}`);
+                    // User not in this DB (e.g. account is on prod, APK points to staging)
+                    // Attach the decoded ID so controllers can still identity the user
+                    req.decodedUserId = decoded.id;
+                    console.warn(`[AUTH] User not found in database for ID: ${decoded.id} - attaching decodedUserId`);
                     return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
                 }
 
@@ -93,7 +96,12 @@ const protectOptional = async (req, res, next) => {
             try {
                 if (process.env.JWT_SECRET) {
                     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                    // Always store the decoded userId — even if user doesn't exist in this DB
+                    req.decodedUserId = decoded.id;
                     req.user = await User.findById(decoded.id).select('-password');
+                    if (!req.user) {
+                        console.warn(`[AUTH] Optional: User ${decoded.id} not found in DB, using decoded JWT ID`);
+                    }
                 }
             } catch (error) {
                 console.warn('[AUTH] Optional token verification failed:', error.message);
