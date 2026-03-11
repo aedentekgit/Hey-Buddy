@@ -45,4 +45,9 @@ const NotificationSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+// Performance Indexes
+NotificationSchema.index({ userId: 1, dismissed: 1 });
+NotificationSchema.index({ userId: 1, createdAt: -1 });
+NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000 }); // TTL: 30 days
+
 module.exports = mongoose.model('Notification', NotificationSchema);

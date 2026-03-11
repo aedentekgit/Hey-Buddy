@@ -34,6 +34,7 @@ const contextService = {
                 : Promise.resolve(null);
 
             const memoriesPromise = userId ? Memory.find({ userId }).sort({ createdAt: -1 }).limit(10) : Promise.resolve([]);
+            const LocationReminder = require('../models/LocationReminder');
 
             const now = new Date();
             let userDate;
@@ -45,17 +46,24 @@ const contextService = {
                 userDate = now.toLocaleDateString('en-CA', { timeZone: 'UTC' });
             }
 
-            // Only fetch reminders for TODAY or FUTURE
+            // Fetch standard reminders
             const remindersPromise = userId ? Reminder.find({
                 userId,
                 date: { $gte: userDate }
             }).sort({ date: 1, time: 1 }).limit(10) : Promise.resolve([]);
 
+            // Fetch location reminders
+            const locRemindersPromise = userId ? LocationReminder.find({
+                userId,
+                status: 'on_track'
+            }).sort({ createdAt: -1 }).limit(10) : Promise.resolve([]);
+
             // 3. Execute in parallel
-            const [conversation, memoriesDocs, recentRemindersDocs] = await Promise.all([
+            const [conversation, memoriesDocs, recentRemindersDocs, locRemindersDocs] = await Promise.all([
                 historyPromise,
                 memoriesPromise,
-                remindersPromise
+                remindersPromise,
+                locRemindersPromise
             ]);
 
             // 4. Process results
@@ -63,7 +71,24 @@ const contextService = {
                 history = conversation.messages.slice(-5);
             }
             memories = memoriesDocs || [];
-            recentReminders = recentRemindersDocs || [];
+
+            // Format reminders
+            const standardReminders = (recentRemindersDocs || []).map(r => ({
+                id: r._id,
+                title: r.title,
+                time: r.time,
+                date: r.date,
+                type: 'time'
+            }));
+
+            const locationReminders = (locRemindersDocs || []).map(r => ({
+                id: r._id,
+                title: r.title,
+                location: r.location,
+                type: 'location'
+            }));
+
+            recentReminders = [...standardReminders, ...locationReminders].slice(0, 15);
 
             let voicePreferences = userDoc?.voicePreferences || { gender: 'female', tone: 'soft' };
             let dateFormat = userDoc?.dateFormat || 'DD/MM/YYYY';
@@ -72,12 +97,7 @@ const contextService = {
             return {
                 history: history.map(m => ({ role: m.role, content: m.content })),
                 memories: memories.map(m => ({ id: m._id, content: m.content, category: m.category })),
-                reminders: recentReminders.map(r => ({
-                    id: r._id,
-                    title: r.title,
-                    time: r.time,
-                    date: r.date
-                })),
+                reminders: recentReminders,
                 userContext: {
                     timeZone,
                     localDate: userDate,

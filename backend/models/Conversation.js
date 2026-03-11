@@ -33,5 +33,9 @@ const ConversationSchema = new mongoose.Schema({
 }, { timestamps: true });
 ConversationSchema.index({ userId: 1 });
 ConversationSchema.index({ updatedAt: -1 });
+// Composite index for efficient listing and sorting
+ConversationSchema.index({ userId: 1, updatedAt: -1 });
+// Text index for full-text search
+ConversationSchema.index({ title: 'text' });
 
 module.exports = mongoose.model('Conversation', ConversationSchema);

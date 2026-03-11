@@ -23,7 +23,7 @@ export const checkLocationPermission = async () => {
 
 /**
  * Start tracking user location
- * Sends location updates to the backend every 2 minutes
+ * Sends location updates to the backend on position change
  */
 export const startLocationTracking = async () => {
     if (isTracking) {
@@ -42,11 +42,15 @@ export const startLocationTracking = async () => {
         return;
     }
 
-    // Options for initial position
+    // Set flag synchronously before any async call to prevent parallel tracking
+    // from a second call racing in before the first callback resolves
+    isTracking = true;
+
+    // Options for initial position — accept a position up to 1 minute old max
     const options = {
         enableHighAccuracy: false,
-        maximumAge: 600000, // Accept a cached position up to 10 minutes old
-        timeout: 20000 // Give it more time (20s)
+        maximumAge: 60000, // 1 minute (was 10 minutes — reduced to avoid stale data)
+        timeout: 20000
     };
 
     // Request permission and start tracking
@@ -57,32 +61,33 @@ export const startLocationTracking = async () => {
 
             // Watch position changes
             watchId = navigator.geolocation.watchPosition(
-                (position) => {
-                    sendLocationUpdate(position.coords.latitude, position.coords.longitude);
+                (pos) => {
+                    sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
                 },
                 (error) => {
-                    // Code 2 is POSITION_UNAVAILABLE, which mapping to kCLErrorLocationUnknown on macOS
+                    // Code 2 is POSITION_UNAVAILABLE (kCLErrorLocationUnknown on macOS)
                     if (error.code === 2) {
-                        // Silence the warning as it's often transient on Mac/Desktop
+                        // Silence — often transient on Mac/Desktop
                         return;
                     }
                     console.error('Location tracking error:', error.message);
                 },
                 {
                     enableHighAccuracy: false,
-                    maximumAge: 300000, // 5 minutes
+                    maximumAge: 60000, // 1 minute (was 5 minutes — reduced to avoid stale data)
                     timeout: 30000
                 }
             );
 
-            isTracking = true;
             console.log('📍 Location tracking started');
         },
         (error) => {
+            // Reset flag so tracking can be retried on next call
+            isTracking = false;
+
             if (error.code === 1) { // PERMISSION_DENIED
                 console.warn('Location permission denied by user.');
             } else if (error.code === 2) { // POSITION_UNAVAILABLE
-                // This is the kCLErrorLocationUnknown failure on Mac
                 console.info('Location service hint: Position unavailable. This often happens if WiFi is off or location services are restricted in Mac System Settings.');
             } else {
                 console.warn('Location error:', error.message);

@@ -5,6 +5,7 @@ const Memory = require('../../models/Memory');
 const User = require('../../models/User');
 const { getContext } = require('../../services/contextService');
 const reminderController = require('../reminderController');
+const locationReminderController = require('../locationReminderController');
 const recordController = require('../recordController');
 
 const getAiConfig = async () => {
@@ -183,6 +184,47 @@ exports.proxyActionToPython = async (req, res) => {
 
             await reminderController.createReminder(mockReq, mockRes);
             return res.status(200).json({ success: true, message: 'Reminder action executed' });
+        }
+
+        if (act === 'CREATE_LOCATION_REMINDER') {
+            let reminderData = val;
+            if (typeof val === 'string') {
+                try { reminderData = JSON.parse(val); } catch (e) { }
+            }
+
+            // AUTO-GEOCODE: Try to find coordinates for the location
+            if (reminderData.location && (!reminderData.coordinates?.lat || !reminderData.coordinates?.lng)) {
+                try {
+                    const { geocodeAddress } = require('../../services/smartReminderService');
+                    const coords = await geocodeAddress(reminderData.location);
+                    if (coords) {
+                        reminderData.coordinates = coords;
+                        console.log('[Action Proxy] Auto-geocoded location for AI:', coords);
+                    }
+                } catch (err) {
+                    console.warn('[Action Proxy] Geocoding failed:', err.message);
+                }
+            }
+
+            // Provide default date/time for location reminders if missing
+            if (!reminderData.date) {
+                const now = new Date();
+                reminderData.date = now.toISOString().split('T')[0]; // Default to today
+            }
+            if (!reminderData.time) {
+                reminderData.time = "whenever I arrive"; // Special string for geofencing or default
+            }
+
+            const mockReq = {
+                body: reminderData,
+                user: { _id: userId }
+            };
+            const mockRes = {
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Location Reminder Result:', data) })
+            };
+
+            await locationReminderController.createLocationReminder(mockReq, mockRes);
+            return res.status(200).json({ success: true, message: 'Location reminder action executed' });
         }
 
         if (act === 'UPDATE_REMINDER') {

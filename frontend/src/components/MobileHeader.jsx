@@ -13,18 +13,21 @@ const MobileHeader = () => {
 
     const branding = settings?.general || {};
 
-    useEffect(() => {
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
+    const fetchAddress = () => {
+        if (!("geolocation" in navigator)) {
+            setUserAddress("N/A");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
                     const baseUrl = envConfig.API_URL;
                     const token = localStorage.getItem('token');
 
                     const res = await fetch(`${baseUrl}/users/reverse-geocode?lat=${latitude}&lon=${longitude}`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
+                        headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const result = await res.json();
 
@@ -38,12 +41,24 @@ const MobileHeader = () => {
                     console.error("Geocoding failed:", e);
                     setUserAddress("Unknown Location");
                 }
-            }, () => {
+            },
+            () => {
                 setUserAddress("Location Disabled");
-            });
-        } else {
-            setUserAddress("N/A");
-        }
+            },
+            {
+                enableHighAccuracy: false,
+                maximumAge: 60000,  // Accept positions up to 1 minute old (was no limit)
+                timeout: 15000      // 15s consistent with Flutter app timeout
+            }
+        );
+    };
+
+    useEffect(() => {
+        fetchAddress();
+
+        // Refresh address every 5 minutes so it stays current as user moves
+        const intervalId = setInterval(fetchAddress, 5 * 60 * 1000);
+        return () => clearInterval(intervalId);
     }, []);
 
     const handleSearchChange = (e) => {

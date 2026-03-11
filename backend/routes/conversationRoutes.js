@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middlewares/auth');
+const { protect, protectInternal } = require('../middlewares/auth');
 const {
     getConversations,
     getConversationById,
@@ -11,10 +11,12 @@ const {
     getAllConversationsInternal
 } = require('../controllers/conversationController');
 
-// Allow internal AI service to sync and fetch conversations
-router.post('/sync', syncConversation);
-router.get('/internal/all', getAllConversationsInternal);
-router.get('/internal/:userId', getLatestConversationByUserId);
+// SECURITY: Internal endpoints are now protected by INTERNAL_SECRET bearer token.
+// Only the Python AI service (with the correct INTERNAL_SECRET env var) can call these.
+// Previously these had NO authentication — anyone could read all conversations or inject data.
+router.post('/sync', protectInternal, syncConversation);
+router.get('/internal/all', protectInternal, getAllConversationsInternal);
+router.get('/internal/:userId', protectInternal, getLatestConversationByUserId);
 
 router.use(protect);
 

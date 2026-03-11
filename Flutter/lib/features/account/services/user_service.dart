@@ -170,19 +170,29 @@ class UserService {
   Future<String?> getGoogleAuthUrl() async {
     try {
       final token = await _getToken();
+      final url = '${_baseUrl}voice/google/auth';
+      print('[UserService] Fetching Google Auth URL from: $url');
+
       final response = await http.get(
-        Uri.parse('${_baseUrl}voice/google/auth'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
           'x-platform': 'mobile',
         },
       );
 
+      print('[UserService] Google Auth URL response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+          print('[UserService] Auth URL obtained successfully');
           return data['url'];
+        } else {
+          print('[UserService] Backend returned success:false — ${data['message']}');
         }
+      } else {
+        print('[UserService] HTTP error ${response.statusCode}: ${response.body}');
       }
       return null;
     } catch (e) {

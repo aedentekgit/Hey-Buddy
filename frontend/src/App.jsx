@@ -31,6 +31,7 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import Automations from './pages/Automations';
 import MobileMoreMenu from './pages/MobileMoreMenu';
 import RealtimeChat from './pages/RealtimeChat';
+import LocationReminders from './pages/LocationReminders';
 
 const App = () => {
     useZoomPrevention();
@@ -159,6 +160,14 @@ const App = () => {
                                             element={
                                                 <ProtectedRoute>
                                                     <MobileMoreMenu />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/location-reminders"
+                                            element={
+                                                <ProtectedRoute pageId="reminders">
+                                                    <LocationReminders />
                                                 </ProtectedRoute>
                                             }
                                         />

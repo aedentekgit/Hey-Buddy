@@ -9,6 +9,20 @@ const { sendEmail } = require('./emailService');
 const { sendTestSMS } = require('./smsService');
 const Settings = require('../models/Settings');
 
+// Settings cache with 5-minute TTL
+let settingsCache = null;
+let settingsCacheTime = null;
+const SETTINGS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getCachedSettings = async () => {
+    const now = Date.now();
+    if (!settingsCache || !settingsCacheTime || (now - settingsCacheTime) > SETTINGS_CACHE_TTL) {
+        settingsCache = await Settings.findOne();
+        settingsCacheTime = now;
+    }
+    return settingsCache;
+};
+
 const triggerNotification = async (reminder, user, io) => {
     console.log(`[Worker] Triggering notification for reminder: ${reminder.title} (User: ${user.email})`);
     // 1. Create Internal Notification & Emit (if In-App enabled)
@@ -69,7 +83,7 @@ const triggerNotification = async (reminder, user, io) => {
                     }
                 })
             );
-            await Promise.all(notificationPromises);
+            await Promise.allSettled(notificationPromises);
 
             if (tokensToRemove.length > 0) {
                 await User.findByIdAndUpdate(user._id, {
@@ -82,7 +96,7 @@ const triggerNotification = async (reminder, user, io) => {
     // 4. Send SMS Notifications
     if (reminder.alerts?.sms !== false && user.notificationPreferences?.sms?.enabled !== false && user.phone) {
         try {
-            const settings = await Settings.findOne();
+            const settings = await getCachedSettings();
             if (settings?.sms?.enabled) {
                 console.log(`[Worker] Sending SMS reminder to ${user.phone}`);
                 await sendTestSMS(settings.sms, user.phone);
@@ -127,7 +141,7 @@ const notifyBackupContacts = async (reminder, user, io) => {
         // SMS
         if (contact.phone) {
             try {
-                const settings = await Settings.findOne();
+                const settings = await getCachedSettings();
                 if (settings?.sms?.enabled) {
                     await sendTestSMS(settings.sms, contact.phone); // Re-using sendTestSMS logic for now if no generic sendSMS
                 }
@@ -157,11 +171,11 @@ const startReminderWorker = (io) => {
         try {
             console.log('--- [Reminder Worker] Checking Reminders ---');
 
-            // Find all pending reminders that haven't been notified
+            // Find all pending reminders that haven't been notified (with limit for unbounded query safety)
             const pendingReminders = await Reminder.find({
                 status: 'pending',
                 notified: false
-            }).populate('userId');
+            }).limit(500).lean().populate('userId');
 
             if (pendingReminders.length === 0) return;
 

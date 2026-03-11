@@ -96,7 +96,7 @@ def _load_groq_api_keys() -> list:
 GROQ_API_KEYS = _load_groq_api_keys()
 # Backward compatibility: single key name still used in docs; code uses GROQ_API_KEYS.
 GROQ_API_KEY = GROQ_API_KEYS[0] if GROQ_API_KEYS else ""
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3-70b-8192")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 # ============================================================================
 # TAVILY API CONFIGURATION
@@ -151,6 +151,23 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 # The URL of the Node.js backend for actions and tool execution.
 NODE_BACKEND_URL = os.getenv("NODE_BACKEND_URL", "http://localhost:5001")
 
+# ============================================================================
+# SECURITY CONFIGURATION
+# ============================================================================
+# BUDDY_API_KEY: Shared secret that clients must send as X-API-Key header.
+#   Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+#   If not set, all /chat endpoints are publicly accessible (dev mode only).
+BUDDY_API_KEY = os.getenv("BUDDY_API_KEY", "")
+
+# BUDDY_INTERNAL_SECRET: Bearer token used by action_tools.py when calling the
+#   Node.js backend. Must match the value expected by the Node server.
+#   Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+BUDDY_INTERNAL_SECRET = os.getenv("BUDDY_INTERNAL_SECRET", "")
+
+# ALLOWED_ORIGINS: Comma-separated list of origins allowed by CORS.
+#   Example: https://ayuskart.com,https://www.ayuskart.com
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000")
+
 
 # ============================================================================
 # Hey buddy PERSONALITY CONFIGURATION
@@ -170,7 +187,9 @@ _BUDDY_SYSTEM_PROMPT_BASE = """You are {assistant_name}, a sharp and warm AI ass
 
 === ABILITIES ===
 - Use standard [[ACTION:TYPE:VALUE]] tags for system commands.
-- Use `schedule_reminder` and `save_memory` tools for persistence. Never use tags for these.
+- Use `schedule_reminder` for time-based reminders.
+- Use `schedule_location_reminder` for reminders tied to a place (e.g. "at Chennai", "when I visit home"). You do NOT need a specific date/time for these; you can leave them blank if not provided.
+- Use `save_memory` ONLY for facts, preferences, or bio info. NEVER use `save_memory` for things the user needs to DO or be reminded of.
 - Answer accurately and concisely. No vague filler or robotic disclaimers.
 
 === CONSTRAINTS ===

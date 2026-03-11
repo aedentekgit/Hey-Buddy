@@ -3,11 +3,19 @@ node_modules/
 package-lock.json
 yarn.lock
 
-# Environment Variables
+# Environment Variables — ALL env files with real secrets must be excluded
 .env
 .env.local
 .env.production
+.env.staging
 .env.development
+.env.*.local
+ai-service/.env
+ai-service/.env.production
+ai-service/.env.staging
+frontend/.env
+frontend/.env.production
+frontend/.env.staging
 
 # Build outputs
 dist/
@@ -44,6 +52,14 @@ backend/uploads/*
 tmp/
 temp/
 *.tmp
+
+# Backup files (never commit editor/code backups)
+*.bak
+*.orig
+
+# ML / FAISS binary files
+*.faiss
+*.pkl
 
 # Service Account Keys (sensitive)
 backend/service-account.json

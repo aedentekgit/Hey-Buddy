@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
@@ -10,7 +11,7 @@ class LocationService {
 
   Future<void> updateLocationOnBackend(double lat, double lng, String address) async {
     try {
-      final token = await _storage.read(key: 'token');
+      final token = await _storage.read(key: 'jwt');
       if (token == null) return;
 
       await _dio.post(
@@ -30,20 +31,35 @@ class LocationService {
     }
   }
 
-  void startLiveTracking() {
+  /// [onLocationUpdate] is an optional callback invoked on every position
+  /// change with the resolved address, latitude, and longitude.  The widget
+  /// can use this to refresh its UI and keep UserProvider current without
+  /// needing to poll the backend or re-call getCurrentLocation().
+  StreamSubscription<Position>? startLiveTracking({
+    void Function(String address, double lat, double lng)? onLocationUpdate,
+  }) {
     // Standard frequency for background location updates
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 50, // Update every 50 meters
     );
 
-    Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+    // Return the subscription so callers can cancel it and avoid memory leaks
+    return Geolocator.getPositionStream(locationSettings: locationSettings).listen(
       (Position position) async {
         try {
-          // Reverse geocode to get address if needed
+          // Reverse geocode to get address
           List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
-          String address = placemarks.isNotEmpty ? "${placemarks[0].locality}, ${placemarks[0].administrativeArea}" : "Unknown";
-          
+          final p = placemarks.isNotEmpty ? placemarks[0] : null;
+          final locality = p?.locality ?? '';
+          final region   = p?.administrativeArea ?? '';
+          final String address = (locality.isNotEmpty && region.isNotEmpty)
+              ? '$locality, $region'
+              : (locality.isNotEmpty ? locality : (region.isNotEmpty ? region : 'Unknown'));
+
+          // Notify caller so UI/state can update immediately
+          onLocationUpdate?.call(address, position.latitude, position.longitude);
+
           await updateLocationOnBackend(position.latitude, position.longitude, address);
         } catch (e) {
           print("Live tracking update failed: $e");
@@ -77,7 +93,7 @@ class LocationService {
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 5),
+        timeLimit: const Duration(seconds: 15),
       );
       
       List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);

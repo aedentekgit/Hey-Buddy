@@ -14,27 +14,41 @@ exports.globalSearch = async (req, res) => {
 
         // Parallel search across collections
         const [reminders, memories, conversations] = await Promise.all([
+            // Use MongoDB text search for Reminder (more efficient)
             Reminder.find({
-                userId,
-                $or: [
-                    { title: searchRegex },
-                    { description: searchRegex },
-                    { location: searchRegex }
-                ]
-            }).limit(5).sort({ date: -1 }),
+                $text: { $search: query },
+                userId
+            }).limit(5).sort({ date: -1 }).catch(() =>
+                // Fallback to regex if text index fails
+                Reminder.find({
+                    userId,
+                    $or: [
+                        { title: searchRegex },
+                        { description: searchRegex },
+                        { location: searchRegex }
+                    ]
+                }).limit(5).sort({ date: -1 })
+            ),
 
             Memory.find({
                 userId,
                 content: searchRegex
             }).limit(5).sort({ createdAt: -1 }),
 
+            // Use MongoDB text search for Conversation (more efficient)
             Conversation.find({
-                userId,
-                $or: [
-                    { title: searchRegex },
-                    { "messages.content": searchRegex }
-                ]
-            }).limit(3).sort({ updatedAt: -1 })
+                $text: { $search: query },
+                userId
+            }).limit(3).sort({ updatedAt: -1 }).catch(() =>
+                // Fallback to regex if text index fails
+                Conversation.find({
+                    userId,
+                    $or: [
+                        { title: searchRegex },
+                        { "messages.content": searchRegex }
+                    ]
+                }).limit(3).sort({ updatedAt: -1 })
+            )
         ]);
 
         res.status(200).json({

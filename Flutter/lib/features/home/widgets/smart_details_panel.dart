@@ -102,12 +102,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     status = r['status'] ?? 'pending';
     coordinates = r['coordinates'] != null ? Map<String, dynamic>.from(r['coordinates']) : null;
     
-    if (coordinates == null && r['location'] != null && r['location'] != 'No Location' && r['location'].toString().isNotEmpty) {
-      coordinates = {
-        'lat': 13.0405, // Fallback lat for demo (e.g. KK Nagar)
-        'lng': 80.1983, // Fallback lng
-      };
-    }
+    // No coordinates fallback — if the reminder has no saved lat/lng, keep coordinates null.
+    // The map will show the "No location specified" overlay and the user can re-pick in Edit mode.
+    // A hardcoded city would produce wrong distance, travel time, and route.
 
     sharedWith = List.from(r['sharedWith'] ?? []);
 
@@ -124,28 +121,42 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      
+
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-        currentPosition = await Geolocator.getCurrentPosition();
+        try {
+          currentPosition = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 15),
+          );
+        } catch (e) {
+          print("GPS fetch failed in _initRoute, trying stored location: $e");
+        }
       }
-      
-      // Fallback matching website if location unavailable or specifically for demo
-      currentPosition ??= Position(
-          latitude: 9.9252, 
-          longitude: 78.1198, 
-          timestamp: DateTime.now(), 
-          accuracy: 0, 
-          altitude: 0, 
-          heading: 0, 
-          speed: 0, 
-          speedAccuracy: 0,
-          altitudeAccuracy: 0,
-          headingAccuracy: 0,
-        );
+
+      // Fallback: use UserProvider's last-known location instead of a hardcoded city
+      if (currentPosition == null && mounted) {
+        final user = Provider.of<UserProvider>(context, listen: false).user;
+        final stored = user['currentLocation'];
+        if (stored != null && stored['lat'] != null && stored['lng'] != null) {
+          currentPosition = Position(
+            latitude: (stored['lat'] as num).toDouble(),
+            longitude: (stored['lng'] as num).toDouble(),
+            timestamp: DateTime.now(),
+            accuracy: 0,
+            altitude: 0,
+            heading: 0,
+            speed: 0,
+            speedAccuracy: 0,
+            altitudeAccuracy: 0,
+            headingAccuracy: 0,
+          );
+          print("Using UserProvider stored location as fallback: ${currentPosition!.latitude}, ${currentPosition!.longitude}");
+        }
+      }
 
       if (mounted && coordinates != null) {
         _fetchRoute();
-        _fetchTravelStats(); // Refresh with local position
+        _fetchTravelStats(); // Refresh with actual user position
       }
     } catch (e) {
       print("Error initializing route: $e");
@@ -157,14 +168,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
     double lat = currentPosition!.latitude;
     double lng = currentPosition!.longitude;
-    
-    // Check if we are too far (e.g. SF emulator vs India reminder)
-    // and if so, fallback to Madurai for demo consistency with website
+
+    // If origin is impossibly far from destination (e.g. emulator default in US)
+    // skip drawing a route — don't silently swap to a hardcoded city
     double dist = Geolocator.distanceBetween(lat, lng, (coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble());
-    if (dist > 1000000) { // > 1000km
-       lat = 9.9252;
-       lng = 78.1198;
-       print("Using Madurai fallback for routing due to large distance: ${dist/1000}km");
+    if (dist > 1000000) { // > 1000km — position is clearly wrong
+      print("Skipping route draw: origin ($lat, $lng) is ${(dist / 1000).toStringAsFixed(0)}km from destination. Waiting for real GPS fix.");
+      return;
     }
 
     PolylinePoints polylinePoints = PolylinePoints(apiKey: AppConfig.googleMapsApiKey);
@@ -224,18 +234,30 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     if (widget.reminder['_id'] != null && coordinates != null) {
       double? lat = currentPosition?.latitude;
       double? lng = currentPosition?.longitude;
-      
-      if (lat != null && lng != null) {
-        double dist = Geolocator.distanceBetween(lat, lng, (coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble());
-        if (dist > 1000000) { // > 1000km
-           lat = 9.9252;
-           lng = 78.1198;
+
+      // If GPS hasn't resolved yet, use the UserProvider's last-known location
+      if ((lat == null || lng == null) && mounted) {
+        final user = Provider.of<UserProvider>(context, listen: false).user;
+        final stored = user['currentLocation'];
+        if (stored != null) {
+          lat = (stored['lat'] as num?)?.toDouble();
+          lng = (stored['lng'] as num?)?.toDouble();
         }
       }
-      
+
+      // If origin is impossibly far from destination, pass null so the backend
+      // uses its own stored user location — don't substitute a hardcoded city
+      if (lat != null && lng != null) {
+        double dist = Geolocator.distanceBetween(lat, lng, (coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble());
+        if (dist > 1000000) { // > 1000km — position is clearly wrong
+          lat = null;
+          lng = null;
+        }
+      }
+
       final stats = await _taskService.fetchTravelStats(
-        widget.reminder['_id'], 
-        lat: lat, 
+        widget.reminder['_id'],
+        lat: lat,
         lng: lng
       );
       
@@ -980,9 +1002,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                               initialCameraPosition: CameraPosition(
                                 target: (coordinates != null && coordinates!['lat'] != null)
                                     ? LatLng(coordinates!['lat'], coordinates!['lng'])
-                                    : (currentPosition != null 
+                                    : (currentPosition != null
                                         ? LatLng(currentPosition!.latitude, currentPosition!.longitude)
-                                        : const LatLng(9.9252, 78.1198)),
+                                        : () {
+                                            final stored = Provider.of<UserProvider>(context, listen: false).user['currentLocation'];
+                                            return (stored != null && stored['lat'] != null)
+                                                ? LatLng((stored['lat'] as num).toDouble(), (stored['lng'] as num).toDouble())
+                                                : const LatLng(0.0, 0.0); // No location at all — map shows world view
+                                          }()),
                                 zoom: (coordinates != null && coordinates!['lat'] != null) ? 15 : 12,
                               ),
                               onMapCreated: (controller) {

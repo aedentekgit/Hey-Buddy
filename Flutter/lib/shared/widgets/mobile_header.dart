@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,6 +23,7 @@ class _MobileHeaderState extends State<MobileHeader> {
   final TextEditingController _searchController = TextEditingController();
   String? _currentLocation;
   final LocationService _locationService = LocationService();
+  StreamSubscription? _liveTrackingSubscription;
 
   @override
   void initState() {
@@ -45,13 +47,27 @@ class _MobileHeaderState extends State<MobileHeader> {
         );
       }
       
-      // Start background updates
-      _locationService.startLiveTracking();
+      // Start background updates — store subscription so we can cancel on dispose.
+      // The callback fires on every 50m position change and keeps both the
+      // header text and UserProvider in sync so SmartDetailsPanel always has
+      // the freshest coordinates as a fallback.
+      _liveTrackingSubscription?.cancel();
+      _liveTrackingSubscription = _locationService.startLiveTracking(
+        onLocationUpdate: (String address, double lat, double lng) {
+          if (!mounted) return;
+          setState(() {
+            _currentLocation = address;
+          });
+          Provider.of<UserProvider>(context, listen: false)
+              .updateLocation(lat, lng);
+        },
+      );
     }
   }
 
   @override
   void dispose() {
+    _liveTrackingSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }

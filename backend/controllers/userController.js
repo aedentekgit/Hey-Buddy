@@ -417,13 +417,26 @@ const reverseGeocode = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Latitude and Longitude are required' });
         }
 
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
-            headers: {
-                'User-Agent': 'HeyBuddy-Health-Assistant/1.0'
+        const geoController = new AbortController();
+        const geoTimeout = setTimeout(() => geoController.abort(), 5000);
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+                headers: {
+                    'User-Agent': 'HeyBuddy-Health-Assistant/1.0'
+                },
+                signal: geoController.signal
+            });
+            clearTimeout(geoTimeout);
+            const data = await response.json();
+            res.json({ success: true, data });
+        } catch (err) {
+            clearTimeout(geoTimeout);
+            if (err.name === 'AbortError') {
+                // Handle timeout
+                return res.status(408).json({ success: false, message: 'Geocoding request timed out' });
             }
-        });
-        const data = await response.json();
-        res.json({ success: true, data });
+            throw err;
+        }
     } catch (error) {
         console.error('Geocoding error:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch location data' });

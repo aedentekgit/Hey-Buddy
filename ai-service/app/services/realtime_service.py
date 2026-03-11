@@ -64,6 +64,9 @@ from tavily import TavilyClient
 import logging
 import os
 import time
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 from app.services.groq_service import GroqService, escape_curly_braces, AllGroqApisFailedError
 from app.services.vector_store import VectorStoreService
@@ -235,6 +238,13 @@ class RealtimeGroqService(GroqService):
                     max_tokens=50,
                 )
 
+        # ── Query extraction caching ──
+        # Cache for extracted search queries keyed by the user's question text.
+        # This prevents re-extracting the same query when users send repeated or
+        # similar messages. Uses a simple dict with max 200 entries.
+        self._query_extraction_cache = {}
+        self._query_cache_max_size = 200
+
     # ─── QUERY EXTRACTION ────────────────────────────────────────────────────
     # Raw user messages are often conversational and contain pronouns, references,
     # and incomplete sentences. Search engines work best with concise, keyword-rich
@@ -258,14 +268,20 @@ class RealtimeGroqService(GroqService):
         a clean, focused search query. Resolves references ("that website", "him")
         using recent chat history. Falls back to the raw question on any failure.
 
+        CACHING:
+          Results are cached by the question text in a simple LRU dict (max 200 entries).
+          This avoids re-extracting the same query when users send repeated messages.
+
         HOW IT WORKS:
-          1. Take the last 3 turns of chat history (to keep the context small).
-          2. Format them as "User: ... / Assistant: ..." pairs.
-          3. Send them along with the user's current message to the fast LLM,
+          1. Check cache for the question — if hit, return cached result immediately.
+          2. Take the last 3 turns of chat history (to keep the context small).
+          3. Format them as "User: ... / Assistant: ..." pairs.
+          4. Send them along with the user's current message to the fast LLM,
              using _QUERY_EXTRACTION_PROMPT as instructions.
-          4. The LLM returns a clean search query (e.g. "Python 3.12 new features").
-          5. Validate the result: must be 3-200 characters and non-empty.
-          6. If anything goes wrong (LLM error, bad output), return the raw question.
+          5. The LLM returns a clean search query (e.g. "Python 3.12 new features").
+          6. Validate the result: must be 3-200 characters and non-empty.
+          7. Cache the result and return it.
+          8. If anything goes wrong (LLM error, bad output), return the raw question.
 
         WHY ONLY LAST 3 TURNS:
           We truncate to the last 3 history pairs because:
@@ -289,6 +305,12 @@ class RealtimeGroqService(GroqService):
         # If no fast LLM is available (no API keys configured), skip extraction.
         if not self._fast_llm:
             return question
+
+        # Check cache first — if we've already extracted a query for this question, return it.
+        cache_key = question.strip().lower()  # Normalize the key for cache hits
+        if cache_key in self._query_extraction_cache:
+            logger.info("[REALTIME] Query extraction (cached): '%s' -> '%s'", question[:80], self._query_extraction_cache[cache_key][:80])
+            return self._query_extraction_cache[cache_key]
 
         try:
             t0 = time.perf_counter()
@@ -337,6 +359,12 @@ class RealtimeGroqService(GroqService):
                     "[REALTIME] Query extraction: '%s' -> '%s' (%.3fs)",
                     question[:80], extracted[:80], time.perf_counter() - t0,
                 )
+                # Cache the extracted query for future use.
+                # If cache exceeds max size, clear it to prevent unbounded memory growth.
+                if len(self._query_extraction_cache) >= self._query_cache_max_size:
+                    self._query_extraction_cache.clear()
+                    logger.info("[REALTIME] Query extraction cache cleared (reached max size of %d)", self._query_cache_max_size)
+                self._query_extraction_cache[cache_key] = extracted
                 return extracted
 
             logger.warning("[REALTIME] Query extraction returned unusable result, using raw question")
@@ -421,18 +449,31 @@ class RealtimeGroqService(GroqService):
         try:
             t0 = time.perf_counter()
 
-            # Call Tavily with retry logic for resilience against transient failures.
-            response = with_retry(
-                lambda: self.tavily_client.search(
-                    query=query,
-                    search_depth="advanced",
-                    max_results=num_results,
-                    include_answer=True,
-                    include_raw_content=False,
-                ),
-                max_retries=3,
-                initial_delay=1.0,
-            )
+            # Call Tavily with timeout and retry logic for resilience against transient failures.
+            # We wrap the synchronous Tavily call in a ThreadPoolExecutor and enforce a 10-second timeout.
+            # If the call times out, we gracefully return empty results and log the timeout.
+            def _tavily_search_with_retry():
+                return with_retry(
+                    lambda: self.tavily_client.search(
+                        query=query,
+                        search_depth="advanced",
+                        max_results=num_results,
+                        include_answer=True,
+                        include_raw_content=False,
+                    ),
+                    max_retries=3,
+                    initial_delay=1.0,
+                )
+
+            try:
+                # Execute the Tavily call in a thread pool with a 10-second timeout
+                executor = ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(_tavily_search_with_retry)
+                response = future.result(timeout=10.0)
+                executor.shutdown(wait=False)
+            except TimeoutError:
+                logger.warning("Tavily search timeout (10s) for query: %s", query)
+                return ("", None)
 
             results = response.get("results", [])
             ai_answer = response.get("answer", "")

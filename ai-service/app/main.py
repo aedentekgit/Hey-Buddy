@@ -69,15 +69,22 @@ STARTUP:
 # pathlib.Path — object-oriented filesystem paths.  Used to locate the
 # frontend/ directory relative to this file (see _frontend_dir near the end).
 from pathlib import Path
+import os as _os
 
 # FastAPI — the web framework itself.
 # HTTPException — raises an HTTP error (e.g. 400, 429, 503) that FastAPI
 #   automatically converts to a JSON response.
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
+from typing import Optional as _Optional
 
 # CORSMiddleware — handles Cross-Origin Resource Sharing headers so that a
 # browser on a different origin (e.g. localhost:3000) can call this API.
 from fastapi.middleware.cors import CORSMiddleware
+
+# GZipMiddleware — compresses response bodies to reduce bandwidth. Configured
+# with minimum_size=1000 to only compress responses larger than 1KB (smaller
+# responses often get larger after compression).
+from fastapi.middleware.gzip import GZIPMiddleware
 
 # StreamingResponse — returns an iterable/generator to the client chunk by
 #   chunk instead of buffering the entire response body in memory first.
@@ -392,6 +399,10 @@ async def lifespan(app: FastAPI):
         logger.info("Hey buddy is online and ready!")
         logger.info("API: http://localhost:8000")
         logger.info("Frontend: http://localhost:8000/app/ (open in browser)")
+        # Security reminder — warn loudly if no API key is configured
+        if not _os.getenv("BUDDY_API_KEY", ""):
+            logger.warning("[SECURITY] BUDDY_API_KEY is not set — all /chat endpoints are unprotected!")
+            logger.warning("[SECURITY] Set BUDDY_API_KEY=<random-secret> in your .env for production.")
         logger.info("=" * 60)
         
         # --- Hand control to FastAPI (the app runs between yield and the code below) ---
@@ -429,26 +440,50 @@ app = FastAPI(
     openapi_url=None # No /openapi.json (disables docs entirely)
 )
 
+# --- GZip Compression Middleware ---
+# Automatically compress response bodies (non-streaming) for faster delivery.
+# minimum_size=1000: only compress responses larger than 1KB (smaller ones
+# often get larger after gzip overhead). Note: streaming SSE responses are
+# excluded by default since they use StreamingResponse.
+app.add_middleware(GZIPMiddleware, minimum_size=1000)
+
 # --- CORS (Cross-Origin Resource Sharing) Middleware ---
-# Browsers block JavaScript from making requests to a different origin
-# (protocol + host + port) unless the server explicitly allows it via CORS
-# headers.  For example, if you open the frontend from file:// or from
-# localhost:3000 while the API is on localhost:8000, the browser would block
-# the request without CORS headers.
+# SECURITY: allow_origins=["*"] with allow_credentials=True is invalid per the
+# CORS spec and creates CSRF risks. We now read the allowed origin list from the
+# ALLOWED_ORIGINS env var (comma-separated). Falls back to localhost only.
 #
-# allow_origins=["*"]   — allow requests from ANY origin.  This is fine for a
-#                          personal, single-user server.  In a production multi-
-#                          user app you'd restrict this to your actual domain.
-# allow_credentials=True — allow cookies / auth headers to be sent.
-# allow_methods=["*"]   — allow all HTTP methods (GET, POST, OPTIONS, …).
-# allow_headers=["*"]   — allow any request header (Content-Type, Authorization, …).
+# Example .env entry:
+#   ALLOWED_ORIGINS=https://ayuskart.com,https://www.ayuskart.com
+#
+_raw_origins = _os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000")
+_ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
+
+# =============================================================================
+# API KEY AUTHENTICATION
+# =============================================================================
+# A simple shared-secret guard for all /chat and /tts endpoints.
+# Set BUDDY_API_KEY in your .env.  Requests must include the header:
+#   X-API-Key: <your key>
+# If BUDDY_API_KEY is not set the check is skipped (dev/local mode), but a
+# warning is logged at startup so you don't accidentally ship without it.
+#
+_BUDDY_API_KEY = _os.getenv("BUDDY_API_KEY", "")
+
+async def _require_api_key(x_api_key: _Optional[str] = Header(default=None)):
+    """Dependency: reject requests that don't carry the correct API key."""
+    if not _BUDDY_API_KEY:
+        # Dev mode — key not configured, allow all (warning already logged at startup).
+        return
+    if x_api_key != _BUDDY_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
 
 # =============================================================================
@@ -556,7 +591,7 @@ async def favicon():
     return Response(status_code=204)
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse, dependencies=[Depends(_require_api_key)])
 async def chat(request: ChatRequest):
     """
     General chat endpoint - send a message to Hey buddy.
@@ -604,6 +639,18 @@ async def chat(request: ChatRequest):
     # Guard: if lifespan hasn't finished yet (or failed), the service is None.
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
+
+    # --- Message length guard ---
+    # Prevent token overflow and potential abuse by rejecting messages that are
+    # too long or empty. ~32 000 chars ≈ ~8 000 tokens — well within model limits.
+    _MAX_MSG_LEN = 32_000
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if len(request.message) > _MAX_MSG_LEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Message too long ({len(request.message)} chars). Maximum is {_MAX_MSG_LEN}."
+        )
 
     logger.info("[API /chat] Incoming | session_id=%s | message_len=%d | message=%.100s",
                 request.session_id or "new", len(request.message), request.message)
@@ -986,7 +1033,7 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
 # STREAMING CHAT ENDPOINTS
 # =============================================================================
 
-@app.post("/chat/stream")
+@app.post("/chat/stream", dependencies=[Depends(_require_api_key)])
 async def chat_stream(request: ChatRequest):
     """
     General chat with streaming — returns LLM tokens as Server-Sent Events.
@@ -1015,6 +1062,11 @@ async def chat_stream(request: ChatRequest):
     """
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
+    _MAX_MSG_LEN = 32_000
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if len(request.message) > _MAX_MSG_LEN:
+        raise HTTPException(status_code=400, detail=f"Message too long ({len(request.message)} chars). Maximum is {_MAX_MSG_LEN}.")
     logger.info("[API /chat/stream] Incoming | session_id=%s | message_len=%d | message=%.100s",
                 request.session_id or "new", len(request.message), request.message)
     try:
@@ -1040,7 +1092,7 @@ async def chat_stream(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/chat/realtime", response_model=ChatResponse)
+@app.post("/chat/realtime", response_model=ChatResponse, dependencies=[Depends(_require_api_key)])
 async def chat_realtime(request: ChatRequest):
     """
     Realtime chat endpoint - send a message to Hey buddy with Tavily web search.
@@ -1087,8 +1139,13 @@ async def chat_realtime(request: ChatRequest):
     """
     if not chat_service or not realtime_service:
         raise HTTPException(status_code=503, detail="Service not initialized")
-    
-    logger.info("[API /chat/realtime] Incoming | session_id=%s | message_len=%d | message=%.100s", 
+    _MAX_MSG_LEN = 32_000
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if len(request.message) > _MAX_MSG_LEN:
+        raise HTTPException(status_code=400, detail=f"Message too long ({len(request.message)} chars). Maximum is {_MAX_MSG_LEN}.")
+
+    logger.info("[API /chat/realtime] Incoming | session_id=%s | message_len=%d | message=%.100s",
                 request.session_id or "new", len(request.message), request.message)
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
@@ -1123,7 +1180,7 @@ async def chat_realtime(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
 
-@app.post("/chat/realtime/stream")
+@app.post("/chat/realtime/stream", dependencies=[Depends(_require_api_key)])
 async def chat_realtime_stream(request: ChatRequest):
     """
     Realtime chat with streaming — SSE stream with optional inline TTS.
@@ -1138,6 +1195,11 @@ async def chat_realtime_stream(request: ChatRequest):
     """
     if not chat_service or not realtime_service:
         raise HTTPException(status_code=503, detail="Service not initialized")
+    _MAX_MSG_LEN = 32_000
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if len(request.message) > _MAX_MSG_LEN:
+        raise HTTPException(status_code=400, detail=f"Message too long ({len(request.message)} chars). Maximum is {_MAX_MSG_LEN}.")
     logger.info("[API /chat/realtime/stream] Incoming | session_id=%s | message_len=%d | message=%.100s",
                 request.session_id or "new", len(request.message), request.message)
     try:
@@ -1162,7 +1224,7 @@ async def chat_realtime_stream(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/action")
+@app.post("/action", dependencies=[Depends(_require_api_key)])
 async def perform_action(request: Request, action_req: ActionRequest):
     """
     Perform a system action (open URL, open app, etc.)
@@ -1199,7 +1261,7 @@ async def perform_action(request: Request, action_req: ActionRequest):
 # STANDALONE TOOL ENDPOINTS (FOR THIRD-PARTY / NODE.JS GATEWAY)
 # =============================================================================
 
-@app.get("/tools/search")
+@app.get("/tools/search", dependencies=[Depends(_require_api_key)])
 async def standalone_search(query: str):
     """
     Standalone search endpoint for external services (e.g. Node.js backend).
@@ -1216,7 +1278,7 @@ async def standalone_search(query: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/tools/memory")
+@app.get("/tools/memory", dependencies=[Depends(_require_api_key)])
 async def standalone_memory_search(query: str, k: int = 5):
     """
     Standalone memory search endpoint for external services.
@@ -1236,7 +1298,7 @@ async def standalone_memory_search(query: str, k: int = 5):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/system/reload")
+@app.post("/system/reload", dependencies=[Depends(_require_api_key)])
 async def reload_system():
     """
     Reload the vector store and rebuild the index.
@@ -1258,7 +1320,7 @@ async def reload_system():
 # CHAT HISTORY ENDPOINT
 # =============================================================================
 
-@app.get("/chat/history/{session_id}")
+@app.get("/chat/history/{session_id}", dependencies=[Depends(_require_api_key)])
 async def get_chat_history(session_id: str):
     """
     Get chat history for a specific session.
@@ -1315,7 +1377,7 @@ async def get_chat_history(session_id: str):
 # text and returns a pure MP3 audio stream.  Useful if the frontend wants to
 # re-speak a previous message or speak text that didn't come from the LLM.
 
-@app.post("/tts")
+@app.post("/tts", dependencies=[Depends(_require_api_key)])
 async def text_to_speech(request: TTSRequest):
     """
     Convert text to speech using edge-tts and stream back MP3 audio.

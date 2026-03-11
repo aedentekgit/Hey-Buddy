@@ -2,13 +2,25 @@ const Conversation = require('../models/Conversation');
 
 exports.getConversations = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        const total = await Conversation.countDocuments({ userId: req.user._id });
         const conversations = await Conversation.find({ userId: req.user._id })
             .select('title createdAt updatedAt')
-            .sort({ updatedAt: -1 });
+            .lean()
+            .sort({ updatedAt: -1 })
+            .skip(skip)
+            .limit(limit);
 
         res.status(200).json({
             success: true,
-            data: conversations
+            data: conversations,
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit)
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -69,8 +81,8 @@ exports.syncConversation = async (req, res) => {
             return res.status(400).json({ success: false, message: 'userId is required' });
         }
 
-        // Find the most recent conversation or create a new one
-        let conversation = await Conversation.findOne({ userId }).sort({ updatedAt: -1 });
+        // Find the most recent conversation or create a new one (with .lean())
+        let conversation = await Conversation.findOne({ userId }).lean().sort({ updatedAt: -1 });
 
         if (conversation) {
             // Update messages (replace entirely or sync)
@@ -97,6 +109,7 @@ exports.getLatestConversationByUserId = async (req, res) => {
         }
 
         const conversation = await Conversation.findOne({ userId })
+            .lean()
             .sort({ updatedAt: -1 });
 
         if (!conversation) {
@@ -114,7 +127,7 @@ exports.getLatestConversationByUserId = async (req, res) => {
 
 exports.getAllConversationsInternal = async (req, res) => {
     try {
-        const conversations = await Conversation.find({});
+        const conversations = await Conversation.find({}).lean();
         res.status(200).json({
             success: true,
             data: conversations

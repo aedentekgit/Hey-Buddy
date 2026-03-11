@@ -605,17 +605,31 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> with Widg
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final url = await userProvider.getGoogleAuthUrl();
-      if (url != null) {
-        final Uri authUri = Uri.parse(url);
-        if (await canLaunchUrl(authUri)) {
-          await launchUrl(authUri, mode: LaunchMode.externalApplication);
-        } else {
-          ToastUtils.showErrorToast("Could not launch Google Auth page");
+
+      if (url == null || url.isEmpty) {
+        ToastUtils.showErrorToast("Failed to fetch Google Auth URL. Check admin settings.");
+        return;
+      }
+
+      final Uri authUri = Uri.parse(url);
+
+      // Try to launch directly — canLaunchUrl is unreliable on Android 11+
+      // because it requires explicit <queries> declarations in AndroidManifest.
+      // We now have those, but also wrap in try/catch as a belt-and-suspenders approach.
+      try {
+        final launched = await launchUrl(
+          authUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched) {
+          ToastUtils.showErrorToast("Could not open browser. Please try again.");
         }
-      } else {
-        ToastUtils.showErrorToast("Failed to fetch Google Auth URL");
+      } catch (launchError) {
+        debugPrint('[Calendar] launchUrl failed: $launchError');
+        ToastUtils.showErrorToast("Could not launch Google Auth page: $launchError");
       }
     } catch (e) {
+      debugPrint('[Calendar] _handleConnectGoogleCalendar error: $e');
       ToastUtils.showErrorToast("Failed to connect: $e");
     }
   }

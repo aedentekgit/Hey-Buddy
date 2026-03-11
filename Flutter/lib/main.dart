@@ -4,6 +4,7 @@ import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
+import 'package:buddy_mobile/features/home/providers/location_reminders_provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 
@@ -49,6 +50,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()..tryAutoLogin()),
         ChangeNotifierProvider(create: (_) => MemoriesProvider()),
         ChangeNotifierProvider(create: (_) => TasksProvider()),
+        ChangeNotifierProvider(create: (_) => LocationRemindersProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BuddyProvider()),
       ],

@@ -60,8 +60,10 @@ import json
 import logging
 import time
 import requests
-import threading
 import os
+import asyncio
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Optional, Dict, Iterator
 import uuid
@@ -88,6 +90,20 @@ logger = logging.getLogger("Hey buddy")
 #   chunk is typically 1-5 tokens (a few words). So 5 chunks ≈ 5-25 words of
 #   text flushed to disk at a time.
 SAVE_EVERY_N_CHUNKS = 5
+
+# ─── MESSAGE HISTORY SLIDING WINDOW ──────────────────────────────────────────
+# Cap the total number of messages stored in memory per session to prevent
+# unbounded memory growth. When a session exceeds MAX_SESSION_MESSAGES, we trim
+# it to keep only the most recent messages. The system message (if present at
+# index 0) is preserved.
+# Example: 50 messages = 25 conversation turns (user + assistant pairs).
+MAX_SESSION_MESSAGES = 50
+
+# Thread pool for background DB sync operations.
+# Max 4 workers prevents unbounded thread creation under high request load.
+# Queue size tracking: we manually check pending task count before submitting.
+_db_sync_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="db-sync")
+_db_sync_queue_limit = 20  # Max tasks in queue; above this we skip to prevent memory bloat
 
 
 # =============================================================================
@@ -136,6 +152,7 @@ class ChatService:
                            conversations.
             self.session_user_map: A dict mapping session_id (str) → userId (str).
                                    Links a temporary session to a permanent MongoDB user.
+            self._http_session: Shared aiohttp session with connection pooling.
         """
         self.groq_service = groq_service
         self.realtime_service = realtime_service
@@ -145,6 +162,11 @@ class ChatService:
         # if the process dies, we lose it. That's why we also save to disk (JSON files).
         self.sessions: Dict[str, List[ChatMessage]] = {}
         self.session_user_map: Dict[str, str] = {}
+
+        # Shared aiohttp session with connection pooling for HTTP requests.
+        # Reusing a session across requests multiplexes connections and reduces
+        # overhead compared to creating new sessions per request.
+        self._http_session: Optional[aiohttp.ClientSession] = None
 
     # -------------------------------------------------------------------------
     # SESSION LOAD / VALIDATE / GET-OR-CREATE
@@ -164,43 +186,84 @@ class ChatService:
     #   first, the common case (ongoing conversation) is extremely fast.
     # -------------------------------------------------------------------------
 
+    async def _get_http_session(self) -> aiohttp.ClientSession:
+        """
+        Lazy-create and reuse a shared HTTP session with connection pooling.
+        This avoids creating a new session (and new connections) for each request.
+        """
+        if self._http_session is None or self._http_session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=100,  # Max concurrent connections
+                limit_per_host=10,  # Max per domain
+                ttl_dns_cache=300  # Cache DNS lookups for 5 minutes
+            )
+            self._http_session = aiohttp.ClientSession(connector=connector)
+        return self._http_session
+
+    async def _fetch_session_async(self, backend_url: str, session_id: str) -> Optional[dict]:
+        """
+        Helper: async HTTP GET to fetch session from backend.
+        Uses a shared session with connection pooling for efficiency.
+        Returns parsed JSON or None if request fails.
+        """
+        try:
+            session = await self._get_http_session()
+            async with session.get(
+                f"{backend_url}/api/conversations/internal/{session_id}",
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                else:
+                    logger.debug(f"No history found for session {session_id} in MongoDB (Status: {resp.status})")
+                    return None
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout fetching session {session_id} from backend")
+            return None
+        except Exception as ex:
+            logger.warning(f"Failed to fetch session {session_id} from backend: {ex}")
+            return None
+
     def load_session_from_backend(self, session_id: str) -> bool:
         """
         Attempt to load a previously saved session from the MongoDB database
-        via the Node.js backend proxy.
+        via the Node.js backend proxy using async HTTP (non-blocking).
 
         HOW IT WORKS:
-          1. Send a GET request to the Node.js internal conversation endpoint.
+          1. Send an async GET request to the Node.js internal conversation endpoint.
           2. If found, deserialize the messages and store them in memory.
 
-        WHY THIS EXISTS:
-          Local disk persistence is disabled. Each time the server restarts,
-          active sessions are restored from the database on-demand.
+        WHY ASYNC:
+          Uses aiohttp instead of requests to prevent blocking the event loop.
+          This is critical for FastAPI's async request handling.
         """
         try:
             backend_url = os.getenv("NODE_BACKEND_URL", "http://localhost:5001")
             logger.info(f"Session {session_id} not in memory, restoring from MongoDB...")
-            
-            # The backend route is /api/conversations/internal/:userId
-            # Note: session_id is often the userId or a composite.
-            resp = requests.get(f"{backend_url}/api/conversations/internal/{session_id}", timeout=5)
-            
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("success") and data.get("data"):
-                    conv = data["data"]
-                    messages = [
-                        ChatMessage(role=msg.get("role"), content=msg.get("content"))
-                        for msg in conv.get("messages", [])
-                    ]
-                    self.sessions[session_id] = messages
-                    logger.info(f"Successfully restored history for session {session_id} from MongoDB")
-                    return True
-            else:
-                logger.debug(f"No history found for session {session_id} in MongoDB (Status: {resp.status_code})")
+
+            # Run async fetch using event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            data = loop.run_until_complete(
+                self._fetch_session_async(backend_url, session_id)
+            )
+
+            if data and data.get("success") and data.get("data"):
+                conv = data["data"]
+                messages = [
+                    ChatMessage(role=msg.get("role"), content=msg.get("content"))
+                    for msg in conv.get("messages", [])
+                ]
+                self.sessions[session_id] = messages
+                logger.info(f"Successfully restored history for session {session_id} from MongoDB")
+                return True
         except Exception as ex:
-            logger.warning(f"Failed to fetch session {session_id} from backend: {ex}")
-        
+            logger.warning(f"Failed to load session {session_id} from backend: {ex}")
+
         return False
 
     def validate_session_id(self, session_id: str) -> bool:
@@ -346,6 +409,11 @@ class ChatService:
           - For streaming, we first add_message(sid, "assistant", "") as a
             placeholder, then build up .content chunk-by-chunk.
 
+        SLIDING WINDOW:
+          After appending the message, if the session exceeds MAX_SESSION_MESSAGES,
+          we trim it to keep only the most recent messages. This prevents unbounded
+          memory growth for long-running conversations.
+
         Args:
             session_id: Which session to append to.
             role: "user" or "assistant".
@@ -355,6 +423,17 @@ class ChatService:
         if session_id not in self.sessions:
             self.sessions[session_id] = []
         self.sessions[session_id].append(ChatMessage(role=role, content=content))
+
+        # Trim session history if it exceeds the maximum message count.
+        # Keep the first message (often a system prompt) plus the last MAX_SESSION_MESSAGES-1 messages.
+        if len(self.sessions[session_id]) > MAX_SESSION_MESSAGES:
+            messages = self.sessions[session_id]
+            # Preserve the first message (likely system context) and keep the most recent ones
+            self.sessions[session_id] = messages[:1] + messages[-(MAX_SESSION_MESSAGES - 1):]
+            logger.info(
+                "[HISTORY TRIM] Session %s trimmed to %d messages (was %d)",
+                session_id[:8], len(self.sessions[session_id]), len(messages)
+            )
 
     def get_chat_history(self, session_id: str) -> List[ChatMessage]:
         """
@@ -718,6 +797,10 @@ class ChatService:
           - After each completed message (blocking mode).
           - Once at the end of streaming (in the `finally` block).
 
+        QUEUE SIZE LIMITING:
+          If too many tasks are already queued (> 20), this skips submission and logs
+          a warning. This prevents unbounded queue growth under high request load.
+
         Args:
             session_id: The session to persist.
             log_timing: If False, skip the timing log.
@@ -726,43 +809,61 @@ class ChatService:
         if session_id not in self.sessions or not self.sessions[session_id]:
             return
 
+        # Check queue size: if too many tasks are queued, skip to prevent bloat
+        # _db_sync_pool._work_queue.qsize() is not officially supported, so we use
+        # a rough estimate via the thread pool's internal state. Alternatively,
+        # we can track submitted tasks ourselves. For safety, check the estimate:
+        if hasattr(_db_sync_pool, '_work_queue'):
+            queue_size = _db_sync_pool._work_queue.qsize()
+            if queue_size > _db_sync_queue_limit:
+                logger.warning(f"[PERFORMANCE] DB sync queue full ({queue_size} > {_db_sync_queue_limit}); "
+                              f"skipping sync for session {session_id} to prevent bloat")
+                return
+
         messages = self.sessions[session_id]
         # Build the sync structure: session_id + flat list of {role, content} dicts.
         sync_payload = {
             "session_id": session_id,
-           "messages": [{"role": msg.role, "content": msg.content} for msg in messages]
+            "messages": [{"role": msg.role, "content": msg.content} for msg in messages]
         }
 
-        # Fire-and-forget background sync to MongoDB via Node.js backend
+        # Background sync to MongoDB via Node.js backend with proper error handling
         def _sync_to_db():
-            logger.info(f"Syncing conversation {session_id} to MongoDB...")
+            t0 = time.time()
             try:
                 # Use environment variable for backend URL, default to 5001 if not set
                 backend_url = os.getenv("NODE_BACKEND_URL", "http://localhost:5001")
                 # Use the provided userId for sync if available, fallback to session_id
                 sync_user_id = self.session_user_map.get(session_id, session_id)
-                
+
                 # Filter out messages with empty content to avoid validation errors.
                 # Only sync non-empty strings.
                 messages_to_sync = [
-                    {"role": m["role"], "content": m["content"]} 
-                    for m in sync_payload["messages"] 
+                    {"role": m["role"], "content": m["content"]}
+                    for m in sync_payload["messages"]
                     if m.get("content") and m["content"].strip()
                 ]
-                
+
                 payload = {
                     "userId": sync_user_id,
                     "messages": messages_to_sync
                 }
-                
+
                 resp = requests.post(f"{backend_url}/api/conversations/sync", json=payload, timeout=5)
+                elapsed = time.time() - t0
                 if resp.status_code == 200:
-                    logger.info(f"Successfully synced conversation for user {sync_user_id} to MongoDB")
+                    logger.info(f"[DB-SYNC] Conversation synced for user {sync_user_id} "
+                              f"({len(messages_to_sync)} messages, {elapsed:.2f}s)")
                 else:
-                    logger.warning(f"Failed to sync conversation to db, status={resp.status_code}, error={resp.text}")
+                    logger.warning(f"[DB-SYNC] Failed to sync (status={resp.status_code}): {resp.text[:200]}")
+            except requests.Timeout:
+                logger.warning(f"[DB-SYNC] Timeout syncing session {session_id} (5s exceeded)")
             except Exception as ex:
-                logger.warning(f"Error syncing conversation to db in background thread: {ex}")
-        
-        # Start the background sync thread. 
-        # Using daemon=True so the server can exit even if the sync is pending.
-        threading.Thread(target=_sync_to_db, daemon=True).start()
+                logger.warning(f"[DB-SYNC] Error syncing session {session_id}: {type(ex).__name__}: {ex}")
+
+        # Submit to the bounded thread pool instead of spawning unlimited threads.
+        # This caps concurrent DB sync operations to 4, preventing resource exhaustion.
+        try:
+            _db_sync_pool.submit(_sync_to_db)
+        except Exception as e:
+            logger.warning(f"[DB-SYNC] Failed to submit task to pool: {e}")

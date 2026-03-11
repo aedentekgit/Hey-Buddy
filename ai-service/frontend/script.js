@@ -52,15 +52,34 @@ const tokenParam = urlParams.get('token');
 const sessionIdParam = urlParams.get('sessionId');
 const userIdParam = urlParams.get('userId');
 
-// If apiBase is passed in URL (e.g. from React parent), use it.
+// SECURITY: Validate apiBase to prevent open-redirect or javascript: URI injection.
+// Only accept http:// or https:// URLs; reject anything else silently.
+function _isSafeApiBase(value) {
+    if (!value) return false;
+    try {
+        const u = new URL(value);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
+// SECURITY: Validate sessionId / userId to prevent path traversal in /chat/history/{id}.
+// Only allow UUID v4 format or simple alphanumeric IDs (no slashes, dots, etc.).
+const _SESSION_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
+function _isSafeSessionId(value) {
+    return typeof value === 'string' && _SESSION_ID_RE.test(value);
+}
+
+// If apiBase is passed in URL (e.g. from React parent), use it only if it is a safe URL.
 // Otherwise, fallback to same origin or localhost:8000.
-const API = apiBaseParam ||
+const API = (_isSafeApiBase(apiBaseParam) ? apiBaseParam : null) ||
     ((typeof window !== 'undefined' && window.location.origin)
         ? window.location.origin
         : 'http://localhost:8000');
 
 const AUTH_TOKEN = tokenParam || null;
-const USER_ID = userIdParam || null;
+const USER_ID = (_isSafeSessionId(userIdParam) ? userIdParam : null);
 
 /* ================================================================
    APPLICATION STATE
@@ -76,8 +95,10 @@ const USER_ID = userIdParam || null;
  * arrives, it contains a UUID string that we send back with every
  * subsequent message so the backend knows which conversation we're in.
  */
-// Initialize sessionId from URL/userId if provided (to maintain history across refreshes/logins)
-let sessionId = sessionIdParam || userIdParam || null;
+// Initialize sessionId from URL/userId if provided (to maintain history across refreshes/logins).
+// SECURITY: Only accept sessionId values that pass the safe-ID check to prevent path traversal.
+const _safeSessionIdParam = _isSafeSessionId(sessionIdParam) ? sessionIdParam : null;
+let sessionId = _safeSessionIdParam || USER_ID || null;
 
 /*
  * currentMode — Which AI pipeline to use: 'general' or 'realtime'.
@@ -128,6 +149,12 @@ let ttsPlayer = null;
 let wakeRecognition = null;
 let isWakeWordListening = true;
 let isWakeThrottled = false;         // Cooldown flag to prevent double trigger
+
+/*
+ * streamController — AbortController for the current streaming fetch request.
+ * Used to cancel the request if the user sends a new message or unloads the page.
+ */
+let streamController = null;
 
 
 
@@ -659,10 +686,12 @@ function initWakeWord() {
 
     wakeRecognition.onresult = e => {
         // We look through all current results for the wake word
-        let transcript = '';
+        // Use array push + join instead of += to avoid O(n²) string concatenation
+        const transcriptParts = [];
         for (let i = e.resultIndex; i < e.results.length; i++) {
-            transcript += ' ' + e.results[i][0].transcript.toLowerCase();
+            transcriptParts.push(e.results[i][0].transcript.toLowerCase());
         }
+        const transcript = transcriptParts.join(' ');
 
         // Keywords: "hey buddy" (strict match)
         const keywords = ['hey buddy'];
@@ -855,7 +884,7 @@ function bindEvents() {
 
     // INPUT CHANGE — Auto-resize the textarea and show character count for long messages
     messageInput.addEventListener('input', () => {
-        autoResizeInput();
+        debouncedAutoResizeInput();  // Use debounced version to avoid excessive reflows
         const len = messageInput.value.length;
         // Only show the counter once the message exceeds 100 characters (avoids clutter)
         charCount.textContent = len > 100 ? `${len.toLocaleString()} / 32,000` : '';
@@ -888,11 +917,7 @@ function bindEvents() {
     btnGeneral.addEventListener('click', () => setMode('general'));
     btnRealtime.addEventListener('click', () => setMode('realtime'));
 
-    // QUICK-ACTION CHIPS — Predefined messages on the welcome screen
-    // Each chip has a data-msg attribute containing the message to send
-    document.querySelectorAll('.chip').forEach(c => {
-        c.addEventListener('click', () => { if (!isStreaming) sendMessage(c.dataset.msg); });
-    });
+    // QUICK-ACTION CHIPS — Event delegation on chatMessages container (attached below)
 
     // SEARCH RESULTS WIDGET — Toggle panel open from header button; close from panel button
     if (searchResultsToggle) {
@@ -903,6 +928,13 @@ function bindEvents() {
     if (searchResultsClose && searchResultsWidget) {
         searchResultsClose.addEventListener('click', () => searchResultsWidget.classList.remove('open'));
     }
+
+    // EVENT DELEGATION for chip buttons — Avoid listener leak when new welcome screen is created
+    chatMessages.addEventListener('click', (e) => {
+        if (e.target.classList.contains('chip') && !isStreaming) {
+            sendMessage(e.target.dataset.msg);
+        }
+    });
 
     // GLOBAL CLICK — Unlock audio on the first interaction
     document.addEventListener('click', () => {
@@ -923,6 +955,25 @@ function bindEvents() {
 function autoResizeInput() {
     messageInput.style.height = 'auto';
     messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+}
+
+// Debounce timer and pending flag for autoResizeInput to prevent excessive reflows
+let _autoResizeTimer = null;
+let _autoResizePending = false;
+
+/**
+ * debouncedAutoResizeInput() — Debounced version of autoResizeInput.
+ * Only resizes at most once every 100ms to avoid layout thrashing on every keystroke.
+ */
+function debouncedAutoResizeInput() {
+    _autoResizePending = true;
+    clearTimeout(_autoResizeTimer);
+    _autoResizeTimer = setTimeout(() => {
+        if (_autoResizePending) {
+            autoResizeInput();
+            _autoResizePending = false;
+        }
+    }, 100);
 }
 
 /* ================================================================
@@ -1023,10 +1074,8 @@ function createWelcome() {
             <button class="chip" data-msg="Play some music">Play music</button>
         </div>`;
 
-    // Attach click handlers to the dynamically created chip buttons
-    div.querySelectorAll('.chip').forEach(c => {
-        c.addEventListener('click', () => { if (!isStreaming) sendMessage(c.dataset.msg); });
-    });
+    // NOTE: Event handlers for chip buttons are now attached via event delegation
+    // on chatMessages container in the init() function to avoid listener leaks
     return div;
 }
 
@@ -1279,9 +1328,22 @@ function showToast(message) {
     }, 4000);
 }
 
+// Throttle flag to prevent scroll thrashing
+let _scrollPending = false;
+
 function scrollToBottom() {
     requestAnimationFrame(() => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+}
+
+// Throttled version: only scrolls once per ~100ms to prevent thrashing
+function throttledScrollToBottom() {
+    if (_scrollPending) return;
+    _scrollPending = true;
+    requestAnimationFrame(() => {
+        scrollToBottom();
+        _scrollPending = false;
     });
 }
 
@@ -1384,6 +1446,10 @@ async function sendMessage(textOverride) {
         const headers = { 'Content-Type': 'application/json' };
         if (AUTH_TOKEN) headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
 
+        // Abort any previous streaming request if the user sends a new message
+        if (streamController) streamController.abort();
+        streamController = new AbortController();
+
         // Step 7: Send the POST request to the backend
         const res = await fetch(`${API}${endpoint}`, {
             method: 'POST',
@@ -1394,6 +1460,7 @@ async function sendMessage(textOverride) {
                 userId: USER_ID,                               // Pass real user ID to Python
                 tts: !!(ttsPlayer && ttsPlayer.enabled)        // Tell the backend whether to generate audio
             }),
+            signal: streamController.signal,                   // Pass abort signal to fetch
         });
 
         // Handle HTTP errors (4xx, 5xx)
@@ -1407,7 +1474,7 @@ async function sendMessage(textOverride) {
         const contentEl = addMessage('assistant', '');
         const placeholder = currentMode === 'realtime' ? 'Searching...' : 'Thinking...';
         contentEl.innerHTML = `<span class="msg-stream-text">${placeholder}</span>`;
-        scrollToBottom();   // Scroll so placeholder is visible without manual scroll
+        throttledScrollToBottom();   // Scroll so placeholder is visible without manual scroll
 
         // Set up the stream reader and SSE parser
         const reader = res.body.getReader();       // ReadableStream reader for the response body
@@ -1415,6 +1482,7 @@ async function sendMessage(textOverride) {
         let sseBuffer = '';                         // Accumulates partial SSE lines between chunks
         let fullResponse = '';                      // The complete assistant response text so far
         let cursorEl = null;                        // The blinking "|" cursor shown during streaming
+        const textSpan = contentEl.querySelector('.msg-stream-text'); // Cache this to avoid repeated DOM queries
 
         // Step 9: Read the stream in a loop until it's done
         while (true) {
@@ -1465,7 +1533,7 @@ async function sendMessage(textOverride) {
                     // TEXT CHUNK — Append to the displayed response
                     if (data.chunk) {
                         fullResponse += data.chunk;
-                        const textSpan = contentEl.querySelector('.msg-stream-text');
+                        // Use pre-cached textSpan instead of querying DOM on every chunk
                         if (textSpan) textSpan.textContent = fullResponse;
 
                         // Add a blinking cursor at the end (created once, on the first chunk)
@@ -1475,7 +1543,7 @@ async function sendMessage(textOverride) {
                             cursorEl.textContent = '|';
                             contentEl.appendChild(cursorEl);
                         }
-                        scrollToBottom();
+                        throttledScrollToBottom();
                     }
 
                     // AUDIO CHUNK — Enqueue for TTS playback
@@ -1500,7 +1568,7 @@ async function sendMessage(textOverride) {
         if (cursorEl) cursorEl.remove();
 
         // If the server sent nothing, show a placeholder
-        const textSpan = contentEl.querySelector('.msg-stream-text');
+        // (textSpan was already cached before the streaming loop)
         if (textSpan && !fullResponse) {
             textSpan.textContent = '(No response)';
         } else if (textSpan && fullResponse) {
@@ -1536,6 +1604,31 @@ async function sendMessage(textOverride) {
         sendBtn.disabled = false;
     }
 }
+
+/* ================================================================
+   CLEANUP ON PAGE UNLOAD
+   ================================================================
+   Abort any pending fetch requests, stop speech recognition,
+   close AudioContext, etc. when the user navigates away.
+   ================================================================ */
+window.addEventListener('beforeunload', () => {
+    // Abort any streaming fetch request
+    if (streamController) {
+        streamController.abort();
+    }
+    // Stop speech recognition
+    if (recognition) {
+        try { recognition.stop(); } catch (_) { }
+    }
+    // Stop wake word recognition
+    if (wakeRecognition) {
+        try { wakeRecognition.stop(); } catch (_) { }
+    }
+    // Stop any playing TTS audio
+    if (ttsPlayer) {
+        try { ttsPlayer.stop(); } catch (_) { }
+    }
+});
 
 /* ================================================================
    BOOT — Application Entry Point

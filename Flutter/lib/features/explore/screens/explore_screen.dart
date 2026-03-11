@@ -5,8 +5,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
+
 import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/features/home/screens/memory_details_screen.dart';
+import 'package:buddy_mobile/features/home/screens/location_reminders_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
@@ -43,16 +45,16 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
   Widget build(BuildContext context) {
     super.build(context); // Required for KeepAlive
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFF), // Corrected background
+      backgroundColor: const Color(0xFFF9FAFF),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Engaging Content Section
             Text(
-              "Engaging Content",
+              'Engaging Content',
               style: GoogleFonts.outfit(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
@@ -60,7 +62,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Grid of Cards
             GridView.count(
               shrinkWrap: true,
@@ -68,41 +70,43 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 2.2, // Reduced height for professional look
+              childAspectRatio: 2.2,
               children: [
                 _buildEngagingCard(
-                  title: "Memory",
+                  title: 'Memory',
                   icon: LucideIcons.brain,
-                  bgColor: const Color(0xFFBAE6FD), // Increased tone (Sky 200)
-                  iconColor: const Color(0xFF0284C7), // Darker icon for contrast
+                  bgColor: const Color(0xFFBAE6FD),
+                  iconColor: const Color(0xFF0284C7),
                   onTap: widget.onMemoryTap ?? () {},
                 ),
                 _buildEngagingCard(
-                  title: "Reminder",
+                  title: 'Reminder',
                   icon: LucideIcons.clock,
-                  bgColor: const Color(0xFFFEE2E2), // Increased tone (Red 100)
-                  iconColor: const Color(0xFFDC2626), // Darker icon for contrast
+                  bgColor: const Color(0xFFFEE2E2),
+                  iconColor: const Color(0xFFDC2626),
                   onTap: widget.onReminderTap ?? () {},
                 ),
               ],
             ),
 
+            const SizedBox(height: 20),
 
-            
-            const SizedBox(height: 32),
-            
-            // Explore More Section
+            // Location Reminders (right after Memory & Reminder cards)
+            _buildLocationRemindersBanner(),
+
+            const SizedBox(height: 28),
+
+            // ── Explore More Section ─────────────────────────────────
             Text(
-              "Explore More",
+              'Explore More',
               style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
                 color: const Color(0xFF1E293B),
               ),
             ),
-            const SizedBox(height: 16),
-            
-            // Infinitely scrolling cloud of suggestion chips (Marquee style)
+            const SizedBox(height: 14),
+
             Consumer<MemoriesProvider>(
               builder: (context, provider, child) {
                 final List<Map<String, dynamic>> memories = provider.memories.map((m) {
@@ -110,7 +114,6 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                   if (m['type'] == 'prescription' && m['extractedData'] != null) {
                     title = 'Prescription Details';
                   }
-
                   return {
                     'title': title,
                     'icon': LucideIcons.brain,
@@ -120,13 +123,12 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                   };
                 }).toList();
 
-                // Add placeholders if no real memories
                 if (memories.isEmpty) {
                   const placeholders = [
                     'My wifi password is...',
                     'I prefer my coffee black',
                     'Anniversary is on June 12th',
-                    'Mom\'s favorite color is blue',
+                    "Mom's favorite color is blue",
                     'Doctor appointment details',
                   ];
                   memories.addAll(placeholders.map((title) => {
@@ -138,14 +140,16 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                   }));
                 }
 
-                // Create variations of the memories list so the rows don't look identical
                 final row1 = memories.reversed.toList();
                 final row2 = memories;
-                final row3 = [...memories.skip(memories.length ~/ 2), ...memories.take(memories.length ~/ 2)];
+                final row3 = [
+                  ...memories.skip(memories.length ~/ 2),
+                  ...memories.take(memories.length ~/ 2)
+                ];
 
                 return Column(
                   children: [
-                    _buildMarqueeRow(row1, speed: 0.4, direction: 1), 
+                    _buildMarqueeRow(row1, speed: 0.4, direction: 1),
                     const SizedBox(height: 12),
                     _buildMarqueeRow(row2, speed: 0.5, direction: -1),
                     const SizedBox(height: 12),
@@ -155,12 +159,9 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
               },
             ),
 
+            const SizedBox(height: 28),
 
-
-            
-            const SizedBox(height: 32),
-            
-            // Reminders Section
+            // ── Today's Reminders Section ──────────────────────────────
             Text(
               "Today's Reminders",
               style: GoogleFonts.outfit(
@@ -171,8 +172,263 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
             ),
             const SizedBox(height: 16),
             _buildTodayReminders(),
-            
+
             const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodayReminders() {
+    return Consumer<TasksProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final todayTasks = provider.processedTasks.where((t) {
+          final dateStr = t['date'];
+          return dateStr != null && TaskUtils.formatDate(dateStr) == 'Today';
+        }).toList();
+
+        if (todayTasks.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                const Icon(LucideIcons.calendarCheck, size: 48, color: Color(0xFF94A3B8)),
+                const SizedBox(height: 12),
+                Text(
+                  'No reminders for today',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: todayTasks.map((task) => _buildReminderItem(task)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildReminderItem(Map<String, dynamic> task) {
+    final title = task['title'] ?? 'Untitled';
+    final bool isOverdue = task['_isOverdue'] ?? false;
+    final intent = task['intent'];
+    final bool isDanger = isOverdue;
+
+    final dynamic fetchedColor = TaskUtils.getTaskColor(title, intent);
+    final Color baseColor = isDanger
+        ? const Color(0xFFE11D48)
+        : (fetchedColor is Color && fetchedColor != const Color(0xFF64748B)
+            ? fetchedColor
+            : const Color(0xFF10B981));
+    final headerIcon = TaskUtils.getTaskIcon(title, intent) as IconData;
+
+    final Color bgColor = isDanger ? const Color(0xFFFFE4E6) : baseColor.withOpacity(0.06);
+    final Color borderColor = isDanger ? const Color(0xFFFECDD3) : baseColor.withOpacity(0.2);
+    final Color iconBgColor = isDanger ? const Color(0xFFFECDD3).withOpacity(0.5) : baseColor.withOpacity(0.12);
+    final Color iconColor = isDanger ? const Color(0xFFE11D48) : baseColor;
+    final String statusText = isDanger ? 'Risk Alert' : 'ON TRACK';
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => SmartDetailsScreen(task: task)));
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor, width: 1.5),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconBgColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(headerIcon, size: 22, color: iconColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981)).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: (isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981)).withOpacity(0.3),
+                          ),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      if (isDanger) ...[
+                        const SizedBox(width: 8),
+                        const Text(
+                          '!',
+                          style: TextStyle(
+                            color: Color(0xFFE11D48),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Builder(
+                    builder: (ctx) {
+                      final rawTime = (task['time'] ?? '').toString();
+                      final rawDate = (task['date'] ?? '').toString();
+                      if (rawTime.isEmpty) return const SizedBox.shrink();
+                      final displayedTime = DateFormatter.displayTimeString(ctx, rawTime);
+                      final displayedDate = rawDate.isNotEmpty
+                          ? DateFormatter.displayDateString(ctx, rawDate)
+                          : '';
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(LucideIcons.clock, size: 12, color: iconColor.withOpacity(0.75)),
+                              const SizedBox(width: 4),
+                              Text(
+                                displayedDate.isNotEmpty
+                                    ? '$displayedDate  •  $displayedTime'
+                                    : displayedTime,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: iconColor.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Icon(LucideIcons.chevronRight, size: 22, color: iconColor.withOpacity(0.7)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationRemindersBanner() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LocationRemindersScreen(),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0EA5E9).withOpacity(0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(LucideIcons.mapPin, size: 24, color: Colors.white),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Location Reminders',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'View reminders tied to specific places',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(LucideIcons.chevronRight, color: Colors.white, size: 22),
           ],
         ),
       ),
@@ -308,211 +564,6 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
   }
 
 
-  Widget _buildTodayReminders() {
-    return Consumer<TasksProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final todayTasks = provider.processedTasks.where((t) {
-          final dateStr = t['date'];
-          return dateStr != null && TaskUtils.formatDate(dateStr) == 'Today';
-        }).toList();
-
-        if (todayTasks.isEmpty) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 32),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9), // Light blue-gray background for empty state
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Icon(LucideIcons.calendarCheck, size: 48, color: const Color(0xFF94A3B8)),
-                const SizedBox(height: 12),
-                Text(
-                  "No reminders for today",
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Column(
-          children: todayTasks.map((task) => _buildReminderItem(task)).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _buildReminderItem(Map<String, dynamic> task) {
-    final title = task['title'] ?? 'Untitled';
-    final bool isOverdue = task['_isOverdue'] ?? false;
-    final intent = task['intent'];
-    
-    // In MobileTaskCard, if overDue it's 'danger', else 'green' (or primary)
-    final bool isDanger = isOverdue;
-
-    // Use task_utils to get proper branding colors per task category/intent
-    final Color fallbackColor = isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981);
-    final dynamic fetchedColor = TaskUtils.getTaskColor(title, intent);
-    
-    // If on track and no specific color is found, default to our success green instead of dull slate
-    final Color baseColor = isDanger 
-        ? const Color(0xFFE11D48) 
-        : (fetchedColor is Color && fetchedColor != const Color(0xFF64748B) 
-            ? fetchedColor 
-            : const Color(0xFF10B981));
-    final headerIcon = TaskUtils.getTaskIcon(title, intent) as IconData;
-
-    final Color bgColor = isDanger 
-        ? const Color(0xFFFFE4E6) 
-        : baseColor.withOpacity(0.06);
-
-    final Color borderColor = isDanger 
-        ? const Color(0xFFFECDD3) 
-        : baseColor.withOpacity(0.2);
-
-    final Color iconBgColor = isDanger 
-        ? const Color(0xFFFECDD3).withOpacity(0.5) 
-        : baseColor.withOpacity(0.12);
-
-    final Color iconColor = isDanger 
-        ? const Color(0xFFE11D48) 
-        : baseColor;
-
-    final String statusText = isDanger ? "Risk Alert" : "ON TRACK";
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => SmartDetailsScreen(task: task)));
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor, width: 1.5),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: iconBgColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(headerIcon, size: 22, color: iconColor),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E293B),
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: (isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981)).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: (isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981)).withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          statusText,
-                          style: GoogleFonts.outfit(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      if (isDanger) ...[
-                        const SizedBox(width: 8),
-                        const Text(
-                          "!",
-                          style: TextStyle(
-                            color: Color(0xFFE11D48),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            height: 1.0,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  // ── Time chip (user-preferred format) ─────────────────
-                  Builder(
-                    builder: (ctx) {
-                      final rawTime = (task['time'] ?? '').toString();
-                      final rawDate = (task['date'] ?? '').toString();
-                      if (rawTime.isEmpty) return const SizedBox.shrink();
-                      final displayedTime = DateFormatter.displayTimeString(ctx, rawTime);
-                      final displayedDate = rawDate.isNotEmpty
-                          ? DateFormatter.displayDateString(ctx, rawDate)
-                          : '';
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(LucideIcons.clock, size: 12, color: iconColor.withOpacity(0.75)),
-                              const SizedBox(width: 4),
-                              Text(
-                                displayedDate.isNotEmpty
-                                    ? '$displayedDate  •  $displayedTime'
-                                    : displayedTime,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: iconColor.withOpacity(0.8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Icon(LucideIcons.chevronRight, size: 22, color: iconColor.withOpacity(0.7)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 

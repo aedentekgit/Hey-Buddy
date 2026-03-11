@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto'); // SECURITY: used for cryptographically secure OTP generation
 const User = require('../models/User');
 const Role = require('../models/Role');
 const Settings = require('../models/Settings');
@@ -156,14 +157,23 @@ const googleLogin = async (req, res) => {
 
         if (refresh_token) {
             user.googleRefreshToken = refresh_token;
-            console.log('[Auth] Syncing new Refresh Token for user:', email);
+            console.log('[Auth] New Refresh Token obtained for user:', email);
+        } else {
+            // Google only returns a refresh_token on first auth OR when prompt=consent is forced.
+            // If we didn't get one, keep the EXISTING stored token (if any) — don't overwrite it.
+            console.log('[Auth] No new refresh token returned. Using existing stored token (if any) for:', email);
         }
 
-        // Always store the Google email and mark calendar as connected when user signs in via Google
+        // Always store the Google email for identification
         user.googleEmail = email;
-        user.googleCalendarConnected = true;
 
-        // Save any changes to the user (e.g. the refresh token or new user creation)
+        // Only mark calendar as connected if we actually have a refresh token stored
+        // This is accurate — if no token exists, calendar sync won't work
+        user.googleCalendarConnected = !!(user.googleRefreshToken);
+
+        console.log(`[Auth] Calendar connected status for ${email}:`, user.googleCalendarConnected);
+
+        // Save changes to the user
         await user.save();
 
         const role = await Role.findOne({ name: user.role });
@@ -345,25 +355,29 @@ const setupVPS = async (req, res) => {
         const adminEmail = 'admin@buddy.com';
         let admin = await User.findOne({ email: adminEmail });
 
+        // SECURITY: Generate a random one-time password instead of hardcoded 'admin123'.
+        // The generated password is returned ONCE in the response and never stored in plaintext.
+        const tempPassword = crypto.randomBytes(12).toString('base64url');
+
         if (!admin) {
             admin = await User.create({
                 name: 'Administrator',
                 email: adminEmail,
-                password: 'admin123',
+                password: tempPassword,
                 role: 'admin'
             });
         } else {
             admin.role = 'admin';
-            admin.password = 'admin123'; // Reset password for easy setup
+            admin.password = tempPassword;
             await admin.save();
         }
 
         res.json({
             success: true,
-            message: 'VPS Database Initialized Successfully!',
+            message: 'VPS Database Initialized Successfully! Change this password immediately after first login.',
             credentials: {
                 email: adminEmail,
-                password: 'admin123'
+                password: tempPassword
             }
         });
     } catch (error) {
@@ -379,8 +393,9 @@ const forgotPassword = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) return res.status(404).json({ success: false, message: 'If the email exists, an OTP will be sent.' }); // Generic message for security
 
-        // Generate 6 digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        // SECURITY: Use cryptographically secure random OTP instead of Math.random().
+        // Math.random() is not suitable for security-sensitive values.
+        const otp = crypto.randomInt(100000, 1000000).toString();
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         await User.updateOne(

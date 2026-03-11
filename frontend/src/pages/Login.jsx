@@ -24,6 +24,11 @@ const Login = () => {
             client_id: clientId,
             scope: 'openid email profile https://www.googleapis.com/auth/calendar',
             ux_mode: 'popup',
+            // access_type 'offline' + prompt 'consent' forces Google to ALWAYS return a
+            // refresh_token, even on repeat logins. Without this, Google only returns
+            // a refresh_token the very first time a user authorizes the app.
+            access_type: 'offline',
+            prompt: 'consent',
             callback: async (response) => {
                 if (response.code) {
                     setLoading(true);

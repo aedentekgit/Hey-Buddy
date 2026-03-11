@@ -110,15 +110,29 @@ exports.getReminders = async (req, res) => {
                 { assignedTo: req.user._id }
             ]
         };
-        const results = await paginate(Reminder, query, req.query);
 
-        // Populate creator and share details
-        results.data = await Reminder.populate(results.data, [
-            { path: 'userId', select: 'name email' },
-            { path: 'sharedWith.user', select: 'name email' }
-        ]);
+        // Paginate with populated fields to avoid N+1 queries
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
 
-        res.status(200).json({ success: true, ...results });
+        const total = await Reminder.countDocuments(query);
+        const data = await Reminder.find(query)
+            .populate('userId', 'name email')
+            .populate('sharedWith.user', 'name email')
+            .lean()
+            .skip(skip)
+            .limit(limit)
+            .sort({ updatedAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data,
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit)
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -139,13 +153,24 @@ exports.createReminder = async (req, res) => {
         const userId = req.user._id;
         let googleEventId = null;
 
-        // Sync to Google if connected
-        if (req.user.googleRefreshToken) {
+        // Sync to Google Calendar if user has a valid refresh token
+        const hasGoogleCalendar = !!(req.user.googleRefreshToken) || req.user.googleCalendarConnected;
+        if (hasGoogleCalendar) {
             try {
                 googleEventId = await createGoogleCalendarEvent(userId, { title, date, time, location, description });
                 console.log("[ReminderController] Automatic Google Sync Success:", googleEventId);
             } catch (calError) {
-                console.error("Google Sync Failed during Create:", calError.message);
+                // Log full error for debugging — token may be expired or revoked
+                console.error("[ReminderController] Google Sync Failed during Create:", calError.message);
+                if (calError.message?.includes('invalid_grant') || calError.message?.includes('Token has been expired')) {
+                    console.warn('[ReminderController] Refresh token expired/revoked for user:', userId, '— marking calendar as disconnected');
+                    // Auto-disconnect the stale token so UI reflects reality
+                    const User = require('../models/User');
+                    await User.findByIdAndUpdate(userId, {
+                        googleRefreshToken: null,
+                        googleCalendarConnected: false
+                    }).catch(e => console.error('Failed to clear stale token:', e.message));
+                }
             }
         }
 
@@ -199,9 +224,10 @@ exports.updateReminder = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Reminder not found' });
         }
 
-        // Sync to Google if connected
+        // Sync to Google Calendar if user has a valid refresh token
         let googleEventId = reminder.googleEventId;
-        if (req.user.googleRefreshToken) {
+        const hasGoogleCalendarUpdate = !!(req.user.googleRefreshToken) || req.user.googleCalendarConnected;
+        if (hasGoogleCalendarUpdate) {
             try {
                 const mergedData = { ...reminder.toObject(), ...updateData };
                 if (googleEventId) {
@@ -212,7 +238,15 @@ exports.updateReminder = async (req, res) => {
                     updateData.source = 'google';
                 }
             } catch (calError) {
-                console.error("Google Sync Failed during Update:", calError.message);
+                console.error('[ReminderController] Google Sync Failed during Update:', calError.message);
+                if (calError.message?.includes('invalid_grant') || calError.message?.includes('Token has been expired')) {
+                    console.warn('[ReminderController] Refresh token expired/revoked for user:', userId, '— marking calendar as disconnected');
+                    const User = require('../models/User');
+                    await User.findByIdAndUpdate(userId, {
+                        googleRefreshToken: null,
+                        googleCalendarConnected: false
+                    }).catch(e => console.error('Failed to clear stale token:', e.message));
+                }
             }
         }
 
@@ -464,10 +498,38 @@ exports.googleCallback = async (req, res) => {
 
         const { tokens } = await oauth2Client.getToken(code);
         const User = require('../models/User');
-        const updateData = {};
-        if (tokens.refresh_token) updateData.googleRefreshToken = tokens.refresh_token;
+
+        // Build the update object
+        const updateData = {
+            googleCalendarConnected: true  // Always mark as connected on manual connect
+        };
+
+        if (tokens.refresh_token) {
+            updateData.googleRefreshToken = tokens.refresh_token;
+            console.log('[Calendar Callback] New refresh token stored for user:', userId);
+        } else {
+            console.warn('[Calendar Callback] No refresh token in response. User may need to revoke access and reconnect.');
+        }
+
+        // Try to get the user's Google email from the ID token if provided
+        if (tokens.id_token) {
+            try {
+                const ticket = await oauth2Client.verifyIdToken({
+                    idToken: tokens.id_token,
+                    audience: clientId
+                });
+                const payload = ticket.getPayload();
+                if (payload?.email) {
+                    updateData.googleEmail = payload.email.toLowerCase();
+                }
+            } catch (idTokenErr) {
+                console.warn('[Calendar Callback] Could not decode id_token for email:', idTokenErr.message);
+                // Not critical — just means email won't be updated
+            }
+        }
 
         await User.findByIdAndUpdate(userId, updateData);
+        console.log('[Calendar Callback] User', userId, 'calendar connected. Fields updated:', Object.keys(updateData).join(', '));
 
         res.send(`
             <html>

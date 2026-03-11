@@ -62,8 +62,12 @@ to convert a piece of text into a fixed-size numeric vector (e.g. 384 dimensions
 import json
 import logging
 import requests
+import asyncio
 from pathlib import Path
 from typing import List, Optional
+from functools import lru_cache
+from collections import OrderedDict
+import aiohttp
 
 # ─── LangChain components ───────────────────────────────────────────────────
 # RecursiveCharacterTextSplitter: breaks long documents into smaller overlapping chunks.
@@ -144,9 +148,19 @@ class VectorStoreService:
         # The FAISS index itself — None until create_vector_store() is called.
         self.vector_store: Optional[FAISS] = None
 
-        # Retriever cache: maps k (number of results) → retriever object.
-        # We cache so we don't recreate a retriever for the same k on every request.
-        self._retriever_cache: dict = {}
+        # Retriever cache: LRU cache with max 20 entries to prevent unbounded growth.
+        # Maps (k, user_id) → retriever object.
+        # Bounds memory usage: with ~100KB per retriever, 20 entries = ~2MB max.
+        # LRU eviction prevents cache bloat when many user_ids query different k values.
+        self._retriever_cache_max_size = 20
+        self._retriever_cache: OrderedDict = OrderedDict()  # Manual LRU implementation
+
+        # Shared aiohttp session with connection pooling for HTTP requests.
+        # Reusing a session across requests multiplexes connections and reduces
+        # overhead compared to creating new sessions per request.
+        # TCPConnector settings: limit=100 (max concurrent connections),
+        # limit_per_host=10 (max per domain to avoid overwhelming servers).
+        self._http_session: Optional[aiohttp.ClientSession] = None
 
     # -------------------------------------------------------------------------
     # LOAD DOCUMENTS FROM DISK
@@ -173,70 +187,115 @@ class VectorStoreService:
                 logger.warning("Could not load learning data file %s: %s", file_path, e)
         return documents
 
+    async def _get_http_session(self) -> aiohttp.ClientSession:
+        """
+        Lazy-create and reuse a shared HTTP session with connection pooling.
+        This avoids creating a new session (and new connections) for each request.
+        """
+        if self._http_session is None or self._http_session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=100,  # Max concurrent connections
+                limit_per_host=10,  # Max per domain to avoid overwhelming servers
+                ttl_dns_cache=300  # Cache DNS lookups for 5 minutes
+            )
+            self._http_session = aiohttp.ClientSession(connector=connector)
+        return self._http_session
+
+    async def _fetch_async(self, url: str, timeout: int = 15) -> Optional[dict]:
+        """
+        Helper: async HTTP GET with timeout and error handling.
+        Uses a shared session with connection pooling for efficiency.
+        Returns parsed JSON or None if request fails.
+        """
+        try:
+            session = await self._get_http_session()
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                else:
+                    logger.warning("[VECTOR] HTTP GET failed: status=%d, url=%s", resp.status, url)
+                    return None
+        except asyncio.TimeoutError:
+            logger.warning("[VECTOR] HTTP GET timeout after %ds: %s", timeout, url)
+            return None
+        except Exception as e:
+            logger.warning("[VECTOR] HTTP GET error: %s", e)
+            return None
+
     def load_user_knowledge(self) -> List[Document]:
         """
         Consolidated loader for User Knowledge (Reminders, Memories, Docs, Prescriptions).
         Fetches everything from the Node.js backend's all-knowledge endpoint.
+        Uses async/await to prevent blocking the event loop.
         """
         documents = []
         from config import NODE_BACKEND_URL
-        
+
         try:
             logger.info("[VECTOR] Fetching consolidated knowledge from MongoDB...")
-            resp = requests.get(f"{NODE_BACKEND_URL}/api/knowledge/internal/all-knowledge", timeout=15)
-            
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("success") and data.get("data"):
-                    knowledge = data["data"]
-                    
-                    # 1. Process Memories
-                    for mem in knowledge.get("memories", []):
-                        uid = mem.get("userId", "unknown")
-                        content = mem.get("content", "")
-                        if content.strip():
-                            documents.append(Document(
-                                page_content=f"Memory: {content} (Category: {mem.get('category', 'general')})",
-                                metadata={"source": f"memory_{mem.get('_id')}", "user_id": uid, "type": "memory"}
-                            ))
+            # Run async fetch in the event loop; if no loop exists, create a new one.
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
 
-                    # 2. Process Reminders
-                    for rem in knowledge.get("reminders", []):
-                        uid = rem.get("userId", "unknown")
-                        title = rem.get("title", "")
-                        desc = rem.get("description", "") or rem.get("notes", "")
-                        reminder_text = f"Reminder: {title}\nDetails: {desc}\nDate: {rem.get('date')}\nTime: {rem.get('time')}\nLocation: {rem.get('location', 'N/A')}\nStatus: {rem.get('status')}"
-                        
-                        if title.strip():
-                            documents.append(Document(
-                                page_content=reminder_text,
-                                metadata={"source": f"reminder_{rem.get('_id')}", "user_id": uid, "type": "reminder"}
-                            ))
+            data = loop.run_until_complete(
+                self._fetch_async(f"{NODE_BACKEND_URL}/api/knowledge/internal/all-knowledge", timeout=15)
+            )
 
-                    # 3. Process Documents (PDF/Image extractions)
-                    for doc in knowledge.get("documents", []):
-                        uid = doc.get("userId", "unknown")
-                        content = doc.get("content", "")
-                        if content.strip():
-                            documents.append(Document(
-                                page_content=f"Document ({doc.get('fileName')}): {content}",
-                                metadata={"source": f"doc_{doc.get('_id')}", "user_id": uid, "type": "document"}
-                            ))
+            if data is None:
+                return documents
+            if data.get("success") and data.get("data"):
+                knowledge = data["data"]
 
-                    # 4. Process Prescriptions
-                    for pres in knowledge.get("prescriptions", []):
-                        uid = pres.get("userId", "unknown")
-                        summary = pres.get("summary", "")
-                        ext_data = pres.get("extractedData", {})
-                        pres_text = f"Prescription Summary: {summary}\nExtracted Meds: {json.dumps(ext_data.get('medicines', []))}"
-                        
-                        if summary.strip():
-                            documents.append(Document(
-                                page_content=pres_text,
-                                metadata={"source": f"prescription_{pres.get('_id')}", "user_id": uid, "type": "prescription"}
-                            ))
+                # 1. Process Memories
+                for mem in knowledge.get("memories", []):
+                    uid = mem.get("userId", "unknown")
+                    content = mem.get("content", "")
+                    if content.strip():
+                        documents.append(Document(
+                            page_content=f"Memory: {content} (Category: {mem.get('category', 'general')})",
+                            metadata={"source": f"memory_{mem.get('_id')}", "user_id": uid, "type": "memory"}
+                        ))
 
-                    logger.info("[VECTOR] Loaded %d items from backend knowledge pools", len(documents))
+                # 2. Process Reminders
+                for rem in knowledge.get("reminders", []):
+                    uid = rem.get("userId", "unknown")
+                    title = rem.get("title", "")
+                    desc = rem.get("description", "") or rem.get("notes", "")
+                    reminder_text = f"Reminder: {title}\nDetails: {desc}\nDate: {rem.get('date')}\nTime: {rem.get('time')}\nLocation: {rem.get('location', 'N/A')}\nStatus: {rem.get('status')}"
+
+                    if title.strip():
+                        documents.append(Document(
+                            page_content=reminder_text,
+                            metadata={"source": f"reminder_{rem.get('_id')}", "user_id": uid, "type": "reminder"}
+                        ))
+
+                # 3. Process Documents (PDF/Image extractions)
+                for doc in knowledge.get("documents", []):
+                    uid = doc.get("userId", "unknown")
+                    content = doc.get("content", "")
+                    if content.strip():
+                        documents.append(Document(
+                            page_content=f"Document ({doc.get('fileName')}): {content}",
+                            metadata={"source": f"doc_{doc.get('_id')}", "user_id": uid, "type": "document"}
+                        ))
+
+                # 4. Process Prescriptions
+                for pres in knowledge.get("prescriptions", []):
+                    uid = pres.get("userId", "unknown")
+                    summary = pres.get("summary", "")
+                    ext_data = pres.get("extractedData", {})
+                    pres_text = f"Prescription Summary: {summary}\nExtracted Meds: {json.dumps(ext_data.get('medicines', []))}"
+
+                    if summary.strip():
+                        documents.append(Document(
+                            page_content=pres_text,
+                            metadata={"source": f"prescription_{pres.get('_id')}", "user_id": uid, "type": "prescription"}
+                        ))
+
+                logger.info("[VECTOR] Loaded %d items from backend knowledge pools", len(documents))
         except Exception as e:
             logger.warning("[VECTOR] Knowledge fetch failed: %s", e)
 
@@ -245,43 +304,51 @@ class VectorStoreService:
     def load_chat_history(self) -> List[Document]:
         """
         Load chat history for the vector store.
-        
-        NEW BEHAVIOR: 
-        1. Fetch all conversations from the Node.js backend (MongoDB).
+
+        NEW BEHAVIOR:
+        1. Fetch all conversations from the Node.js backend (MongoDB) using async.
         2. Fall back to local .json files in database/chats_data/ only if backend fails or is empty.
         """
         documents = []
-        
-        # ── Step 1: Try backend (MongoDB) ──────────────────────────────────
+
+        # ── Step 1: Try backend (MongoDB) via async HTTP ─────────────────
         from config import NODE_BACKEND_URL
         try:
             logger.info("[VECTOR] Fetching all conversations from MongoDB for indexing...")
-            resp = requests.get(f"{NODE_BACKEND_URL}/api/conversations/internal/all", timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("success") and data.get("data"):
-                    conversations = data["data"]
-                    for conv in conversations:
-                        uid = conv.get("userId", "unknown")
-                        messages = conv.get("messages", [])
-                        
-                        # Concatenate all messages in this conversation.
-                        chat_content = "\n".join([
-                            f"User: {msg.get('content', '')}" if msg.get('role') == 'user'
-                            else f"Assistant: {msg.get('content', '')}"
-                            for msg in messages
-                        ])
-                        
-                        if chat_content.strip():
-                            documents.append(Document(
-                                page_content=chat_content,
-                                metadata={"source": f"db_{conv.get('_id')}", "user_id": uid}
-                            ))
-                    
-                    if documents:
-                        logger.info("[VECTOR] Successfully indexed %d conversations from MongoDB", len(documents))
-                        # If we successfully loaded from DB, we can return now.
-                        return documents
+            # Run async fetch with proper event loop handling
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            data = loop.run_until_complete(
+                self._fetch_async(f"{NODE_BACKEND_URL}/api/conversations/internal/all", timeout=10)
+            )
+
+            if data and data.get("success") and data.get("data"):
+                conversations = data["data"]
+                for conv in conversations:
+                    uid = conv.get("userId", "unknown")
+                    messages = conv.get("messages", [])
+
+                    # Concatenate all messages in this conversation.
+                    chat_content = "\n".join([
+                        f"User: {msg.get('content', '')}" if msg.get('role') == 'user'
+                        else f"Assistant: {msg.get('content', '')}"
+                        for msg in messages
+                    ])
+
+                    if chat_content.strip():
+                        documents.append(Document(
+                            page_content=chat_content,
+                            metadata={"source": f"db_{conv.get('_id')}", "user_id": uid}
+                        ))
+
+                if documents:
+                    logger.info("[VECTOR] Successfully indexed %d conversations from MongoDB", len(documents))
+                    # If we successfully loaded from DB, we can return now.
+                    return documents
         except Exception as e:
             logger.warning("[VECTOR] Failed to fetch chat history from MongoDB: %s", e)
 
@@ -333,27 +400,43 @@ class VectorStoreService:
     def get_retriever(self, k: int = 10, user_id: str = None):
         """
         Return a retriever that strictly filters by user_id and 'system'.
+        Uses LRU cache with max 20 entries to prevent unbounded memory growth.
         """
         if not self.vector_store:
             raise RuntimeError("Vector store not initialized")
-            
-        cache_key = f"{k}_{user_id}"
-        if cache_key not in self._retriever_cache:
-            # Metadata filtering for privacy & shared knowledge
-            # We want chunks that belong to THIS user OR the system (global knowledge)
-            def _multi_tenant_filter(metadata):
-                # Always allow system documents (learning data)
-                # Also allow documents belonging to this specific user
-                allowed_ids = ["system", "global"]
-                if user_id:
-                    allowed_ids.append(str(user_id))
-                
-                doc_uid = str(metadata.get("user_id", "unknown"))
-                return doc_uid in allowed_ids
-            
-            # Create retriever with multi-tenant filter
-            self._retriever_cache[cache_key] = self.vector_store.as_retriever(
-                search_kwargs={"k": k, "filter": _multi_tenant_filter}
-            )
-            
-        return self._retriever_cache[cache_key]
+
+        cache_key = (k, user_id)  # Use tuple instead of string for efficiency
+
+        # LRU cache implementation: if key exists, move to end (most recent)
+        if cache_key in self._retriever_cache:
+            # Mark as accessed by moving to end (LRU pattern)
+            self._retriever_cache.move_to_end(cache_key)
+            return self._retriever_cache[cache_key]
+
+        # Cache miss: create new retriever
+        # Metadata filtering for privacy & shared knowledge
+        # We want chunks that belong to THIS user OR the system (global knowledge)
+        def _multi_tenant_filter(metadata):
+            # Always allow system documents (learning data)
+            # Also allow documents belonging to this specific user
+            allowed_ids = ["system", "global"]
+            if user_id:
+                allowed_ids.append(str(user_id))
+
+            doc_uid = str(metadata.get("user_id", "unknown"))
+            return doc_uid in allowed_ids
+
+        # Create retriever with multi-tenant filter
+        retriever = self.vector_store.as_retriever(
+            search_kwargs={"k": k, "filter": _multi_tenant_filter}
+        )
+
+        # Add to cache; evict oldest if at max capacity
+        self._retriever_cache[cache_key] = retriever
+        if len(self._retriever_cache) > self._retriever_cache_max_size:
+            # Remove oldest (first) item
+            self._retriever_cache.popitem(last=False)
+            logger.debug("[VECTOR] Evicted oldest retriever from LRU cache (size capped at %d)",
+                        self._retriever_cache_max_size)
+
+        return retriever

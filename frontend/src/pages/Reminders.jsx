@@ -211,6 +211,7 @@ const Reminders = () => {
                     </div>
                 </div>
 
+
                 <div className="table-wrapper desktop-table-view">
                     <table style={TableElementStyle}>
                         <thead>

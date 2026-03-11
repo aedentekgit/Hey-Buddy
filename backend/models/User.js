@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema({
         default: false
     },
     fcmTokens: [{
-        type: mongoose.Schema.Types.Mixed
+        type: String
     }],
     voicePreferences: {
         gender: {
@@ -126,5 +126,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 
 userSchema.index({ role: 1 });
 userSchema.index({ googleRefreshToken: 1 });
+userSchema.index({ fcmTokens: 1 });
 
 module.exports = mongoose.model('User', userSchema);

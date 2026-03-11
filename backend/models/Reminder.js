@@ -144,5 +144,10 @@ reminderSchema.index({ priority: 1 });
 reminderSchema.index({ googleEventId: 1 });
 reminderSchema.index({ createdAt: -1 });
 reminderSchema.index({ updatedAt: -1 });
+// Composite indexes for critical queries
+reminderSchema.index({ userId: 1, status: 1, notified: 1 });
+reminderSchema.index({ userId: 1, createdAt: -1 });
+// Text indexes for full-text search
+reminderSchema.index({ title: 'text', description: 'text', notes: 'text' });
 
 module.exports = mongoose.model('Reminder', reminderSchema);

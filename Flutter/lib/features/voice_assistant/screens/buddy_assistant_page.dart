@@ -74,7 +74,10 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       if (lat == null || lon == null) {
         Geolocator.checkPermission().then((permission) {
           if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-            Geolocator.getCurrentPosition().then((pos) {
+            Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+              timeLimit: const Duration(seconds: 15),
+            ).then((pos) {
               userProvider.setGuestLocation(pos.latitude, pos.longitude);
               provider.fetchLocalNews(pos.latitude, pos.longitude);
             }).catchError((e) {

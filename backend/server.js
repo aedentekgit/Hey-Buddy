@@ -4,21 +4,65 @@ const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
 const config = require('./config/env');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+// const xss = require('xss-clean');
+const morgan = require('morgan');
+const logger = require('./utils/logger');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-console.log('--- [Server Diagnostic] ---');
-console.log('PORT:', process.env.PORT);
-console.log('JWT_SECRET Status:', process.env.JWT_SECRET ? 'LOADED' : 'MISSING');
-console.log('MONGODB_URI Status:', process.env.MONGODB_URI ? 'LOADED' : 'MISSING');
+if (process.env.NODE_ENV === 'development') {
+    console.log('--- [Server Diagnostic] ---');
+    console.log('PORT:', process.env.PORT);
+    console.log('JWT_SECRET Status:', process.env.JWT_SECRET ? 'LOADED' : 'MISSING');
+    console.log('MONGODB_URI Status:', process.env.MONGODB_URI ? 'LOADED' : 'MISSING');
+}
+
+// Rate Limiters Configuration
+// General API rate limit
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests, please try again later.' }
+});
+
+// Strict limiter for auth endpoints
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many authentication attempts, please try again later.' }
+});
+
+// OTP limiter - very strict
+const otpLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many OTP requests, please try again in an hour.' }
+});
 
 const app = express();
 
-// Middleware
-app.use((req, res, next) => {
-    console.log(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
-    next();
-});
+// Security & Performance Middleware (FIRST)
+app.use(helmet({
+    crossOriginEmbedderPolicy: false, // needed for some media types
+    contentSecurityPolicy: false      // configure separately if needed
+}));
+app.use(compression());
+
+// HTTP request logging with Morgan
+const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+app.use(morgan(morganFormat, {
+    stream: { write: (message) => logger.info(message.trim()) },
+    skip: (req) => req.url === '/health' // skip health check spam
+}));
 
 app.use(cors({
     origin: [
@@ -27,7 +71,7 @@ app.use(cors({
         config.AI_SERVICE_URL,
         'https://ayuskart.com',
         'https://staging.ayuskart.com',
-        'null',
+        // SECURITY: 'null' removed — it matches file:// pages and sandboxed iframes, enabling CSRF attacks.
         'capacitor://localhost',
         'http://localhost',
         'http://localhost:5001',
@@ -39,8 +83,9 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-platform']
 }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// app.use(xss());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -58,6 +103,14 @@ const visionRoutes = require('./routes/visionRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const ragRoutes = require('./routes/ragRoutes');
 const aiRoutes = require('./routes/ai/aiRoutes');
+const locationReminderRoutes = require('./routes/locationReminderRoutes');
+
+// Apply Rate Limiting
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/signup', authLimiter);
+app.use('/api/auth/forgot-password', otpLimiter);
+app.use('/api/auth/verify-reset-otp', otpLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -73,24 +126,40 @@ app.use('/api/vision', visionRoutes);
 app.use('/api/automations', webhookRoutes);
 app.use('/api/knowledge', ragRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/location-reminders', locationReminderRoutes);
 
 // Routes placeholders
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Admin API' });
 });
-app.use((req, res, next) => {
-    if (req.url.startsWith('/api')) {
-        console.log(`[API-DEBUG] Unmatched Route: ${req.method} ${req.url}`);
-    }
-    next();
-});
+if (process.env.NODE_ENV === 'development') {
+    app.use((req, res, next) => {
+        if (req.url.startsWith('/api')) {
+            console.log(`[API-DEBUG] Unmatched Route: ${req.method} ${req.url}`);
+        }
+        next();
+    });
+} else {
+    app.use((req, res, next) => {
+        next();
+    });
+}
 
 // Database connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://82.29.167.22:27017/staging_Heybuddy';
+// SECURITY: No hardcoded fallback URI. MONGODB_URI must be explicitly set in .env.
+// A missing URI causes an early failure rather than silently connecting to a remote IP.
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    console.error('[FATAL] MONGODB_URI environment variable is not set. Refusing to start.');
+    process.exit(1);
+}
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('MongoDB connection error:', err));
+    .catch((err) => {
+        console.error('MongoDB connection failed:', err.message);
+        process.exit(1);
+    });
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -115,7 +184,7 @@ const io = new Server(server, {
             config.AI_SERVICE_URL,
             'https://ayuskart.com',
             'https://staging.ayuskart.com',
-            'null',
+            // SECURITY: 'null' removed (same reason as HTTP CORS above)
             'capacitor://localhost',
             'http://localhost',
             'http://localhost:5001'
@@ -141,4 +210,30 @@ server.listen(PORT, '::', () => {
     console.log(`Backend fully initialized at ${new Date().toISOString()}`);
     startReminderWorker(io);
     startSmartReminderScheduler(io); // Start AI-powered reminder features
+});
+
+// Uncaught exception handler
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+    process.exit(1);
+});
+
+// Unhandled rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason);
+    process.exit(1);
+});
+
+// Graceful shutdown on SIGTERM
+process.on('SIGTERM', async () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    await mongoose.connection.close();
+    process.exit(0);
+});
+
+// Graceful shutdown on SIGINT
+process.on('SIGINT', async () => {
+    console.log('SIGINT received. Shutting down gracefully...');
+    await mongoose.connection.close();
+    process.exit(0);
 });

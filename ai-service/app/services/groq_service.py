@@ -456,14 +456,15 @@ class GroqService:
                          # Try to get detailed JSON error if available (e.g. from OpenAI/Groq)
                          err_detail = e.response.json()
                          err_msg = f"{err_msg} - {err_detail}"
-                     except:
+                     except Exception as json_err:
+                         logger.warning(f"Failed to parse JSON error response: {json_err}")
                          err_msg = f"{err_msg} - {e.response.text[:200]}"
-                
+
                 if _is_rate_limit_error(e):
                     logger.warning(f"Endpoint #{i + 1}/{n} ({provider}) rate limited: {err_msg[:200]}")
                 else:
                     logger.warning(f"Endpoint #{i + 1}/{n} failed: {provider} - {err_msg[:400]}")
-                
+
                 if i < n - 1:
                     logger.info(f"Falling back to next provider...")
                     continue
@@ -612,7 +613,8 @@ class GroqService:
                          # Try to get detailed JSON error if available (e.g. from OpenAI/Groq)
                          err_detail = e.response.json()
                          err_msg = f"{err_msg} - {err_detail}"
-                     except:
+                     except Exception as json_err:
+                         logger.warning(f"Failed to parse JSON error response: {json_err}")
                          err_msg = f"{err_msg} - {e.response.text[:200]}"
 
                 # CRITICAL FIX: If we have already yielded content to the user, we CANNOT fallback
@@ -627,7 +629,7 @@ class GroqService:
                     logger.warning(f"Endpoint #{i + 1}/{n} ({provider}) rate limited: {err_msg[:200]}")
                 else:
                     logger.warning(f"Endpoint #{i + 1}/{n} failed: {provider} - {err_msg[:400]}")
-                
+
                 if i < n - 1:
                     logger.info("Falling back to next provider for stream...")
                     continue

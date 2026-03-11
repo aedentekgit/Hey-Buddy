@@ -51,6 +51,14 @@ const voiceHandler = (io) => {
 
             try {
                 const agent = new BuddyAgent(socket.userId, socket, language, conversationId, standby);
+                // Cap activeAgents Map to prevent unbounded growth
+                if (activeAgents.size >= 500) {
+                    // Evict oldest entry
+                    const oldestKey = activeAgents.keys().next().value;
+                    const oldest = activeAgents.get(oldestKey);
+                    if (oldest && typeof oldest.cleanup === 'function') oldest.cleanup();
+                    activeAgents.delete(oldestKey);
+                }
                 activeAgents.set(socket.id, agent);
                 console.log(`[Socket] Agent configured for ${socket.id} (Standby: ${standby})`);
             } catch (err) {
@@ -82,9 +90,11 @@ const voiceHandler = (io) => {
 
         socket.on('disconnect', (reason) => {
             console.log(`[Socket] 🛑 Voice Session Ended: ${socket.id}, Reason: ${reason}`);
+            // Explicit socket.io room cleanup
+            socket.rooms.forEach(room => socket.leave(room));
             const agent = activeAgents.get(socket.id);
             if (agent) {
-                agent.cleanup();
+                if (typeof agent.cleanup === 'function') agent.cleanup();
                 activeAgents.delete(socket.id);
             }
         });
