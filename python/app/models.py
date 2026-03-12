@@ -105,6 +105,8 @@ class ChatRequest(BaseModel):
     model: Optional[str] = 'gemini-1.5-pro'
     userId: Optional[str] = None
     memory_context: Optional[str] = ""
+    gender: Optional[str] = 'male'
+    tone: Optional[str] = 'soft'
 
 
 class ChatResponse(BaseModel):
@@ -152,6 +154,8 @@ class TTSRequest(BaseModel):
               would be slow and consume unnecessary resources.
     """
     text: str = Field(..., min_length=1, max_length=5000)
+    gender: Optional[str] = 'male'
+    tone: Optional[str] = 'soft'
 
 
 class ActionRequest(BaseModel):

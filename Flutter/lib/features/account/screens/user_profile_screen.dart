@@ -20,6 +20,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
+  String _dateFormat = 'DD/MM/YYYY';
+  String _timeFormat = '12';
+  String _timezone = 'UTC';
   bool _saving = false;
 
   @override
@@ -29,6 +32,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _nameCtrl  = TextEditingController(text: user['name'] ?? '');
     _emailCtrl = TextEditingController(text: user['email'] ?? '');
     _phoneCtrl = TextEditingController(text: user['phone'] ?? '');
+    _dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
+    _timeFormat = user['timeFormat'] ?? '12';
+    _timezone = user['timezone'] ?? 'UTC';
   }
 
   @override
@@ -45,6 +51,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       _nameCtrl.text.trim(),
       _phoneCtrl.text.trim(),
       '',
+      dateFormat: _dateFormat,
+      timeFormat: _timeFormat,
+      timezone: _timezone,
     );
     setState(() {
       _saving = false;
@@ -125,6 +134,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               // Reset on cancel
                               _nameCtrl.text = user['name'] ?? '';
                               _phoneCtrl.text = user['phone'] ?? '';
+                              _dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
+                              _timeFormat = user['timeFormat'] ?? '12';
+                              _timezone = user['timezone'] ?? 'UTC';
                             }
                             _editMode = !_editMode;
                           }),
@@ -263,6 +275,39 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         iconColor: AppColors.orange,
                         label: 'Member Since',
                         value: _formatJoinDate(user['createdAt']),
+                      ),
+
+                      const SizedBox(height: 24),
+                      _buildSectionLabel('Preferences'),
+                      const SizedBox(height: 10),
+                      _buildPickerField(
+                        icon: LucideIcons.calendar,
+                        iconColor: AppColors.accent,
+                        label: 'Date Format',
+                        value: _dateFormat,
+                        editable: _editMode,
+                        options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
+                        onChanged: (v) => setState(() => _dateFormat = v),
+                      ),
+                      _buildDivider(),
+                      _buildPickerField(
+                        icon: LucideIcons.clock,
+                        iconColor: AppColors.orange,
+                        label: 'Time Format',
+                        value: _timeFormat == '24' ? '24-hour' : '12-hour',
+                        editable: _editMode,
+                        options: ['12-hour', '24-hour'],
+                        onChanged: (v) => setState(() => _timeFormat = v.contains('24') ? '24' : '12'),
+                      ),
+                      _buildDivider(),
+                      _buildPickerField(
+                        icon: LucideIcons.globe,
+                        iconColor: AppColors.teal,
+                        label: 'Timezone',
+                        value: _timezone,
+                        editable: _editMode,
+                        options: ['UTC', 'IST', 'EST', 'CST', 'PST', 'GMT', 'CET'],
+                        onChanged: (v) => setState(() => _timezone = v),
                       ),
 
                       // ── Save button ───────────────────────────────
@@ -514,6 +559,149 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPickerField({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    required bool editable,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: iconColor.withOpacity(0.18)),
+            ),
+            child: Icon(icon, size: 17, color: iconColor),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDim,
+                      letterSpacing: 0.3),
+                ),
+                const SizedBox(height: 5),
+                editable
+                    ? GestureDetector(
+                        onTap: () => _showPicker(label, options, value, onChanged),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentLight,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: AppColors.accent.withOpacity(0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  value,
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.text,
+                                  ),
+                                ),
+                              ),
+                              Icon(LucideIcons.chevronDown,
+                                  size: 14, color: AppColors.textMid),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Text(
+                        value,
+                        style: GoogleFonts.nunito(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.text,
+                        ),
+                      ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPicker(String title, List<String> options, String current,
+      ValueChanged<String> onChanged) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Select $title',
+              style: GoogleFonts.nunito(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text),
+            ),
+            const SizedBox(height: 16),
+            ...options.map((opt) => ListTile(
+                  title: Text(
+                    opt,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: opt == current
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: opt == current
+                          ? AppColors.accent
+                          : AppColors.text,
+                    ),
+                  ),
+                  trailing: opt == current
+                      ? const Icon(LucideIcons.check,
+                          color: AppColors.accent, size: 20)
+                      : null,
+                  onTap: () {
+                    onChanged(opt);
+                    Navigator.pop(context);
+                  },
+                )),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

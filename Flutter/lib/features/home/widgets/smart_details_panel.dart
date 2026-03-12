@@ -529,6 +529,141 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   }
   // ────────────────────────────────────────────────────────────────────────
 
+  Future<void> _toggleSetting(String category, String key, bool value) async {
+    setState(() {
+      if (category == 'smartFeatures') {
+        smartFeatures[key] = value;
+      } else {
+        alerts[key] = value;
+      }
+    });
+
+    if (!isEditing) {
+      // Auto-save when toggled in view mode
+      final updatedData = {
+        category: category == 'smartFeatures' ? smartFeatures : alerts,
+      };
+      
+      final success = await Provider.of<TasksProvider>(context, listen: false)
+          .updateTask(widget.reminder['_id'], updatedData);
+      
+      if (success) {
+        final statusText = value ? "turned ON" : "turned OFF";
+        String label = key == 'earlyWarning' ? "Early Warning" : 
+                       key == 'trafficAware' ? "Traffic ETA" :
+                       key == 'itemExitGuards' ? "Exit Guards" :
+                       key == 'push' ? "Push Alerts" : "Email Alerts";
+        
+        final msg = "$label $statusText";
+        if (value) {
+          ToastUtils.showSuccessToast(msg);
+        } else {
+          ToastUtils.showErrorToast(msg);
+        }
+      } else {
+        // Revert on failure
+        setState(() {
+          if (category == 'smartFeatures') {
+            smartFeatures[key] = !value;
+          } else {
+            alerts[key] = !value;
+          }
+        });
+        ToastUtils.showErrorToast("Failed to update setting");
+      }
+    }
+  }
+
+  Future<void> _handleDelete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.dangerLight,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(LucideIcons.trash2, size: 22, color: AppColors.danger),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Delete Reminder",
+                style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.text),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Are you sure you want to delete this reminder? This action cannot be undone.",
+                style: GoogleFonts.inter(fontSize: 13.5, color: AppColors.textMid, height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(ctx, false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          "Cancel",
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textMid),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(ctx, true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.danger,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          "Delete",
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await Provider.of<TasksProvider>(context, listen: false).deleteTask(widget.reminder['_id']);
+      if (success) {
+        if (mounted) {
+          ToastUtils.showSuccessToast("Reminder deleted");
+          Navigator.pop(context);
+        }
+      } else {
+        if (mounted) ToastUtils.showErrorToast("Failed to delete reminder");
+      }
+    }
+  }
+
   Future<void> _handleSave() async {
     final updatedData = {
       'title': titleController.text,
@@ -575,43 +710,61 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _StatusBadge(label: status == 'completed' ? "Completed" : "On Track"),
-              GestureDetector(
-                onTap: () => setState(() => isEditing = !isEditing),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isEditing
-                        ? AppColors.dangerLight
-                        : AppColors.accentLight,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isEditing
-                          ? AppColors.danger.withOpacity(0.25)
-                          : AppColors.accent.withOpacity(0.25),
+              _StatusBadge(label: status == 'completed' ? "Completed" : (status == 'risk_alert' ? "Risk Alert" : "On Track")),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: _handleDelete,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.dangerLight,
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: AppColors.danger.withOpacity(0.25)),
+                      ),
+                      child: const Icon(LucideIcons.trash2, size: 16, color: AppColors.danger),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isEditing ? LucideIcons.x : LucideIcons.pencil,
-                        size: 13,
-                        color: isEditing ? AppColors.danger : AppColors.accent,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isEditing ? "Cancel" : "Edit Settings",
-                        style: GoogleFonts.nunito(
-                          color: isEditing ? AppColors.danger : AppColors.accent,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => setState(() => isEditing = !isEditing),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: isEditing
+                            ? AppColors.dangerLight
+                            : AppColors.accentLight,
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          color: isEditing
+                              ? AppColors.danger.withOpacity(0.25)
+                              : AppColors.accent.withOpacity(0.25),
                         ),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isEditing ? LucideIcons.x : LucideIcons.pencil,
+                            size: 13,
+                            color: isEditing ? AppColors.danger : AppColors.accent,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isEditing ? "Cancel" : "Edit",
+                            style: GoogleFonts.nunito(
+                              color: isEditing ? AppColors.danger : AppColors.accent,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -1401,7 +1554,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 label: "Early Warning System",
                 sub: "Get proactive alerts when you're at risk of being late based on your current location and traffic conditions",
                 value: smartFeatures['earlyWarning']!,
-                onChanged: (v) => isEditing ? setState(() => smartFeatures['earlyWarning'] = v) : null,
+                onChanged: (v) => _toggleSetting('smartFeatures', 'earlyWarning', v),
                 tag: "AI",
                 tagColor: Theme.of(context).primaryColor,
               ),
@@ -1410,7 +1563,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 label: "Traffic-Aware ETA",
                 sub: "Automatically adjust reminder times based on real-time traffic data and route conditions",
                 value: smartFeatures['trafficAware']!,
-                onChanged: (v) => isEditing ? setState(() => smartFeatures['trafficAware'] = v) : null,
+                onChanged: (v) => _toggleSetting('smartFeatures', 'trafficAware', v),
                 tag: "LIVE",
                 tagColor: const Color(0xFF10B981),
               ),
@@ -1419,7 +1572,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 label: "Item Exit Guards",
                 sub: "Get reminded about items you need to bring when leaving a location (e.g., wallet, keys, documents)",
                 value: smartFeatures['itemExitGuards']!,
-                onChanged: (v) => isEditing ? setState(() => smartFeatures['itemExitGuards'] = v) : null,
+                onChanged: (v) => _toggleSetting('smartFeatures', 'itemExitGuards', v),
                 tag: "NEW",
                 tagColor: const Color(0xFF8B5CF6),
               ),
@@ -1438,14 +1591,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 label: "Push Notifications",
                 sub: "Receive alerts on your device",
                 value: alerts['push']!,
-                onChanged: (v) => isEditing ? setState(() => alerts['push'] = v) : null,
+                onChanged: (v) => _toggleSetting('alerts', 'push', v),
               ),
                _AlertTile(
                 icon: LucideIcons.mail,
                 label: "Email Alerts",
                 sub: "Detailed reports via email",
                 value: alerts['email']!,
-                onChanged: (v) => isEditing ? setState(() => alerts['email'] = v) : null,
+                onChanged: (v) => _toggleSetting('alerts', 'email', v),
               ),
 
             ],

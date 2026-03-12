@@ -65,12 +65,12 @@ const userSchema = new mongoose.Schema({
         gender: {
             type: String,
             enum: ['male', 'female'],
-            default: 'female'
+            default: 'male'
         },
         tone: {
             type: String,
             enum: ['soft', 'normal', 'energetic'],
-            default: 'soft'
+            default: 'normal'
         }
     },
     timezone: {

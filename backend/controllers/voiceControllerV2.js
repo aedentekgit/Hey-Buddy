@@ -54,6 +54,10 @@ exports.processVoice = async (req, res) => {
             context.memories.forEach(m => { memoryString += `- ${m}\n` });
         }
 
+        const userPrefs = user?.voicePreferences || {};
+        const gender = userPrefs.gender || 'male';
+        const tone = userPrefs.tone || 'soft';
+
         // 2. Generate AI Response via Python Gateway
         let replyText = "I'm sorry, I'm having trouble thinking right now. Please try again soon.";
         let sessionIdRes = conversationId;
@@ -61,7 +65,7 @@ exports.processVoice = async (req, res) => {
 
         try {
             const aiServiceUrl = config.AI_SERVICE_URL;
-            console.log(`[VoiceV2] Proxying to Python Brain: ${aiServiceUrl}/chat/realtime`);
+            console.log(`[VoiceV2] Proxying to Python Brain: ${aiServiceUrl}/chat/realtime | Gender: ${gender} | Tone: ${tone}`);
             const pythonResponse = await axios.post(`${aiServiceUrl}/chat/realtime`, {
                 message: text,
                 session_id: conversationId || null,
@@ -70,7 +74,9 @@ exports.processVoice = async (req, res) => {
                 provider: aiConfig.provider,
                 model: aiConfig.model,
                 userId: userId ? userId.toString() : null,
-                memory_context: memoryString
+                memory_context: memoryString,
+                gender: gender,
+                tone: tone
             }, { timeout: 30000 }); // 30s timeout for deep search
 
             if (pythonResponse.data && pythonResponse.data.response) {
@@ -107,7 +113,7 @@ exports.processVoice = async (req, res) => {
 
 
         // 4. Return result
-        const prefs = user?.voicePreferences || { gender: 'female', tone: 'soft' };
+        const prefs = user?.voicePreferences || { gender: 'male', tone: 'normal' };
         const platform = req.headers['x-platform'] || 'web';
 
         res.status(200).json({
@@ -193,8 +199,8 @@ exports.saveReminder = async (req, res) => {
 exports.previewVoice = async (req, res) => {
     try {
         const userPrefs = req.user?.voicePreferences || {};
-        const gender = req.query.gender || userPrefs.gender || 'female';
-        const tone = req.query.tone || userPrefs.tone || 'soft';
+        const gender = req.query.gender || userPrefs.gender || 'male';
+        const tone = req.query.tone || userPrefs.tone || 'normal';
         const language = req.query.language || 'en-US';
         const text = req.query.text || "Hi! I am Buddy. I am ready to help you.";
         const platform = req.headers['x-platform'] || 'web';

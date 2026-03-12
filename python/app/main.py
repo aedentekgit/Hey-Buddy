@@ -851,7 +851,7 @@ def _generate_tts_sync(text: str, voice: str, rate: str) -> bytes:
 _tts_pool = ThreadPoolExecutor(max_workers=4)
 
 
-def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enabled: bool = False, initial_language: str = "en"):
+def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enabled: bool = False, initial_language: str = "en", gender: str = "male", tone: str = "normal"):
     """
     The core SSE (Server-Sent Events) generator for streaming chat responses.
 
@@ -915,8 +915,16 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
     def _submit(text):
         """Submit a sentence to the TTS thread pool and add the Future to audio_queue."""
         # Detect language and pick a matching voice. Use initial_language as hint for efficiency.
-        voice = language_service.get_voice_for_text(text, default_voice=TTS_VOICE)
-        audio_queue.append((_tts_pool.submit(_generate_tts_sync, text, voice, TTS_RATE), text))
+        voice = language_service.get_voice_for_text(text, gender=gender, default_voice=TTS_VOICE)
+        
+        # Map tone to rate
+        rate = TTS_RATE
+        if tone == "energetic":
+            rate = "+15%"
+        elif tone == "soft":
+            rate = "-10%"
+            
+        audio_queue.append((_tts_pool.submit(_generate_tts_sync, text, voice, rate), text))
 
     def _drain_ready():
         """
@@ -1077,7 +1085,7 @@ async def chat_stream(request: ChatRequest):
         user_lang = language_service.detect_language(request.message)
 
         return StreamingResponse(
-            _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, initial_language=user_lang),
+            _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -1158,8 +1166,17 @@ async def chat_realtime(request: ChatRequest):
         if request.tts:
             try:
                 # Use Ryan (en-GB-RyanNeural) specifically
-                voice = language_service.get_voice_for_text(response_text, default_voice=TTS_VOICE)
-                audio_bytes = _generate_tts_sync(response_text, voice, TTS_RATE)
+                # Use personality-based voice selection
+                voice = language_service.get_voice_for_text(response_text, gender=request.gender, default_voice=TTS_VOICE)
+                
+                # Map tone to rate
+                rate = TTS_RATE
+                if request.tone == "energetic":
+                    rate = "+15%"
+                elif request.tone == "soft":
+                    rate = "-10%"
+                    
+                audio_bytes = _generate_tts_sync(response_text, voice, rate)
                 audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
             except Exception as e:
                 logger.error(f"[API /chat/realtime] TTS generation error: {e}")
@@ -1209,7 +1226,7 @@ async def chat_realtime_stream(request: ChatRequest):
         user_lang = language_service.detect_language(request.message)
 
         return StreamingResponse(
-            _stream_generator(session_id, chunk_iter, is_realtime=True, tts_enabled=request.tts, initial_language=user_lang),
+            _stream_generator(session_id, chunk_iter, is_realtime=True, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -1400,8 +1417,16 @@ async def text_to_speech(request: TTSRequest):
         """Async generator that yields MP3 audio chunks from edge_tts."""
         try:
             # Detect language and pick a matching voice
-            voice = language_service.get_voice_for_text(text, default_voice=TTS_VOICE)
-            communicate = edge_tts.Communicate(text=text, voice=voice, rate=TTS_RATE)
+            voice = language_service.get_voice_for_text(text, gender=request.gender, default_voice=TTS_VOICE)
+            
+            # Map tone to rate
+            rate = TTS_RATE
+            if request.tone == "energetic":
+                rate = "+15%"
+            elif request.tone == "soft":
+                rate = "-10%"
+                
+            communicate = edge_tts.Communicate(text=text, voice=voice, rate=rate)
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     yield chunk["data"]

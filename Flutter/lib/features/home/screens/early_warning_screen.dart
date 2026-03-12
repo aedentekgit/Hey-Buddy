@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/home/providers/location_reminders_provider.dart';
 import 'package:buddy_mobile/features/home/screens/location_reminder_create_screen.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 
-/// Dedicated Early Warning detail screen for location reminders.
-/// Shows reminder info, warning level selector, and notification options
-/// without relying on the backend (since location reminders are static/demo data).
 class EarlyWarningScreen extends StatefulWidget {
   final Map<String, dynamic> reminder;
-
   const EarlyWarningScreen({super.key, required this.reminder});
 
   @override
@@ -44,14 +41,9 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
     _itemExitGuardsEnabled = r['itemExitGuards'] ?? true;
   }
 
-  bool get isDanger => widget.reminder['status'] == 'RISK_ALERT';
-
-  Color get _accentColor =>
-      isDanger ? const Color(0xFFE11D48) : const Color(0xFF10B981);
-
   String get _adjustedTime {
     final rawTime = widget.reminder['time'] ?? '';
-    if (rawTime.isEmpty) return 'whenever I arrive';
+    if (rawTime.isEmpty) return 'Whenever I arrive';
     try {
       final parts = rawTime.split(':');
       int hour = int.parse(parts[0].trim());
@@ -59,17 +51,14 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
       final minStr = minSecPart.substring(0, 2);
       final suffix = minSecPart.length > 2 ? minSecPart.substring(2).trim() : '';
       int minute = int.parse(minStr);
-
-      // Apply buffer
       int totalMin = (hour * 60 + minute) - _bufferMinutes.toInt();
       if (suffix.toUpperCase() == 'PM' && hour != 12) totalMin += 12 * 60;
       if (suffix.toUpperCase() == 'AM' && hour == 12) totalMin -= 12 * 60;
       if (totalMin < 0) totalMin += 24 * 60;
-
       final adjHour = (totalMin ~/ 60) % 24;
       final adjMin = totalMin % 60;
-      return DateFormatter.displayTimeString(
-          context, '${adjHour.toString().padLeft(2, '0')}:${adjMin.toString().padLeft(2, '0')}');
+      return DateFormatter.displayTimeString(context,
+          '${adjHour.toString().padLeft(2, '0')}:${adjMin.toString().padLeft(2, '0')}');
     } catch (_) {
       return rawTime;
     }
@@ -85,266 +74,382 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
     final time = (timeStr != null && timeStr.toString().isNotEmpty)
         ? DateFormatter.displayTimeString(context, timeStr.toString())
         : 'Whenever I arrive';
-    final dateTime = '$date  •  $time';
+    final isCompleted = (reminder['status'] ?? '').toString().toLowerCase() == 'completed';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          'Smart Details',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: const Color(0xFF1E293B),
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: const Color(0xFF1E293B),
-        surfaceTintColor: Colors.white,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFE2E8F0)),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Header Actions ─────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                   _StatusBadge(label: reminder['status'] == 'completed' ? "Completed" : "On Track"),
-                   _EditSettingsButton(onPressed: _onEditReminder),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1E293B),
-                  height: 1.2,
+      backgroundColor: AppColors.bg,
+      body: Column(
+        children: [
+          // ── Header ────────────────────────────────────────────────────
+          Container(
+            color: AppColors.surface,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
                 ),
-              ),
-              const SizedBox(height: 24),
-
-              // ── Meta Info Rows ─────────────────────────────────────
-              _InfoRow(
-                icon: LucideIcons.mapPin,
-                label: "Location",
-                child: Text(location),
-              ),
-              const SizedBox(height: 12),
-              _InfoRow(
-                icon: LucideIcons.clock,
-                label: "Schedule",
-                child: Text(dateTime),
-              ),
-              const SizedBox(height: 32),
-
-              // ── Smart Features ─────────────────────────────────────
-              _DetailCard(
-                title: "SMART FEATURES",
-                icon: LucideIcons.zap,
-                children: [
-                  _SmartFeatureTile(
-                    icon: LucideIcons.shieldAlert,
-                    label: "Early Warning System",
-                    sub: "Get proactive alerts when you're at risk of being late based on your current location and traffic conditions",
-                    value: _earlyWarningSubscribed,
-                    onChanged: (v) {
-                      setState(() => _earlyWarningSubscribed = v);
-                      _onSave(silent: true);
-                    },
-                    tag: "AI",
-                    tagColor: Theme.of(context).primaryColor,
-                  ),
-                  _SmartFeatureTile(
-                    icon: LucideIcons.car,
-                    label: "Traffic-Aware ETA",
-                    sub: "Automatically adjust reminder times based on real-time traffic data and route conditions",
-                    value: _trafficAwareEnabled,
-                    onChanged: (v) {
-                      setState(() => _trafficAwareEnabled = v);
-                      _onSave(silent: true);
-                    },
-                    tag: "LIVE",
-                    tagColor: const Color(0xFF10B981),
-                  ),
-                  _SmartFeatureTile(
-                    icon: LucideIcons.smartphone,
-                    label: "Item Exit Guards",
-                    sub: "Get reminded about items you need to bring when leaving a location (e.g., wallet, keys, documents)",
-                    value: _itemExitGuardsEnabled,
-                    onChanged: (v) {
-                      setState(() => _itemExitGuardsEnabled = v);
-                      _onSave(silent: true);
-                    },
-                    tag: "NEW",
-                    tagColor: const Color(0xFF8B5CF6),
-                  ),
-                ],
-              ),
-
-              // ── Alert Preferences ──────────────────────────────────
-              _DetailCard(
-                title: "ALERT PREFERENCES",
-                icon: LucideIcons.bellRing,
-                children: [
-                  _AlertTile(
-                    icon: LucideIcons.bell,
-                    label: "Push Notifications",
-                    sub: "Receive alerts on your device",
-                    value: _notifyPhone,
-                    onChanged: (v) {
-                      setState(() => _notifyPhone = v);
-                      _onSave(silent: true);
-                    },
-                  ),
-                  _AlertTile(
-                    icon: LucideIcons.mail,
-                    label: "Email Alerts",
-                    sub: "Detailed reports via email",
-                    value: _notifyEmail,
-                    onChanged: (v) {
-                      setState(() => _notifyEmail = v);
-                      _onSave(silent: true);
-                    },
-                  ),
-                  _AlertTile(
-                    icon: LucideIcons.users,
-                    label: "Family Notifications",
-                    sub: "Notify household members",
-                    value: _notifyFamily,
-                    onChanged: (v) {
-                      setState(() => _notifyFamily = v);
-                      _onSave(silent: true);
-                    },
-                  ),
-                  _AlertTile(
-                    icon: LucideIcons.shieldAlert,
-                    label: "Emergency Alerts",
-                    sub: "Direct alerts to emergency contacts",
-                    value: _notifyEmergency,
-                    onChanged: (v) {
-                      setState(() => _notifyEmergency = v);
-                      _onSave(silent: true);
-                    },
-                  ),
-                ],
-              ),
-
-              // ── Time & Buffer Section (Moved down) ──────────────────
-              _DetailCard(
-                title: "TIME & BUFFER CONFIG",
-                icon: LucideIcons.clock,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Safety Buffer Time',
-                        style: GoogleFonts.outfit(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1E293B),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEF2FF),
-                          borderRadius: BorderRadius.circular(20),
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(color: AppColors.border),
                         ),
-                        child: Text(
-                          '${_bufferMinutes.toInt()} min',
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF6366F1),
-                          ),
-                        ),
+                        child: const Icon(LucideIcons.arrowLeft,
+                            size: 18, color: AppColors.text),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF6366F1),
-                      inactiveTrackColor: const Color(0xFFE2E8F0),
-                      thumbColor: const Color(0xFF6366F1),
-                      overlayColor: const Color(0xFF6366F1).withOpacity(0.12),
-                      trackHeight: 4,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
                     ),
-                    child: Slider(
-                      value: _bufferMinutes,
-                      min: 5,
-                      max: 120,
-                      divisions: 23,
-                      onChanged: (v) {
-                        setState(() => _bufferMinutes = v);
-                        _onSave(silent: true);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F3FF),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE0E7FF)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withOpacity(0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(LucideIcons.bell, size: 18, color: Color(0xFF6366F1)),
-                        ),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ADJUSTED NOTIFICATION',
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF6366F1),
-                                letterSpacing: 0.8,
-                              ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Smart Details',
+                            style: GoogleFonts.nunito(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.text,
                             ),
+                          ),
+                          Text(
+                            'Location-based reminder',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: AppColors.textMid),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Delete button
+                    GestureDetector(
+                      onTap: _onDelete,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.dangerLight,
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(
+                              color: AppColors.danger.withOpacity(0.25)),
+                        ),
+                        child: const Icon(LucideIcons.trash2,
+                            size: 16, color: AppColors.danger),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Edit button
+                    GestureDetector(
+                      onTap: _onEditReminder,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentLight,
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(
+                              color: AppColors.accent.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(LucideIcons.pencil,
+                                size: 13, color: AppColors.accent),
+                            const SizedBox(width: 5),
                             Text(
-                              _adjustedTime,
-                              style: GoogleFonts.outfit(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1E293B),
+                              'Edit',
+                              style: GoogleFonts.nunito(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accent,
                               ),
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Body ───────────────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Status badge + title
+                  _StatusChip(
+                      isCompleted: isCompleted,
+                      label: isCompleted ? 'Completed' : 'On Track'),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    style: GoogleFonts.nunito(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.text,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Meta info card
+                  _InfoCard(children: [
+                    _InfoRow(
+                      icon: LucideIcons.mapPin,
+                      iconColor: AppColors.accent,
+                      label: 'Location',
+                      value: location,
+                      badge: 'GPS',
+                    ),
+                    Container(height: 1, color: AppColors.border),
+                    _InfoRow(
+                      icon: LucideIcons.clock,
+                      iconColor: AppColors.teal,
+                      label: 'Schedule',
+                      value: 'Time: $time  •  $date',
+                    ),
+                  ]),
+                  const SizedBox(height: 18),
+
+                  // Smart Features
+                  _SectionCard(
+                    icon: LucideIcons.zap,
+                    title: 'Smart Features',
+                    children: [
+                      _FeatureRow(
+                        icon: LucideIcons.shieldAlert,
+                        iconColor: AppColors.accent,
+                        label: 'Early Warning System',
+                        sub: 'Get alerts when at risk of being late',
+                        tag: 'AI',
+                        tagColor: AppColors.accent,
+                        value: _earlyWarningSubscribed,
+                        onChanged: (v) {
+                          setState(() => _earlyWarningSubscribed = v);
+                          _onSave(silent: true);
+                        },
+                      ),
+                      _FeatureRow(
+                        icon: LucideIcons.car,
+                        iconColor: AppColors.teal,
+                        label: 'Traffic-Aware ETA',
+                        sub: 'Adjust times based on real-time traffic',
+                        tag: 'LIVE',
+                        tagColor: AppColors.teal,
+                        value: _trafficAwareEnabled,
+                        onChanged: (v) {
+                          setState(() => _trafficAwareEnabled = v);
+                          _onSave(silent: true);
+                        },
+                      ),
+                      _FeatureRow(
+                        icon: LucideIcons.smartphone,
+                        iconColor: AppColors.purple,
+                        label: 'Item Exit Guards',
+                        sub: 'Get reminded about items when leaving',
+                        tag: 'NEW',
+                        tagColor: AppColors.purple,
+                        value: _itemExitGuardsEnabled,
+                        onChanged: (v) {
+                          setState(() => _itemExitGuardsEnabled = v);
+                          _onSave(silent: true);
+                        },
+                        isLast: true,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Alert Preferences
+                  _SectionCard(
+                    icon: LucideIcons.bellRing,
+                    title: 'Alert Preferences',
+                    children: [
+                      _AlertRow(
+                        icon: LucideIcons.bell,
+                        iconColor: AppColors.orange,
+                        label: 'Push Notifications',
+                        sub: 'Receive alerts on your device',
+                        value: _notifyPhone,
+                        onChanged: (v) {
+                          setState(() => _notifyPhone = v);
+                          _onSave(silent: true);
+                        },
+                      ),
+                      _AlertRow(
+                        icon: LucideIcons.mail,
+                        iconColor: AppColors.teal,
+                        label: 'Email Alerts',
+                        sub: 'Detailed reports via email',
+                        value: _notifyEmail,
+                        onChanged: (v) {
+                          setState(() => _notifyEmail = v);
+                          _onSave(silent: true);
+                        },
+                      ),
+                      _AlertRow(
+                        icon: LucideIcons.users,
+                        iconColor: AppColors.pink,
+                        label: 'Family Notifications',
+                        sub: 'Notify household members',
+                        value: _notifyFamily,
+                        onChanged: (v) {
+                          setState(() => _notifyFamily = v);
+                          _onSave(silent: true);
+                        },
+                      ),
+                      _AlertRow(
+                        icon: LucideIcons.shieldAlert,
+                        iconColor: AppColors.danger,
+                        label: 'Emergency Alerts',
+                        sub: 'Alert emergency contacts',
+                        value: _notifyEmergency,
+                        onChanged: (v) {
+                          setState(() => _notifyEmergency = v);
+                          _onSave(silent: true);
+                        },
+                        isLast: true,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Time & Buffer
+                  _SectionCard(
+                    icon: LucideIcons.clock,
+                    title: 'Time & Buffer Config',
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Safety Buffer Time',
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.text,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentLight,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: AppColors.accent.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              '${_bufferMinutes.toInt()} min',
+                              style: GoogleFonts.nunito(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: AppColors.accent,
+                          inactiveTrackColor: AppColors.border,
+                          thumbColor: AppColors.accent,
+                          overlayColor: AppColors.accent.withOpacity(0.12),
+                          trackHeight: 4,
+                          thumbShape:
+                              const RoundSliderThumbShape(enabledThumbRadius: 8),
+                        ),
+                        child: Slider(
+                          value: _bufferMinutes,
+                          min: 5,
+                          max: 120,
+                          divisions: 23,
+                          onChanged: (v) {
+                            setState(() => _bufferMinutes = v);
+                            _onSave(silent: true);
+                          },
+                        ),
+                      ),
+                      Text(
+                        'Add extra time before your reminder to ensure you\'re never late.',
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: AppColors.textMid, height: 1.5),
+                      ),
+                      const SizedBox(height: 14),
+                      // Adjusted notification box
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentLight,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: AppColors.accent.withOpacity(0.25)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(13),
+                              ),
+                              child: Icon(LucideIcons.bell,
+                                  size: 20, color: AppColors.accent),
+                            ),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ADJUSTED NOTIFICATION',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accent,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                Text(
+                                  _adjustedTime,
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.text,
+                                  ),
+                                ),
+                                Text(
+                                  'Calculated: Time − (Traffic + Buffer)',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: AppColors.textMid),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-
-              const SizedBox(height: 48),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -353,17 +458,123 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
     final updated = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => LocationReminderCreateScreen(reminder: widget.reminder),
+        builder: (_) =>
+            LocationReminderCreateScreen(reminder: widget.reminder),
       ),
     );
-    if (updated == true && mounted) {
-      Navigator.pop(context);
+    if (updated == true && mounted) Navigator.pop(context);
+  }
+
+  Future<void> _onDelete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => Dialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.dangerLight,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(LucideIcons.trash2,
+                    size: 22, color: AppColors.danger),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Delete Reminder',
+                style: GoogleFonts.nunito(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.text),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Are you sure you want to delete this reminder? This cannot be undone.',
+                style: GoogleFonts.inter(
+                    fontSize: 13.5,
+                    color: AppColors.textMid,
+                    height: 1.5),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context, false),
+                      child: Container(
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textMid),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context, true),
+                      child: Container(
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.dangerLight,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: AppColors.danger.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          'Delete',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.danger),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final id = widget.reminder['_id'];
+      final success = await context
+          .read<LocationRemindersProvider>()
+          .deleteReminder(id);
+      if (mounted) {
+        if (success) {
+          Navigator.pop(context);
+        }
+      }
     }
   }
 
   Future<void> _onSave({bool silent = false}) async {
     final id = widget.reminder['_id'];
-
     await context.read<LocationRemindersProvider>().setEarlyWarning(id, {
       'bufferTime': _bufferMinutes.toInt(),
       'warningLevel': _warningLevel,
@@ -375,244 +586,192 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
       'trafficAware': _trafficAwareEnabled,
       'itemExitGuards': _itemExitGuardsEnabled,
     });
-
-    if (!silent && mounted) {
-      Navigator.pop(context);
-    }
+    if (!silent && mounted) Navigator.pop(context);
   }
 }
 
-class _EditSettingsButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _EditSettingsButton({required this.onPressed});
+// ── Shared widgets ──────────────────────────────────────────────────────────
+
+class _StatusChip extends StatelessWidget {
+  final bool isCompleted;
+  final String label;
+  const _StatusChip({required this.isCompleted, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F3FF),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE0E7FF)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(LucideIcons.pencil, size: 14, color: Color(0xFF7C3AED)),
-            const SizedBox(width: 6),
-            Text(
-              "Edit Settings",
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF7C3AED),
-              ),
-            ),
-          ],
+    final color = isCompleted ? AppColors.green : AppColors.teal;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.5,
         ),
       ),
     );
   }
 }
 
-// ── Reusable Component Classes (matching SmartDetailsPanel) ───────────
-
-class _StatusBadge extends StatelessWidget {
-  final String label;
-  const _StatusBadge({required this.label});
+class _InfoCard extends StatelessWidget {
+  final List<Widget> children;
+  const _InfoCard({required this.children});
 
   @override
   Widget build(BuildContext context) {
-    final isGreen = label.toLowerCase() == "on track" || label.toLowerCase() == "completed";
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isGreen ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3),
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
       ),
-      child: Text(
-        label.toUpperCase(),
-        style: GoogleFonts.outfit(
-          color: isGreen ? const Color(0xFF16A34A) : const Color(0xFFCA8A04),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      child: Column(children: children),
     );
   }
 }
 
 class _InfoRow extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String label;
-  final Widget child;
+  final String value;
+  final String? badge;
 
-  const _InfoRow({required this.icon, required this.label, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 18, color: const Color(0xFF6366F1)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey[800])),
-              DefaultTextStyle(
-                style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600]),
-                child: child,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final List<Widget> children;
-
-  const _DetailCard({required this.title, required this.icon, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
-                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
-              ),
-              child: Row(
-                children: [
-                  Icon(icon, size: 16, color: const Color(0xFF1E293B)),
-                  const SizedBox(width: 10),
-                  Text(
-                    title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SmartFeatureTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String sub;
-  final bool value;
-  final Function(bool) onChanged;
-  final String tag;
-  final Color tagColor;
-
-  const _SmartFeatureTile({
+  const _InfoRow({
     required this.icon,
+    required this.iconColor,
     required this.label,
-    required this.sub,
     required this.value,
-    required this.onChanged,
-    required this.tag,
-    required this.tagColor,
+    this.badge,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: tagColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, size: 20, color: tagColor),
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: iconColor.withOpacity(0.18)),
+            ),
+            child: Icon(icon, size: 17, color: iconColor),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              label,
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: tagColor, borderRadius: BorderRadius.circular(6)),
-                            child: Text(tag, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Transform.scale(
-                      scale: 0.8,
-                      child: Switch.adaptive(
-                        value: value,
-                        onChanged: onChanged,
-                      ),
-                    ),
-                  ],
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDim,
+                      letterSpacing: 0.3),
                 ),
-                Text(sub, style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[600], height: 1.4)),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: GoogleFonts.nunito(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text),
+                ),
               ],
             ),
+          ),
+          if (badge != null)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.accentLight,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.accent.withOpacity(0.25)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.navigation,
+                      size: 10, color: AppColors.accent),
+                  const SizedBox(width: 3),
+                  Text(
+                    badge!,
+                    style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accent),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
+  const _SectionCard(
+      {required this.icon, required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(15)),
+              border: Border(bottom: BorderSide(color: AppColors.border)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 14, color: AppColors.textDim),
+                const SizedBox(width: 7),
+                Text(
+                  title.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDim,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: children),
           ),
         ],
       ),
@@ -620,57 +779,203 @@ class _SmartFeatureTile extends StatelessWidget {
   }
 }
 
-class _AlertTile extends StatelessWidget {
+class _FeatureRow extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String label;
   final String sub;
+  final String tag;
+  final Color tagColor;
   final bool value;
-  final Function(bool) onChanged;
+  final ValueChanged<bool> onChanged;
+  final bool isLast;
 
-  const _AlertTile({required this.icon, required this.label, required this.sub, required this.value, required this.onChanged});
+  const _FeatureRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.sub,
+    required this.tag,
+    required this.tagColor,
+    required this.value,
+    required this.onChanged,
+    this.isLast = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: const Color(0xFF3B82F6), size: 20),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: iconColor.withOpacity(0.2)),
+                ),
+                child: Icon(icon, size: 17, color: iconColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          label,
+                          style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.text),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: tagColor,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            tag,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      sub,
+                      style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: AppColors.textMid,
+                          height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              _Toggle(value: value, onChanged: onChanged),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        if (!isLast) Container(height: 1, color: AppColors.border),
+      ],
+    );
+  }
+}
+
+class _AlertRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String sub;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool isLast;
+
+  const _AlertRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.sub,
+    required this.value,
+    required this.onChanged,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: iconColor.withOpacity(0.2)),
                 ),
-                Text(
-                  sub,
-                  style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500]),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: Icon(icon, size: 17, color: iconColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.nunito(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.text),
+                    ),
+                    Text(
+                      sub,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: AppColors.textMid),
+                    ),
+                  ],
                 ),
+              ),
+              _Toggle(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
+        if (!isLast) Container(height: 1, color: AppColors.border),
+      ],
+    );
+  }
+}
+
+class _Toggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _Toggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 44,
+        height: 25,
+        decoration: BoxDecoration(
+          color: value ? AppColors.accent : const Color(0xFFD1D5DB),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          alignment:
+              value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.symmetric(horizontal: 2.5),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1))
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Transform.scale(
-            scale: 0.8,
-            child: Switch.adaptive(
-              value: value,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -42,7 +42,7 @@ try {
     // 3. Package AI Service
     console.log('📦 Packaging AI Service...');
     const aiExcludeFlags = "--exclude='venv' --exclude='.env' --exclude='__pycache__' --exclude='database' --exclude='.git' --exclude='server_log.txt' --exclude='*.tar.gz'";
-    execSync(`tar ${aiExcludeFlags} -czf ai-service.tar.gz -C ai-service .`);
+    execSync(`tar ${aiExcludeFlags} -czf ai-service.tar.gz -C python .`);
 
     // 4. Upload to VPS
     console.log(`📤 Uploading packages to VPS ${TITLE}...`);

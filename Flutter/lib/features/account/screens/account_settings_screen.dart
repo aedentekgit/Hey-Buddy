@@ -160,6 +160,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
           final bool calConnected = user['googleCalendarConnected'] == true ||
               user['googleRefreshToken'] != null;
 
+          final notificationPrefs = user['notificationPreferences'] ?? {};
+          final bool voiceAlerts = notificationPrefs['voice']?['enabled'] ?? true;
+          final bool pushNotifications = notificationPrefs['push']?['enabled'] ?? true;
+          final bool emailDigest = notificationPrefs['email']?['enabled'] ?? true;
+          final bool inAppAlerts = notificationPrefs['inApp']?['enabled'] ?? true;
+
           return ListView(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
             children: [
@@ -177,33 +183,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                   child: Row(
                     children: [
                       // Avatar
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          _Avatar(name: name, avatarUrl: avatarUrl, size: 60),
-                          Positioned(
-                            bottom: -4,
-                            right: -4,
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.accent.withOpacity(0.4),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(LucideIcons.pencil,
-                                  size: 11, color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ),
+                      _Avatar(name: name, avatarUrl: avatarUrl, size: 60),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -256,8 +236,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'Voice Alerts',
                       sub: 'Buddy speaks reminders',
                       trailing: _Toggle(
-                          value: _voiceAlerts,
-                          onChanged: (v) => setState(() => _voiceAlerts = v)),
+                          value: voiceAlerts,
+                          onChanged: (v) => userProvider.updateNotificationPreferences({
+                            'voice': {'enabled': v}
+                          })),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -266,9 +248,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'Push Notifications',
                       sub: 'Lock screen alerts',
                       trailing: _Toggle(
-                          value: _pushNotifications,
-                          onChanged: (v) =>
-                              setState(() => _pushNotifications = v)),
+                          value: pushNotifications,
+                          onChanged: (v) => userProvider.updateNotificationPreferences({
+                                'push': {'enabled': v}
+                              })),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -277,8 +260,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'Email Digest',
                       sub: 'Daily summary via email',
                       trailing: _Toggle(
-                          value: _emailDigest,
-                          onChanged: (v) => setState(() => _emailDigest = v)),
+                          value: emailDigest,
+                          onChanged: (v) => userProvider.updateNotificationPreferences({
+                                'email': {'enabled': v}
+                              })),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -287,8 +272,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'In-App Alerts',
                       sub: 'Banners & badges',
                       trailing: _Toggle(
-                          value: _inAppAlerts,
-                          onChanged: (v) => setState(() => _inAppAlerts = v)),
+                          value: inAppAlerts,
+                          onChanged: (v) => userProvider.updateNotificationPreferences({
+                                'inApp': {'enabled': v}
+                              })),
                       isLast: true,
                     ),
                   ],

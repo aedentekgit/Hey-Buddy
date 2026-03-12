@@ -74,18 +74,65 @@ class TTSService {
      * Higher-level method to generate audio for a given personality.
      * Includes fallback to Google TTS if Gemini fails.
      */
-    async generateAudio(text, gender = 'female', tone = 'soft', language = 'en-US') {
+    /**
+     * Call the Python backend's edge-tts endpoint for high-quality audio
+     */
+    async _callPythonTTS(text, gender = 'male', tone = 'normal') {
+        try {
+            const axios = require('axios');
+            const config = require('../config/env');
+            const aiServiceUrl = config.AI_SERVICE_URL || 'http://localhost:8000';
+            const apiKey = process.env.BUDDY_API_KEY || '';
+
+            console.log(`[TTS] Proxying to Python edge-tts for text: "${text.substring(0, 30)}..." | Gender: ${gender} | Tone: ${tone}`);
+            const response = await axios.post(`${aiServiceUrl}/tts`,
+                {
+                    text: text,
+                    gender: gender,
+                    tone: tone
+                },
+                {
+                    headers: { 'X-API-Key': apiKey },
+                    responseType: 'arraybuffer'
+                }
+            );
+
+            return {
+                audio: Buffer.from(response.data).toString('base64'),
+                voiceName: 'Ryan (edge-tts)'
+            };
+        } catch (err) {
+            console.error('[TTS] Python edge-tts failed:', err.message);
+            return null;
+        }
+    }
+
+    /**
+     * Higher-level method to generate audio for a given personality.
+     * Includes fallback to Google TTS if Gemini fails.
+     */
+    async generateAudio(text, gender = 'male', tone = 'normal', language = 'en-US') {
         try {
             const personality = getPersonality(gender, tone);
+
+            // 1. If the voice is 'Ryan' (our new default), use the Python edge-tts service directly
+            // This ensures perfect parity with the web version!
+            if (personality.voice === 'Ryan') {
+                const pyAudio = await this._callPythonTTS(text, gender, tone);
+                if (pyAudio) return pyAudio;
+                // Fall through if Python fails
+            }
+
+            // 2. Try Gemini Live Service (for Aoede, Charon, etc)
             const ai = await this._createSession(personality, language).catch(e => {
                 console.warn("[TTS] Gemini Session Failed:", e.message);
                 return null;
             });
 
             if (!ai) {
-                // Returning null delegates TTS to the Native Frontend/Mobile Client so that Pitch/Prosody are preserved!
-                console.log("[TTS] Delegating to native client TTS engine (Gemini unavailable)");
-                return null;
+                // Return null delegates to native client (with pitch/rate) or we could try Google fallback
+                console.log("[TTS] Gemini unavailable, trying Google fallback or native...");
+                return await this._googleFallback(text, language);
             }
 
             const audioChunks = [];
@@ -113,8 +160,7 @@ class TTSService {
                 };
             }
 
-            console.log("[TTS] Gemini failed to produce audio, delegating to native client TTS...");
-            return null;
+            return await this._googleFallback(text, language);
 
         } catch (error) {
             console.error('[TTS] Error in generateAudio:', error.message);

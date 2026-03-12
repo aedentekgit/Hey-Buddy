@@ -9,6 +9,7 @@ import 'package:buddy_mobile/features/home/screens/reminder_create_screen.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:buddy_mobile/shared/widgets/pressable.dart';
 
 class ReminderListScreen extends StatefulWidget {
   const ReminderListScreen({super.key});
@@ -433,7 +434,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
         location.isNotEmpty &&
         location != 'No Location';
 
-    return GestureDetector(
+    return Pressable(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(

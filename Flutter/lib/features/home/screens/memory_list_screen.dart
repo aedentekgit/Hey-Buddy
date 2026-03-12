@@ -6,6 +6,7 @@ import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/screens/memory_details_screen.dart';
 import 'package:buddy_mobile/shared/utils/memory_icon_utils.dart';
+import 'package:buddy_mobile/shared/widgets/pressable.dart';
 
 class MemoryListScreen extends StatefulWidget {
   const MemoryListScreen({super.key});
@@ -328,7 +329,7 @@ class _MemoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onView,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),

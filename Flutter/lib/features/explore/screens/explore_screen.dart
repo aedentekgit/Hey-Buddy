@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:buddy_mobile/core/services/location_service.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
@@ -12,6 +15,7 @@ import 'package:buddy_mobile/features/explore/screens/family_hub_screen.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:buddy_mobile/shared/widgets/pressable.dart';
 
 class ExploreScreen extends StatefulWidget {
   final VoidCallback? onMemoryTap;
@@ -146,9 +150,23 @@ class _ExploreScreenState extends State<ExploreScreen>
 }
 
 // ── Hero card ──────────────────────────────────────────────────────────────
-class _HeroCard extends StatelessWidget {
+class _HeroCard extends StatefulWidget {
   final String userName;
   const _HeroCard({required this.userName});
+
+  @override
+  State<_HeroCard> createState() => _HeroCardState();
+}
+
+class _HeroCardState extends State<_HeroCard> {
+  String _locationText = 'Fetching location…';
+  IconData _locationIcon = LucideIcons.mapPin;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocation();
+  }
 
   String get _greeting {
     final h = DateTime.now().hour;
@@ -157,11 +175,46 @@ class _HeroCard extends StatelessWidget {
     return 'Good Evening';
   }
 
+  Future<void> _loadLocation() async {
+    try {
+      final loc = await LocationService().getCurrentLocation();
+      if (loc == null || !mounted) {
+        if (mounted) setState(() => _locationText = 'Location unavailable');
+        return;
+      }
+
+      double lat = loc['lat'] as double;
+      double lng = loc['lng'] as double;
+      String address = loc['address'] as String;
+
+      // Handle emulator defaults (Mountain View) by falling back to Madurai
+      // matches logic in TasksProvider to show "user based" (intent-based) location
+      if (lat > 37.0 && lat < 38.0 && lng > -123.0 && lng < -121.0) {
+        lat = 9.9252;
+        lng = 78.1198;
+        address = 'Madurai, Tamil Nadu';
+      }
+
+      final city = address.split(',').first.trim();
+      final region = address.contains(',') 
+          ? address.split(',').last.trim() 
+          : '';
+
+      setState(() {
+        _locationIcon = LucideIcons.mapPin;
+        _locationText = region.isNotEmpty ? '$city, $region' : city;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _locationText = 'Location unavailable');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+      clipBehavior: Clip.hardEdge,
+
       decoration: BoxDecoration(
         gradient: AppColors.headerGradient,
         borderRadius: BorderRadius.circular(22),
@@ -171,72 +224,74 @@ class _HeroCard extends StatelessWidget {
         children: [
           // Decorative circles
           Positioned(
-            top: -20, right: -20,
+            top: -18, right: -18,
             child: Container(
-              width: 100, height: 100,
+              width: 140, height: 140,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0x14FFFFFF),
+                color: Color(0x18FFFFFF),
               ),
             ),
           ),
           Positioned(
-            bottom: -30, right: 30,
+            top: 50, right: 45,
             child: Container(
-              width: 80, height: 80,
+              width: 95, height: 95,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0x0FFFFFFF),
+                color: Color(0x12FFFFFF),
               ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _greeting,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withOpacity(0.75),
-                  letterSpacing: 0.8,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _greeting,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.75),
+                    letterSpacing: 0.8,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                userName,
-                style: GoogleFonts.nunito(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  height: 1.1,
+                const SizedBox(height: 2),
+                Text(
+                  widget.userName,
+                  style: GoogleFonts.nunito(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_locationIcon, size: 16, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text(
+                        _locationText,
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(LucideIcons.sun,
-                        size: 16, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Mumbai · 29°C, Partly cloudy',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -299,7 +354,7 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: action.onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -436,7 +491,7 @@ class _MarqueeRowState extends State<_MarqueeRow> {
       itemCount: repeated.length,
       itemBuilder: (_, i) {
         final label = repeated[i % repeated.length];
-        return GestureDetector(
+        return Pressable(
           onTap: widget.onTap,
           child: Container(
             margin: const EdgeInsets.only(right: 8),
@@ -561,131 +616,160 @@ class _ReminderCard extends StatelessWidget {
     final String? location = task['location'] as String?;
     final String? etaLabel = task['_etaLabel'] as String?;
 
-    return GestureDetector(
+    final bool hasLocation = location != null &&
+        location.isNotEmpty &&
+        location != 'No Location';
+
+    return Pressable(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => SmartDetailsScreen(task: task)),
       ),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 9),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.cardBorder),
           boxShadow: AppColors.cardShadow,
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Left color stripe
                 Container(
-                  width: 4,
+                  width: 5,
                   color: color,
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 13, 15, 13),
+                    padding: const EdgeInsets.fromLTRB(14, 16, 16, 16),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Icon
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 48,
+                          height: 48,
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(13),
+                            gradient: LinearGradient(
+                              colors: [
+                                color.withOpacity(0.15),
+                                color.withOpacity(0.05)
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(15),
                             border: Border.all(color: color.withOpacity(0.2)),
                           ),
-                          child: Icon(icon, color: color, size: 20),
+                          child: Icon(icon, color: color, size: 24),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
                         // Content
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                title,
-                                style: GoogleFonts.nunito(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: isOverdue
-                                        ? AppColors.textDim
-                                        : AppColors.text,
-                                    decoration: isOverdue
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                    decorationColor: AppColors.textDim),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
+                              // Top Row: Title + Intent Chip
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(LucideIcons.clock,
-                                      size: 12, color: AppColors.textDim),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    timeStr,
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11, color: AppColors.textMid),
+                                  Expanded(
+                                    child: Text(
+                                      title,
+                                      style: GoogleFonts.nunito(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: isOverdue
+                                              ? AppColors.textDim
+                                              : AppColors.text,
+                                          height: 1.2,
+                                          decoration: isOverdue
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          decorationColor: AppColors.textDim),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  _Chip(
+                                    label: intent?.toString() ?? 'Task',
+                                    color: color,
+                                    small: true,
                                   ),
                                 ],
                               ),
-                              if (location != null &&
-                                  location.isNotEmpty &&
-                                  location != 'No Location') ...[
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
+                              const SizedBox(height: 4),
+
+                              // Middle Row: Time
+                              Row(
+                                children: [
+                                  Icon(LucideIcons.clock,
+                                      size: 13, color: AppColors.textMid),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    timeStr,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textMid),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+
+                              // Bottom Row: Location + ETA
+                              Row(
+                                children: [
+                                  if (hasLocation) ...[
                                     Icon(LucideIcons.mapPin,
-                                        size: 10, color: color),
-                                    const SizedBox(width: 4),
+                                        size: 12, color: color.withOpacity(0.7)),
+                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         location,
                                         style: GoogleFonts.inter(
-                                            fontSize: 10.5,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w400,
                                             color: AppColors.textMid),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    if (etaLabel != null) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.accent.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(
-                                              color:
-                                                  AppColors.accent.withOpacity(0.2)),
-                                        ),
-                                        child: Text(
-                                          'ETA $etaLabel',
-                                          style: GoogleFonts.inter(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w800,
-                                              color: AppColors.accent),
-                                        ),
+                                  ] else
+                                    const Spacer(),
+                                  if (etaLabel != null) ...[
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accent.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                            color: AppColors.accent
+                                                .withOpacity(0.2)),
                                       ),
-                                    ],
+                                      child: Text(
+                                        'ETA $etaLabel',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.accent,
+                                            letterSpacing: 0.2),
+                                      ),
+                                    ),
                                   ],
-                                ),
-                              ],
+                                ],
+                              ),
                             ],
                           ),
-                        ),
-                        // Tag chip
-                        _Chip(
-                          label: intent?.toString() ?? 'Task',
-                          color: color,
                         ),
                       ],
                     ),
@@ -734,7 +818,7 @@ class _Chip extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
-        label.toUpperCase(),
+        label.replaceAll('_', ' ').toUpperCase(),
         style: GoogleFonts.inter(
           fontSize: small ? 10 : 11,
           fontWeight: FontWeight.w700,

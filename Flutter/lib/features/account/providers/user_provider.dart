@@ -45,7 +45,7 @@ class UserProvider extends ChangeNotifier {
   }
 
   // Update Profile
-  Future<bool> updateProfile(String name, String phone, String address, {String? dateFormat, String? timeFormat}) async {
+  Future<bool> updateProfile(String name, String phone, String address, {String? dateFormat, String? timeFormat, String? timezone}) async {
     _isLoading = true;
     notifyListeners();
 
@@ -57,6 +57,7 @@ class UserProvider extends ChangeNotifier {
       };
       if (dateFormat != null) data['dateFormat'] = dateFormat;
       if (timeFormat != null) data['timeFormat'] = timeFormat;
+      if (timezone != null) data['timezone'] = timezone;
       
       final success = await _userService.updateProfile(data);
 
@@ -66,6 +67,7 @@ class UserProvider extends ChangeNotifier {
         _user['address'] = address;
         if (dateFormat != null) _user['dateFormat'] = dateFormat;
         if (timeFormat != null) _user['timeFormat'] = timeFormat;
+        if (timezone != null) _user['timezone'] = timezone;
         notifyListeners();
         return true;
       }

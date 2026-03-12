@@ -1,9 +1,14 @@
+import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 
 class FamilyChatScreen extends StatefulWidget {
   final String title;
@@ -18,17 +23,37 @@ class FamilyChatScreen extends StatefulWidget {
 class _FamilyChatScreenState extends State<FamilyChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+  bool _isTyping = false;
+  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(_onTextChanged);
+    _focusNode.addListener(_onFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  void _onFocusChange() {
+    setState(() {
+      _isFocused = _focusNode.hasFocus;
+    });
+  }
+
+  void _onTextChanged() {
+    setState(() {
+      _isTyping = _messageController.text.trim().isNotEmpty;
+    });
   }
 
   @override
   void dispose() {
+    _messageController.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChange);
     _messageController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -151,7 +176,15 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                     final msg = provider.messages[index];
                     final bool isMe =
                         msg['sender_id'] == provider.currentUserId;
-                    return _buildMessageBubble(msg, isMe);
+                    
+                    String? avatar;
+                    if (isMe) {
+                      avatar = context.read<UserProvider>().user['profilePicture'];
+                    } else {
+                      avatar = AppConfig.formatImageUrl(msg['sender_avatar']);
+                    }
+
+                    return _buildMessageBubble(msg, isMe, avatar);
                   },
                 );
               },
@@ -199,7 +232,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> msg, bool isMe) {
+  Widget _buildMessageBubble(Map<String, dynamic> msg, bool isMe, String? avatarUrl) {
     final time = _formatTime(msg['timestamp']);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -210,7 +243,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
         children: [
           // Left avatar (other person)
           if (!isMe) ...[
-            _buildAvatar(msg['sender_name']),
+            _buildAvatar(msg['sender_name'], avatarUrl: avatarUrl),
             const SizedBox(width: 8),
           ],
 
@@ -246,45 +279,48 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                           ),
                         ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Sender name in group chat
-                    if (widget.isGroup && !isMe)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
+                child: IntrinsicWidth(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Sender name in group chat
+                      if (widget.isGroup && !isMe)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            msg['sender_name'] ?? 'Unknown',
+                            style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        ),
+                      Text(
+                        msg['content'] ?? '',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: isMe ? Colors.white : AppColors.text,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Align(
+                        alignment: Alignment.bottomRight,
                         child: Text(
-                          msg['sender_name'] ?? 'Unknown',
-                          style: GoogleFonts.nunito(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.accent,
+                          time,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: isMe
+                                ? Colors.white.withOpacity(0.65)
+                                : AppColors.textDim,
                           ),
                         ),
                       ),
-                    Text(
-                      msg['content'] ?? '',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: isMe ? Colors.white : AppColors.text,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: Text(
-                        time,
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: isMe
-                              ? Colors.white.withOpacity(0.65)
-                              : AppColors.textDim,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
           ),
@@ -292,14 +328,14 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
           // Right avatar (me)
           if (isMe) ...[
             const SizedBox(width: 8),
-            _buildAvatar(null, isMe: true),
+            _buildAvatar(null, isMe: true, avatarUrl: avatarUrl),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildAvatar(String? name, {bool isMe = false}) {
+  Widget _buildAvatar(String? name, {bool isMe = false, String? avatarUrl}) {
     return Container(
       width: 32,
       height: 32,
@@ -313,14 +349,28 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               ),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Center(
-        child: Text(
-          isMe ? 'Me' : (name?.isNotEmpty == true ? name![0].toUpperCase() : '?'),
-          style: GoogleFonts.nunito(
-            fontSize: isMe ? 9 : 13,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-          ),
+      child: avatarUrl != null && avatarUrl.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: CachedNetworkImage(
+                imageUrl: avatarUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => _fallbackAvatarPlaceholder(name, isMe),
+                errorWidget: (_, __, ___) => _fallbackAvatarPlaceholder(name, isMe),
+              ),
+            )
+          : _fallbackAvatarPlaceholder(name, isMe),
+    );
+  }
+
+  Widget _fallbackAvatarPlaceholder(String? name, bool isMe) {
+    return Center(
+      child: Text(
+        isMe ? 'Me' : (name?.isNotEmpty == true ? name![0].toUpperCase() : '?'),
+        style: GoogleFonts.nunito(
+          fontSize: isMe ? 9 : 13,
+          fontWeight: FontWeight.w900,
+          color: Colors.white,
         ),
       ),
     );
@@ -328,56 +378,157 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
 
   Widget _buildInputSection() {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+      decoration: const BoxDecoration(
+        color: Colors.transparent, // Let the parent bg show through
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.border, width: 1.5),
-                  ),
-                  child: TextField(
-                    controller: _messageController,
-                    style: GoogleFonts.inter(
-                        fontSize: 14, color: AppColors.text),
-                    decoration: InputDecoration(
-                      hintText: 'Type a message…',
-                      hintStyle: GoogleFonts.inter(
-                          fontSize: 14, color: AppColors.textDim),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 11),
-                    ),
-                    textCapitalization: TextCapitalization.sentences,
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: _sendMessage,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.headerGradient,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(LucideIcons.send,
-                      color: Colors.white, size: 18),
-                ),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(100),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
+          child: CustomPaint(
+            painter: _StaticGradientRingPainter(
+              borderWidth: 1.5,
+              isEnabled: true,
+              isFocused: _isFocused,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                  decoration: BoxDecoration(
+                    color: _isFocused
+                        ? Colors.white.withOpacity(0.95)
+                        : Colors.white.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          focusNode: _focusNode,
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            color: const Color(0xFF1E293B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Type a message…',
+                            hintStyle: GoogleFonts.inter(
+                              color: const Color(0xFF94A3B8),
+                              fontSize: 14,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          textCapitalization: TextCapitalization.sentences,
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                      
+                      // Mic Button
+                      _buildActionIconButton(
+                        icon: LucideIcons.mic,
+                        color: const Color(0xFF64748B),
+                        onTap: () {
+                          // TODO: Voice message logic
+                        },
+                      ),
+                      
+                      const SizedBox(width: 4),
+                      
+                      // Plus Button
+                      _buildActionIconButton(
+                        icon: LucideIcons.plus,
+                        color: const Color(0xFF64748B),
+                        onTap: () {
+                          // TODO: Attach logic
+                        },
+                      ),
+                      
+                      const SizedBox(width: 4),
+                      
+                      // Send Button (only visible when typing)
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (child, animation) => ScaleTransition(
+                          scale: animation,
+                          child: FadeTransition(opacity: animation, child: child),
+                        ),
+                        child: _isTyping
+                            ? InkWell(
+                                key: const ValueKey('send_btn'),
+                                onTap: _sendMessage,
+                                borderRadius: BorderRadius.circular(100),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  margin: const EdgeInsets.only(left: 4, right: 4),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      )
+                                    ],
+                                  ),
+                                  child: const Icon(LucideIcons.send, color: Colors.white, size: 16),
+                                ),
+                              )
+                            : const SizedBox(key: ValueKey('empty_send')),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionIconButton({
+    required IconData icon,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(100),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          color: color,
+          size: 20,
         ),
       ),
     );
@@ -403,5 +554,73 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     } catch (e) {
       return '';
     }
+  }
+}
+
+class _StaticGradientRingPainter extends CustomPainter {
+  final double borderWidth;
+  final bool isEnabled;
+  final bool isFocused;
+
+  _StaticGradientRingPainter({
+    required this.borderWidth,
+    required this.isEnabled,
+    required this.isFocused,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!isEnabled) {
+      final borderRect = Offset.zero & size;
+      final borderRRect = RRect.fromRectAndRadius(
+          borderRect, Radius.circular(size.height / 2));
+      final paint = Paint()
+        ..color = const Color(0xFFE2E8F0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = borderWidth;
+      canvas.drawRRect(borderRRect, paint);
+      return;
+    }
+
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(size.height / 2));
+
+    final List<Color> colors = [
+      const Color(0xFF3B82F6), // Blue
+      const Color(0xFF8B5CF6), // Purple
+      const Color(0xFFD946EF), // Pink
+      const Color(0xFF6366F1), // Indigo
+      const Color(0xFF3B82F6),
+    ];
+
+    final gradient = SweepGradient(
+      colors: colors,
+      stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+      transform: const GradientRotation(math.pi / 4), // Static rotation
+    );
+
+    // Inner shadow/glow when focused
+    if (isFocused) {
+      final blurPaint = Paint()
+        ..shader = gradient.createShader(rect)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = borderWidth * 2;
+      canvas.drawRRect(rrect, blurPaint);
+    }
+
+    final paint = Paint()
+      ..shader = gradient.createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth;
+
+    canvas.drawRRect(rrect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _StaticGradientRingPainter oldDelegate) {
+    return oldDelegate.isFocused != isFocused ||
+        oldDelegate.isEnabled != isEnabled ||
+        oldDelegate.borderWidth != borderWidth;
   }
 }

@@ -4,7 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/shared/widgets/mobile_task_card.dart';
-import 'package:buddy_mobile/features/home/screens/early_warning_screen.dart';
+import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 import 'package:buddy_mobile/features/home/screens/location_reminder_create_screen.dart';
 import 'package:buddy_mobile/features/home/providers/location_reminders_provider.dart';
@@ -264,23 +264,23 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
     return MobileTaskCard(
       title: reminder['title'] ?? 'Untitled',
       status: statusText,
-      variant: status == 'completed' ? 'green' : 'green',
+      variant: isDanger ? 'danger' : (status == 'completed' ? 'green' : 'orange'),
       date: DateFormatter.displayDateString(context, reminder['date']),
       time: reminder['time'] != null 
           ? DateFormatter.displayTimeString(context, reminder['time'])
           : 'Whenever I arrive',
       location: reminder['location'] ?? 'No Location',
-      onView: () => _onEarlyWarning(reminder),
+      onView: () => _onViewReminder(reminder),
       onShare: () => _onFamilyBackup(reminder),
       earlyWarningActive: reminder['earlyWarningSet'] ?? false,
     );
   }
 
-  void _onEarlyWarning(Map<String, dynamic> reminder) {
+  void _onViewReminder(Map<String, dynamic> reminder) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EarlyWarningScreen(reminder: reminder),
+        builder: (context) => SmartDetailsScreen(task: reminder),
       ),
     );
   }

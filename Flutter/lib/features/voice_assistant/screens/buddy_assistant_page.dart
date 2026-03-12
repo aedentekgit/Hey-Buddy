@@ -20,6 +20,8 @@ import 'package:buddy_mobile/features/auth/screens/splash_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_field.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:buddy_mobile/shared/widgets/keyboard_guided_hover.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class BuddyAssistantPage extends StatefulWidget {
   final bool isIntegrated;
@@ -38,7 +40,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   final SpeechToText _speechToText = SpeechToText();
   
   bool _isListening = false;
-  final String _selectedLanguage = "en-US";
+  final String _selectedLanguage = "en-GB";
   File? _selectedImage;
   int _messageLimit = 15;
 
@@ -364,158 +366,221 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
 
   Widget _buildEmptyState(BuddyProvider provider, BrandingProvider branding) {
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Column(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+          // ── Buddy Hero Section ────────────────────────────
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                colors: [
+                  branding.primaryColor,
+                  const Color(0xFF7C3AED),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: branding.primaryColor.withOpacity(0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/app_icon.png',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Buddy in ${provider.localCity ?? 'Your Area'}",
-                            style: GoogleFonts.outfit(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Here's what's happening around you right now.",
-                            style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              color: const Color(0xFF64748B),
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                InkWell(
-                  onTap: provider.isFetchingNews ? null : () {
-                    final userProvider = Provider.of<UserProvider>(context, listen: false);
-                    final lat = userProvider.user['currentLocation']?['lat'];
-                    final lon = userProvider.user['currentLocation']?['lng'];
-                    provider.fetchLocalNews(lat, lon);
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          provider.isFetchingNews ? "Refreshing..." : "Refresh",
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: provider.isFetchingNews ? Colors.grey : const Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (provider.isFetchingNews)
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: branding.primaryColor),
-                          )
-                        else
-                          Icon(LucideIcons.rotateCcw, size: 16, color: branding.primaryColor),
-                      ],
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                      )
+                    ]
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/app_icon.png',
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                if (provider.isFetchingNews)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else if (provider.localNews.isEmpty) ...[
-                  _buildSuggestionItem("What is the format of T20 WC 2026? 📜", branding),
-                  const SizedBox(height: 12),
-                  _buildSuggestionItem("Budget 2026: Taxpayers' Relief 💰", branding),
-                  const SizedBox(height: 12),
-                  _buildSuggestionItem("Convert photo of paper doc to document", branding),
-                ] else
-                  ...provider.localNews.map((news) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildSuggestionItem(news, branding),
-                  )),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Buddy in ${provider.localCity ?? 'Your Area'}",
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "I'm keeping an eye on your surroundings. Here's the latest:",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
+          const SizedBox(height: 28),
+
+          // ── Local Intelligence ──────────────────────────
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: branding.primaryColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                "LOCAL INTELLIGENCE",
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const Spacer(),
+              _smallActionButton(
+                icon: provider.isFetchingNews ? LucideIcons.refreshCw : LucideIcons.rotateCcw,
+                label: provider.isFetchingNews ? "Loading..." : "Refresh",
+                color: branding.primaryColor,
+                onTap: provider.isFetchingNews ? null : () {
+                  final userProvider = Provider.of<UserProvider>(context, listen: false);
+                  final lat = userProvider.user['currentLocation']?['lat'];
+                  final lon = userProvider.user['currentLocation']?['lng'];
+                  provider.fetchLocalNews(lat, lon);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (provider.isFetchingNews)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(strokeWidth: 3, color: branding.primaryColor),
+                    const SizedBox(height: 16),
+                    Text("Analyzing surroundings...", style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMid)),
+                  ],
+                ),
+              ),
+            )
+          else if (provider.localNews.isEmpty) ...[
+            _buildSuggestionItem("What is the format of T20 WC 2026? 📜", branding, LucideIcons.helpCircle),
+            const SizedBox(height: 14),
+            _buildSuggestionItem("Budget 2026: Taxpayers' Relief 💰", branding, LucideIcons.wallet),
+            const SizedBox(height: 14),
+            _buildSuggestionItem("Convert photo of paper doc to document", branding, LucideIcons.fileText),
+          ] else
+            ...provider.localNews.map((news) {
+              IconData icon = LucideIcons.info;
+              if (news.toLowerCase().contains('weather')) icon = LucideIcons.cloudSun;
+              if (news.toLowerCase().contains('event') || news.toLowerCase().contains('fest')) icon = LucideIcons.partyPopper;
+              if (news.toLowerCase().contains('traffic') || news.toLowerCase().contains('infra')) icon = LucideIcons.car;
+              if (news.toLowerCase().contains('alert')) icon = LucideIcons.alertTriangle;
+              
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _buildSuggestionItem(news, branding, icon),
+              );
+            }),
+          const SizedBox(height: 100), // Space for input
         ],
       ),
     );
   }
 
-  Widget _buildSuggestionItem(String text, BrandingProvider branding) {
-    return Material(
-      color: branding.primaryColor.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: () {
-          _inputController.text = text;
-          _handleSend();
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Text(
-          text,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: branding.primaryColor,
+  Widget _buildSuggestionItem(String text, BrandingProvider branding, [IconData? icon]) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            _inputController.text = text;
+            _handleSend();
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+            child: Row(
+              children: [
+                if (icon != null) ...[
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: branding.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(icon, color: branding.primaryColor, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                Expanded(
+                  child: Text(
+                    text,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1E293B),
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+                Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey[300]),
+              ],
+            ),
           ),
         ),
-        ), // Container
-      ), // InkWell
-    ); // Material
+      ),
+    );
   }
 
   Widget _buildPixelAnimation(BrandingProvider branding) {
@@ -580,144 +645,161 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         }
 
         final msg = provider.messages[totalMessages - 1 - msgIndex];
-        final isUser = msg['type'] == 'user';
-        final ts = DateFormat('h:mm a').format(
-          DateTime.fromMillisecondsSinceEpoch(
-              msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch));
+        return _buildMessageItem(msg, branding);
+      },
+    );
+  }
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Row(
-            mainAxisAlignment:
-                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (!isUser) ...[
-                _buildAssistantAvatar(branding),
-                const SizedBox(width: 10),
-              ],
-              ConstrainedBox(
-                  constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.72),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                    decoration: BoxDecoration(
-                      gradient: isUser
-                          ? const LinearGradient(
-                              colors: [Color(0xFF5B6CF9), Color(0xFF7C3AED)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: isUser ? null : Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(18),
-                        topRight: const Radius.circular(18),
-                        bottomLeft: Radius.circular(isUser ? 18 : 4),
-                        bottomRight: Radius.circular(isUser ? 4 : 18),
-                      ),
-                      boxShadow: isUser
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 12,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (msg['image'] != null) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.file(
-                              File(msg['image']),
-                              width: 240,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (isUser)
-                          Text(
-                            msg['text'],
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 14,
-                              height: 1.45,
-                            ),
+  Widget _buildMessageItem(Map<String, dynamic> msg, BrandingProvider branding) {
+    final isUser = msg['type'] == 'user';
+    final ts = DateFormat('h:mm a').format(
+      DateTime.fromMillisecondsSinceEpoch(
+          msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch));
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Row(
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser) ...[
+            _buildAssistantAvatar(branding),
+            const SizedBox(width: 12),
+          ],
+          ConstrainedBox(
+            constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.76),
+            child: Column(
+              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: isUser
+                        ? LinearGradient(
+                            colors: [branding.primaryColor, const Color(0xFF7C3AED)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           )
-                        else
-                          MarkdownBody(
-                            data: msg['text'],
-                            styleSheet: MarkdownStyleSheet(
-                              p: GoogleFonts.inter(
-                                  color: const Color(0xFF111827),
-                                  fontSize: 14,
-                                  height: 1.45),
-                              strong: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF111827)),
-                              listBullet: GoogleFonts.inter(
-                                  color: const Color(0xFF111827)),
-                            ),
-                          ),
-                        const SizedBox(height: 5),
-                        Align(
-                          alignment: Alignment.bottomRight,
-                          child: Text(
-                            ts,
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              color: isUser
-                                  ? Colors.white.withOpacity(0.65)
-                                  : const Color(0xFF9CA3AF),
-                            ),
+                        : null,
+                    color: isUser ? null : Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(22),
+                      topRight: const Radius.circular(22),
+                      bottomLeft: Radius.circular(isUser ? 22 : 4),
+                      bottomRight: Radius.circular(isUser ? 4 : 22),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isUser 
+                            ? branding.primaryColor.withOpacity(0.2)
+                            : Colors.black.withOpacity(0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: isUser ? null : Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (msg['image'] != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: CachedNetworkImage(
+                            imageUrl: msg['image'], // Using CachedNetworkImage if it's a URL
+                            width: 240,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(height: 180, color: Colors.grey[100], child: const Center(child: CircularProgressIndicator())),
+                            errorWidget: (context, url, error) => Image.file(File(msg['image']), width: 240, fit: BoxFit.cover), // Fallback to file if it was a file path
                           ),
                         ),
+                        const SizedBox(height: 10),
                       ],
+                      if (isUser)
+                        Text(
+                          msg['text'],
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            height: 1.5,
+                          ),
+                        )
+                      else
+                        MarkdownBody(
+                          data: msg['text'],
+                          styleSheet: MarkdownStyleSheet(
+                            p: GoogleFonts.inter(
+                                color: const Color(0xFF1E293B),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                height: 1.5),
+                            strong: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF0F172A)),
+                            listBullet: GoogleFonts.inter(
+                                color: const Color(0xFF1E293B)),
+                            code: GoogleFonts.firaCode(
+                                fontSize: 13,
+                                backgroundColor: const Color(0xFFF1F5F9),
+                                color: branding.primaryColor),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
+                  child: Text(
+                    ts,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF94A3B8),
                     ),
                   ),
                 ),
-              if (isUser) ...[
-                const SizedBox(width: 10),
-                _buildUserAvatar(),
               ],
-            ],
+            ),
           ),
-        );
-      },
+          if (isUser) ...[
+            const SizedBox(width: 12),
+            _buildUserAvatar(),
+          ],
+        ],
+      ),
     );
   }
 
   Widget _buildThinkingBubble(BrandingProvider branding) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           _buildAssistantAvatar(branding),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(18),
-                topRight: Radius.circular(18),
+                topLeft: Radius.circular(22),
+                topRight: Radius.circular(22),
                 bottomLeft: Radius.circular(4),
-                bottomRight: Radius.circular(18),
+                bottomRight: Radius.circular(22),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withOpacity(0.04),
                   blurRadius: 12,
-                  offset: const Offset(0, 3),
+                  offset: const Offset(0, 4),
                 ),
               ],
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -735,7 +817,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
   }
 
-  Widget _smallActionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+  Widget _smallActionButton({required IconData icon, required String label, required Color color, VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -767,36 +849,68 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   Widget _buildAssistantAvatar(BrandingProvider branding) {
     return Container(
-      width: 34,
-      height: 34,
+      width: 38,
+      height: 38,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [branding.primaryColor, const Color(0xFF7C3AED)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(11),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: branding.primaryColor.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: branding.primaryColor.withOpacity(0.1), width: 1.5),
       ),
-      child: const Center(
-        child: Icon(LucideIcons.bot, color: Colors.white, size: 18),
+      child: Center(
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [branding.primaryColor, const Color(0xFF7C3AED)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(LucideIcons.bot, color: Colors.white, size: 18),
+        ),
       ),
     );
   }
 
   Widget _buildUserAvatar() {
     return Container(
-      width: 34,
-      height: 34,
+      width: 38,
+      height: 38,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF5B6CF9), Color(0xFF7C3AED)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(11),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
       ),
-      child: const Center(
-        child: Icon(LucideIcons.user, color: Colors.white, size: 18),
+      child: Center(
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF64748B), Color(0xFF1E293B)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(LucideIcons.user, color: Colors.white, size: 18),
+        ),
       ),
     );
   }
@@ -867,31 +981,42 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   Widget _buildInputArea(BuddyProvider provider, BrandingProvider branding, AuthProvider auth) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-      color: Colors.transparent, // Allow glass bg to show
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      color: Colors.transparent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (_selectedImage != null) ...[
             Stack(
+              clipBehavior: Clip.none,
               children: [
                 Container(
-                  height: 100,
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
+                  height: 120,
+                  width: 120,
+                  margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
+                    ],
                     image: DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover),
                   ),
                 ),
                 Positioned(
-                  right: 8, top: 8,
-                  child: InkWell(
+                  right: -8, top: -8,
+                  child: GestureDetector(
                     onTap: () => setState(() => _selectedImage = null),
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: const Icon(LucideIcons.x, size: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white, 
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4),
+                        ],
+                      ),
+                      child: const Icon(LucideIcons.x, size: 14, color: Color(0xFF1E293B)),
                     ),
                   ),
                 ),

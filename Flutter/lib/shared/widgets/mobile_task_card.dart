@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:buddy_mobile/shared/widgets/pressable.dart';
 
 /// JSX-style reminder card with left-color-border design.
 /// Used in [ReminderListScreen] and similar contexts.
@@ -56,174 +57,142 @@ class MobileTaskCard extends StatelessWidget {
     final bool hasLocation =
         location.isNotEmpty && location != 'No Location';
 
-    return GestureDetector(
+    return Pressable(
       onTap: onView,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.cardBorder),
           boxShadow: AppColors.cardShadow,
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(20),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Left color stripe
-                Container(width: 4, color: color),
+                Container(width: 5, color: color),
                 // Card content
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                    padding: const EdgeInsets.fromLTRB(14, 16, 16, 16),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── Icon ──────────────────────────────────────────
                         Container(
-                          width: 50,
-                          height: 50,
+                          width: 48,
+                          height: 48,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                color.withOpacity(0.18),
-                                color.withOpacity(0.08),
+                                color.withOpacity(0.15),
+                                color.withOpacity(0.05),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: color.withOpacity(0.25)),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: color.withOpacity(0.2)),
                           ),
                           child: Icon(
-                              headerIcon ?? LucideIcons.bell, color: color, size: 22),
+                              headerIcon ?? LucideIcons.bell, color: color, size: 24),
                         ),
-                        const SizedBox(width: 13),
+                        const SizedBox(width: 14),
 
                         // ── Content ─────────────────────────────────────
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Title + chevron
+                              // Top Row: Title + Status Chip
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Text(
                                       title,
                                       style: GoogleFonts.nunito(
                                           fontWeight: FontWeight.w800,
-                                          fontSize: 14.5,
-                                          color: AppColors.text),
+                                          fontSize: 15,
+                                          color: AppColors.text,
+                                          height: 1.2),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Icon(LucideIcons.chevronRight,
-                                      size: 13, color: color),
+                                  const SizedBox(width: 10),
+                                  _Chip(label: status, color: color, small: true),
                                 ],
                               ),
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 4),
 
                               // Time / date
                               Row(
                                 children: [
                                   Icon(LucideIcons.clock,
-                                      size: 12, color: AppColors.textDim),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      date != null ? '$time · $date' : time,
-                                      style: GoogleFonts.inter(
-                                          fontSize: 12, color: AppColors.textMid),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                      size: 13, color: AppColors.textDim),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    date != null ? '$time · $date' : time,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12, 
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textMid),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 8),
 
-                              // Location
+                              // Location + distance/eta
                               if (hasLocation) ...[
-                                const SizedBox(height: 4),
                                 Row(
                                   children: [
                                     Icon(LucideIcons.mapPin,
-                                        size: 12, color: AppColors.accent),
-                                    const SizedBox(width: 4),
+                                        size: 12, color: AppColors.accent.withOpacity(0.8)),
+                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         location,
                                         style: GoogleFonts.inter(
-                                            fontSize: 11.5,
+                                            fontSize: 12,
                                             color: AppColors.textMid),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     if (eta != null) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.accent.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(
-                                              color: AppColors.accent.withOpacity(0.2)),
-                                        ),
-                                        child: Text(
-                                          'ETA $eta',
-                                          style: GoogleFonts.inter(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w800,
-                                              color: AppColors.accent),
-                                        ),
-                                      ),
+                                      const SizedBox(width: 10),
+                                      _badge('ETA $eta', AppColors.accent),
                                     ],
+                                  ],
+                                ),
+                              ] else if (distance != null && eta != null) ...[
+                                Row(
+                                  children: [
+                                    _badge(distance!, AppColors.textMid),
+                                    const SizedBox(width: 8),
+                                    _badge('ETA $eta', AppColors.accent),
                                   ],
                                 ),
                               ],
 
-                              // Distance / ETA stats row (no location label)
-                              if (distance != null && eta != null && !hasLocation) ...[
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 10, horizontal: 14),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: const Color(0xFFF1F5F9)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      _statItem(
-                                          LucideIcons.navigation, 'Distance', distance!),
-                                      Container(
-                                          width: 1,
-                                          height: 28,
-                                          color: const Color(0xFFE2E8F0)),
-                                      _statItem(LucideIcons.zap, 'ETA', eta!,
-                                          iconColor: AppColors.accent),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                              const SizedBox(height: 12),
 
-                              const SizedBox(height: 9),
-
-                              // Bottom row: status chip + action buttons
+                              // Action row
                               Row(
                                 children: [
-                                  _Chip(label: status, color: color, small: true),
+                                  if (onShare != null)
+                                    _actionBtn(LucideIcons.share2, "Share", onShare!),
                                   const Spacer(),
                                   if (onEdit != null)
                                     _iconBtn(LucideIcons.pencil,
                                         AppColors.textMid, AppColors.bg, onEdit!),
-                                  const SizedBox(width: 8),
+                                  if (onEdit != null && onDelete != null) const SizedBox(width: 10),
                                   if (onDelete != null)
                                     _iconBtn(LucideIcons.trash2, AppColors.danger,
                                         AppColors.dangerLight, onDelete!),
@@ -242,6 +211,51 @@ class MobileTaskCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _badge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(
+            fontSize: 9, fontWeight: FontWeight.w800, color: color),
+      ),
+    );
+  }
+
+  Widget _actionBtn(IconData icon, String label, VoidCallback onTap) {
+      return GestureDetector(
+          onTap: onTap,
+          child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                      ),
+                  ],
+              ),
+              child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                      Icon(icon, size: 13, color: AppColors.textMid),
+                      const SizedBox(width: 6),
+                      Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMid, letterSpacing: 0.3)),
+                  ],
+              ),
+          ),
+      );
   }
 
   Widget _statItem(IconData icon, String label, String value,
@@ -310,7 +324,7 @@ class _Chip extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
-        label.toUpperCase(),
+        label.replaceAll('_', ' ').toUpperCase(),
         style: GoogleFonts.inter(
           fontSize: small ? 10 : 11,
           fontWeight: FontWeight.w700,

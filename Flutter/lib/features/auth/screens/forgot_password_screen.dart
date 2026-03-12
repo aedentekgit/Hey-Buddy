@@ -4,6 +4,8 @@ import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -78,91 +80,114 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final isLoading = Provider.of<AuthProvider>(context).isLoading;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFF),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-              Text(
-                _currentStep == 0 
-                  ? "Forgot Password?" 
-                  : _currentStep == 1 
-                    ? "Verify OTP" 
-                    : "Reset Password",
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _currentStep == 0 
-                  ? "Enter your email address to receive an OTP." 
-                  : _currentStep == 1 
-                    ? "Enter the 6-digit OTP sent to your email." 
-                    : "Create a new strong password.",
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 32),
-              
-              if (_currentStep == 0) ...[
-                _buildTextField(
-                  controller: _emailController,
-                  label: "Email Address",
-                  hint: "Enter your email",
-                  icon: Icons.alternate_email,
-                ),
-                const SizedBox(height: 24),
-                _buildButton(
-                  text: "Send OTP",
-                  isLoading: isLoading,
-                  onPressed: _handleSendOtp,
-                ),
-              ] else if (_currentStep == 1) ...[
-                _buildTextField(
-                  controller: _otpController,
-                  label: "OTP",
-                  hint: "Enter 6-digit OTP",
-                  icon: Icons.lock_clock,
-                ),
-                const SizedBox(height: 24),
-                _buildButton(
-                  text: "Verify OTP",
-                  isLoading: isLoading,
-                  onPressed: _handleVerifyOtp,
-                ),
-              ] else if (_currentStep == 2) ...[
-                _buildTextField(
-                  controller: _passwordController,
-                  label: "New Password",
-                  hint: "Enter your new password",
-                  icon: Icons.lock_outline,
-                  isPassword: true,
-                  obscure: _obscurePassword,
-                  onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
-                const SizedBox(height: 24),
-                _buildButton(
-                  text: "Reset Password",
-                  isLoading: isLoading,
-                  onPressed: _handleResetPassword,
-                ),
-              ],
-            ],
-          ),
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF1E293B)),
         ),
+      ),
+      body: Stack(
+        children: [
+          // ── Decorative Background ──────────────────────────
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: branding.primaryColor.withOpacity(0.05),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    _currentStep == 0 
+                      ? "Reset Password" 
+                      : _currentStep == 1 
+                        ? "Verify OTP" 
+                        : "New Password",
+                    style: GoogleFonts.outfit(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF1E293B),
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _currentStep == 0 
+                      ? "Enter your email address to receive a verification code." 
+                      : _currentStep == 1 
+                        ? "We've sent a 6-digit code to your email." 
+                        : "At least 6 characters to keep your account secure.",
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  if (_currentStep == 0) ...[
+                    _buildTextField(
+                      controller: _emailController,
+                      label: "EMAIL ADDRESS",
+                      hint: "alex@example.com",
+                      icon: LucideIcons.mail,
+                    ),
+                    const SizedBox(height: 32),
+                    _buildButton(
+                      text: "Get OTP",
+                      isLoading: isLoading,
+                      onPressed: _handleSendOtp,
+                    ),
+                  ] else if (_currentStep == 1) ...[
+                    _buildTextField(
+                      controller: _otpController,
+                      label: "VERIFICATION CODE",
+                      hint: "0 0 0 0 0 0",
+                      icon: LucideIcons.key,
+                    ),
+                    const SizedBox(height: 32),
+                    _buildButton(
+                      text: "Verify Code",
+                      isLoading: isLoading,
+                      onPressed: _handleVerifyOtp,
+                    ),
+                  ] else if (_currentStep == 2) ...[
+                    _buildTextField(
+                      controller: _passwordController,
+                      label: "NEW PASSWORD",
+                      hint: "••••••••",
+                      icon: LucideIcons.lock,
+                      isPassword: true,
+                      obscure: _obscurePassword,
+                      onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                    const SizedBox(height: 32),
+                    _buildButton(
+                      text: "Update Password",
+                      isLoading: isLoading,
+                      onPressed: _handleResetPassword,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -179,30 +204,51 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 11, 
+              fontWeight: FontWeight.w800, 
+              color: const Color(0xFF64748B),
+              letterSpacing: 1.2,
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: TextField(
             controller: controller,
             obscureText: obscure,
-            style: GoogleFonts.inter(fontSize: 15),
+            style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 20),
               suffixIcon: isPassword
-                  ? IconButton(onPressed: onToggle, icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, color: const Color(0xFF94A3B8), size: 18))
+                  ? IconButton(
+                      onPressed: onToggle, 
+                      icon: Icon(
+                        obscure ? LucideIcons.eyeOff : LucideIcons.eye, 
+                        color: const Color(0xFF94A3B8), 
+                        size: 18,
+                      ),
+                    )
                   : null,
               hintText: hint,
-              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 14),
+              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w400),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               isDense: true,
             ),
           ),
@@ -216,20 +262,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     required bool isLoading,
     required VoidCallback onPressed,
   }) {
+    final branding = Provider.of<BrandingProvider>(context, listen: false);
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 58,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Provider.of<BrandingProvider>(context).primaryColor,
+          backgroundColor: branding.primaryColor,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           elevation: 0,
+          shadowColor: branding.primaryColor.withOpacity(0.5),
+        ).copyWith(
+          elevation: WidgetStateProperty.resolveWith<double>((states) {
+            if (states.contains(WidgetState.pressed)) return 0;
+            return 12;
+          }),
         ),
         child: isLoading
             ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-            : Text(text, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600)),
+            : Text(text, style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w700)),
       ),
     );
   }

@@ -47,7 +47,7 @@ class BuddyProvider with ChangeNotifier {
   bool _isSpeakingQueue = false;
 
   String _currentGender = 'male';
-  String _currentTone = 'soft';
+  String _currentTone = 'normal';
 
   void syncVoicePreferences(String gender, String tone) {
     _currentGender = gender;
@@ -87,7 +87,17 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _buddyService.getLocalNews(lat, lon);
+      // Madurai Fallback for Emulator (Mountain View default GPS)
+      // Ensures the AI assistant shows "Buddy in Madurai" and fetches relevant Indian news
+      double? useLat = lat;
+      double? useLon = lon;
+      if (useLat != null && useLon != null && 
+          useLat > 37.0 && useLat < 38.0 && useLon > -123.0 && useLon < -121.0) {
+        useLat = 9.9252;
+        useLon = 78.1198;
+      }
+
+      final response = await _buddyService.getLocalNews(useLat, useLon);
       if (response['success'] == true) {
         _localNews = List<String>.from(response['news']);
         _localCity = response['city'];
@@ -129,12 +139,14 @@ class BuddyProvider with ChangeNotifier {
           final name = v['name']?.toString().toLowerCase() ?? '';
           final locale = v['locale']?.toString().toLowerCase() ?? '';
           if (locale.startsWith('en')) {
-            if (gender == 'male' && (name.contains('male') || name.contains('iom') || name.contains('tpd') || name.contains('rjs') || name.contains('daniel'))) {
+            // Prioritize British voices (en-gb) to match RyanNeural
+            bool isBritish = locale.contains('gb');
+            if (gender == 'male' && (name.contains('male') || name.contains('iom') || name.contains('tpd') || name.contains('rjs') || name.contains('daniel') || name.contains('ryan'))) {
               selectedVoice = v;
-              break;
+              if (isBritish) break; // Perfect match
             } else if (gender == 'female' && (name.contains('female') || name.contains('sfg') || name.contains('tpf') || name.contains('samantha'))) {
               selectedVoice = v;
-              break;
+              if (isBritish) break;
             }
           }
         }
@@ -151,7 +163,7 @@ class BuddyProvider with ChangeNotifier {
       if (gender == 'male') {
         pitch = 0.8;
       } else {
-        pitch = 1.1;
+        pitch = 1.0;
       }
 
       if (tone == 'soft') {
@@ -184,13 +196,13 @@ class BuddyProvider with ChangeNotifier {
         
         // Fetch current user prefs for the voice query
         String gender = 'male';
-        String tone = 'soft';
+        String tone = 'normal';
 
         // Note: In a production app, we'd ideally have the UserProvider's current state passed in,
         // but for high-speed local processing, we will hit the preview-voice with the latest available params if we can.
         // For now, hit it with the simple text. The backend will use DB defaults or we can pass gender/tone if we had access here easily.
         
-        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(sentence)}');
+        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(sentence)}&gender=$gender&tone=$tone');
         
         final response = await http.get(url, headers: {
           'Authorization': 'Bearer $token',

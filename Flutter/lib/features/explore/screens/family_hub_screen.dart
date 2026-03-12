@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/features/explore/screens/family_chat_screen.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class FamilyHubScreen extends StatefulWidget {
   const FamilyHubScreen({super.key});
@@ -653,7 +655,7 @@ class _MemberCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = member['name']?.toString() ?? '?';
     final role = member['role']?.toString() ?? member['email']?.toString() ?? '';
-    final profilePic = member['profilePicture'] as String?;
+    final profilePic = AppConfig.formatImageUrl(member['profilePicture'] as String?);
 
     // Rotating avatar bg colors
     const avatarColors = [
@@ -707,27 +709,13 @@ class _MemberCard extends StatelessWidget {
                     child: profilePic != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(50 / 2.4),
-                            child: Image.network(profilePic,
+                            child: CachedNetworkImage(
+                                imageUrl: profilePic,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Center(
-                                      child: Text(
-                                        name[0].toUpperCase(),
-                                        style: GoogleFonts.nunito(
-                                            fontSize: 19,
-                                            fontWeight: FontWeight.w800,
-                                            color: Colors.white),
-                                      ),
-                                    )),
+                                placeholder: (_, __) => _fallbackAvatar(name),
+                                errorWidget: (_, __, ___) => _fallbackAvatar(name)),
                           )
-                        : Center(
-                            child: Text(
-                              name[0].toUpperCase(),
-                              style: GoogleFonts.nunito(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white),
-                            ),
-                          ),
+                        : _fallbackAvatar(name),
                   ),
                   if (isYou)
                     Positioned(
@@ -798,6 +786,16 @@ class _MemberCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _fallbackAvatar(String name) {
+    return Center(
+      child: Text(
+        name[0].toUpperCase(),
+        style: GoogleFonts.nunito(
+            fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white),
       ),
     );
   }

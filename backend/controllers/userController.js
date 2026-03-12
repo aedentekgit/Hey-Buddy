@@ -24,7 +24,7 @@ const getUsers = async (req, res) => {
             delete user.password;
 
             // Resolve voice configuration
-            const prefs = user.voicePreferences || { gender: 'female', tone: 'soft' };
+            const prefs = user.voicePreferences || { gender: 'male', tone: 'normal' };
             const platform = req.headers['x-platform'] || 'web';
             user.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
@@ -48,7 +48,7 @@ const createUser = async (req, res) => {
         const userResponse = user.toObject();
         delete userResponse.password;
 
-        const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
+        const prefs = userResponse.voicePreferences || { gender: 'male', tone: 'normal' };
         const platform = req.headers['x-platform'] || 'web';
         userResponse.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
@@ -98,7 +98,7 @@ const updateUser = async (req, res) => {
         const userResponse = user.toObject();
         delete userResponse.password;
 
-        const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
+        const prefs = userResponse.voicePreferences || { gender: 'male', tone: 'normal' };
         const platform = req.headers['x-platform'] || 'web';
         userResponse.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
@@ -198,7 +198,7 @@ const updateProfile = async (req, res) => {
         const userResponse = user.toObject();
         delete userResponse.password;
 
-        const prefs = userResponse.voicePreferences || { gender: 'female', tone: 'soft' };
+        const prefs = userResponse.voicePreferences || { gender: 'male', tone: 'normal' };
         const platform = req.headers['x-platform'] || 'web';
         userResponse.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 

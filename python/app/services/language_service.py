@@ -9,8 +9,8 @@ class LanguageService:
     """
 
     # Mapping of BCP-47 language codes to edge-tts voice IDs.
-    # We prefer male voices to match the "Hey buddy" persona where available.
-    VOICE_MAPPING = {
+    # Prefer male voices for the default mapping
+    VOICE_MAPPING_MALE = {
         "en": "en-GB-RyanNeural",      # English (UK)
         "hi": "hi-IN-MadhurNeural",    # Hindi
         "ta": "ta-IN-ValluvarNeural",  # Tamil
@@ -21,7 +21,7 @@ class LanguageService:
         "gu": "gu-IN-NiranjanNeural",  # Gujarati
         "mr": "mr-IN-ManoharNeural",   # Marathi
         "ur": "ur-IN-SalmanNeural",    # Urdu
-        "pa": "hi-IN-MadhurNeural",    # Punjabi (fallback to Hindi if no direct voice)
+        "pa": "hi-IN-MadhurNeural",    # Punjabi
         "es": "es-ES-AlvaroNeural",    # Spanish
         "fr": "fr-FR-RemyNeural",      # French
         "de": "de-DE-KillianNeural",   # German
@@ -29,6 +29,28 @@ class LanguageService:
         "ja": "ja-JP-KeitaNeural",     # Japanese
         "ko": "ko-KR-HyunsuNeural",    # Korean
         "zh": "zh-CN-YunyangNeural",   # Chinese (Mandarin)
+    }
+
+    # Female voices for Buddy (Aoede persona)
+    VOICE_MAPPING_FEMALE = {
+        "en": "en-GB-SoniaNeural",     # English (UK)
+        "hi": "hi-IN-SwaraNeural",     # Hindi
+        "ta": "ta-IN-PallaviNeural",   # Tamil
+        "te": "te-IN-ShrutiNeural",    # Telugu
+        "kn": "kn-IN-SapnaNeural",     # Kannada
+        "ml": "ml-IN-SobhanaNeural",   # Malayalam
+        "bn": "bn-IN-TanishaNeural",   # Bengali
+        "gu": "gu-IN-DhwaniNeural",    # Gujarati
+        "mr": "mr-IN-AarohiNeural",    # Marathi
+        "ur": "ur-IN-GulNeural",       # Urdu
+        "pa": "hi-IN-SwaraNeural",     # Punjabi
+        "es": "es-ES-ElviraNeural",    # Spanish
+        "fr": "fr-FR-DeniseNeural",    # French
+        "de": "de-DE-KatjaNeural",     # German
+        "it": "it-IT-ElsaNeural",      # Italian
+        "ja": "ja-JP-NanamiNeural",    # Japanese
+        "ko": "ko-KR-SunHiNeural",     # Korean
+        "zh": "zh-CN-XiaoxiaoNeural",  # Chinese (Mandarin)
     }
 
     # Unicode ranges for various scripts to help with detection
@@ -55,15 +77,22 @@ class LanguageService:
             if re.search(pattern, text):
                 return lang
 
-        # If it's mostly ASCII, it's likely English (or another Latin-based language)
-        # For this assistant, we assume English if no other script is found.
+        # If it's mostly ASCII, it's likely English
         return "en"
 
-    def get_voice_for_text(self, text: str, default_voice: str = "en-GB-RyanNeural") -> str:
+    def get_voice_for_text(self, text: str, gender: str = "male", default_voice: str = None) -> str:
         """
         Detect the language of the text and return the corresponding voice ID.
         """
         lang = self.detect_language(text)
-        voice = self.VOICE_MAPPING.get(lang, default_voice)
-        logger.info(f"[LANG] Detected: {lang} | Selected Voice: {voice}")
+        
+        if gender.lower() == "female":
+            mapping = self.VOICE_MAPPING_FEMALE
+            default = default_voice or "en-GB-SoniaNeural"
+        else:
+            mapping = self.VOICE_MAPPING_MALE
+            default = default_voice or "en-GB-RyanNeural"
+            
+        voice = mapping.get(lang, default)
+        logger.info(f"[LANG] Detected: {lang} | Gender: {gender} | Selected Voice: {voice}")
         return voice

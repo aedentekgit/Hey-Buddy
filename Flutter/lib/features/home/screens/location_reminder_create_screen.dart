@@ -2,23 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/home/providers/location_reminders_provider.dart';
+import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class LocationReminderCreateScreen extends StatefulWidget {
   final Map<String, dynamic>? reminder;
   const LocationReminderCreateScreen({super.key, this.reminder});
 
   @override
-  State<LocationReminderCreateScreen> createState() => _LocationReminderCreateScreenState();
+  State<LocationReminderCreateScreen> createState() =>
+      _LocationReminderCreateScreenState();
 }
 
-class _LocationReminderCreateScreenState extends State<LocationReminderCreateScreen> {
+class _LocationReminderCreateScreenState
+    extends State<LocationReminderCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
   final _dateController = TextEditingController();
   final _timeController = TextEditingController();
-  
+
   String _warningLevel = 'medium';
   bool _isLoading = false;
 
@@ -35,10 +39,10 @@ class _LocationReminderCreateScreenState extends State<LocationReminderCreateScr
       _timeController.text = r['time'] ?? '';
       _warningLevel = r['warningLevel'] ?? 'medium';
     } else {
-      // Pre-fill with today's date
       final now = DateTime.now();
-      _dateController.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-      _timeController.text = "10:00 AM"; // Default
+      _dateController.text =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      _timeController.text = '10:00 AM';
     }
   }
 
@@ -57,10 +61,17 @@ class _LocationReminderCreateScreenState extends State<LocationReminderCreateScr
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(primary: AppColors.accent),
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) {
       setState(() {
-        _dateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+        _dateController.text =
+            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
       });
     }
   }
@@ -69,21 +80,28 @@ class _LocationReminderCreateScreenState extends State<LocationReminderCreateScr
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(primary: AppColors.accent),
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) {
-      final hour = picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
+      final hour =
+          picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
       final period = picked.period == DayPeriod.am ? 'AM' : 'PM';
       setState(() {
-        _timeController.text = "${hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')} $period";
+        _timeController.text =
+            '${hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')} $period';
       });
     }
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
-    
+
     final data = {
       'title': _titleController.text.trim(),
       'location': _locationController.text.trim(),
@@ -92,21 +110,22 @@ class _LocationReminderCreateScreenState extends State<LocationReminderCreateScr
       'warningLevel': _warningLevel,
     };
 
-    final success = isEditing 
-      ? await context.read<LocationRemindersProvider>().updateReminder(widget.reminder!['_id'], data)
-      : await context.read<LocationRemindersProvider>().createReminder(data);
-    
+    final success = isEditing
+        ? await context
+            .read<LocationRemindersProvider>()
+            .updateReminder(widget.reminder!['_id'], data)
+        : await context
+            .read<LocationRemindersProvider>()
+            .createReminder(data);
+
     if (mounted) {
       setState(() => _isLoading = false);
       if (success) {
-        Navigator.pop(context, true); // Return true to indicate change
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isEditing ? 'Reminder updated' : 'Location reminder created')),
-        );
+        Navigator.pop(context, true);
+        ToastUtils.showSuccessToast(
+            isEditing ? 'Reminder updated' : 'Location reminder created');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save reminder'), backgroundColor: Colors.red),
-        );
+        ToastUtils.showErrorToast('Failed to save reminder');
       }
     }
   }
@@ -114,171 +133,388 @@ class _LocationReminderCreateScreenState extends State<LocationReminderCreateScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(isEditing ? 'Edit Reminder' : 'New Location Reminder', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: const Color(0xFF1E293B),
-      ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              _buildFieldLabel('TITLE'),
-              TextFormField(
-                controller: _titleController,
-                decoration: _inputDecoration('e.g. Visit Tower Bridge'),
-                validator: (v) => v == null || v.isEmpty ? 'Title is required' : null,
-              ),
-              const SizedBox(height: 20),
-
-              _buildFieldLabel('LOCATION'),
-              TextFormField(
-                controller: _locationController,
-                decoration: _inputDecoration('e.g. London, UK').copyWith(
-                  prefixIcon: const Icon(LucideIcons.mapPin, size: 18),
+      backgroundColor: AppColors.bg,
+      body: Column(
+        children: [
+          // ── Header ────────────────────────────────────────────────
+          Container(
+            color: AppColors.surface,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border:
+                      Border(bottom: BorderSide(color: AppColors.border)),
                 ),
-                validator: (v) => v == null || v.isEmpty ? 'Location is required' : null,
-              ),
-              const SizedBox(height: 20),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFieldLabel('DATE'),
-                        TextFormField(
-                          controller: _dateController,
-                          readOnly: true,
-                          onTap: _selectDate,
-                          decoration: _inputDecoration('YYYY-MM-DD').copyWith(
-                            prefixIcon: const Icon(LucideIcons.calendar, size: 18),
-                          ),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(color: AppColors.border),
                         ),
-                      ],
+                        child: const Icon(LucideIcons.arrowLeft,
+                            size: 18, color: AppColors.text),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFieldLabel('TIME'),
-                        TextFormField(
-                          controller: _timeController,
-                          readOnly: true,
-                          onTap: _selectTime,
-                          decoration: _inputDecoration('HH:MM AM/PM').copyWith(
-                            prefixIcon: const Icon(LucideIcons.clock, size: 18),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isEditing
+                                ? 'Edit Reminder'
+                                : 'New Location Reminder',
+                            style: GoogleFonts.nunito(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.text,
+                            ),
                           ),
-                        ),
-                      ],
+                          Text(
+                            isEditing
+                                ? 'Update reminder details'
+                                : 'Set a location-based reminder',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: AppColors.textMid),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              _buildFieldLabel('WARNING LEVEL'),
-              Row(
-                children: [
-                  _warningOption('Low', 'low', const Color(0xFF10B981)),
-                  const SizedBox(width: 8),
-                  _warningOption('Med', 'medium', const Color(0xFFF59E0B)),
-                  const SizedBox(width: 8),
-                  _warningOption('High', 'high', const Color(0xFFE11D48)),
-                ],
-              ),
-              
-              const SizedBox(height: 48),
-
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(isEditing ? 'Update Reminder' : 'Create Reminder', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
+
+          // ── Body ──────────────────────────────────────────────────
+          Expanded(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(18, 22, 18, 40),
+                children: [
+                  // Title field
+                  _FieldLabel('Title'),
+                  const SizedBox(height: 8),
+                  _StyledField(
+                    controller: _titleController,
+                    hint: 'e.g. Visit Tower Bridge',
+                    icon: LucideIcons.fileText,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Title is required' : null,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Location field
+                  _FieldLabel('Location'),
+                  const SizedBox(height: 8),
+                  _StyledField(
+                    controller: _locationController,
+                    hint: 'e.g. London, UK',
+                    icon: LucideIcons.mapPin,
+                    iconColor: AppColors.orange,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Location is required' : null,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Date + Time row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _FieldLabel('Date'),
+                            const SizedBox(height: 8),
+                            _TappableField(
+                              controller: _dateController,
+                              hint: 'YYYY-MM-DD',
+                              icon: LucideIcons.calendar,
+                              iconColor: AppColors.teal,
+                              onTap: _selectDate,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _FieldLabel('Time'),
+                            const SizedBox(height: 8),
+                            _TappableField(
+                              controller: _timeController,
+                              hint: 'HH:MM AM/PM',
+                              icon: LucideIcons.clock,
+                              iconColor: AppColors.purple,
+                              onTap: _selectTime,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Warning level
+                  _FieldLabel('Warning Level'),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _WarningOption(
+                          label: 'Low',
+                          value: 'low',
+                          color: AppColors.green,
+                          selected: _warningLevel == 'low',
+                          onTap: () =>
+                              setState(() => _warningLevel = 'low')),
+                      const SizedBox(width: 8),
+                      _WarningOption(
+                          label: 'Medium',
+                          value: 'medium',
+                          color: AppColors.orange,
+                          selected: _warningLevel == 'medium',
+                          onTap: () =>
+                              setState(() => _warningLevel = 'medium')),
+                      const SizedBox(width: 8),
+                      _WarningOption(
+                          label: 'High',
+                          value: 'high',
+                          color: AppColors.danger,
+                          selected: _warningLevel == 'high',
+                          onTap: () =>
+                              setState(() => _warningLevel = 'high')),
+                    ],
+                  ),
+                  const SizedBox(height: 36),
+
+                  // Save button
+                  GestureDetector(
+                    onTap: _isLoading ? null : _save,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.headerGradient,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accent.withOpacity(0.35),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: _isLoading
+                          ? const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white),
+                              ),
+                            )
+                          : Text(
+                              isEditing
+                                  ? 'Update Reminder'
+                                  : 'Create Reminder',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.nunito(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Shared field widgets ────────────────────────────────────────────────────
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toUpperCase(),
+      style: GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textDim,
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+class _StyledField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final Color? iconColor;
+  final String? Function(String?)? validator;
+
+  const _StyledField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.iconColor,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = iconColor ?? AppColors.accent;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: TextFormField(
+        controller: controller,
+        validator: validator,
+        cursorColor: AppColors.accent,
+        style: GoogleFonts.nunito(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppColors.text),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle:
+              GoogleFonts.inter(fontSize: 13, color: AppColors.textDim),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Icon(icon, size: 17, color: color),
+          ),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 0, minHeight: 0),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          border: InputBorder.none,
+          errorStyle: GoogleFonts.inter(
+              fontSize: 11, color: AppColors.danger),
         ),
       ),
     );
   }
+}
 
-  Widget _buildFieldLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(
-        label,
-        style: GoogleFonts.outfit(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
-          letterSpacing: 1.0,
+class _TappableField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final Color? iconColor;
+  final VoidCallback onTap;
+
+  const _TappableField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.iconColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = iconColor ?? AppColors.accent;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.cardShadow,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                controller.text.isNotEmpty ? controller.text : hint,
+                style: controller.text.isNotEmpty
+                    ? GoogleFonts.nunito(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text)
+                    : GoogleFonts.inter(
+                        fontSize: 13, color: AppColors.textDim),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 14),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
-      ),
-    );
-  }
+class _WarningOption extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
 
-  Widget _warningOption(String label, String value, Color color) {
-    final bool isSelected = _warningLevel == value;
+  const _WarningOption({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _warningLevel = value),
-        child: Container(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.1) : Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            color: selected ? color.withOpacity(0.12) : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? color : const Color(0xFFE2E8F0),
-              width: isSelected ? 2 : 1,
+              color: selected ? color : AppColors.border,
+              width: selected ? 1.5 : 1,
             ),
+            boxShadow: AppColors.cardShadow,
           ),
           child: Center(
             child: Text(
               label,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? color : const Color(0xFF64748B),
+              style: GoogleFonts.nunito(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: selected ? color : AppColors.textMid,
               ),
             ),
           ),

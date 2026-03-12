@@ -59,8 +59,8 @@ class BuddyAgent extends EventEmitter {
             }
 
             const timeZone = user?.timezone || 'UTC';
-            const voicePrefs = user?.voicePreferences || { gender: 'female', tone: 'soft' };
-            const personality = getPersonality(voicePrefs.gender || 'female', voicePrefs.tone || 'soft');
+            const voicePrefs = user?.voicePreferences || { gender: 'male', tone: 'normal' };
+            const personality = getPersonality(voicePrefs.gender || 'male', voicePrefs.tone || 'normal');
 
             this.personality = personality;
             this.timeZone = timeZone;
