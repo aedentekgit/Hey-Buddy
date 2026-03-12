@@ -8,6 +8,8 @@ import 'package:buddy_mobile/features/home/providers/location_reminders_provider
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
+import 'package:buddy_mobile/features/auth/screens/splash_screen.dart';
+import 'package:buddy_mobile/core/providers/security_provider.dart';
 
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 
@@ -54,6 +56,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => LocationRemindersProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BuddyProvider()),
+        ChangeNotifierProvider(create: (_) => SecurityProvider()),
         ChangeNotifierProxyProvider<BuddyProvider, FamilyProvider>(
           create: (context) => FamilyProvider(context.read<BuddyProvider>().socketService),
           update: (context, buddy, family) => family ?? FamilyProvider(buddy.socketService),
@@ -76,7 +79,7 @@ class BuddyApp extends StatelessWidget {
           title: branding.appName,
           debugShowCheckedModeBanner: false,
           theme: branding.themeData,
-          home: const MainScreen(),
+          home: const SplashScreen(),
       builder: (context, child) {
             return child!;
           },

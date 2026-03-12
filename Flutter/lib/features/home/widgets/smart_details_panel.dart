@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import '../providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'package:buddy_mobile/features/home/widgets/quick_actions_grid.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:buddy_mobile/shared/widgets/mobile_map_picker.dart';
@@ -18,7 +19,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
 
 class SmartDetailsPanel extends StatefulWidget {
   final Map<String, dynamic> reminder;
@@ -81,14 +81,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     locationController = TextEditingController(text: r['location'] ?? '');
 
     bufferTime = (r['bufferTime'] ?? 15).toDouble().clamp(5.0, 120.0);
-    geofenceRadius = (r['geofenceRadius'] ?? 500).toDouble().clamp(100.0, 2000.0);
-    
-    final al = r['alerts'] ?? {};
-    alerts = {
-      'push': al['push'] ?? true,
-      'email': al['email'] ?? true,
+    geofenceRadius = (r['geofenceRadius'] ?? 500).toDouble().clamp(
+      100.0,
+      2000.0,
+    );
 
-    };
+    final al = r['alerts'] ?? {};
+    alerts = {'push': al['push'] ?? true, 'email': al['email'] ?? true};
 
     priority = r['priority'] ?? 'medium';
     backupContacts = List.from(r['backupContacts'] ?? []);
@@ -103,8 +102,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
     timeline = List.from(r['timeline'] ?? []);
     status = r['status'] ?? 'pending';
-    coordinates = r['coordinates'] != null ? Map<String, dynamic>.from(r['coordinates']) : null;
-    
+    coordinates = r['coordinates'] != null
+        ? Map<String, dynamic>.from(r['coordinates'])
+        : null;
+
     // No coordinates fallback — if the reminder has no saved lat/lng, keep coordinates null.
     // The map will show the "No location specified" overlay and the user can re-pick in Edit mode.
     // A hardcoded city would produce wrong distance, travel time, and route.
@@ -125,7 +126,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // Always check for a fresh location from UserProvider.
     // If we don't have a route yet (polylines empty) or if currentPosition is null,
     // we should try (re)initializing the route.
@@ -135,7 +136,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         // Only run if we actually have something to show now that we didn't before.
         // We use a small delay or check to avoid infinite loops if GPS stays failing.
         if (!_routeInitialized || currentPosition == null) {
-           _initRoute();
+          _initRoute();
         }
       }
     }
@@ -148,7 +149,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
         try {
           final pos = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high,
@@ -178,7 +180,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             altitudeAccuracy: 0,
             headingAccuracy: 0,
           );
-          print("Using UserProvider stored location as fallback: ${currentPosition!.latitude}, ${currentPosition!.longitude}");
+          print(
+            "Using UserProvider stored location as fallback: ${currentPosition!.latitude}, ${currentPosition!.longitude}",
+          );
         }
       }
 
@@ -224,11 +228,16 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     // Google Directions API will handle it (though it might fail if there's no road).
     // Discarding the route entirely makes the 'Smart Details' screen look broken.
 
-    PolylinePoints polylinePoints = PolylinePoints(apiKey: AppConfig.googleMapsApiKey);
+    PolylinePoints polylinePoints = PolylinePoints(
+      apiKey: AppConfig.googleMapsApiKey,
+    );
     PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
       request: PolylineRequest(
         origin: PointLatLng(lat, lng),
-        destination: PointLatLng((coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble()),
+        destination: PointLatLng(
+          (coordinates!['lat'] as num).toDouble(),
+          (coordinates!['lng'] as num).toDouble(),
+        ),
         mode: TravelMode.driving,
       ),
     );
@@ -240,18 +249,22 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       }
       if (mounted) {
         setState(() {
-          polylines.add(Polyline(
-            polylineId: const PolylineId("route"),
-            color: Theme.of(context).primaryColor,
-            points: polylineCoordinates,
-            width: 5,
-          ));
+          polylines.add(
+            Polyline(
+              polylineId: const PolylineId("route"),
+              color: Theme.of(context).primaryColor,
+              points: polylineCoordinates,
+              width: 5,
+            ),
+          );
         });
 
         // Fit bounds if map controller is available
         if (mapController != null) {
           LatLngBounds bounds = _getBounds(polylineCoordinates);
-          mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+          mapController!.animateCamera(
+            CameraUpdate.newLatLngBounds(bounds, 50),
+          );
         }
       }
     } else {
@@ -298,19 +311,21 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       final stats = await _taskService.fetchTravelStats(
         widget.reminder['_id'],
         lat: lat,
-        lng: lng
+        lng: lng,
       );
-      
+
       if (mounted) {
         setState(() {
           travelStats = stats;
-          
+
           // AUTO-CALCULATE RADIUS: HALF of Distance (min 200m, max 5km)
           if (stats != null && stats['distance'] != null) {
             double distanceKm = stats['distance'] / 1000.0;
             double autoRadiusKm = (distanceKm / 2.0).clamp(0.2, 5.0);
             geofenceRadius = autoRadiusKm * 1000.0;
-            print("[Geofence] Auto-calculated radius: ${autoRadiusKm.toStringAsFixed(2)}km for distance: ${distanceKm.toStringAsFixed(2)}km");
+            print(
+              "[Geofence] Auto-calculated radius: ${autoRadiusKm.toStringAsFixed(2)}km for distance: ${distanceKm.toStringAsFixed(2)}km",
+            );
           }
         });
         // Fetch adjusted notification time from backend now that we have travel data
@@ -369,9 +384,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("Remove Sharing"),
-        content: const Text("Are you sure you want to stop sharing this reminder with this user?"),
+        content: const Text(
+          "Are you sure you want to stop sharing this reminder with this user?",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text("Remove", style: TextStyle(color: Colors.red)),
@@ -382,17 +402,21 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
     if (confirm != true) return;
 
-    final success = await _taskService.unshareReminder(widget.reminder['_id'], userId);
+    final success = await _taskService.unshareReminder(
+      widget.reminder['_id'],
+      userId,
+    );
     if (success) {
       ToastUtils.showSuccessToast("User removed from sharing");
-       if (mounted) {
-        setState(() => sharedWith.removeWhere((s) => s['user']['_id'] == userId));
+      if (mounted) {
+        setState(
+          () => sharedWith.removeWhere((s) => s['user']['_id'] == userId),
+        );
       }
     } else {
       ToastUtils.showErrorToast("Failed to remove user");
     }
   }
-
 
   /// Grabs current GPS position and reverse-geocodes it to a readable address.
   Future<void> _useMyLocation() async {
@@ -404,7 +428,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.deniedForever) {
-        ToastUtils.showErrorToast("Location permission denied. Enable it in Settings.");
+        ToastUtils.showErrorToast(
+          "Location permission denied. Enable it in Settings.",
+        );
         return;
       }
 
@@ -414,15 +440,21 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       ).timeout(const Duration(seconds: 15));
 
       // Reverse geocode
-      String address = "${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}";
+      String address =
+          "${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}";
       try {
-        final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        final placemarks = await placemarkFromCoordinates(
+          pos.latitude,
+          pos.longitude,
+        );
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
           final parts = <String>[
-            if (p.name != null && p.name!.isNotEmpty && p.name != p.street) p.name!,
+            if (p.name != null && p.name!.isNotEmpty && p.name != p.street)
+              p.name!,
             if (p.street != null && p.street!.isNotEmpty) p.street!,
-            if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
+            if (p.subLocality != null && p.subLocality!.isNotEmpty)
+              p.subLocality!,
             if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
           ].where((s) => s.isNotEmpty).toList();
           if (parts.isNotEmpty) address = parts.join(', ');
@@ -437,7 +469,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         ToastUtils.showSuccessToast("Location captured ✓");
       }
     } catch (e) {
-      if (mounted) ToastUtils.showErrorToast("Could not get location: ${e.toString().split(':').first}");
+      if (mounted)
+        ToastUtils.showErrorToast(
+          "Could not get location: ${e.toString().split(':').first}",
+        );
     } finally {
       if (mounted) setState(() => _isGettingLocation = false);
     }
@@ -485,18 +520,25 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       if (data['status'] == 'OK' && mounted) {
         setState(() {
           _locationSuggestions = List<Map<String, dynamic>>.from(
-            (data['predictions'] as List).map((p) => {
-              'description': p['description'] as String,
-              'place_id': p['place_id'] as String,
-              'main': (p['structured_formatting']?['main_text'] ?? p['description']) as String,
-              'secondary': (p['structured_formatting']?['secondary_text'] ?? '') as String,
-            }),
+            (data['predictions'] as List).map(
+              (p) => {
+                'description': p['description'] as String,
+                'place_id': p['place_id'] as String,
+                'main':
+                    (p['structured_formatting']?['main_text'] ??
+                            p['description'])
+                        as String,
+                'secondary':
+                    (p['structured_formatting']?['secondary_text'] ?? '')
+                        as String,
+              },
+            ),
           );
           _showLocationSuggestions = _locationSuggestions.isNotEmpty;
         });
       }
-    } catch (_) {}
-    finally {
+    } catch (_) {
+    } finally {
       if (mounted) setState(() => _isSearchingPlaces = false);
     }
   }
@@ -543,17 +585,24 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       final updatedData = {
         category: category == 'smartFeatures' ? smartFeatures : alerts,
       };
-      
-      final success = await Provider.of<TasksProvider>(context, listen: false)
-          .updateTask(widget.reminder['_id'], updatedData);
-      
+
+      final success = await Provider.of<TasksProvider>(
+        context,
+        listen: false,
+      ).updateTask(widget.reminder['_id'], updatedData);
+
       if (success) {
         final statusText = value ? "turned ON" : "turned OFF";
-        String label = key == 'earlyWarning' ? "Early Warning" : 
-                       key == 'trafficAware' ? "Traffic ETA" :
-                       key == 'itemExitGuards' ? "Exit Guards" :
-                       key == 'push' ? "Push Alerts" : "Email Alerts";
-        
+        String label = key == 'earlyWarning'
+            ? "Early Warning"
+            : key == 'trafficAware'
+            ? "Traffic ETA"
+            : key == 'itemExitGuards'
+            ? "Exit Guards"
+            : key == 'push'
+            ? "Push Alerts"
+            : "Email Alerts";
+
         final msg = "$label $statusText";
         if (value) {
           ToastUtils.showSuccessToast(msg);
@@ -574,6 +623,88 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     }
   }
 
+  Future<void> _handleComplete() async {
+    final success = await Provider.of<TasksProvider>(
+      context,
+      listen: false,
+    ).updateTask(widget.reminder['_id'], {'status': 'completed'});
+    if (success && mounted) {
+      ToastUtils.showSuccessToast("Reminder marked as completed");
+      Navigator.maybePop(context);
+    }
+  }
+
+  Future<void> _handleSnooze() async {
+    final rawTime = timeController.text;
+    final snoozed = _snoozeTime(rawTime, 30);
+    final success = await Provider.of<TasksProvider>(
+      context,
+      listen: false,
+    ).updateTask(widget.reminder['_id'], {'time': snoozed});
+    if (success && mounted) {
+      setState(() => timeController.text = snoozed);
+      ToastUtils.showSuccessToast("Snoozed for 30 minutes ($snoozed)");
+    }
+  }
+
+  String _snoozeTime(String timeStr, int minutes) {
+    try {
+      final parts = timeStr.split(':');
+      int hour = int.parse(parts[0]);
+      final rest = parts[1].trim();
+      final minuteStr = rest.substring(0, 2);
+      int minute = int.parse(minuteStr);
+      bool isPM = timeStr.toUpperCase().contains('PM');
+      bool isAM = timeStr.toUpperCase().contains('AM');
+
+      if (isPM && hour < 12) hour += 12;
+      if (isAM && hour == 12) hour = 0;
+
+      DateTime dt = DateTime(
+        2024,
+        1,
+        1,
+        hour,
+        minute,
+      ).add(Duration(minutes: minutes));
+
+      int newHour = dt.hour;
+      int newMinute = dt.minute;
+      String suffix = newHour >= 12 ? 'PM' : 'AM';
+      int displayHour = newHour > 12
+          ? newHour - 12
+          : (newHour == 0 ? 12 : newHour);
+
+      return "${displayHour.toString().padLeft(2, '0')}:${newMinute.toString().padLeft(2, '0')} $suffix";
+    } catch (_) {
+      return timeStr;
+    }
+  }
+
+  Future<void> _handlePriority() async {
+    final current = priority;
+    String next = 'medium';
+    if (current == 'low')
+      next = 'medium';
+    else if (current == 'medium')
+      next = 'high';
+    else if (current == 'high')
+      next = 'low';
+
+    final success = await Provider.of<TasksProvider>(
+      context,
+      listen: false,
+    ).updateTask(widget.reminder['_id'], {'priority': next});
+    if (success && mounted) {
+      setState(() => priority = next);
+      ToastUtils.showSuccessToast("Priority updated to ${next.toUpperCase()}");
+    }
+  }
+
+  Future<void> _handleReschedule() async {
+    setState(() => isEditing = true);
+  }
+
   Future<void> _handleDelete() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -592,17 +723,29 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   color: AppColors.dangerLight,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(LucideIcons.trash2, size: 22, color: AppColors.danger),
+                child: const Icon(
+                  LucideIcons.trash2,
+                  size: 22,
+                  color: AppColors.danger,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
                 "Delete Reminder",
-                style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.text),
+                style: GoogleFonts.nunito(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 "Are you sure you want to delete this reminder? This action cannot be undone.",
-                style: GoogleFonts.inter(fontSize: 13.5, color: AppColors.textMid, height: 1.5),
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  color: AppColors.textMid,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 24),
               Row(
@@ -620,7 +763,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         child: Text(
                           "Cancel",
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textMid),
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textMid,
+                          ),
                         ),
                       ),
                     ),
@@ -638,7 +785,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         child: Text(
                           "Delete",
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white),
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -652,7 +803,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     );
 
     if (confirm == true) {
-      final success = await Provider.of<TasksProvider>(context, listen: false).deleteTask(widget.reminder['_id']);
+      final success = await Provider.of<TasksProvider>(
+        context,
+        listen: false,
+      ).deleteTask(widget.reminder['_id']);
       if (success) {
         if (mounted) {
           ToastUtils.showSuccessToast("Reminder deleted");
@@ -681,8 +835,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       'coordinates': coordinates,
     };
 
-    final success = await Provider.of<TasksProvider>(context, listen: false)
-        .updateTask(widget.reminder['_id'], updatedData);
+    final success = await Provider.of<TasksProvider>(
+      context,
+      listen: false,
+    ).updateTask(widget.reminder['_id'], updatedData);
 
     if (success) {
       if (mounted) {
@@ -710,7 +866,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _StatusBadge(label: status == 'completed' ? "Completed" : (status == 'risk_alert' ? "Risk Alert" : "On Track")),
+              _StatusBadge(
+                label: status == 'completed'
+                    ? "Completed"
+                    : (status == 'risk_alert' ? "Risk Alert" : "On Track"),
+              ),
               Row(
                 children: [
                   GestureDetector(
@@ -721,9 +881,15 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       decoration: BoxDecoration(
                         color: AppColors.dangerLight,
                         borderRadius: BorderRadius.circular(11),
-                        border: Border.all(color: AppColors.danger.withOpacity(0.25)),
+                        border: Border.all(
+                          color: AppColors.danger.withOpacity(0.25),
+                        ),
                       ),
-                      child: const Icon(LucideIcons.trash2, size: 16, color: AppColors.danger),
+                      child: const Icon(
+                        LucideIcons.trash2,
+                        size: 16,
+                        color: AppColors.danger,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -731,7 +897,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                     onTap: () => setState(() => isEditing = !isEditing),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
                         color: isEditing
                             ? AppColors.dangerLight
@@ -749,13 +918,17 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                           Icon(
                             isEditing ? LucideIcons.x : LucideIcons.pencil,
                             size: 13,
-                            color: isEditing ? AppColors.danger : AppColors.accent,
+                            color: isEditing
+                                ? AppColors.danger
+                                : AppColors.accent,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             isEditing ? "Cancel" : "Edit",
                             style: GoogleFonts.nunito(
-                              color: isEditing ? AppColors.danger : AppColors.accent,
+                              color: isEditing
+                                  ? AppColors.danger
+                                  : AppColors.accent,
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
                             ),
@@ -772,909 +945,1305 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         // ── Scrollable body ─────────────────────────────────────────────
         Expanded(
           child: SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title
-          if (isEditing)
-            TextField(
-              controller: titleController,
-              style: GoogleFonts.nunito(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.text),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.bg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.accent.withOpacity(0.5), width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.all(16),
-              ),
-            )
-          else
-            Text(
-              titleController.text,
-              style: GoogleFonts.nunito(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.text, height: 1.2),
-            ),
-          const SizedBox(height: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                if (isEditing)
+                  TextField(
+                    controller: titleController,
+                    style: GoogleFonts.nunito(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.text,
+                    ),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppColors.accent.withOpacity(0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  )
+                else
+                  Text(
+                    titleController.text,
+                    style: GoogleFonts.nunito(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.text,
+                      height: 1.2,
+                    ),
+                  ),
+                const SizedBox(height: 24),
 
-          // Meta Info Rows
-          if (widget.reminder['intent'] == 'pickup' || (locationController.text.isNotEmpty && locationController.text != 'No Location') || (coordinates != null && coordinates!['lat'] != null) || isEditing)
-            _InfoRow(
-              icon: LucideIcons.mapPin,
-              label: "Location",
-              child: isEditing
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                // Meta Info Rows
+                if (widget.reminder['intent'] == 'pickup' ||
+                    (locationController.text.isNotEmpty &&
+                        locationController.text != 'No Location') ||
+                    (coordinates != null && coordinates!['lat'] != null) ||
+                    isEditing)
+                  _InfoRow(
+                    icon: LucideIcons.mapPin,
+                    label: "Location",
+                    child: isEditing
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: locationController,
+                                      decoration: InputDecoration(
+                                        hintText: "Type address...",
+                                        hintStyle: GoogleFonts.outfit(
+                                          fontSize: 13,
+                                          color: Colors.grey[400],
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                      style: GoogleFonts.outfit(fontSize: 14),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // GPS button
+                                  GestureDetector(
+                                    onTap: _isGettingLocation
+                                        ? null
+                                        : _useMyLocation,
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _isGettingLocation
+                                            ? Colors.grey[200]
+                                            : const Color(
+                                                0xFF7C3AED,
+                                              ).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: _isGettingLocation
+                                              ? Colors.grey[300]!
+                                              : const Color(
+                                                  0xFF7C3AED,
+                                                ).withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _isGettingLocation
+                                              ? SizedBox(
+                                                  width: 12,
+                                                  height: 12,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 1.5,
+                                                        color: const Color(
+                                                          0xFF7C3AED,
+                                                        ),
+                                                      ),
+                                                )
+                                              : Icon(
+                                                  LucideIcons.navigation,
+                                                  size: 12,
+                                                  color: const Color(
+                                                    0xFF7C3AED,
+                                                  ),
+                                                ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _isGettingLocation
+                                                ? "Getting..."
+                                                : "Use GPS",
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: _isGettingLocation
+                                                  ? Colors.grey[600]
+                                                  : const Color(0xFF7C3AED),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              // ── Autocomplete dropdown ──────────────────────────
+                              if (_showLocationSuggestions) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.10),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFF7C3AED,
+                                      ).withOpacity(0.15),
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Column(
+                                      children: _locationSuggestions.asMap().entries.map((
+                                        entry,
+                                      ) {
+                                        final i = entry.key;
+                                        final s = entry.value;
+                                        final isLast =
+                                            i ==
+                                            _locationSuggestions.length - 1;
+                                        return InkWell(
+                                          onTap: () => _selectPlace(s),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 10,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              border: isLast
+                                                  ? null
+                                                  : Border(
+                                                      bottom: BorderSide(
+                                                        color: Colors.grey
+                                                            .withOpacity(0.12),
+                                                      ),
+                                                    ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 28,
+                                                  height: 28,
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(
+                                                      0xFF7C3AED,
+                                                    ).withOpacity(0.08),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: const Icon(
+                                                    LucideIcons.mapPin,
+                                                    size: 13,
+                                                    color: Color(0xFF7C3AED),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        s['main'],
+                                                        style:
+                                                            GoogleFonts.outfit(
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color:
+                                                                  const Color(
+                                                                    0xFF1E1B4B,
+                                                                  ),
+                                                            ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      if ((s['secondary']
+                                                              as String)
+                                                          .isNotEmpty)
+                                                        Text(
+                                                          s['secondary'],
+                                                          style:
+                                                              GoogleFonts.outfit(
+                                                                fontSize: 11,
+                                                                color: Colors
+                                                                    .grey[500],
+                                                              ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              // ─────────────────────────────────────────────────
+                              // Coordinates badge
+                              if (coordinates != null &&
+                                  coordinates!['lat'] != null &&
+                                  coordinates!['lng'] != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF10B981,
+                                      ).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFF10B981,
+                                        ).withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          LucideIcons.mapPin,
+                                          size: 10,
+                                          color: Color(0xFF10B981),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "${(coordinates!['lat'] as num).toStringAsFixed(4)}, ${(coordinates!['lng'] as num).toStringAsFixed(4)}",
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 10,
+                                            color: const Color(0xFF10B981),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  locationController.text.isEmpty
+                                      ? "No location set"
+                                      : locationController.text,
+                                  style: GoogleFonts.outfit(fontSize: 14),
+                                ),
+                              ),
+                              if (coordinates != null &&
+                                  coordinates!['lat'] != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF10B981,
+                                    ).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.satellite,
+                                        size: 10,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        "GPS",
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 9,
+                                          color: const Color(0xFF10B981),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+
+                if (widget.reminder['intent'] == 'pickup' ||
+                    (locationController.text.isNotEmpty &&
+                        locationController.text != 'No Location') ||
+                    (coordinates != null && coordinates!['lat'] != null) ||
+                    isEditing)
+                  const SizedBox(height: 12),
+                _InfoRow(
+                  icon: LucideIcons.clock,
+                  label: "Schedule",
+                  child: isEditing
+                      ? Row(
                           children: [
                             Expanded(
                               child: TextField(
-                                controller: locationController,
-                                decoration: InputDecoration(
-                                  hintText: "Type address...",
-                                  hintStyle: GoogleFonts.outfit(
-                                    fontSize: 13,
-                                    color: Colors.grey[400],
-                                  ),
+                                controller: dateController,
+                                decoration: const InputDecoration(
                                   border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
                                 ),
                                 style: GoogleFonts.outfit(fontSize: 14),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            // GPS button
-                            GestureDetector(
-                              onTap: _isGettingLocation ? null : _useMyLocation,
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: _isGettingLocation
-                                      ? Colors.grey[200]
-                                      : const Color(0xFF7C3AED).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: _isGettingLocation
-                                        ? Colors.grey[300]!
-                                        : const Color(0xFF7C3AED).withOpacity(0.3),
-                                  ),
+                            Expanded(
+                              child: TextField(
+                                controller: timeController,
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _isGettingLocation
-                                        ? SizedBox(
-                                            width: 12,
-                                            height: 12,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 1.5,
-                                              color: const Color(0xFF7C3AED),
-                                            ),
-                                          )
-                                        : Icon(
-                                            LucideIcons.navigation,
-                                            size: 12,
-                                            color: const Color(0xFF7C3AED),
-                                          ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _isGettingLocation ? "Getting..." : "Use GPS",
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: _isGettingLocation
-                                            ? Colors.grey[600]
-                                            : const Color(0xFF7C3AED),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                style: GoogleFonts.outfit(fontSize: 14),
                               ),
                             ),
                           ],
+                        )
+                      : Text(
+                          "Time: ${timeController.text} • ${dateController.text}",
                         ),
-                        // ── Autocomplete dropdown ──────────────────────────
-                        if (_showLocationSuggestions) ...
-                          [
-                            const SizedBox(height: 4),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.10),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: const Color(0xFF7C3AED).withOpacity(0.15),
-                                ),
+                ),
+                const SizedBox(height: 32),
+
+                // Time Settings
+                _DetailCard(
+                  title: "TIME & BUFFER CONFIG",
+                  icon: LucideIcons.clock,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            "Safety Buffer Time",
+                            style: GoogleFonts.nunito(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: AppColors.text,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            "${bufferTime.toInt()} min",
+                            style: GoogleFonts.nunito(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 6,
+                        activeTrackColor: AppColors.accent,
+                        inactiveTrackColor: AppColors.border,
+                        thumbColor: AppColors.surface,
+                        overlayColor: AppColors.accent.withOpacity(0.12),
+                        thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 10,
+                          elevation: 3,
+                        ),
+                      ),
+                      child: Slider(
+                        value: bufferTime,
+                        min: 5,
+                        max: 120,
+                        divisions: 23,
+                        onChanged: isEditing
+                            ? (v) {
+                                setState(() => bufferTime = v);
+                                _scheduleAdjustedNotificationRefresh();
+                              }
+                            : null,
+                      ),
+                    ),
+                    Text(
+                      "Add extra time before your reminder to ensure you're never late.",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.textMid,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.accent.withOpacity(0.08),
+                            AppColors.purple.withOpacity(0.12),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.accent.withOpacity(0.15),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.accent.withOpacity(0.2),
                               ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Column(
-                                  children: _locationSuggestions.asMap().entries.map((entry) {
-                                    final i = entry.key;
-                                    final s = entry.value;
-                                    final isLast = i == _locationSuggestions.length - 1;
-                                    return InkWell(
-                                      onTap: () => _selectPlace(s),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          border: isLast ? null : Border(
-                                            bottom: BorderSide(
-                                              color: Colors.grey.withOpacity(0.12),
-                                            ),
-                                          ),
+                            ),
+                            child: Icon(
+                              LucideIcons.bell,
+                              color: AppColors.accent,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "ADJUSTED NOTIFICATION",
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.accent,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                _isLoadingAdjustedTime
+                                    ? SizedBox(
+                                        height: 28,
+                                        width: 28,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.accent,
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 28,
-                                              height: 28,
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF7C3AED).withOpacity(0.08),
-                                                shape: BoxShape.circle,
+                                      )
+                                    : Text(
+                                        _adjustedNotificationTime ??
+                                            _getAdjustedTime(),
+                                        style: GoogleFonts.nunito(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.text,
+                                        ),
+                                      ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "Calculated: Time − (Traffic + Buffer)",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: AppColors.textMid,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Location Settings
+                if (widget.reminder['intent'] == 'pickup' ||
+                    (locationController.text.isNotEmpty &&
+                        locationController.text != 'No Location') ||
+                    (coordinates != null && coordinates!['lat'] != null) ||
+                    isEditing)
+                  _DetailCard(
+                    title: "LOCATION SETTINGS",
+                    icon: LucideIcons.navigation,
+                    children: [
+                      Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.hardEdge,
+                        child: isEditing
+                            ? MobileMapPicker(
+                                initialCoordinates: coordinates,
+                                onLocationSelected: (coords, address) {
+                                  setState(() {
+                                    coordinates = coords;
+                                    // Only update text if it's currently empty or was just generic
+                                    if (locationController.text.isEmpty ||
+                                        locationController.text.contains(
+                                          "Custom Location",
+                                        )) {
+                                      locationController.text = address;
+                                    }
+                                  });
+                                  _fetchTravelStats();
+                                },
+                              )
+                            : Stack(
+                                children: [
+                                  GoogleMap(
+                                    initialCameraPosition: CameraPosition(
+                                      target:
+                                          (coordinates != null &&
+                                              coordinates!['lat'] != null)
+                                          ? LatLng(
+                                              coordinates!['lat'],
+                                              coordinates!['lng'],
+                                            )
+                                          : (currentPosition != null
+                                                ? LatLng(
+                                                    currentPosition!.latitude,
+                                                    currentPosition!.longitude,
+                                                  )
+                                                : () {
+                                                    final stored =
+                                                        Provider.of<UserProvider>(
+                                                          context,
+                                                          listen: false,
+                                                        ).user['currentLocation'];
+                                                    return (stored != null &&
+                                                            stored['lat'] !=
+                                                                null)
+                                                        ? LatLng(
+                                                            (stored['lat']
+                                                                    as num)
+                                                                .toDouble(),
+                                                            (stored['lng']
+                                                                    as num)
+                                                                .toDouble(),
+                                                          )
+                                                        : const LatLng(
+                                                            0.0,
+                                                            0.0,
+                                                          ); // No location at all — map shows world view
+                                                  }()),
+                                      zoom:
+                                          (coordinates != null &&
+                                              coordinates!['lat'] != null)
+                                          ? 15
+                                          : 12,
+                                    ),
+                                    onMapCreated: (controller) {
+                                      mapController = controller;
+                                      if (polylines.isNotEmpty) {
+                                        // Route already fetched — fit both endpoints in view
+                                        List<LatLng> polylineCoordinates =
+                                            polylines.first.points;
+                                        LatLngBounds bounds = _getBounds(
+                                          polylineCoordinates,
+                                        );
+                                        mapController!.animateCamera(
+                                          CameraUpdate.newLatLngBounds(
+                                            bounds,
+                                            50,
+                                          ),
+                                        );
+                                      } else if (currentPosition != null &&
+                                          coordinates != null) {
+                                        // Have both points but route not drawn yet — show both on screen
+                                        final bounds = LatLngBounds(
+                                          southwest: LatLng(
+                                            currentPosition!.latitude <
+                                                    (coordinates!['lat'] as num)
+                                                        .toDouble()
+                                                ? currentPosition!.latitude
+                                                : (coordinates!['lat'] as num)
+                                                      .toDouble(),
+                                            currentPosition!.longitude <
+                                                    (coordinates!['lng'] as num)
+                                                        .toDouble()
+                                                ? currentPosition!.longitude
+                                                : (coordinates!['lng'] as num)
+                                                      .toDouble(),
+                                          ),
+                                          northeast: LatLng(
+                                            currentPosition!.latitude >
+                                                    (coordinates!['lat'] as num)
+                                                        .toDouble()
+                                                ? currentPosition!.latitude
+                                                : (coordinates!['lat'] as num)
+                                                      .toDouble(),
+                                            currentPosition!.longitude >
+                                                    (coordinates!['lng'] as num)
+                                                        .toDouble()
+                                                ? currentPosition!.longitude
+                                                : (coordinates!['lng'] as num)
+                                                      .toDouble(),
+                                          ),
+                                        );
+                                        mapController!.animateCamera(
+                                          CameraUpdate.newLatLngBounds(
+                                            bounds,
+                                            60,
+                                          ),
+                                        );
+                                      } else if (currentPosition != null) {
+                                        // Only user location — centre map on them
+                                        mapController!.animateCamera(
+                                          CameraUpdate.newLatLngZoom(
+                                            LatLng(
+                                              currentPosition!.latitude,
+                                              currentPosition!.longitude,
+                                            ),
+                                            14,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    markers: {
+                                      if (coordinates != null &&
+                                          coordinates!['lat'] != null)
+                                        Marker(
+                                          markerId: const MarkerId('selected'),
+                                          position: LatLng(
+                                            coordinates!['lat'],
+                                            coordinates!['lng'],
+                                          ),
+                                          icon:
+                                              BitmapDescriptor.defaultMarkerWithHue(
+                                                BitmapDescriptor.hueViolet,
                                               ),
-                                              child: const Icon(
-                                                LucideIcons.mapPin,
-                                                size: 13,
-                                                color: Color(0xFF7C3AED),
+                                        ),
+                                      if (currentPosition != null)
+                                        Marker(
+                                          markerId: const MarkerId('current'),
+                                          position: LatLng(
+                                            currentPosition!.latitude,
+                                            currentPosition!.longitude,
+                                          ),
+                                          icon:
+                                              BitmapDescriptor.defaultMarkerWithHue(
+                                                BitmapDescriptor.hueAzure,
+                                              ),
+                                        ),
+                                    },
+                                    circles: {
+                                      if (coordinates != null &&
+                                          coordinates!['lat'] != null)
+                                        Circle(
+                                          circleId: const CircleId('geofence'),
+                                          center: LatLng(
+                                            coordinates!['lat'],
+                                            coordinates!['lng'],
+                                          ),
+                                          radius: geofenceRadius,
+                                          fillColor: Theme.of(
+                                            context,
+                                          ).primaryColor.withOpacity(0.12),
+                                          strokeColor: Theme.of(
+                                            context,
+                                          ).primaryColor,
+                                          strokeWidth: 2,
+                                        ),
+                                    },
+                                    polylines: polylines,
+                                    zoomControlsEnabled: true,
+                                    myLocationEnabled: true,
+                                    myLocationButtonEnabled: true,
+                                    mapToolbarEnabled: true,
+                                  ),
+                                  if (coordinates == null ||
+                                      coordinates!['lat'] == null)
+                                    Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 14,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface.withOpacity(
+                                            0.95,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.1,
+                                              ),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              LucideIcons.mapPinOff,
+                                              size: 28,
+                                              color: Theme.of(
+                                                context,
+                                              ).primaryColor.withOpacity(0.8),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              "No location specified",
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 14,
+                                                color: Colors.grey[800],
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    s['main'],
-                                                    style: GoogleFonts.outfit(
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: const Color(0xFF1E1B4B),
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  if ((s['secondary'] as String).isNotEmpty)
-                                                    Text(
-                                                      s['secondary'],
-                                                      style: GoogleFonts.outfit(
-                                                        fontSize: 11,
-                                                        color: Colors.grey[500],
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                ],
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              "Tap 'Edit Settings' to route",
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 11,
+                                                color: Colors.grey[600],
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    );
-                                  }).toList(),
-                                ),
+                                    ),
+                                ],
                               ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Geofence Radius",
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
                             ),
-                          ],
-                        // ─────────────────────────────────────────────────
-                        // Coordinates badge
-                        if (coordinates != null &&
-                            coordinates!['lat'] != null &&
-                            coordinates!['lng'] != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(0xFF10B981).withOpacity(0.3),
+                          ),
+                          Row(
+                            children: [
+                              // AUTO badge — shown when radius is auto-calculated from travelStats
+                              if (travelStats != null && !isEditing)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF6366F1),
+                                        Color(0xFF8B5CF6),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    "AUTO",
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                              Text(
+                                geofenceRadius >= 1000
+                                    ? "${(geofenceRadius / 1000).toStringAsFixed(1)} km"
+                                    : "${geofenceRadius.toInt()} m",
+                                style: GoogleFonts.outfit(
+                                  color: Theme.of(context).primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 4,
+                          activeTrackColor: isEditing
+                              ? AppColors.accent
+                              : AppColors.border,
+                          inactiveTrackColor: AppColors.border.withOpacity(0.5),
+                          thumbColor: isEditing
+                              ? AppColors.accent
+                              : AppColors.border,
+                          overlayColor: Colors.transparent,
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 8,
+                            elevation: 0,
+                          ),
+                        ),
+                        child: Slider(
+                          value: geofenceRadius.clamp(200, 5000),
+                          min: 200,
+                          max: 5000,
+                          divisions: 48,
+                          onChanged: isEditing
+                              ? (v) => setState(() => geofenceRadius = v)
+                              : null,
+                        ),
+                      ),
+                      if (!isEditing)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 8),
+                          child: Text(
+                            "Auto-set to half the travel distance. Edit to override.",
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ),
+                      if (travelStats != null) ...[
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
                                 children: [
-                                  const Icon(LucideIcons.mapPin, size: 10, color: Color(0xFF10B981)),
-                                  const SizedBox(width: 4),
+                                  Icon(
+                                    LucideIcons.activity,
+                                    size: 18,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 12),
                                   Text(
-                                    "${(coordinates!['lat'] as num).toStringAsFixed(4)}, ${(coordinates!['lng'] as num).toStringAsFixed(4)}",
+                                    "Current Distance",
                                     style: GoogleFonts.outfit(
-                                      fontSize: 10,
-                                      color: const Color(0xFF10B981),
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    "${(travelStats!['distance'] / 1000).toStringAsFixed(2)} km",
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            locationController.text.isEmpty ? "No location set" : locationController.text,
-                            style: GoogleFonts.outfit(fontSize: 14),
-                          ),
-                        ),
-                        if (coordinates != null && coordinates!['lat'] != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(LucideIcons.satellite, size: 10, color: Color(0xFF10B981)),
-                                const SizedBox(width: 3),
-                                Text(
-                                  "GPS",
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 9,
-                                    color: const Color(0xFF10B981),
-                                    fontWeight: FontWeight.w700,
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.car,
+                                    size: 18,
+                                    color: Colors.grey[600],
                                   ),
-                                ),
-                              ],
-                            ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    "Est. Travel Time",
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    "${(travelStats!['durationInTraffic'] / 60).round()} mins",
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              // Auto-radius formula row
+                              const SizedBox(height: 16),
+                              const Divider(height: 1),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    LucideIcons.target,
+                                    size: 18,
+                                    color: Color(0xFF6366F1),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    "Geofence Radius",
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    geofenceRadius >= 1000
+                                        ? "${(geofenceRadius / 1000).toStringAsFixed(1)} km"
+                                        : "${geofenceRadius.toInt()} m",
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                      color: const Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
+                        ),
                       ],
-                    ),
-            ),
-          if (widget.reminder['intent'] == 'pickup' || (locationController.text.isNotEmpty && locationController.text != 'No Location') || (coordinates != null && coordinates!['lat'] != null) || isEditing)
-            const SizedBox(height: 12),
-          _InfoRow(
-            icon: LucideIcons.clock,
-            label: "Schedule",
-            child: isEditing
-                ? Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: dateController,
-                          decoration: const InputDecoration(border: InputBorder.none),
-                          style: GoogleFonts.outfit(fontSize: 14),
-                        ),
+                    ],
+                  ),
+
+                if (!isEditing) ...[
+                  const SizedBox(height: 24),
+                  QuickActionsGrid(
+                    actions: [
+                      QuickActionItem(
+                        label: 'Complete',
+                        icon: LucideIcons.checkCircle2,
+                        color: AppColors.green,
+                        onTap: _handleComplete,
                       ),
-                      Expanded(
-                        child: TextField(
-                          controller: timeController,
-                          decoration: const InputDecoration(border: InputBorder.none),
-                          style: GoogleFonts.outfit(fontSize: 14),
-                        ),
+                      QuickActionItem(
+                        label: 'Snooze',
+                        icon: LucideIcons.alarmClock,
+                        color: AppColors.orange,
+                        onTap: _handleSnooze,
+                      ),
+                      QuickActionItem(
+                        label: 'Reschedule',
+                        icon: LucideIcons.clock,
+                        color: AppColors.accent,
+                        onTap: _handleReschedule,
+                      ),
+                      QuickActionItem(
+                        label: 'Priority',
+                        icon: LucideIcons.flag,
+                        color: AppColors.textMid,
+                        onTap: _handlePriority,
                       ),
                     ],
-                  )
-                : Text("Time: ${timeController.text} • ${dateController.text}"),
-          ),
-          const SizedBox(height: 32),
+                  ),
+                  const SizedBox(height: 32),
+                ],
 
-          // Time Settings
-          _DetailCard(
-            title: "TIME & BUFFER CONFIG",
-            icon: LucideIcons.clock,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      "Safety Buffer Time",
-                      style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text),
+                // Collaboration Section
+                _DetailCard(
+                  title: "COLLABORATION",
+                  icon: LucideIcons.share2,
+                  children: [
+                    if (sharedWith.isEmpty)
+                      Text(
+                        "Not shared with anyone",
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: Colors.grey[500],
+                        ),
+                      )
+                    else
+                      ...sharedWith.map(
+                        (s) => Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Theme.of(
+                                    context,
+                                  ).primaryColor.withOpacity(0.1),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: ClipOval(
+                                  child: s['user']?['profilePicture'] != null
+                                      ? CachedNetworkImage(
+                                          imageUrl: AppConfig.formatImageUrl(
+                                            s['user']?['profilePicture'],
+                                          )!,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (context, url, error) =>
+                                              Center(
+                                                child: Text(
+                                                  s['user']?['name']?[0]
+                                                          ?.toUpperCase() ??
+                                                      'U',
+                                                  style: TextStyle(
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).primaryColor,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                        )
+                                      : Center(
+                                          child: Text(
+                                            s['user']?['name']?[0]
+                                                    ?.toUpperCase() ??
+                                                'U',
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).primaryColor,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s['user']?['name'] ?? 'Unknown',
+                                      style: GoogleFonts.outfit(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      s['user']?['email'] ?? '',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 11,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isEditing)
+                                IconButton(
+                                  icon: const Icon(
+                                    LucideIcons.trash2,
+                                    size: 16,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () =>
+                                      _unshareUser(s['user']['_id']),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // Family Backup
+
+                // Smart Features
+                _DetailCard(
+                  title: "SMART FEATURES",
+                  icon: LucideIcons.zap,
+                  children: [
+                    _SmartFeatureTile(
+                      icon: LucideIcons.shieldAlert,
+                      label: "Early Warning System",
+                      sub:
+                          "Get proactive alerts when you're at risk of being late based on your current location and traffic conditions",
+                      value: smartFeatures['earlyWarning']!,
+                      onChanged: (v) =>
+                          _toggleSetting('smartFeatures', 'earlyWarning', v),
+                      tag: "AI",
+                      tagColor: Theme.of(context).primaryColor,
+                    ),
+                    _SmartFeatureTile(
+                      icon: LucideIcons.car,
+                      label: "Traffic-Aware ETA",
+                      sub:
+                          "Automatically adjust reminder times based on real-time traffic data and route conditions",
+                      value: smartFeatures['trafficAware']!,
+                      onChanged: (v) =>
+                          _toggleSetting('smartFeatures', 'trafficAware', v),
+                      tag: "LIVE",
+                      tagColor: const Color(0xFF10B981),
+                    ),
+                    _SmartFeatureTile(
+                      icon: LucideIcons.smartphone,
+                      label: "Item Exit Guards",
+                      sub:
+                          "Get reminded about items you need to bring when leaving a location (e.g., wallet, keys, documents)",
+                      value: smartFeatures['itemExitGuards']!,
+                      onChanged: (v) =>
+                          _toggleSetting('smartFeatures', 'itemExitGuards', v),
+                      tag: "NEW",
+                      tagColor: const Color(0xFF8B5CF6),
+                    ),
+                  ],
+                ),
+
+                // Alert Preferences
+                _DetailCard(
+                  title: "ALERT PREFERENCES",
+                  icon: LucideIcons.bellRing,
+                  children: [
+                    _AlertTile(
+                      icon: LucideIcons.bell,
+                      label: "Push Notifications",
+                      sub: "Receive alerts on your device",
+                      value: alerts['push']!,
+                      onChanged: (v) => _toggleSetting('alerts', 'push', v),
+                    ),
+                    _AlertTile(
+                      icon: LucideIcons.mail,
+                      label: "Email Alerts",
+                      sub: "Detailed reports via email",
+                      value: alerts['email']!,
+                      onChanged: (v) => _toggleSetting('alerts', 'email', v),
+                    ),
+                  ],
+                ),
+
+                // Timeline
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 16),
+                  child: Text(
+                    "TIMELINE",
+                    style: GoogleFonts.nunito(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: AppColors.textDim,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 20, bottom: 20),
                     decoration: BoxDecoration(
-                      color: AppColors.accentLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "${bufferTime.toInt()} min",
-                      style: GoogleFonts.nunito(color: AppColors.accent, fontWeight: FontWeight.w800, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 6,
-                  activeTrackColor: AppColors.accent,
-                  inactiveTrackColor: AppColors.border,
-                  thumbColor: AppColors.surface,
-                  overlayColor: AppColors.accent.withOpacity(0.12),
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10, elevation: 3),
-                ),
-                child: Slider(
-                  value: bufferTime,
-                  min: 5,
-                  max: 120,
-                  divisions: 23,
-                  onChanged: isEditing
-                      ? (v) {
-                          setState(() => bufferTime = v);
-                          _scheduleAdjustedNotificationRefresh();
-                        }
-                      : null,
-                ),
-              ),
-              Text(
-                "Add extra time before your reminder to ensure you're never late.",
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMid, height: 1.4),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.accent.withOpacity(0.08),
-                      AppColors.purple.withOpacity(0.12),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.accent.withOpacity(0.15)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.accent.withOpacity(0.2)),
+                      border: Border(
+                        left: BorderSide(color: AppColors.border, width: 2),
                       ),
-                      child: Icon(LucideIcons.bell, color: AppColors.accent, size: 22),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "ADJUSTED NOTIFICATION",
-                            style: GoogleFonts.nunito(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.accent,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          _isLoadingAdjustedTime
-                              ? SizedBox(
-                                  height: 28,
-                                  width: 28,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.accent,
-                                  ),
-                                )
-                              : Text(
-                                  _adjustedNotificationTime ?? _getAdjustedTime(),
-                                  style: GoogleFonts.nunito(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.text,
-                                  ),
-                                ),
-                          const SizedBox(height: 2),
-                          Text(
-                            "Calculated: Time − (Traffic + Buffer)",
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: AppColors.textMid,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  ],
-                ),
-              )
-            ],
-          ),
-
-          // Location Settings
-          if (widget.reminder['intent'] == 'pickup' || (locationController.text.isNotEmpty && locationController.text != 'No Location') || (coordinates != null && coordinates!['lat'] != null) || isEditing)
-            _DetailCard(
-              title: "LOCATION SETTINGS",
-              icon: LucideIcons.navigation,
-              children: [
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  clipBehavior: Clip.hardEdge,
-                  child: isEditing
-                      ? MobileMapPicker(
-                          initialCoordinates: coordinates,
-                          onLocationSelected: (coords, address) {
-                            setState(() {
-                              coordinates = coords;
-                              // Only update text if it's currently empty or was just generic
-                              if (locationController.text.isEmpty || locationController.text.contains("Custom Location")) {
-                                locationController.text = address;
-                              }
-                            });
-                            _fetchTravelStats();
-                          },
-                        )
-                      : Stack(
-                          children: [
-                            GoogleMap(
-                              initialCameraPosition: CameraPosition(
-                                target: (coordinates != null && coordinates!['lat'] != null)
-                                    ? LatLng(coordinates!['lat'], coordinates!['lng'])
-                                    : (currentPosition != null
-                                        ? LatLng(currentPosition!.latitude, currentPosition!.longitude)
-                                        : () {
-                                            final stored = Provider.of<UserProvider>(context, listen: false).user['currentLocation'];
-                                            return (stored != null && stored['lat'] != null)
-                                                ? LatLng((stored['lat'] as num).toDouble(), (stored['lng'] as num).toDouble())
-                                                : const LatLng(0.0, 0.0); // No location at all — map shows world view
-                                          }()),
-                                zoom: (coordinates != null && coordinates!['lat'] != null) ? 15 : 12,
-                              ),
-                              onMapCreated: (controller) {
-                                mapController = controller;
-                                if (polylines.isNotEmpty) {
-                                  // Route already fetched — fit both endpoints in view
-                                  List<LatLng> polylineCoordinates = polylines.first.points;
-                                  LatLngBounds bounds = _getBounds(polylineCoordinates);
-                                  mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
-                                } else if (currentPosition != null && coordinates != null) {
-                                  // Have both points but route not drawn yet — show both on screen
-                                  final bounds = LatLngBounds(
-                                    southwest: LatLng(
-                                      currentPosition!.latitude < (coordinates!['lat'] as num).toDouble()
-                                          ? currentPosition!.latitude : (coordinates!['lat'] as num).toDouble(),
-                                      currentPosition!.longitude < (coordinates!['lng'] as num).toDouble()
-                                          ? currentPosition!.longitude : (coordinates!['lng'] as num).toDouble(),
-                                    ),
-                                    northeast: LatLng(
-                                      currentPosition!.latitude > (coordinates!['lat'] as num).toDouble()
-                                          ? currentPosition!.latitude : (coordinates!['lat'] as num).toDouble(),
-                                      currentPosition!.longitude > (coordinates!['lng'] as num).toDouble()
-                                          ? currentPosition!.longitude : (coordinates!['lng'] as num).toDouble(),
-                                    ),
-                                  );
-                                  mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
-                                } else if (currentPosition != null) {
-                                  // Only user location — centre map on them
-                                  mapController!.animateCamera(
-                                    CameraUpdate.newLatLngZoom(
-                                      LatLng(currentPosition!.latitude, currentPosition!.longitude),
-                                      14,
-                                    ),
-                                  );
-                                }
-                              },
-                              markers: {
-                                if (coordinates != null && coordinates!['lat'] != null)
-                                  Marker(
-                                    markerId: const MarkerId('selected'),
-                                    position: LatLng(coordinates!['lat'], coordinates!['lng']),
-                                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-                                  ),
-                                if (currentPosition != null)
-                                   Marker(
-                                    markerId: const MarkerId('current'),
-                                    position: LatLng(currentPosition!.latitude, currentPosition!.longitude),
-                                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-                                  ),
-                              },
-                              circles: {
-                                if (coordinates != null && coordinates!['lat'] != null)
-                                  Circle(
-                                    circleId: const CircleId('geofence'),
-                                    center: LatLng(coordinates!['lat'], coordinates!['lng']),
-                                    radius: geofenceRadius,
-                                    fillColor: Theme.of(context).primaryColor.withOpacity(0.12),
-                                    strokeColor: Theme.of(context).primaryColor,
-                                    strokeWidth: 2,
-                                  ),
-                              },
-                              polylines: polylines,
-                              zoomControlsEnabled: true,
-                              myLocationEnabled: true,
-                              myLocationButtonEnabled: true,
-                              mapToolbarEnabled: true,
-                            ),
-                            if (coordinates == null || coordinates!['lat'] == null)
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surface.withOpacity(0.95),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4)
-                                      )
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(LucideIcons.mapPinOff, size: 28, color: Theme.of(context).primaryColor.withOpacity(0.8)),
-                                      const SizedBox(height: 8),
-                                      Text("No location specified", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[800], fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 2),
-                                      Text("Tap 'Edit Settings' to route", style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[600])),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text("Geofence Radius", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // AUTO badge — shown when radius is auto-calculated from travelStats
-                        if (travelStats != null && !isEditing)
-                          Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              "AUTO",
-                              style: GoogleFonts.outfit(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                              ),
+                        if (timeline.isEmpty)
+                          _TimelineItem(
+                            title: "Reminder Created",
+                            time: widget.reminder['createdAt'] != null
+                                ? _formatFullDateTime(
+                                    widget.reminder['createdAt'],
+                                  )
+                                : "Just now",
+                            isFirst: true,
+                          )
+                        else
+                          ...timeline.asMap().entries.map(
+                            (e) => _TimelineItem(
+                              title: e.value['action'] ?? '',
+                              time: e.value['timestamp'] != null
+                                  ? _formatFullDateTime(e.value['timestamp'])
+                                  : "",
+                              isFirst: e.key == 0,
                             ),
                           ),
-                        Text(
-                          geofenceRadius >= 1000
-                              ? "${(geofenceRadius / 1000).toStringAsFixed(1)} km"
-                              : "${geofenceRadius.toInt()} m",
-                          style: GoogleFonts.outfit(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
                       ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    activeTrackColor: isEditing ? AppColors.accent : AppColors.border,
-                    inactiveTrackColor: AppColors.border.withOpacity(0.5),
-                    thumbColor: isEditing ? AppColors.accent : AppColors.border,
-                    overlayColor: Colors.transparent,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 0),
-                  ),
-                  child: Slider(
-                    value: geofenceRadius.clamp(200, 5000),
-                    min: 200,
-                    max: 5000,
-                    divisions: 48,
-                    onChanged: isEditing ? (v) => setState(() => geofenceRadius = v) : null,
                   ),
                 ),
-                if (!isEditing)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 8),
-                    child: Text(
-                      "Auto-set to half the travel distance. Edit to override.",
-                      style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500]),
+
+                // Save Button
+                if (isEditing)
+                  GestureDetector(
+                    onTap: _handleSave,
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(top: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        "Save Settings",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.nunito(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                if (travelStats != null) ...[
-                   const SizedBox(height: 20),
-                   Container(
-                     padding: const EdgeInsets.all(20),
-                     decoration: BoxDecoration(
-                       color: AppColors.bg,
-                       borderRadius: BorderRadius.circular(20),
-                       border: Border.all(color: AppColors.border),
-                     ),
-                     child: Column(
-                       children: [
-                         Row(
-                           children: [
-                             Icon(LucideIcons.activity, size: 18, color: Colors.grey[600]),
-                             const SizedBox(width: 12),
-                             Text("Current Distance", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
-                             const Spacer(),
-                             Text("${(travelStats!['distance'] / 1000).toStringAsFixed(2)} km", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
-                           ],
-                         ),
-                         const SizedBox(height: 16),
-                         Row(
-                           children: [
-                             Icon(LucideIcons.car, size: 18, color: Colors.grey[600]),
-                             const SizedBox(width: 12),
-                             Text("Est. Travel Time", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
-                             const Spacer(),
-                             Text("${(travelStats!['durationInTraffic'] / 60).round()} mins", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
-                           ],
-                         ),
-                         // Auto-radius formula row
-                         const SizedBox(height: 16),
-                         const Divider(height: 1),
-                         const SizedBox(height: 16),
-                         Row(
-                           children: [
-                             const Icon(LucideIcons.target, size: 18, color: Color(0xFF6366F1)),
-                             const SizedBox(width: 12),
-                             Text("Geofence Radius", style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600])),
-                             const Spacer(),
-                             Text(
-                               geofenceRadius >= 1000
-                                   ? "${(geofenceRadius / 1000).toStringAsFixed(1)} km"
-                                   : "${geofenceRadius.toInt()} m",
-                               style: GoogleFonts.outfit(
-                                 fontWeight: FontWeight.w800,
-                                 fontSize: 16,
-                                 color: const Color(0xFF6366F1),
-                               ),
-                             ),
-                           ],
-                         ),
-                       ],
-                     ),
-                   ),
-                ],
+
+                const SizedBox(height: 100), // Padding for bottom
               ],
             ),
-
-          // Collaboration Section
-          _DetailCard(
-            title: "COLLABORATION",
-            icon: LucideIcons.share2,
-            children: [
-              if (sharedWith.isEmpty)
-                Text("Not shared with anyone", style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey[500]))
-              else
-                ...sharedWith.map((s) => Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.bg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
-                              border: Border.all(color: Colors.white, width: 1.5),
-                            ),
-                            child: ClipOval(
-                              child: s['user']?['profilePicture'] != null
-                                  ? CachedNetworkImage(
-                                      imageUrl: AppConfig.formatImageUrl(s['user']?['profilePicture'])!,
-                                      fit: BoxFit.cover,
-                                      errorWidget: (context, url, error) => Center(
-                                        child: Text(
-                                          s['user']?['name']?[0]?.toUpperCase() ?? 'U',
-                                          style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    )
-                                  : Center(
-                                      child: Text(
-                                        s['user']?['name']?[0]?.toUpperCase() ?? 'U',
-                                        style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(s['user']?['name'] ?? 'Unknown', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                                Text(s['user']?['email'] ?? '', style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500])),
-                              ],
-                            ),
-                          ),
-                          if (isEditing)
-                            IconButton(
-                              icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.red),
-                              onPressed: () => _unshareUser(s['user']['_id']),
-                            ),
-                        ],
-                      ),
-                    )),
-            ],
-          ),
-
-          // Family Backup
-
-
-          // Smart Features
-          _DetailCard(
-            title: "SMART FEATURES",
-            icon: LucideIcons.zap,
-            children: [
-              _SmartFeatureTile(
-                icon: LucideIcons.shieldAlert,
-                label: "Early Warning System",
-                sub: "Get proactive alerts when you're at risk of being late based on your current location and traffic conditions",
-                value: smartFeatures['earlyWarning']!,
-                onChanged: (v) => _toggleSetting('smartFeatures', 'earlyWarning', v),
-                tag: "AI",
-                tagColor: Theme.of(context).primaryColor,
-              ),
-              _SmartFeatureTile(
-                icon: LucideIcons.car,
-                label: "Traffic-Aware ETA",
-                sub: "Automatically adjust reminder times based on real-time traffic data and route conditions",
-                value: smartFeatures['trafficAware']!,
-                onChanged: (v) => _toggleSetting('smartFeatures', 'trafficAware', v),
-                tag: "LIVE",
-                tagColor: const Color(0xFF10B981),
-              ),
-              _SmartFeatureTile(
-                icon: LucideIcons.smartphone,
-                label: "Item Exit Guards",
-                sub: "Get reminded about items you need to bring when leaving a location (e.g., wallet, keys, documents)",
-                value: smartFeatures['itemExitGuards']!,
-                onChanged: (v) => _toggleSetting('smartFeatures', 'itemExitGuards', v),
-                tag: "NEW",
-                tagColor: const Color(0xFF8B5CF6),
-              ),
-            ],
-          ),
-
-
-
-          // Alert Preferences
-          _DetailCard(
-            title: "ALERT PREFERENCES",
-            icon: LucideIcons.bellRing,
-            children: [
-              _AlertTile(
-                icon: LucideIcons.bell,
-                label: "Push Notifications",
-                sub: "Receive alerts on your device",
-                value: alerts['push']!,
-                onChanged: (v) => _toggleSetting('alerts', 'push', v),
-              ),
-               _AlertTile(
-                icon: LucideIcons.mail,
-                label: "Email Alerts",
-                sub: "Detailed reports via email",
-                value: alerts['email']!,
-                onChanged: (v) => _toggleSetting('alerts', 'email', v),
-              ),
-
-            ],
-          ),
-
-          // Timeline
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 16),
-            child: Text(
-              "TIMELINE",
-              style: GoogleFonts.nunito(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.8,
-                color: AppColors.textDim,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Container(
-              padding: const EdgeInsets.only(left: 20, bottom: 20),
-              decoration: BoxDecoration(
-                border: Border(left: BorderSide(color: AppColors.border, width: 2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (timeline.isEmpty)
-                    _TimelineItem(
-                      title: "Reminder Created",
-                      time: widget.reminder['createdAt'] != null 
-                          ? _formatFullDateTime(widget.reminder['createdAt'])
-                          : "Just now",
-                      isFirst: true,
-                    )
-                  else
-                    ...timeline.asMap().entries.map((e) => _TimelineItem(
-                          title: e.value['action'] ?? '',
-                          time: e.value['timestamp'] != null 
-                              ? _formatFullDateTime(e.value['timestamp'])
-                              : "",
-                          isFirst: e.key == 0,
-                        )),
-                ],
-              ),
-            ),
-          ),
-
-          // Save Button
-          if (isEditing)
-            GestureDetector(
-              onTap: _handleSave,
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(top: 24),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  "Save Settings",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.nunito(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-
-          const SizedBox(height: 100), // Padding for bottom
-        ],
-      ),
           ),
         ),
       ],
@@ -1682,19 +2251,20 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   }
 
   String _formatFullDateTime(String dateStr) {
-      try {
-          final date = DateTime.parse(dateStr);
-          final user = Provider.of<UserProvider>(context, listen: false).user;
-          final dFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
-          final tFormat = user['timeFormat'] ?? '12';
-          return "${DateFormatter.formatDate(date, format: dFormat)} • ${DateFormatter.formatTime(date, format: tFormat)}";
-      } catch (e) {
-          return dateStr;
-      }
+    try {
+      final date = DateTime.parse(dateStr);
+      final user = Provider.of<UserProvider>(context, listen: false).user;
+      final dFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
+      final tFormat = user['timeFormat'] ?? '12';
+      return "${DateFormatter.formatDate(date, format: dFormat)} • ${DateFormatter.formatTime(date, format: tFormat)}";
+    } catch (e) {
+      return dateStr;
+    }
   }
 
   String _getAdjustedTime() {
-    if (timeController.text.isEmpty || !timeController.text.contains(':')) return "--:--";
+    if (timeController.text.isEmpty || !timeController.text.contains(':'))
+      return "--:--";
     try {
       final parts = timeController.text.split(':');
       final now = DateTime.now();
@@ -1702,15 +2272,21 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       // But if timeController contains AM/PM, int.parse might fail.
       // Let's assume standard HH:mm for simplicity or try to parse flexibly.
       int hour = int.parse(parts[0].trim());
-      int minute = int.parse(parts[1].split(' ')[0].trim()); // handle potential " PM"
-      
-      if (timeController.text.toLowerCase().contains('pm') && hour < 12) hour += 12;
-      
+      int minute = int.parse(
+        parts[1].split(' ')[0].trim(),
+      ); // handle potential " PM"
+
+      if (timeController.text.toLowerCase().contains('pm') && hour < 12)
+        hour += 12;
+
       final target = DateTime(now.year, now.month, now.day, hour, minute);
       final adjusted = target.subtract(Duration(minutes: bufferTime.toInt()));
-      
+
       final user = Provider.of<UserProvider>(context, listen: false).user;
-      return DateFormatter.formatTime(adjusted, format: user['timeFormat'] ?? '12');
+      return DateFormatter.formatTime(
+        adjusted,
+        format: user['timeFormat'] ?? '12',
+      );
     } catch (e) {
       return "--:--";
     }
@@ -1727,16 +2303,30 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameC, decoration: const InputDecoration(labelText: "Name")),
-              TextField(controller: phoneC, decoration: const InputDecoration(labelText: "Phone")),
+              TextField(
+                controller: nameC,
+                decoration: const InputDecoration(labelText: "Name"),
+              ),
+              TextField(
+                controller: phoneC,
+                decoration: const InputDecoration(labelText: "Phone"),
+              ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Cancel"),
+            ),
             TextButton(
               onPressed: () {
                 if (nameC.text.isNotEmpty && phoneC.text.isNotEmpty) {
-                  setState(() => backupContacts.add({'name': nameC.text, 'phone': phoneC.text}));
+                  setState(
+                    () => backupContacts.add({
+                      'name': nameC.text,
+                      'phone': phoneC.text,
+                    }),
+                  );
                   Navigator.pop(ctx);
                 }
               },
@@ -1759,10 +2349,14 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isGreen ? AppColors.green.withOpacity(0.12) : AppColors.orange.withOpacity(0.12),
+        color: isGreen
+            ? AppColors.green.withOpacity(0.12)
+            : AppColors.orange.withOpacity(0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isGreen ? AppColors.green.withOpacity(0.3) : AppColors.orange.withOpacity(0.3),
+          color: isGreen
+              ? AppColors.green.withOpacity(0.3)
+              : AppColors.orange.withOpacity(0.3),
         ),
       ),
       child: Text(
@@ -1783,7 +2377,11 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final Widget child;
 
-  const _InfoRow({required this.icon, required this.label, required this.child});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1791,7 +2389,10 @@ class _InfoRow extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: Icon(icon, size: 18, color: AppColors.accent),
         ),
         const SizedBox(width: 12),
@@ -1799,7 +2400,14 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: GoogleFonts.nunito(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMid)),
+              Text(
+                label,
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textMid,
+                ),
+              ),
               DefaultTextStyle(
                 style: GoogleFonts.inter(fontSize: 14, color: AppColors.text),
                 child: child,
@@ -1817,7 +2425,11 @@ class _DetailCard extends StatelessWidget {
   final IconData icon;
   final List<Widget> children;
 
-  const _DetailCard({required this.title, required this.icon, required this.children});
+  const _DetailCard({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1898,7 +2510,10 @@ class _SmartFeatureTile extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: tagColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: tagColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Icon(icon, size: 20, color: tagColor),
           ),
           const SizedBox(width: 16),
@@ -1915,15 +2530,30 @@ class _SmartFeatureTile extends StatelessWidget {
                           Flexible(
                             child: Text(
                               label,
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.w600,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: tagColor, borderRadius: BorderRadius.circular(6)),
-                            child: Text(tag, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: tagColor,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1937,7 +2567,14 @@ class _SmartFeatureTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                Text(sub, style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[600], height: 1.4)),
+                Text(
+                  sub,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1947,8 +2584,6 @@ class _SmartFeatureTile extends StatelessWidget {
   }
 }
 
-
-
 class _AlertTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1956,7 +2591,13 @@ class _AlertTile extends StatelessWidget {
   final bool value;
   final Function(bool) onChanged;
 
-  const _AlertTile({required this.icon, required this.label, required this.sub, required this.value, required this.onChanged});
+  const _AlertTile({
+    required this.icon,
+    required this.label,
+    required this.sub,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1980,11 +2621,17 @@ class _AlertTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
                 Text(
                   sub,
-                  style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500]),
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    color: Colors.grey[500],
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1994,10 +2641,7 @@ class _AlertTile extends StatelessWidget {
           const SizedBox(width: 8),
           Transform.scale(
             scale: 0.8,
-            child: Switch.adaptive(
-              value: value,
-              onChanged: onChanged,
-            ),
+            child: Switch.adaptive(value: value, onChanged: onChanged),
           ),
         ],
       ),
@@ -2010,7 +2654,11 @@ class _TimelineItem extends StatelessWidget {
   final String time;
   final bool isFirst;
 
-  const _TimelineItem({required this.title, required this.time, this.isFirst = false});
+  const _TimelineItem({
+    required this.title,
+    required this.time,
+    this.isFirst = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2035,8 +2683,21 @@ class _TimelineItem extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)),
-              Text(time, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textDim)),
+              Text(
+                title,
+                style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: AppColors.text,
+                ),
+              ),
+              Text(
+                time,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppColors.textDim,
+                ),
+              ),
             ],
           ),
         ],

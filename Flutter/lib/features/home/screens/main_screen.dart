@@ -13,6 +13,8 @@ import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
+import 'package:buddy_mobile/core/providers/security_provider.dart';
+import 'package:buddy_mobile/shared/dialogs/biometric_prompt_dialog.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -50,6 +52,7 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _requestLocationPermission();
+    _checkBiometrics();
 
     _pages = [
       ExploreScreen(
@@ -160,6 +163,32 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _checkBiometrics() async {
+    // Only prompt if logged in
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.token == null) return;
+
+    final security = Provider.of<SecurityProvider>(context, listen: false);
+    if (security.isHardwareAvailable && !security.isBiometricEnabled) {
+      final prompted = await security.hasBeenPrompted();
+      if (!prompted) {
+        // Wait a bit for the UI to settle
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+
+        final bool? result = await showDialog<bool>(
+          context: context,
+          builder: (context) => const BiometricPromptDialog(),
+        );
+
+        if (result == true) {
+          await security.toggleBiometric(true);
+        }
+        await security.setPrompted();
+      }
+    }
   }
 }
 

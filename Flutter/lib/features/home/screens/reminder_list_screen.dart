@@ -192,11 +192,18 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                   style: GoogleFonts.inter(
                                       fontSize: 13.5,
                                       color: AppColors.text),
-                                  decoration: InputDecoration.collapsed(
+                                  decoration: InputDecoration(
                                     hintText: 'Search reminders…',
                                     hintStyle: GoogleFonts.inter(
                                         fontSize: 13.5,
                                         color: AppColors.textDim),
+                                    border: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                    isCollapsed: true,
+                                    filled: true,
+                                    fillColor: Colors.transparent,
                                   ),
                                 ),
                               ),

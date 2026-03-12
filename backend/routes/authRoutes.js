@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login, signup, googleLogin, getMe, setupVPS, guestLogin, forgotPassword, verifyResetOtp, resetPassword } = require('../controllers/authController');
+const { login, signup, googleLogin, getMe, setupVPS, guestLogin, forgotPassword, verifyResetOtp, resetPassword, changePassword } = require('../controllers/authController');
 const { protect } = require('../middlewares/auth');
 
 router.post('/signup', signup);
@@ -22,6 +22,7 @@ router.post('/setup-vps', (req, res, next) => {
 }, setupVPS);
 
 router.get('/me', protect, getMe);
+router.put('/change-password', protect, changePassword);
 
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-reset-otp', verifyResetOtp);

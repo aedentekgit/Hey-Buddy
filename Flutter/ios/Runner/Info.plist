@@ -74,5 +74,7 @@
 	<string>This app needs access to your microphone to listen for "Hey Buddy" wake word and voice commands.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>This app uses speech recognition to convert your voice into text commands.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>This app uses Face ID to secure your account and settings.</string>
 </dict>
 </plist>

@@ -11,6 +11,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:buddy_mobile/core/providers/security_provider.dart';
+import 'package:buddy_mobile/shared/dialogs/biometric_prompt_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,11 +41,33 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     
     if (success) {
+      if (!mounted) return;
+      await _checkAndPromptBiometrics();
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     } else {
       ToastUtils.showErrorToast('Invalid email or password');
+    }
+  }
+
+  Future<void> _checkAndPromptBiometrics() async {
+    final security = Provider.of<SecurityProvider>(context, listen: false);
+    if (security.isHardwareAvailable && !security.isBiometricEnabled) {
+      final prompted = await security.hasBeenPrompted();
+      if (!prompted) {
+        if (!mounted) return;
+        final bool? result = await showDialog<bool>(
+          context: context,
+          builder: (context) => const BiometricPromptDialog(),
+        );
+
+        if (result == true) {
+          await security.toggleBiometric(true);
+        }
+        await security.setPrompted();
+      }
     }
   }
 
@@ -54,6 +78,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     
     if (success) {
+      if (!mounted) return;
+      await _checkAndPromptBiometrics();
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
@@ -193,6 +220,40 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
+                        ),
+                        
+                        Consumer<SecurityProvider>(
+                          builder: (context, security, _) {
+                            final auth = Provider.of<AuthProvider>(context, listen: false);
+                            if (security.isBiometricEnabled && auth.token != null) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: TextButton.icon(
+                                  onPressed: () async {
+                                    final success = await security.authenticate();
+                                    if (success) {
+                                      if (!mounted) return;
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(builder: (_) => const MainScreen()),
+                                      );
+                                    }
+                                  },
+                                  icon: const Icon(LucideIcons.fingerprint, size: 20),
+                                  label: Text(
+                                    "Quick Unlock with Biometrics",
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: branding.primaryColor,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
                         ),
                         const SizedBox(height: 28),
                         

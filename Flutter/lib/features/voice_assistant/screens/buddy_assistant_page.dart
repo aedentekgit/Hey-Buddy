@@ -22,6 +22,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:buddy_mobile/shared/widgets/keyboard_guided_hover.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 
 class BuddyAssistantPage extends StatefulWidget {
   final bool isIntegrated;
@@ -652,9 +653,12 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   Widget _buildMessageItem(Map<String, dynamic> msg, BrandingProvider branding) {
     final isUser = msg['type'] == 'user';
-    final ts = DateFormat('h:mm a').format(
+    final userProvider = Provider.of<UserProvider>(context, listen: false); // already defined in build, but _buildMessageItem is a separate method
+    final ts = DateFormatter.formatTime(
       DateTime.fromMillisecondsSinceEpoch(
-          msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch));
+          msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch),
+      format: userProvider.user['timeFormat'] ?? '12',
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
@@ -664,7 +668,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         children: [
           if (!isUser) ...[
             _buildAssistantAvatar(branding),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
           ],
           ConstrainedBox(
             constraints: BoxConstraints(
@@ -692,13 +696,12 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     boxShadow: [
                       BoxShadow(
                         color: isUser 
-                            ? branding.primaryColor.withOpacity(0.2)
+                            ? branding.primaryColor.withOpacity(0.18)
                             : Colors.black.withOpacity(0.04),
-                        blurRadius: 12,
+                        blurRadius: 15,
                         offset: const Offset(0, 4),
                       ),
                     ],
-                    border: isUser ? null : Border.all(color: const Color(0xFFE2E8F0), width: 1),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -765,7 +768,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             ),
           ),
           if (isUser) ...[
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             _buildUserAvatar(),
           ],
         ],
@@ -849,67 +852,71 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   Widget _buildAssistantAvatar(BrandingProvider branding) {
     return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: branding.primaryColor.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: branding.primaryColor.withOpacity(0.1), width: 1.5),
+      width: 34,
+      height: 34,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
       ),
-      child: Center(
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [branding.primaryColor, const Color(0xFF7C3AED)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(LucideIcons.bot, color: Colors.white, size: 18),
-        ),
+      child: ClipOval(
+        child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: branding.logoUrl!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+                errorWidget: (context, url, error) => Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+              )
+            : Image.asset(
+                'assets/app_icon.png',
+                fit: BoxFit.cover,
+              ),
       ),
     );
   }
 
   Widget _buildUserAvatar() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final user = userProvider.user;
+    final String? avatarUrl = user['profilePicture'] as String?;
+    final String name = user['name'] ?? 'User';
+
     return Container(
-      width: 38,
-      height: 38,
+      width: 34,
+      height: 34,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+      ),
+      child: ClipOval(
+        child: avatarUrl != null && avatarUrl.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: avatarUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => _buildUserFallback(name),
+                errorWidget: (context, url, error) => _buildUserFallback(name),
+              )
+            : _buildUserFallback(name),
+      ),
+    );
+  }
+
+  Widget _buildUserFallback(String name) {
+    final initials = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF64748B), Color(0xFF1E293B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
       child: Center(
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF64748B), Color(0xFF1E293B)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(10),
+        child: Text(
+          initials,
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
           ),
-          child: const Icon(LucideIcons.user, color: Colors.white, size: 18),
         ),
       ),
     );

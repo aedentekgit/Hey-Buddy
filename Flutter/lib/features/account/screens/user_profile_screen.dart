@@ -6,6 +6,7 @@ import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final VoidCallback? onPickImage;
@@ -486,6 +487,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                             border: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            filled: true,
+                            fillColor: Colors.transparent,
                             hintText: hint,
                             hintStyle: GoogleFonts.nunito(
                                 fontSize: 14, color: AppColors.textDim),
@@ -708,15 +713,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   String _formatJoinDate(dynamic raw) {
     if (raw == null) return 'Unknown';
-    try {
-      final dt = DateTime.parse(raw.toString()).toLocal();
-      const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-      ];
-      return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-    } catch (_) {
-      return 'Unknown';
-    }
+    return DateFormatter.displayDateString(context, raw.toString());
   }
 }

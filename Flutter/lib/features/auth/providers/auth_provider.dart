@@ -212,5 +212,28 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    if (_token == null) return false;
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final result = await _authService.changePassword(currentPassword, newPassword, _token!);
+      if (result['success'] == true) {
+        ToastUtils.showSuccessToast('Password updated successfully');
+        return true;
+      } else {
+        ToastUtils.showErrorToast(result['message'] ?? 'Failed to update password');
+        return false;
+      }
+    } catch (e) {
+      ToastUtils.showErrorToast('Something went wrong');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }
 

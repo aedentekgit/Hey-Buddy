@@ -80,6 +80,22 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword, String token) async {
+    try {
+      final response = await _dio.put(
+        'auth/change-password',
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return response.data;
+    } on DioException catch (e) {
+      return _handleError(e, 'Failed to change password');
+    }
+  }
+
   Map<String, dynamic> _handleError(DioException e, String defaultMessage) {
     String message = defaultMessage;
     if (e.response?.data != null && e.response?.data is Map) {

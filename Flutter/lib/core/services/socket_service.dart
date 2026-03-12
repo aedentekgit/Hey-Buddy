@@ -28,6 +28,13 @@ class SocketService {
 
   String? _lastToken;
   bool _isConnecting = false;
+  bool _isDisposed = false;
+
+  void _safeAdd<T>(StreamController<T> controller, T event) {
+    if (!controller.isClosed && !_isDisposed) {
+      controller.add(event);
+    }
+  }
 
   void connect() async {
     if (_isConnecting) return;
@@ -79,7 +86,7 @@ class SocketService {
 
     socket?.onConnect((_) {
       print('Socket Connected successfully to ${AppConfig.socketUrl}');
-      _statusStreamController.add(true);
+      _safeAdd(_statusStreamController, true);
       // Initialize agent in standby mode so it listens for wake word
       socket?.emit('setup_agent', {
         'language': 'en-US',
@@ -89,16 +96,16 @@ class SocketService {
 
     socket?.onDisconnect((_) {
       print('Socket Disconnected');
-      _statusStreamController.add(false);
+      _safeAdd(_statusStreamController, false);
     });
 
     socket?.on('audio_out', (data) {
       // Data is base64 audio chunk
-      _audioStreamController.add(data);
+      _safeAdd(_audioStreamController, data);
     });
 
     socket?.on('caption', (text) {
-      _captionStreamController.add(text);
+      _safeAdd(_captionStreamController, text);
     });
 
     socket?.on('connect_error', (data) {
@@ -114,35 +121,35 @@ class SocketService {
     socket?.on('voice_alert', (data) {
       print('Background Voice Alert: $data');
       if (data is String) {
-        _voiceAlertStreamController.add({'text': data});
+        _safeAdd(_voiceAlertStreamController, {'text': data});
       } else if (data is Map) {
-        _voiceAlertStreamController.add(Map<String, dynamic>.from(data));
+        _safeAdd(_voiceAlertStreamController, Map<String, dynamic>.from(data));
       }
     });
 
     socket?.on('wake_word_detected', (data) {
       print('Wake Word Detected in Backend: $data');
       if (data is Map) {
-        _wakeWordStreamController.add(Map<String, dynamic>.from(data));
+        _safeAdd(_wakeWordStreamController, Map<String, dynamic>.from(data));
       } else {
-        _wakeWordStreamController.add({'transcript': 'hey buddy'});
+        _safeAdd(_wakeWordStreamController, {'transcript': 'hey buddy'});
       }
     });
 
     socket?.on('barge_in_detected', (data) {
       print('Barge-In Detected in Backend: $data');
-      _bargeInController.add(data);
+      _safeAdd(_bargeInController, data);
     });
 
     socket?.on('stop_command', (data) {
       print('Stop Command Detected in Backend: $data');
-      _stopCmdController.add(data);
+      _safeAdd(_stopCmdController, data);
     });
 
     socket?.on('new_message', (data) {
       print('New Chat Message Received: $data');
       if (data is Map) {
-        _chatStreamController.add(Map<String, dynamic>.from(data));
+        _safeAdd(_chatStreamController, Map<String, dynamic>.from(data));
       }
     });
     
@@ -178,13 +185,21 @@ class SocketService {
     });
   }
 
-  void dispose() {
+  void disconnect() {
     socket?.disconnect();
+  }
+
+  void dispose() {
+    _isDisposed = true;
+    socket?.disconnect();
+    socket?.dispose();
     _audioStreamController.close();
     _captionStreamController.close();
     _statusStreamController.close();
     _voiceAlertStreamController.close();
     _wakeWordStreamController.close();
     _chatStreamController.close();
+    _bargeInController.close();
+    _stopCmdController.close();
   }
 }

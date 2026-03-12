@@ -512,7 +512,7 @@ class BuddyProvider with ChangeNotifier {
       startWakeWordDetection(); // Start hearing by default
     } else {
       stopWakeWordDetection();
-      socketService.dispose();
+      socketService.disconnect();
       _isRealtimeEnabled = false;
     }
     notifyListeners();

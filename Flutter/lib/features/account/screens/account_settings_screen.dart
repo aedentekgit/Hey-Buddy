@@ -13,6 +13,8 @@ import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart' as buddy;
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/features/account/screens/user_profile_screen.dart';
+import 'package:buddy_mobile/features/account/screens/change_password_screen.dart';
+import 'package:buddy_mobile/core/providers/security_provider.dart';
 
 class AccountSettingsScreen extends StatefulWidget {
   final ValueChanged<bool>? onSubViewChanged;
@@ -30,7 +32,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
   bool _pushNotifications = true;
   bool _emailDigest = false;
   bool _inAppAlerts = true;
-  bool _biometrics = true;
 
   @override
   void initState() {
@@ -165,6 +166,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
           final bool pushNotifications = notificationPrefs['push']?['enabled'] ?? true;
           final bool emailDigest = notificationPrefs['email']?['enabled'] ?? true;
           final bool inAppAlerts = notificationPrefs['inApp']?['enabled'] ?? true;
+          final securityProvider = Provider.of<SecurityProvider>(context);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
@@ -237,9 +239,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       sub: 'Buddy speaks reminders',
                       trailing: _Toggle(
                           value: voiceAlerts,
-                          onChanged: (v) => userProvider.updateNotificationPreferences({
-                            'voice': {'enabled': v}
-                          })),
+                          onChanged: (v) async {
+                            final success = await userProvider.updateNotificationPreferences({
+                              'voice': {'enabled': v}
+                            });
+                            if (success) {
+                              final msg = "Voice Alerts turned ${v ? 'ON' : 'OFF'}";
+                              if (v) ToastUtils.showSuccessToast(msg);
+                              else ToastUtils.showErrorToast(msg);
+                            }
+                          }),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -249,9 +258,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       sub: 'Lock screen alerts',
                       trailing: _Toggle(
                           value: pushNotifications,
-                          onChanged: (v) => userProvider.updateNotificationPreferences({
-                                'push': {'enabled': v}
-                              })),
+                          onChanged: (v) async {
+                            final success = await userProvider.updateNotificationPreferences({
+                              'push': {'enabled': v}
+                            });
+                            if (success) {
+                              final msg = "Push Notifications turned ${v ? 'ON' : 'OFF'}";
+                              if (v) ToastUtils.showSuccessToast(msg);
+                              else ToastUtils.showErrorToast(msg);
+                            }
+                          }),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -261,9 +277,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       sub: 'Daily summary via email',
                       trailing: _Toggle(
                           value: emailDigest,
-                          onChanged: (v) => userProvider.updateNotificationPreferences({
-                                'email': {'enabled': v}
-                              })),
+                          onChanged: (v) async {
+                            final success = await userProvider.updateNotificationPreferences({
+                              'email': {'enabled': v}
+                            });
+                            if (success) {
+                              final msg = "Email Digest turned ${v ? 'ON' : 'OFF'}";
+                              if (v) ToastUtils.showSuccessToast(msg);
+                              else ToastUtils.showErrorToast(msg);
+                            }
+                          }),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -273,9 +296,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       sub: 'Banners & badges',
                       trailing: _Toggle(
                           value: inAppAlerts,
-                          onChanged: (v) => userProvider.updateNotificationPreferences({
-                                'inApp': {'enabled': v}
-                              })),
+                          onChanged: (v) async {
+                            final success = await userProvider.updateNotificationPreferences({
+                              'inApp': {'enabled': v}
+                            });
+                            if (success) {
+                              final msg = "In-App Alerts turned ${v ? 'ON' : 'OFF'}";
+                              if (v) ToastUtils.showSuccessToast(msg);
+                              else ToastUtils.showErrorToast(msg);
+                            }
+                          }),
                       isLast: true,
                     ),
                   ],
@@ -295,8 +325,15 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                   sub: calConnected ? 'Synced · Connected' : 'Not connected',
                   trailing: _Toggle(
                       value: calConnected,
-                      onChanged: (_) =>
-                          _handleCalendarToggle(userProvider)),
+                      onChanged: (v) async {
+                        await _handleCalendarToggle(userProvider);
+                        // Refresh value after toggle attempt
+                        final updatedUser = userProvider.user;
+                        final isNowConnected = updatedUser['googleCalendarConnected'] == true;
+                        final msg = "Google Calendar ${isNowConnected ? 'connected' : 'disconnected'}";
+                        if (isNowConnected) ToastUtils.showSuccessToast(msg);
+                        else ToastUtils.showErrorToast(msg);
+                      }),
                   isLast: true,
                 ),
               ),
@@ -309,16 +346,27 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
-                    _SettingsRow(
-                      icon: LucideIcons.shield,
-                      iconColor: AppColors.green,
-                      label: 'Biometrics',
-                      sub: 'Face ID / Fingerprint',
-                      trailing: _Toggle(
-                          value: _biometrics,
-                          onChanged: (v) => setState(() => _biometrics = v)),
-                    ),
-                    _Divider(),
+                    if (securityProvider.isHardwareAvailable) ...[
+                      _SettingsRow(
+                        icon: LucideIcons.shield,
+                        iconColor: AppColors.green,
+                        label: 'Biometrics',
+                        sub: 'Face ID / Fingerprint',
+                        trailing: _Toggle(
+                            value: securityProvider.isBiometricEnabled,
+                            onChanged: (v) async {
+                              final success = await securityProvider.toggleBiometric(v);
+                              if (success) {
+                                final msg = "Biometric Security turned ${v ? 'ON' : 'OFF'}";
+                                if (v) ToastUtils.showSuccessToast(msg);
+                                else ToastUtils.showErrorToast(msg);
+                              } else if (v) {
+                                ToastUtils.showErrorToast('Biometric authentication failed');
+                              }
+                            }),
+                      ),
+                      _Divider(),
+                    ],
                     _SettingsRow(
                       icon: LucideIcons.key,
                       iconColor: AppColors.orange,
@@ -326,12 +374,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       sub: 'Update your account password',
                       trailing: Icon(LucideIcons.chevronRight,
                           size: 15, color: AppColors.textDim),
-                      onTap: () => _showInfoModal(
-                        title: 'Update Password',
-                        icon: LucideIcons.key,
-                        color: AppColors.orange,
-                        desc:
-                            'We will send a secure link to your registered email to reset your account password.',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ChangePasswordScreen(),
+                        ),
                       ),
                       isLast: true,
                     ),
@@ -611,7 +658,8 @@ class _SettingsRow extends StatelessWidget {
 class _Toggle extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
-  const _Toggle({required this.value, required this.onChanged});
+  final Color? activeColor;
+  const _Toggle({required this.value, required this.onChanged, this.activeColor});
 
   @override
   Widget build(BuildContext context) {
@@ -622,7 +670,7 @@ class _Toggle extends StatelessWidget {
         width: 44,
         height: 25,
         decoration: BoxDecoration(
-          color: value ? AppColors.accent : const Color(0xFFD1D5DB),
+          color: value ? (activeColor ?? Theme.of(context).primaryColor) : const Color(0xFFD1D5DB),
           borderRadius: BorderRadius.circular(13),
         ),
         child: AnimatedAlign(

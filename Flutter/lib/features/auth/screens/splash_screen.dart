@@ -8,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:buddy_mobile/core/providers/security_provider.dart';
+import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -51,6 +53,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
     
+    // Biometric Security Check
+    final security = Provider.of<SecurityProvider>(context, listen: false);
+    if (auth.token != null && security.isBiometricEnabled) {
+      final authenticated = await security.authenticate();
+      if (!authenticated) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
     // Always go to MainScreen; it will handle showing the Assistant by default for guest users
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainScreen()),
