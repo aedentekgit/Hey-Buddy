@@ -1,301 +1,514 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:buddy_mobile/shared/utils/memory_icon_utils.dart';
+import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
+import 'package:buddy_mobile/features/home/screens/memory_edit_screen.dart';
 
 class MemoryDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> item;
+  final Color? color;
 
-  const MemoryDetailsScreen({super.key, required this.item});
+  const MemoryDetailsScreen({super.key, required this.item, this.color});
 
-  /// Builds a fully qualified URL from a stored path, correctly handling
-  /// relative paths, localhost leakage, and protocol mismatches.
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  Color get _color {
+    if (color != null) return color!;
+    final tags = _tags;
+    if (tags.contains('Travel')) return AppColors.accent;
+    if (tags.contains('Health')) return AppColors.teal;
+    if (tags.contains('Work')) return AppColors.purple;
+    if (tags.contains('Family')) return AppColors.pink;
+    if (tags.contains('Vehicle')) return AppColors.orange;
+    return AppColors.accent;
+  }
+
+  String get _title {
+    final content = item['content'] as String? ?? '';
+    return content.split('\n').first.trim().isNotEmpty
+        ? content.split('\n').first.trim()
+        : (item['fileName'] as String? ?? 'Memory');
+  }
+
+  String get _fullContent => item['content'] as String? ?? '';
+
+  List<String> get _tags {
+    final raw = item['tags'];
+    if (raw is List) return raw.map((t) => t.toString()).toList();
+    return [];
+  }
+
+  String get _updatedAt {
+    final raw = item['updatedAt'] ?? item['createdAt'];
+    if (raw == null) return '';
+    try {
+      final dt = DateTime.parse(raw.toString());
+      final diff = DateTime.now().difference(dt);
+      if (diff.inDays == 0) return 'Updated today';
+      if (diff.inDays == 1) return 'Updated yesterday';
+      return 'Updated ${diff.inDays} days ago';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  IconData get _icon => getMemoryIcon(item);
+
+  /// Try to parse "Key: Value" lines from content into structured rows.
+  /// Returns pairs; if fewer than 2 pairs, returns empty (use notes view instead).
+  List<List<String>> get _parsedFields {
+    final lines = _fullContent
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    final fields = <List<String>>[];
+    for (final line in lines.skip(1)) {
+      // skip title line
+      final idx = line.indexOf(':');
+      if (idx > 0 && idx < line.length - 1) {
+        final key = line.substring(0, idx).trim();
+        final val = line.substring(idx + 1).trim();
+        if (key.length < 35 && val.isNotEmpty) {
+          fields.add([key, val]);
+        }
+      }
+    }
+    return fields;
+  }
+
+  /// Notes = content lines that are NOT key:value pairs (after the title).
+  String get _notes {
+    final lines = _fullContent
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return '';
+    // Skip title line; collect lines that aren't key:value
+    final noteLines = lines.skip(1).where((line) {
+      final idx = line.indexOf(':');
+      if (idx > 0 && idx < line.length - 1) {
+        final key = line.substring(0, idx).trim();
+        if (key.length < 35) return false; // is a structured field
+      }
+      return true;
+    }).toList();
+    return noteLines.join('\n').trim();
+  }
+
   String _getFileUrl(String? path) {
     if (path == null || path.isEmpty) return '';
-    final formatted = AppConfig.formatImageUrl(path);
-    return formatted ?? '';
+    return AppConfig.formatImageUrl(path) ?? '';
   }
 
   bool _isImage(String url) {
     final lower = url.toLowerCase();
-    return lower.endsWith('.jpg') || lower.endsWith('.jpeg') ||
-           lower.endsWith('.png') || lower.endsWith('.gif') ||
-           lower.endsWith('.webp') || lower.endsWith('.bmp');
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.webp');
+  }
+
+  void _showDeleteDialog(BuildContext context) {
+    final type = item['type'] ?? 'memory';
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: AppColors.surface,
+        title: Text(
+          type == 'memory' ? 'Forget Memory?' : 'Delete Document?',
+          style: GoogleFonts.nunito(
+              fontWeight: FontWeight.w900, color: AppColors.text),
+        ),
+        content: Text(
+          type == 'memory'
+              ? 'Are you sure you want Buddy to forget this memory?'
+              : 'Are you sure you want to delete this document?',
+          style: GoogleFonts.inter(fontSize: 13.5, color: AppColors.textMid),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel',
+                style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.w700, color: AppColors.textMid)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context); // close dialog
+              final provider =
+                  Provider.of<MemoriesProvider>(context, listen: false);
+              await provider.deleteItem(item['_id'], type);
+              if (context.mounted) {
+                ToastUtils.showSuccessToast(
+                    type == 'memory' ? 'Memory forgotten' : 'Document deleted');
+                Navigator.pop(context); // go back to list
+              }
+            },
+            child: Text('Delete',
+                style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.w800, color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final type = item['type'] ?? 'memory';
-    final bool isMemory = type == 'memory';
-    final Color themeColor = isMemory ? const Color(0xFF9333EA) : const Color(0xFF059669);
-    final String? rawFileUrl = item['fileUrl'] as String?;
-    final String fileUrl = _getFileUrl(rawFileUrl);
+    final c = _color;
+    final fields = _parsedFields;
+    final notes = _notes.isNotEmpty
+        ? _notes
+        : (_parsedFields.isEmpty ? _fullContent : '');
+    final String fileUrl = _getFileUrl(item['fileUrl'] as String?);
     final bool hasFile = fileUrl.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          isMemory ? "Memory Details" : "Document Details",
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft, color: Color(0xFF1E293B)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        shape: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            if (isMemory) ...[
-              _DetailCard(
-                title: "Insight",
-                icon: LucideIcons.brain,
-                color: themeColor,
-                child: Text(
-                  item['content'] ?? '',
-                  style: GoogleFonts.outfit(fontSize: 16, height: 1.5, color: const Color(0xFF1E293B)),
-                ),
-              ),
-              // ✅ FIX: Show attachment for memory type if fileUrl exists
-              if (hasFile)
-                _DetailCard(
-                  title: "Attachment",
-                  icon: LucideIcons.paperclip,
-                  color: themeColor,
-                  child: _FilePreview(fileUrl: fileUrl, isImage: _isImage(fileUrl)),
-                ),
-            ] else ...[
-              _DetailCard(
-                title: "Information",
-                icon: LucideIcons.fileText,
-                color: themeColor,
-                child: Column(
-                  children: [
-                    _InfoRow(label: "Patient", value: item['extractedData']?['patientName'] ?? 'Unknown'),
-                    _InfoRow(label: "Doctor", value: "Dr. ${item['extractedData']?['doctorName'] ?? 'Unspecified'}"),
-                    _InfoRow(label: "Uploaded", value: item['createdAt']?.toString().split('T')[0] ?? ''),
-                  ],
-                ),
-              ),
-              if (item['extractedData']?['medicines'] != null)
-                _DetailCard(
-                  title: "Medicines",
-                  icon: LucideIcons.pill,
-                  color: themeColor,
-                  child: Column(
-                    children: ((item['extractedData']?['medicines'] ?? []) as List).map<Widget>((med) => 
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          border: Border(bottom: BorderSide(color: Colors.grey[100]!)),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(med['name'] ?? '', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                                  Text("${med['dosage'] ?? ''} • ${med['timing'] ?? ''}", 
-                                      style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey)),
-                                ],
-                              ),
+      backgroundColor: AppColors.bg,
+      body: Column(
+        children: [
+          // ── Custom header ─────────────────────────────────────────────
+          _Header(
+            title: _title,
+            color: c,
+            onBack: () => Navigator.pop(context),
+            onEdit: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => MemoryEditScreen(item: item)),
+            ),
+            onDelete: () => _showDeleteDialog(context),
+          ),
+
+          // ── Scrollable content ────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Hero card ─────────────────────────────────────────
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          c.withOpacity(0.12),
+                          c.withOpacity(0.04),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: c.withOpacity(0.2), width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        // Icon box
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                c.withOpacity(0.22),
+                                c.withOpacity(0.1),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
+                            borderRadius: BorderRadius.circular(20),
+                            border:
+                                Border.all(color: c.withOpacity(0.25), width: 2),
+                          ),
+                          child: Icon(_icon, color: c, size: 30),
                         ),
-                      )
-                    ).toList(),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _title,
+                                style: GoogleFonts.nunito(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.text),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (_tags.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 6,
+                                  children: _tags
+                                      .take(3)
+                                      .map((t) => _TagChip(label: t, color: c))
+                                      .toList(),
+                                ),
+                              ],
+                              if (_updatedAt.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  _updatedAt,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: AppColors.textMid),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              if (hasFile)
-                _DetailCard(
-                  title: "Document Preview",
-                  icon: LucideIcons.image,
-                  color: themeColor,
-                  child: _FilePreview(fileUrl: fileUrl, isImage: _isImage(fileUrl)),
-                ),
-            ],
-            const SizedBox(height: 40),
-          ],
-        ),
+
+                  const SizedBox(height: 18),
+
+                  // ── Structured fields ─────────────────────────────────
+                  if (fields.isNotEmpty) ...[
+                    _SectionLabel(label: 'Details'),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: AppColors.cardShadow,
+                      ),
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < fields.length; i++) ...[
+                            _FieldRow(
+                              label: fields[i][0],
+                              value: fields[i][1],
+                            ),
+                            if (i < fields.length - 1)
+                              Container(
+                                height: 1,
+                                color: AppColors.border,
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Notes / full content ──────────────────────────────
+                  if (notes.isNotEmpty) ...[
+                    if (fields.isNotEmpty) _SectionLabel(label: 'Notes'),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: AppColors.cardShadow,
+                      ),
+                      child: Text(
+                        notes,
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: AppColors.textMid,
+                            height: 1.65),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Attachment ────────────────────────────────────────
+                  if (hasFile) ...[
+                    _SectionLabel(label: 'Attachment'),
+                    _FileCard(
+                      fileUrl: fileUrl,
+                      color: c,
+                      isImage: _isImage(fileUrl),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Renders an image or a document download chip depending on the file type.
-class _FilePreview extends StatelessWidget {
-  final String fileUrl;
-  final bool isImage;
-  const _FilePreview({required this.fileUrl, required this.isImage});
+// ── Header ────────────────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (isImage)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: CachedNetworkImage(
-              imageUrl: fileUrl,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              placeholder: (ctx, url) => Container(
-                height: 200,
-                color: Colors.grey[100],
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              errorWidget: (ctx, url, err) => Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(LucideIcons.imageOff, color: Colors.grey[400], size: 32),
-                    const SizedBox(height: 8),
-                    Text('Could not load image', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(LucideIcons.fileText, color: Color(0xFF6366F1), size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    fileUrl.split('/').last,
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        // Open in browser link
-        const SizedBox(height: 12),
-        GestureDetector(
-          onTap: () async {
-            final uri = Uri.tryParse(fileUrl);
-            if (uri != null && await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.externalLink, size: 13, color: Color(0xFF6366F1)),
-                const SizedBox(width: 6),
-                Text(
-                  'Open Full View',
-                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF6366F1)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailCard extends StatelessWidget {
+class _Header extends StatelessWidget {
   final String title;
-  final IconData icon;
   final Color color;
-  final Widget child;
+  final VoidCallback onBack;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _DetailCard({required this.title, required this.icon, required this.color, required this.child});
+  const _Header({
+    required this.title,
+    required this.color,
+    required this.onBack,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      color: AppColors.surface,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(bottom: BorderSide(color: AppColors.border)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+          child: Row(
             children: [
-              Icon(icon, size: 20, color: color),
+              GestureDetector(
+                onTap: onBack,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Icon(LucideIcons.arrowLeft,
+                      size: 18, color: AppColors.text),
+                ),
+              ),
               const SizedBox(width: 12),
-              Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.nunito(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.text),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Memory Details',
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: AppColors.textMid),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Edit button
+              GestureDetector(
+                onTap: onEdit,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: color.withOpacity(0.2)),
+                  ),
+                  child: Icon(LucideIcons.pencil, size: 16, color: color),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Delete button
+              GestureDetector(
+                onTap: onDelete,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.dangerLight,
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(
+                        color: AppColors.danger.withOpacity(0.2)),
+                  ),
+                  child: const Icon(LucideIcons.trash2,
+                      size: 16, color: AppColors.danger),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 20),
-          child,
-        ],
+        ),
       ),
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
+// ── Section label ─────────────────────────────────────────────────────────────
 
-  const _InfoRow({required this.label, required this.value});
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.nunito(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textDim,
+          letterSpacing: 0.7,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Field row ─────────────────────────────────────────────────────────────────
+
+class _FieldRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _FieldRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
         children: [
-          SizedBox(
-            width: 100,
+          Expanded(
+            flex: 2,
             child: Text(
-              label.toUpperCase(), 
-              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[400])
+              label,
+              style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textMid),
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
+            flex: 3,
             child: Text(
-              value, 
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))
+              value,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.nunito(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text),
             ),
           ),
         ],
@@ -304,3 +517,136 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+// ── Tag chip ──────────────────────────────────────────────────────────────────
+
+class _TagChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _TagChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.28)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.inter(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+// ── File card ─────────────────────────────────────────────────────────────────
+
+class _FileCard extends StatelessWidget {
+  final String fileUrl;
+  final Color color;
+  final bool isImage;
+  const _FileCard(
+      {required this.fileUrl, required this.color, required this.isImage});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isImage)
+            CachedNetworkImage(
+              imageUrl: fileUrl,
+              width: double.infinity,
+              height: 200,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => Container(
+                height: 200,
+                color: AppColors.bg,
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (_, __, ___) => Container(
+                height: 120,
+                color: AppColors.bg,
+                child: Center(
+                  child: Icon(LucideIcons.imageOff,
+                      color: AppColors.textDim, size: 32),
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(LucideIcons.fileText, color: color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      fileUrl.split('/').last,
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600, fontSize: 13),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Open full view link
+          GestureDetector(
+            onTap: () async {
+              final uri = Uri.tryParse(fileUrl);
+              if (uri != null && await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: AppColors.border)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.externalLink,
+                      size: 13, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Open Full View',
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: color),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

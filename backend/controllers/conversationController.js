@@ -17,10 +17,14 @@ exports.getConversations = async (req, res) => {
         res.status(200).json({
             success: true,
             data: conversations,
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit)
+            pagination: {
+                total,
+                totalPages: Math.ceil(total / limit),
+                currentPage: page,
+                limit,
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

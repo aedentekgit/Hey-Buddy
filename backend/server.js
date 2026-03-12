@@ -53,6 +53,7 @@ const app = express();
 // Security & Performance Middleware (FIRST)
 app.use(helmet({
     crossOriginEmbedderPolicy: false, // needed for some media types
+    crossOriginResourcePolicy: false, // allow images to be loaded by other origins
     contentSecurityPolicy: false      // configure separately if needed
 }));
 app.use(compression());
@@ -87,6 +88,14 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // app.use(xss());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Fallback: if file doesn't exist locally, redirect to VPS Staging
+app.use('/uploads', (req, res) => {
+    // If we hit this, express.static failed to find a local file
+    const subPath = req.url; // This will be the path after /uploads
+    const vpsUrl = `https://staging.ayuskart.com/uploads${subPath}`;
+    console.log(`[File Proxy] Local 404 for /uploads${subPath} -> Redirecting to VPS: ${vpsUrl}`);
+    res.redirect(vpsUrl);
+});
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
@@ -104,6 +113,8 @@ const webhookRoutes = require('./routes/webhookRoutes');
 const ragRoutes = require('./routes/ragRoutes');
 const aiRoutes = require('./routes/ai/aiRoutes');
 const locationReminderRoutes = require('./routes/locationReminderRoutes');
+const familyRoutes = require('./routes/familyRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 // Apply Rate Limiting
 app.use('/api', apiLimiter);
@@ -127,6 +138,8 @@ app.use('/api/automations', webhookRoutes);
 app.use('/api/knowledge', ragRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/location-reminders', locationReminderRoutes);
+app.use('/api/family', familyRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Routes placeholders
 app.get('/', (req, res) => {
@@ -197,15 +210,18 @@ const io = new Server(server, {
     allowEIO3: true // Support older socket.io clients if needed
 });
 
-// Initialize Socket.io Voice Handler
+// Initialize Socket.io Handlers
 const voiceHandler = require('./sockets/voiceHandler');
+const chatHandler = require('./sockets/chatHandler');
+
 voiceHandler(io);
+chatHandler(io);
 
 const PORT = config.PORT;
 const { startReminderWorker } = require('./services/reminderWorker');
 const { startSmartReminderScheduler } = require('./schedulers/smartReminderScheduler');
 
-server.listen(PORT, '::', () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Backend fully initialized at ${new Date().toISOString()}`);
     startReminderWorker(io);

@@ -448,7 +448,7 @@ const AdminSettings = () => {
     };
 
     return (
-        <div style={{ color: 'var(--text-main)' }}>
+        <div className="admin-settings-page" style={{ color: 'var(--text-main)' }}>
             <div className="settings-container">
                 <div className="settings-tabs">
                     <div className="tabs-header" style={{ padding: '8px 12px 16px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px', opacity: 0.8 }}>
@@ -497,11 +497,9 @@ const AdminSettings = () => {
                         >
                             {activeTab === 'general' && (
                                 <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-                                    <div style={{ marginBottom: '2.5rem' }}>
+                                    <div className="admin-section-header">
                                         <SectionTitle label="System Configuration" icon={Globe} color="var(--primary-color)" />
-                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                                            Manage your platform's core identity, regional preferences, and administrative communication channels.
-                                        </p>
+                                        <p>Manage your platform's core identity, regional preferences, and administrative communication channels.</p>
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -515,7 +513,7 @@ const AdminSettings = () => {
                                                     Branding & Identity
                                                 </h4>
 
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px', background: 'var(--card-bg)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
+                                                <div className="branding-info-row" style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px', background: 'var(--card-bg)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
                                                     <div
                                                         onClick={() => logoInputRef.current?.click()}
                                                         style={{
@@ -685,29 +683,9 @@ const AdminSettings = () => {
 
                             {activeTab === 'smtp' && (
                                 <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
-                                        <div>
-                                            <SectionTitle label="SMTP Configuration" icon={Mail} color="var(--primary-color)" />
-                                            <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                                                Configure your email server settings to enable system notifications and user communications.
-                                            </p>
-                                        </div>
-
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            background: settings.smtp?.enabled ? 'color-mix(in srgb, var(--success-color) 15%, transparent)' : 'color-mix(in srgb, var(--text-sub) 15%, transparent)',
-                                            padding: '8px 16px',
-                                            borderRadius: '20px',
-                                            border: `1px solid ${settings.smtp?.enabled ? 'color-mix(in srgb, var(--success-color) 30%, transparent)' : 'color-mix(in srgb, var(--text-sub) 20%, transparent)'}`,
-                                            cursor: 'pointer'
-                                        }} onClick={() => setSettings({ ...settings, smtp: { ...settings.smtp, enabled: !settings.smtp.enabled } })}>
-                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: settings.smtp?.enabled ? 'var(--success-color)' : 'var(--text-sub)' }} />
-                                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: settings.smtp?.enabled ? 'var(--success-color)' : 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                {settings.smtp?.enabled ? 'Service Active' : 'Service Paused'}
-                                            </span>
-                                        </div>
+                                    <div className="admin-section-header">
+                                        <SectionTitle label="SMTP Configuration" icon={Mail} color="var(--primary-color)" />
+                                        <p>Configure your email server settings to enable system notifications and user communications.</p>
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -841,11 +819,9 @@ const AdminSettings = () => {
 
                             {activeTab === 'otp' && (
                                 <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-                                    <div style={{ marginBottom: '2rem' }}>
+                                    <div className="admin-section-header">
                                         <SectionTitle label="OTP Configuration" icon={Lock} color="#FFD700" />
-                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                                            Define the security parameters for One-Time Password verification across all supported communication channels.
-                                        </p>
+                                        <p>Define the security parameters for One-Time Password verification across all supported communication channels.</p>
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -925,9 +901,9 @@ const AdminSettings = () => {
 
                             {activeTab === 'social' && (
                                 <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-                                    <div style={{ marginBottom: '2rem' }}>
+                                    <div className="admin-section-header">
                                         <SectionTitle label="Social Connections" icon={Share2} color="var(--primary-color)" />
-                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Link your official social media profiles to display across the site footer and contact pages.</p>
+                                        <p>Link your official social media profiles to display across the site footer and contact pages.</p>
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
@@ -976,9 +952,9 @@ const AdminSettings = () => {
 
                             {activeTab === 'appearance' && (
                                 <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-                                    <div style={{ marginBottom: '2.5rem' }}>
+                                    <div className="admin-section-header">
                                         <SectionTitle label="Interface Settings" icon={Palette} color="var(--primary-color)" />
-                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Personalize your administrative workspace with custom themes and branding colors.</p>
+                                        <p>Personalize your administrative workspace with custom themes and branding colors.</p>
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
@@ -1115,11 +1091,9 @@ const AdminSettings = () => {
 
                             {activeTab === 'ai' && (
                                 <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-                                    <div style={{ marginBottom: '2rem' }}>
+                                    <div className="admin-section-header">
                                         <SectionTitle label="AI Engine Configuration" icon={Zap} color="#FFD700" />
-                                        <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem', maxWidth: '800px' }}>
-                                            The AI Engine power all automated interactions in Buddy. Configure your preferred LLM provider and enhance response reliability through consensus.
-                                        </p>
+                                        <p>The AI Engine power all automated interactions in Buddy. Configure your preferred LLM provider and enhance response reliability through consensus.</p>
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -1370,11 +1344,18 @@ const AdminSettings = () => {
             </div >
 
             <style>{`
+                .admin-settings-page {
+                    padding: 32px;
+                    max-width: 1600px;
+                    margin: 0 auto;
+                }
+
                 .settings-container {
                     display: grid;
                     grid-template-columns: 240px 1fr;
                     gap: 2rem;
                     align-items: start;
+                    padding-bottom: 40px;
                 }
 
                 .settings-tabs {
@@ -1390,6 +1371,7 @@ const AdminSettings = () => {
                     box-shadow: var(--card-shadow);
                     position: sticky;
                     top: 20px;
+                    z-index: 10;
                 }
 
                 .settings-tabs button {
@@ -1406,6 +1388,7 @@ const AdminSettings = () => {
                     cursor: pointer;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     text-align: left;
+                    width: 100%;
                 }
 
                 .settings-tabs button:hover {
@@ -1462,6 +1445,12 @@ const AdminSettings = () => {
                     border-color: var(--primary-color) !important;
                     transform: translateY(-1px);
                 }
+                @media (max-width: 1200px) {
+                    .settings-container {
+                        gap: 1.5rem;
+                    }
+                }
+
                 @media (max-width: 991px) {
                     .settings-container {
                         grid-template-columns: 1fr !important;
@@ -1472,32 +1461,42 @@ const AdminSettings = () => {
                         overflow-x: auto;
                         padding: 8px !important;
                         border-radius: 18px !important;
+                        position: sticky;
+                        top: 10px;
+                        margin-bottom: 1rem;
                         scrollbar-width: none;
-                        -ms-overflow-style: none;
-                        position: relative;
-                        top: 0;
+                        /* -ms-overflow-style: none; */ /* Removed as per instruction */
                     }
                     .settings-tabs::-webkit-scrollbar {
                         display: none;
                     }
-                    .tabs-header {
-                        display: none !important;
-                    }
-                    .tab-label-text, .tab-chevron {
+                    .tabs-header, .tab-chevron, .tab-label-text { /* Combined for brevity */
                         display: none !important;
                     }
                     .settings-tabs button {
                         padding: 10px !important;
-                        gap: 0 !important;
-                        justify-content: center !important;
+                        width: auto !important; /* Changed from 100% */
                         min-width: 50px;
+                        justify-content: center !important; /* Added */
                     }
                     .tab-icon-wrapper {
                         margin: 0 !important;
                     }
                     .settings-card {
-                        padding: 16px !important;
-                        border-radius: 24px !important;
+                        padding: 0 !important;
+                        background: transparent !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                        backdrop-filter: none !important;
+                    }
+
+                    .responsive-section-card {
+                        padding: 20px !important;
+                        border-radius: 20px !important;
+                    }
+
+                    .admin-settings-page {
+                        padding: 20px !important;
                     }
                     .mode-toggle-container {
                         display: flex !important;
@@ -1529,17 +1528,51 @@ const AdminSettings = () => {
                         font-size: 0.8rem !important;
                     }
                 }
-                @media (max-width: 480px) {
-                    .settings-card {
-                        padding: 10px !important;
+
+                @media (max-width: 768px) {
+                    /* Responsive Grid Overrides for all setting sections */
+                    .settings-card section div[style*="display: grid"],
+                    .settings-card section div[style*="display:grid"] {
+                        grid-template-columns: 1fr !important;
+                        gap: 1.5rem !important;
+                    }
+                    
+                    /* Specific fix for elements using 1fr 1fr */
+                    .settings-card div[style*="grid-template-columns: 1fr 1fr"],
+                    .settings-card div[style*="grid-template-columns:1fr 1fr"] {
+                        grid-template-columns: 1fr !important;
                     }
 
+                    .responsive-section-card {
+                        padding: 1.5rem !important;
+                    }
+                    
+                    .branding-info-row {
+                        flex-direction: column !important;
+                        align-items: center !important;
+                        text-align: center;
+                    }
+                }
+
+                @media (max-width: 480px) {
+                    .admin-settings-page {
+                        padding: 12px !important;
+                    }
+                    .responsive-section-card {
+                        padding: 16px !important;
+                    }
+                    .settings-card h4 {
+                        font-size: 0.95rem !important;
+                    }
+                    .settings-card p {
+                        font-size: 0.8rem !important;
+                    }
+                    .settings-card {
+                        padding: 16px !important;
+                    }
                     .settings-tabs button {
                         padding: 8px !important;
                         min-width: 42px;
-                    }
-                    .responsive-section-card {
-                        padding: 0.85rem !important;
                     }
                     .responsive-grid-container {
                         padding: 0.85rem !important;
@@ -1558,6 +1591,73 @@ const AdminSettings = () => {
                 .responsive-grid-container {
                     padding: 2rem;
                     gap: 2rem;
+                }
+                /* Standardized Section Headers */
+                .admin-section-header {
+                    margin-bottom: 2.5rem;
+                }
+                .admin-section-header p {
+                    color: var(--text-sub);
+                    font-size: 0.9rem;
+                    margin-top: 0.5rem;
+                    line-height: 1.6;
+                }
+
+                /* Standardized Sub-Tabs */
+                .admin-sub-tabs {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                    margin-bottom: 2rem;
+                }
+                .admin-sub-tab-btn {
+                    padding: 10px 20px;
+                    border-radius: 12px;
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    border: 1px solid var(--border-color);
+                    background: var(--bg-lite);
+                    color: var(--text-sub);
+                }
+                .admin-sub-tab-btn.active {
+                    background: var(--primary-color);
+                    color: white;
+                    border-color: var(--primary-color);
+                    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent);
+                }
+
+                @media (max-width: 991px) {
+                    .admin-section-header {
+                        margin-bottom: 1.5rem;
+                    }
+                    .admin-sub-tabs {
+                        margin-bottom: 1.5rem;
+                        gap: 8px;
+                    }
+                    .admin-sub-tab-btn {
+                        padding: 8px 14px;
+                        font-size: 0.8rem;
+                    }
+                }
+
+                @media (max-width: 480px) {
+                    .admin-section-header {
+                        margin-bottom: 1.25rem;
+                    }
+                    .admin-section-header h1, .admin-section-header .section-title-label {
+                        font-size: 1.1rem !important;
+                    }
+                    .admin-sub-tab-btn span {
+                        display: none;
+                    }
+                    .admin-sub-tab-btn {
+                        padding: 10px;
+                        border-radius: 10px;
+                    }
                 }
             `}</style>
 
@@ -1825,12 +1925,10 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
 
     return (
         <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
+            <div className="admin-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.5rem' }}>
                 <div>
                     <SectionTitle label="SMS Gateway Setup" icon={MessageSquare} color="#34D399" />
-                    <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                        Configure your preferred SMS provider to handle automated notifications and verification codes.
-                    </p>
+                    <p>Configure your preferred SMS provider to handle automated notifications and verification codes.</p>
                 </div>
 
                 <div style={{
@@ -1915,25 +2013,15 @@ const SMSSettings = ({ settings, setSettings, testPhone, setTestPhone }) => {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    <div className="admin-sub-tabs">
                         {mainTabs.map(tab => (
                             <button
                                 key={tab.id}
                                 type="button"
                                 onClick={() => setActiveTab(tab.id)}
-                                style={{
-                                    padding: '10px 24px',
-                                    borderRadius: '12px',
-                                    border: activeTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                    background: activeTab === tab.id ? 'var(--primary-color)' : 'var(--card-bg)',
-                                    color: activeTab === tab.id ? 'white' : 'var(--text-sub)',
-                                    cursor: 'pointer',
-                                    fontWeight: '700',
-                                    fontSize: '0.85rem',
-                                    transition: 'all 0.2s ease'
-                                }}
+                                className={`admin-sub-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
                             >
-                                {tab.label}
+                                <span>{tab.label}</span>
                             </button>
                         ))}
                     </div>
@@ -2081,41 +2169,23 @@ const GoogleCalendarSettings = ({ settings, setSettings, user }) => {
 
     return (
         <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1.5rem' }}>
-                <div>
-                    <SectionTitle label="Google Calendar Setup" icon={Calendar} color="#4285F4" />
-                    <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                        Configure your Google Calendar API credentials to enable synchronization and voice-based calendar management.
-                    </p>
-                </div>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                    {mainTabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setSubTab(tab.id)}
-                            style={{
-                                padding: '10px 24px',
-                                borderRadius: '12px',
-                                border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                color: subTab === tab.id ? 'white' : 'var(--text-sub)',
-                                cursor: 'pointer',
-                                fontWeight: '700',
-                                fontSize: '0.85rem',
-                                transition: 'all 0.2s ease',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
+            <div className="admin-section-header">
+                <SectionTitle label="Google Calendar Setup" icon={Calendar} color="#4285F4" />
+                <p>Configure your Google Calendar API credentials to enable synchronization and voice-based calendar management.</p>
             </div>
 
+            <div className="admin-sub-tabs">
+                {mainTabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSubTab(tab.id)}
+                        className={`admin-sub-tab-btn ${subTab === tab.id ? 'active' : ''}`}
+                    >
+                        <span>{tab.label}</span>
+                    </button>
+                ))}
+            </div>
             {subTab === 'accounts' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
@@ -2347,40 +2417,25 @@ const NotificationSettings = ({ settings, setSettings }) => {
 
     return (
         <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1.5rem' }}>
-                <div>
-                    <SectionTitle label="Notification Setup" icon={Bell} color="#FF6F00" />
-                    <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                        Configure Firebase Cloud Messaging (FCM) to deliver real-time push notifications across web and mobile platforms.
-                    </p>
-                </div>
+            <div className="admin-section-header">
+                <SectionTitle label="Notification Setup" icon={Bell} color="#FF6F00" />
+                <p>
+                    Configure Firebase Cloud Messaging (FCM) to deliver real-time push notifications across web and mobile platforms.
+                </p>
+            </div>
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setSubTab(tab.id)}
-                            style={{
-                                padding: '10px 24px',
-                                borderRadius: '12px',
-                                border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                color: subTab === tab.id ? 'white' : 'var(--text-sub)',
-                                cursor: 'pointer',
-                                fontWeight: '700',
-                                fontSize: '0.85rem',
-                                transition: 'all 0.2s ease',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            {tab.icon && <tab.icon size={16} />}
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
+            <div className="admin-sub-tabs">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSubTab(tab.id)}
+                        className={`admin-sub-tab-btn ${subTab === tab.id ? 'active' : ''}`}
+                    >
+                        {tab.icon && <tab.icon size={16} />}
+                        <span>{tab.label}</span>
+                    </button>
+                ))}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -2591,52 +2646,31 @@ const StorageSettings = ({ settings, setSettings }) => {
 
     return (
         <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-            <div style={{ marginBottom: '2.5rem' }}>
+            <div className="admin-section-header">
                 <SectionTitle label="Storage Configuration" icon={Database} color="var(--primary-color)" />
-                <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                    Select your preferred file storage provider. Active provider handles all user uploads and system assets.
-                </p>
+                <p>Select your preferred file storage provider. Active provider handles all user uploads and system assets.</p>
             </div>
 
-            {/* Provider Selection */}
-            <div style={{ marginBottom: '2rem' }}>
-                <label style={{ ...LabelStyle, marginBottom: '16px', display: 'block' }}>Active Storage Provider</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setSubTab(tab.id)}
-                            style={{
-                                padding: '14px 24px',
-                                borderRadius: '16px',
-                                border: subTab === tab.id ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                background: subTab === tab.id ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                color: subTab === tab.id ? 'white' : 'var(--text-sub)',
-                                cursor: 'pointer',
-                                fontWeight: '800',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: subTab === tab.id ? '0 8px 20px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px'
-                            }}
-                        >
-                            <tab.icon size={18} />
-                            {tab.label}
-                            {isActive(tab.id) && (
-                                <div style={{
-                                    width: '8px',
-                                    height: '8px',
-                                    borderRadius: '50%',
-                                    background: subTab === tab.id ? 'white' : '#10b981',
-                                    marginLeft: '4px'
-                                }} />
-                            )}
-                        </button>
-                    ))}
-                </div>
+            <div className="admin-sub-tabs">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSubTab(tab.id)}
+                        className={`admin-sub-tab-btn ${subTab === tab.id ? 'active' : ''}`}
+                    >
+                        <tab.icon size={18} />
+                        <span>{tab.label}</span>
+                        {isActive(tab.id) && (
+                            <div style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: subTab === tab.id ? 'white' : '#10b981',
+                            }} />
+                        )}
+                    </button>
+                ))}
             </div>
 
             {/* Config Content */}
@@ -2848,55 +2882,34 @@ const PaymentSettings = ({ settings, setSettings }) => {
 
     return (
         <section className="settings-section-card responsive-section-card" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '30px', padding: '32px' }}>
-            <div style={{ marginBottom: '2.5rem' }}>
+            <div className="admin-section-header">
                 <SectionTitle label="Payment Gateways" icon={CreditCard} color="var(--primary-color)" />
-                <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                    Configure secure checkout options for your platform. Enable multiple gateways to provide flexible payment methods to your customers.
-                </p>
+                <p>Configure secure checkout options for your platform. Enable multiple gateways to provide flexible payment methods to your customers.</p>
             </div>
 
-            {/* Provider Tabs */}
-            <div style={{ marginBottom: '2rem' }}>
-                <label style={{ ...LabelStyle, marginBottom: '16px', display: 'block' }}>Select Gateway to Configure</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                    {settings.paymentGateways.map(gateway => {
-                        const Icon = getIcon(gateway.name);
-                        return (
-                            <button
-                                key={gateway.name}
-                                type="button"
-                                onClick={() => setActiveGatewayName(gateway.name)}
-                                style={{
-                                    padding: '14px 28px',
-                                    borderRadius: '16px',
-                                    border: activeGatewayName === gateway.name ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                    background: activeGatewayName === gateway.name ? 'var(--primary-color)' : 'var(--bg-lite)',
-                                    color: activeGatewayName === gateway.name ? 'white' : 'var(--text-sub)',
-                                    cursor: 'pointer',
-                                    fontWeight: '800',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    boxShadow: activeGatewayName === gateway.name ? '0 8px 20px color-mix(in srgb, var(--primary-color) 25%, transparent)' : 'none',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '10px'
-                                }}
-                            >
-                                <Icon size={18} color={activeGatewayName === gateway.name ? 'white' : getColor(gateway.name)} />
-                                {gateway.name}
-                                {gateway.enabled && (
-                                    <div style={{
-                                        width: '8px',
-                                        height: '8px',
-                                        borderRadius: '50%',
-                                        background: activeGatewayName === gateway.name ? 'white' : '#10b981',
-                                        marginLeft: '4px'
-                                    }} />
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
+            <div className="admin-sub-tabs">
+                {settings.paymentGateways.map(gateway => {
+                    const Icon = getIcon(gateway.name);
+                    return (
+                        <button
+                            key={gateway.name}
+                            type="button"
+                            onClick={() => setActiveGatewayName(gateway.name)}
+                            className={`admin-sub-tab-btn ${activeGatewayName === gateway.name ? 'active' : ''}`}
+                        >
+                            <Icon size={18} />
+                            <span>{gateway.name}</span>
+                            {gateway.enabled && (
+                                <div style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background: activeGatewayName === gateway.name ? 'white' : '#10b981',
+                                }} />
+                            )}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Gateway Configuration Body */}

@@ -7,6 +7,7 @@ import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/home/providers/location_reminders_provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart';
+import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 
@@ -53,6 +54,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => LocationRemindersProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BuddyProvider()),
+        ChangeNotifierProxyProvider<BuddyProvider, FamilyProvider>(
+          create: (context) => FamilyProvider(context.read<BuddyProvider>().socketService),
+          update: (context, buddy, family) => family ?? FamilyProvider(buddy.socketService),
+        ),
       ],
       child: const BuddyApp(),
     ),

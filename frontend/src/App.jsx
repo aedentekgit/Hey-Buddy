@@ -32,6 +32,7 @@ import Automations from './pages/Automations';
 import MobileMoreMenu from './pages/MobileMoreMenu';
 import RealtimeChat from './pages/RealtimeChat';
 import LocationReminders from './pages/LocationReminders';
+import FamilyHub from './pages/FamilyHub';
 
 const App = () => {
     useZoomPrevention();
@@ -168,6 +169,14 @@ const App = () => {
                                             element={
                                                 <ProtectedRoute pageId="reminders">
                                                     <LocationReminders />
+                                                </ProtectedRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/admin/family-hub"
+                                            element={
+                                                <ProtectedRoute>
+                                                    <FamilyHub />
                                                 </ProtectedRoute>
                                             }
                                         />

@@ -76,7 +76,14 @@ const reminderSchema = new mongoose.Schema({
     alerts: {
         push: { type: Boolean, default: true },
         sms: { type: Boolean, default: false },
-        email: { type: Boolean, default: true }
+        email: { type: Boolean, default: true },
+        notifyFamily: { type: Boolean, default: false },
+        notifyEmergency: { type: Boolean, default: false }
+    },
+    reminderType: {
+        type: String,
+        enum: ['time', 'location'],
+        default: 'time'
     },
     backupContacts: [{
         name: String,
@@ -108,7 +115,7 @@ const reminderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'completed', 'cancelled', 'snoozed'],
+        enum: ['pending', 'completed', 'cancelled', 'snoozed', 'on_track', 'risk_alert'],
         default: 'pending'
     },
     notified: {

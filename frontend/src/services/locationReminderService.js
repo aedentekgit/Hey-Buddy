@@ -1,8 +1,8 @@
 import api from './api';
 
 const locationReminderService = {
-    getAll: async () => {
-        const response = await api.get('/location-reminders');
+    getAll: async (page = 1, limit = 10, search = '') => {
+        const response = await api.get(`/location-reminders?page=${page}&limit=${limit}&search=${search}`);
         return response.data;
     },
 

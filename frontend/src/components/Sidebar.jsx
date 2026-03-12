@@ -18,7 +18,9 @@ import {
     Eye,
     Cpu,
     BookOpen,
-    Fingerprint
+    Fingerprint,
+    MapPin,
+    Heart
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
@@ -54,7 +56,12 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {
             items: [
                 { id: 'calendar', name: 'Calendar', icon: Calendar, path: '/admin/calendar' },
                 { id: 'reminders', name: 'My Reminders', icon: ListTodo, path: '/admin/reminders' },
-            ].filter(item => user?.allowedPages?.includes(item.id))
+                { id: 'location-reminders', name: 'Location Reminders', icon: MapPin, path: '/admin/location-reminders' },
+                { id: 'family-hub', name: 'Family Hub', icon: Heart, path: '/admin/family-hub' },
+            ].filter(item => {
+                if (item.id === 'family-hub') return true;
+                return user?.allowedPages?.includes('reminders') || user?.allowedPages?.includes(item.id);
+            })
         },
         {
             title: 'PAGES',

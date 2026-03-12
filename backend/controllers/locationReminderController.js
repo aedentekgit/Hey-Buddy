@@ -1,11 +1,14 @@
-const LocationReminder = require('../models/LocationReminder');
+const Reminder = require('../models/Reminder');
+const paginate = require('../utils/paginate');
 
 // ─── GET all location reminders for current user ──────────────────────────────
 exports.getLocationReminders = async (req, res) => {
     try {
-        const reminders = await LocationReminder.find({ userId: req.user._id })
-            .sort({ createdAt: -1 });
-        res.status(200).json({ success: true, data: reminders });
+        const results = await paginate(Reminder, {
+            userId: req.user._id,
+            reminderType: 'location'
+        }, req.query);
+        res.status(200).json({ success: true, ...results });
     } catch (error) {
         console.error('[LocationReminder] getAll error:', error);
         res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -15,9 +18,10 @@ exports.getLocationReminders = async (req, res) => {
 // ─── GET single location reminder ─────────────────────────────────────────────
 exports.getLocationReminder = async (req, res) => {
     try {
-        const reminder = await LocationReminder.findOne({
+        const reminder = await Reminder.findOne({
             _id: req.params.id,
-            userId: req.user._id
+            userId: req.user._id,
+            reminderType: 'location'
         });
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Location reminder not found' });
@@ -45,20 +49,29 @@ exports.createLocationReminder = async (req, res) => {
             });
         }
 
-        const reminder = await LocationReminder.create({
+        const reminder = await Reminder.create({
             userId: req.user._id,
             title,
             description: description || '',
             location,
             coordinates: coordinates || { lat: null, lng: null },
-            date,
-            time,
+            date: date || null,
+            time: time || null,
             status: status || 'on_track',
-            warningLevel: warningLevel || 'medium',
+            priority: warningLevel || 'medium', // Map warningLevel to priority
             bufferTime: bufferTime ?? 15,
-            notifyPhone: notifyPhone ?? true,
-            notifyFamily: notifyFamily ?? false,
-            notifyEmergency: notifyEmergency ?? false,
+            reminderType: 'location',
+            alerts: {
+                push: notifyPhone ?? true,
+                notifyFamily: notifyFamily ?? false,
+                notifyEmergency: notifyEmergency ?? false,
+                email: true
+            },
+            smartFeatures: {
+                earlyWarning: req.body.earlyWarningSet ?? true,
+                trafficAware: req.body.trafficAware ?? true,
+                itemExitGuards: req.body.itemExitGuards ?? true
+            },
             geofenceRadius: geofenceRadius ?? 500
         });
 
@@ -72,9 +85,6 @@ exports.createLocationReminder = async (req, res) => {
 // ─── UPDATE location reminder ─────────────────────────────────────────────────
 exports.updateLocationReminder = async (req, res) => {
     try {
-        // SECURITY: Explicit whitelist of updatable fields to prevent mass assignment.
-        // Previously used { $set: req.body } which allowed callers to overwrite any field
-        // including userId, _id, or internal system fields.
         const {
             title, description, location, coordinates,
             date, time, status, warningLevel,
@@ -90,15 +100,26 @@ exports.updateLocationReminder = async (req, res) => {
         if (date !== undefined) allowedUpdate.date = date;
         if (time !== undefined) allowedUpdate.time = time;
         if (status !== undefined) allowedUpdate.status = status;
-        if (warningLevel !== undefined) allowedUpdate.warningLevel = warningLevel;
+        if (warningLevel !== undefined) allowedUpdate.priority = warningLevel;
         if (bufferTime !== undefined) allowedUpdate.bufferTime = bufferTime;
-        if (notifyPhone !== undefined) allowedUpdate.notifyPhone = notifyPhone;
-        if (notifyFamily !== undefined) allowedUpdate.notifyFamily = notifyFamily;
-        if (notifyEmergency !== undefined) allowedUpdate.notifyEmergency = notifyEmergency;
+
+        // Handle nested alerts object for updates
+        if (notifyPhone !== undefined || notifyFamily !== undefined || notifyEmergency !== undefined) {
+            const reminder = await Reminder.findOne({ _id: req.params.id, userId: req.user._id });
+            if (reminder) {
+                allowedUpdate.alerts = {
+                    ...reminder.alerts,
+                    push: notifyPhone !== undefined ? notifyPhone : reminder.alerts.push,
+                    notifyFamily: notifyFamily !== undefined ? notifyFamily : reminder.alerts.notifyFamily,
+                    notifyEmergency: notifyEmergency !== undefined ? notifyEmergency : reminder.alerts.notifyEmergency
+                };
+            }
+        }
+
         if (geofenceRadius !== undefined) allowedUpdate.geofenceRadius = geofenceRadius;
 
-        const reminder = await LocationReminder.findOneAndUpdate(
-            { _id: req.params.id, userId: req.user._id },
+        const reminder = await Reminder.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user._id, reminderType: 'location' },
             { $set: allowedUpdate },
             { new: true, runValidators: true }
         );
@@ -115,9 +136,10 @@ exports.updateLocationReminder = async (req, res) => {
 // ─── DELETE location reminder ─────────────────────────────────────────────────
 exports.deleteLocationReminder = async (req, res) => {
     try {
-        const reminder = await LocationReminder.findOneAndDelete({
+        const reminder = await Reminder.findOneAndDelete({
             _id: req.params.id,
-            userId: req.user._id
+            userId: req.user._id,
+            reminderType: 'location'
         });
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Location reminder not found' });
@@ -133,19 +155,19 @@ exports.setEarlyWarning = async (req, res) => {
     try {
         const { bufferTime, warningLevel, notifyPhone, notifyFamily, notifyEmergency } = req.body;
 
-        const reminder = await LocationReminder.findOneAndUpdate(
-            { _id: req.params.id, userId: req.user._id },
+        const reminder = await Reminder.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user._id, reminderType: 'location' },
             {
                 $set: {
-                    earlyWarningSet: true,
+                    'smartFeatures.earlyWarning': true,
                     bufferTime: bufferTime ?? 15,
-                    warningLevel: warningLevel || 'medium',
-                    notifyPhone: notifyPhone ?? true,
-                    notifyFamily: notifyFamily ?? false,
-                    notifyEmergency: notifyEmergency ?? false,
-                    notifyEmail: req.body.notifyEmail ?? true,
-                    trafficAware: req.body.trafficAware ?? true,
-                    itemExitGuards: req.body.itemExitGuards ?? true
+                    priority: warningLevel || 'medium',
+                    'alerts.push': notifyPhone ?? true,
+                    'alerts.notifyFamily': notifyFamily ?? false,
+                    'alerts.notifyEmergency': notifyEmergency ?? false,
+                    'alerts.email': req.body.notifyEmail ?? true,
+                    'smartFeatures.trafficAware': req.body.trafficAware ?? true,
+                    'smartFeatures.itemExitGuards': req.body.itemExitGuards ?? true
                 }
             },
             { new: true }
@@ -162,9 +184,9 @@ exports.setEarlyWarning = async (req, res) => {
 // ─── SET FAMILY BACKUP on a location reminder ────────────────────────────────
 exports.setFamilyBackup = async (req, res) => {
     try {
-        const reminder = await LocationReminder.findOneAndUpdate(
-            { _id: req.params.id, userId: req.user._id },
-            { $set: { familyBackupSet: true } },
+        const reminder = await Reminder.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user._id, reminderType: 'location' },
+            { $set: { 'alerts.notifyFamily': true } },
             { new: true }
         );
         if (!reminder) {

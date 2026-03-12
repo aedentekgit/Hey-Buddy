@@ -56,6 +56,11 @@ const userSchema = new mongoose.Schema({
     fcmTokens: [{
         type: String
     }],
+    familyId: {
+        type: String, // String ID for simplicity with current _id: String pattern
+        ref: 'Family',
+        default: null
+    },
     voicePreferences: {
         gender: {
             type: String,

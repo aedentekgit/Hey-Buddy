@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/shared/widgets/mobile_task_card.dart';
 import 'package:buddy_mobile/features/home/screens/early_warning_screen.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
@@ -16,67 +17,202 @@ class LocationRemindersScreen extends StatefulWidget {
 }
 
 class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
+  String _activeFilter = 'All';
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LocationRemindersProvider>().loadReminders();
     });
+    _searchCtrl.addListener(
+        () => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()));
   }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<String> _buildFilters(List reminders) {
+    final statusSet = <String>{};
+    for (final r in reminders) {
+      final s = (r['status'] ?? '').toString().toLowerCase();
+      if (s == 'completed') statusSet.add('Completed');
+      else if (s == 'risk_alert') statusSet.add('Risk Alert');
+      else statusSet.add('Active');
+    }
+    final sorted = statusSet.toList()..sort();
+    return ['All', ...sorted];
+  }
+
+  List _applyFilters(List reminders) {
+    var list = reminders;
+    if (_activeFilter != 'All') {
+      list = list.where((r) {
+        final s = (r['status'] ?? '').toString().toLowerCase();
+        if (_activeFilter == 'Completed') return s == 'completed';
+        if (_activeFilter == 'Risk Alert') return s == 'risk_alert';
+        return s != 'completed' && s != 'risk_alert'; // Active
+      }).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      list = list
+          .where((r) =>
+              (r['title'] ?? '').toString().toLowerCase().contains(_searchQuery) ||
+              (r['location'] ?? '').toString().toLowerCase().contains(_searchQuery))
+          .toList();
+    }
+    return list;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<LocationRemindersProvider>(context);
+    final filters = _buildFilters(provider.reminders);
+    if (!filters.contains(_activeFilter)) {
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => setState(() => _activeFilter = 'All'));
+    }
+    final filtered = _applyFilters(provider.reminders);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          'Location Reminders',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: const Color(0xFF1E293B),
+      backgroundColor: AppColors.bg,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(125),
+        child: Container(
+          color: AppColors.surface,
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Search row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.maybePop(context),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: const Icon(LucideIcons.arrowLeft,
+                              size: 18, color: AppColors.text),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: AppColors.border, width: 1.5),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(LucideIcons.search,
+                                  size: 16, color: AppColors.textDim),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchCtrl,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13.5, color: AppColors.text),
+                                  decoration: InputDecoration.collapsed(
+                                    hintText: 'Search location reminders…',
+                                    hintStyle: GoogleFonts.inter(
+                                        fontSize: 13.5,
+                                        color: AppColors.textDim),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Dynamic filter chips
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 36,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    itemCount: filters.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 7),
+                    itemBuilder: (_, i) {
+                      final f = filters[i];
+                      final active = f == _activeFilter;
+                      return GestureDetector(
+                        onTap: () => setState(() => _activeFilter = f),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: active ? AppColors.accent : AppColors.bg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: active ? AppColors.accent : AppColors.border,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            f,
+                            style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: active ? Colors.white : AppColors.textMid,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1, color: AppColors.border),
+              ],
+            ),
           ),
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: const Color(0xFF1E293B),
-        surfaceTintColor: Colors.white,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFE2E8F0)),
-        ),
       ),
-      body: SafeArea(
-        child: Consumer<LocationRemindersProvider>(
-          builder: (context, provider, _) {
-            if (provider.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (provider.reminders.isEmpty) {
-              return RefreshIndicator(
-                onRefresh: provider.loadReminders,
-                child: ListView(
-                  children: [
+      body: provider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : filtered.isEmpty
+              ? RefreshIndicator(
+                  onRefresh: provider.loadReminders,
+                  child: ListView(children: [
                     SizedBox(height: MediaQuery.of(context).size.height * 0.2),
                     _buildEmptyState(),
-                  ],
+                  ]),
+                )
+              : RefreshIndicator(
+                  onRefresh: provider.loadReminders,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final reminder =
+                          Map<String, dynamic>.from(filtered[index]);
+                      return _buildLocationReminderCard(reminder, index);
+                    },
+                  ),
                 ),
-              );
-            }
-
-            return RefreshIndicator(
-              onRefresh: provider.loadReminders,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: provider.reminders.length,
-                itemBuilder: (context, index) {
-                  final reminder = Map<String, dynamic>.from(provider.reminders[index]);
-                  return _buildLocationReminderCard(reminder, index);
-                },
-              ),
-            );
-          },
-        ),
-      ),
     );
   }
 
@@ -128,7 +264,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
     return MobileTaskCard(
       title: reminder['title'] ?? 'Untitled',
       status: statusText,
-      variant: isDanger ? 'danger' : (status == 'completed' ? 'green' : 'green'),
+      variant: status == 'completed' ? 'green' : 'green',
       date: DateFormatter.displayDateString(context, reminder['date']),
       time: reminder['time'] != null 
           ? DateFormatter.displayTimeString(context, reminder['time'])
@@ -136,7 +272,6 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
       location: reminder['location'] ?? 'No Location',
       onView: () => _onEarlyWarning(reminder),
       onShare: () => _onFamilyBackup(reminder),
-      onDelete: () => _confirmDelete(reminder['_id']),
       earlyWarningActive: reminder['earlyWarningSet'] ?? false,
     );
   }

@@ -1,36 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import {
     MapPin, Bell, AlertTriangle, Users, Plus, Trash2,
-    ChevronRight, Loader2, Calendar, Clock, X, Save
+    Search, Loader2, Calendar, Clock, X, Share2, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import locationReminderService from '../services/locationReminderService';
 import ConfirmationModal from '../components/ConfirmationModal';
+import Pagination from '../components/Pagination';
+import GlobalSlideOver from '../components/GlobalSlideOver';
+import SmartReminderDetails from '../components/SmartReminderDetails';
+import MobileTaskCard from '../components/MobileTaskCard';
+import GoogleMapPicker from '../components/GoogleMapPicker';
+import CustomTimePicker from '../components/CustomTimePicker';
+import { ThStyle, TdStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, ActionButtonStyle } from '../styles/tableStyles';
+import { useAuth } from '../context/AuthContext';
 
 const LocationReminders = () => {
+    const { user } = useAuth();
     const [reminders, setReminders] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isAdding, setIsAdding] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [pagination, setPagination] = useState({
+        total: 0,
+        totalPages: 1,
+        currentPage: 1,
+        limit: 10
+    });
+
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
-    const [formData, setFormData] = useState({
+    const [selectedReminder, setSelectedReminder] = useState(null);
+    const [isDetailsEditing, setIsDetailsEditing] = useState(false);
+
+    const [editModal, setEditModal] = useState({ isOpen: false, isCreate: true });
+    const [editForm, setEditForm] = useState({
         title: '',
         location: '',
         date: new Date().toISOString().split('T')[0],
         time: '10:00 AM',
-        warningLevel: 'medium'
+        warningLevel: 'medium',
+        coordinates: { lat: null, lng: null },
+        alerts: { push: true, email: true, notifyFamily: false, notifyEmergency: false }
     });
 
     useEffect(() => {
-        fetchReminders();
-    }, []);
+        fetchReminders(1);
+    }, [searchTerm]);
 
-    const fetchReminders = async () => {
+    const fetchReminders = async (page = 1) => {
         try {
             setLoading(true);
-            const res = await locationReminderService.getAll();
+            const res = await locationReminderService.getAll(page, pagination.limit, searchTerm);
             if (res.success) {
                 setReminders(res.data);
+                if (res.pagination) {
+                    setPagination(res.pagination);
+                }
             }
         } catch (err) {
             console.error(err);
@@ -40,21 +65,41 @@ const LocationReminders = () => {
         }
     };
 
-    const handleCreate = async (e) => {
-        e.preventDefault();
+    const handleCreateClick = () => {
+        setEditForm({
+            title: '',
+            location: '',
+            date: new Date().toISOString().split('T')[0],
+            time: '10:00 AM',
+            warningLevel: 'medium',
+            coordinates: { lat: null, lng: null },
+            alerts: { push: true, email: true, notifyFamily: false, notifyEmergency: false }
+        });
+        setEditModal({ isOpen: true, isCreate: true });
+    };
+
+    const handleEditClick = (reminder) => {
+        setSelectedReminder(reminder);
+        setIsDetailsEditing(true);
+    };
+
+    const handleViewClick = (reminder) => {
+        setSelectedReminder(reminder);
+        setIsDetailsEditing(false);
+    };
+
+    const handleCreateSubmit = async () => {
+        if (!editForm.title || !editForm.location) {
+            toast.error("Title and Location are required");
+            return;
+        }
+
         try {
-            const res = await locationReminderService.create(formData);
+            const res = await locationReminderService.create(editForm);
             if (res.success) {
                 toast.success("Location reminder created");
-                setIsAdding(false);
-                setFormData({
-                    title: '',
-                    location: '',
-                    date: new Date().toISOString().split('T')[0],
-                    time: '10:00 AM',
-                    warningLevel: 'medium'
-                });
-                fetchReminders();
+                setEditModal({ isOpen: false, isCreate: true });
+                fetchReminders(1);
             }
         } catch (err) {
             toast.error("Failed to create reminder");
@@ -66,7 +111,7 @@ const LocationReminders = () => {
             const res = await locationReminderService.delete(deleteModal.id);
             if (res.success) {
                 toast.success("Reminder deleted");
-                setReminders(prev => prev.filter(r => r._id !== deleteModal.id));
+                fetchReminders(pagination.currentPage);
                 setDeleteModal({ isOpen: false, id: null });
             }
         } catch (err) {
@@ -74,222 +119,262 @@ const LocationReminders = () => {
         }
     };
 
-    const handleFamilyBackup = async (id) => {
-        try {
-            const res = await locationReminderService.setFamilyBackup(id);
-            if (res.success) {
-                toast.success("Family Backup activated");
-                fetchReminders();
-            }
-        } catch (err) {
-            toast.error("Action failed");
-        }
-    };
-
     return (
-        <div className="p-6 max-w-6xl mx-auto min-h-screen">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Location Reminders</h1>
-                    <p className="text-slate-500 mt-1">Smart geofenced reminders for your safety</p>
+        <div style={{ color: 'var(--text-main)' }} className="reminders-page">
+            <div className="table-container">
+                <div className="search-management-header">
+                    <div className="buddy-search-box hide-on-mobile">
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-sub)', zIndex: 1 }} />
+                        <input
+                            type="text"
+                            placeholder="Search location reminders..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="buddy-search-input"
+                        />
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                            className="create-btn mobile-fab"
+                            onClick={handleCreateClick}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                background: 'var(--primary-color)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '10px 20px',
+                                borderRadius: 'var(--radius-md)',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <Plus size={20} />
+                            <span className="hide-on-mobile">New Reminder</span>
+                        </button>
+                    </div>
                 </div>
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-200 active:scale-95"
-                >
-                    <Plus size={20} />
-                    <span>New Reminder</span>
-                </button>
+
+                <div className="buddy-table-wrapper hide-on-mobile">
+                    <table style={TableElementStyle} className="buddy-table">
+                        <thead>
+                            <tr>
+                                <th style={{ ...ThStyle, borderLeft: 'none' }} className="buddy-th">S.NO</th>
+                                <th style={{ ...ThStyle, borderLeft: 'none', borderRight: 'none' }} className="buddy-th">LOCATION REMINDER</th>
+                                <th style={{ ...ThStyle, borderLeft: 'none', borderRight: 'none' }} className="buddy-th">SCHEDULE</th>
+                                <th style={{ ...ThStyle, borderLeft: 'none', borderRight: 'none' }} className="buddy-th">STATUS</th>
+                                <th style={{ ...ThStyle, borderLeft: 'none', borderRight: 'none' }} className="buddy-th">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="5" style={{ textAlign: 'center', padding: '100px 0' }}>
+                                        <Loader2 className="animate-spin" style={{ margin: '0 auto', color: 'var(--primary-color)' }} size={40} />
+                                        <p style={{ marginTop: '16px', color: 'var(--text-sub)' }}>Loading reminders...</p>
+                                    </td>
+                                </tr>
+                            ) : reminders.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" style={{ textAlign: 'center', padding: '100px 0' }}>
+                                        <div style={{ opacity: 0.5, marginBottom: '16px' }}>
+                                            <MapPin size={48} style={{ margin: '0 auto' }} />
+                                        </div>
+                                        <p style={{ color: 'var(--text-sub)', fontWeight: '600' }}>No location reminders found</p>
+                                    </td>
+                                </tr>
+                            ) : (
+                                reminders.map((reminder, index) => (
+                                    <motion.tr
+                                        key={reminder._id}
+                                        whileHover={{ backgroundColor: 'var(--row-hover)' }}
+                                        style={{ borderBottom: '1px solid var(--border-color)' }}
+                                    >
+                                        <td style={{ textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem' }} className="buddy-td">
+                                            {((pagination?.currentPage || 1) - 1) * (pagination?.limit || 10) + index + 1}
+                                        </td>
+                                        <td className="buddy-td">
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{reminder.title}</span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-sub)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '4px' }}>
+                                                    <MapPin size={12} /> {reminder.location}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="buddy-td">
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.85rem' }}>
+                                                <span style={{ fontWeight: '600' }}>{reminder.date || 'TBD'}</span>
+                                                <span style={{ color: 'var(--text-sub)' }}>{reminder.time || 'Anytime'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="buddy-td">
+                                            <span style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '20px',
+                                                fontSize: '0.7rem',
+                                                fontWeight: '800',
+                                                textTransform: 'uppercase',
+                                                background: reminder.status === 'risk_alert' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                                color: reminder.status === 'risk_alert' ? '#ef4444' : '#10b981'
+                                            }}>
+                                                {reminder.status?.replace('_', ' ') || 'ON TRACK'}
+                                            </span>
+                                        </td>
+                                        <td className="buddy-td" style={{ textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => handleViewClick(reminder)}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--primary-color)', background: 'color-mix(in srgb, var(--primary-color) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--primary-color) 20%, transparent)' }}
+                                                    title="View Details"
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeleteModal({ isOpen: true, id: reminder._id })}
+                                                    className="btn btn-icon btn-sm"
+                                                    style={{ color: 'var(--danger-color)', background: 'color-mix(in srgb, var(--danger-color) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--danger-color) 20%, transparent)' }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </motion.tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="mobile-card-view" style={{ marginTop: '16px' }}>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0' }}><Loader2 className="animate-spin" size={32} style={{ color: 'var(--primary-color)' }} /></div>
+                    ) : reminders.map((reminder) => (
+                        <MobileTaskCard
+                            key={reminder._id}
+                            title={reminder.title}
+                            subtitle={reminder.location}
+                            date={reminder.date}
+                            time={reminder.time}
+                            type="location"
+                            status={reminder.status}
+                            onView={() => handleViewClick(reminder)}
+                            onDelete={() => setDeleteModal({ isOpen: true, id: reminder._id })}
+                        />
+                    ))}
+                </div>
+
+                <Pagination
+                    pagination={pagination}
+                    onPageChange={(page) => fetchReminders(page)}
+                />
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center h-64">
-                    <Loader2 className="animate-spin text-emerald-600" size={40} />
-                </div>
-            ) : reminders.length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <MapPin size={40} className="text-slate-300" />
+            {/* Create Reminder SlideOver */}
+            <GlobalSlideOver
+                isOpen={editModal.isOpen}
+                onClose={() => setEditModal({ isOpen: false, isCreate: true })}
+                title="New Location Reminder"
+                actionButton={{
+                    label: 'Create Reminder',
+                    onClick: handleCreateSubmit
+                }}
+            >
+                <div style={{ padding: '0 4px' }}>
+                    <div style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Reminder Title</label>
+                        <input
+                            required
+                            className="buddy-input"
+                            placeholder="e.g. Pickup son from school"
+                            value={editForm.title}
+                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: 'var(--bg-lite)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: 'var(--radius-md)',
+                                color: 'var(--text-main)'
+                            }}
+                        />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-800">No Location Reminders</h3>
-                    <p className="text-slate-500 mt-2 mb-6">Create your first geofenced reminder to get started</p>
-                    <button
-                        onClick={() => setIsAdding(true)}
-                        className="text-emerald-600 font-bold hover:underline"
-                    >
-                        + Create First Reminder
-                    </button>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <AnimatePresence>
-                        {reminders.map((reminder) => (
-                            <motion.div
-                                key={reminder._id}
-                                layout
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className={`group relative bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl transition-all overflow-hidden`}
-                            >
-                                {/* Status Header */}
-                                <div className={`h-1.5 w-full ${reminder.status === 'risk_alert' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
 
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${reminder.status === 'risk_alert' ? 'bg-rose-50' : 'bg-emerald-50'}`}>
-                                            <Bell size={24} className={reminder.status === 'risk_alert' ? 'text-rose-600' : 'text-emerald-600'} />
-                                        </div>
-                                        <button
-                                            onClick={() => setDeleteModal({ isOpen: true, id: reminder._id })}
-                                            className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
+                    <div style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Location</label>
+                        <GoogleMapPicker
+                            location={editForm.location}
+                            setLocation={(loc) => setEditForm({ ...editForm, location: loc })}
+                            coordinates={editForm.coordinates}
+                            setCoordinates={(coords) => setEditForm({ ...editForm, coordinates: coords })}
+                            isEditing={true}
+                            radius={500}
+                        />
+                    </div>
 
-                                    <h3 className="text-lg font-bold text-slate-800 mb-1 group-hover:text-emerald-700 transition-colors">{reminder.title}</h3>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${reminder.status === 'risk_alert' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-                                            }`}>
-                                            {reminder.status?.replace('_', ' ')}
-                                        </span>
-                                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Date</label>
+                            <input
+                                type="date"
+                                className="buddy-input"
+                                value={editForm.date}
+                                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    background: 'var(--bg-lite)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: 'var(--radius-md)',
+                                    color: 'var(--text-main)'
+                                }}
+                            />
+                        </div>
+                        <CustomTimePicker
+                            label="Time"
+                            value={editForm.time}
+                            onChange={(time) => setEditForm({ ...editForm, time })}
+                        />
+                    </div>
 
-                                    <div className="space-y-3 mt-4">
-                                        <div className="flex items-center gap-3 text-slate-600 text-sm">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
-                                                <Calendar size={14} />
-                                            </div>
-                                            <span>{reminder.date} • {reminder.time}</span>
-                                        </div>
-                                        <div className="flex items-center gap-3 text-slate-600 text-sm">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
-                                                <MapPin size={14} />
-                                            </div>
-                                            <span className="truncate">{reminder.location}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3 mt-8">
-                                        <button className="flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 py-2.5 rounded-xl text-xs font-bold transition-colors">
-                                            <AlertTriangle size={14} />
-                                            Early Warning
-                                        </button>
-                                        <button
-                                            onClick={() => handleFamilyBackup(reminder._id)}
-                                            className="flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2.5 rounded-xl text-xs font-bold transition-colors"
-                                        >
-                                            <Users size={14} />
-                                            Family Backup
-                                        </button>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
-            )}
-
-            {/* Create Overlay */}
-            <AnimatePresence>
-                {isAdding && (
-                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl"
-                        >
-                            <div className="p-8">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-2xl font-black text-slate-800">New Reminder</h2>
-                                    <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-slate-100 rounded-full">
-                                        <X size={20} />
-                                    </button>
-                                </div>
-
-                                <form onSubmit={handleCreate} className="space-y-5">
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Reminder Title</label>
-                                        <input
-                                            required
-                                            className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 transition-all"
-                                            placeholder="e.g. Visit Tower Bridge"
-                                            value={formData.title}
-                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Location</label>
-                                        <div className="relative">
-                                            <MapPin size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                            <input
-                                                required
-                                                className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-5 py-4 text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 transition-all"
-                                                placeholder="e.g. London, UK"
-                                                value={formData.location}
-                                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Date</label>
-                                            <input
-                                                type="date"
-                                                required
-                                                className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-800 focus:ring-2 focus:ring-emerald-500 transition-all"
-                                                value={formData.date}
-                                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Time</label>
-                                            <input
-                                                type="text"
-                                                required
-                                                className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-800 focus:ring-2 focus:ring-emerald-500 transition-all"
-                                                placeholder="10:00 AM"
-                                                value={formData.time}
-                                                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Warning Level</label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {['low', 'medium', 'high'].map(level => (
-                                                <button
-                                                    key={level}
-                                                    type="button"
-                                                    onClick={() => setFormData({ ...formData, warningLevel: level })}
-                                                    className={`py-2.5 rounded-xl text-xs font-bold capitalize transition-all border ${formData.warningLevel === level
-                                                            ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
-                                                            : 'bg-white border-slate-100 text-slate-400'
-                                                        }`}
-                                                >
-                                                    {level}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        type="submit"
-                                        className="w-full bg-slate-900 hover:bg-black text-white py-4 rounded-2xl font-black mt-4 transition-all active:scale-95 shadow-lg"
-                                    >
-                                        Create Reminder
-                                    </button>
-                                </form>
+                    <div style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-sub)', fontSize: '0.85rem', fontWeight: '600' }}>Safety Options</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.9rem' }}>Notify Family Backup?</span>
+                                <input
+                                    type="checkbox"
+                                    checked={editForm.alerts.notifyFamily}
+                                    onChange={(e) => setEditForm({ ...editForm, alerts: { ...editForm.alerts, notifyFamily: e.target.checked } })}
+                                />
                             </div>
-                        </motion.div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.9rem' }}>Emergency Broadcast?</span>
+                                <input
+                                    type="checkbox"
+                                    checked={editForm.alerts.notifyEmergency}
+                                    onChange={(e) => setEditForm({ ...editForm, alerts: { ...editForm.alerts, notifyEmergency: e.target.checked } })}
+                                />
+                            </div>
+                        </div>
                     </div>
-                )}
-            </AnimatePresence>
+                </div>
+            </GlobalSlideOver>
+
+            {/* Details & Edit View */}
+            <SmartReminderDetails
+                reminder={selectedReminder}
+                isOpen={!!selectedReminder}
+                onClose={() => setSelectedReminder(null)}
+                onUpdate={() => {
+                    fetchReminders(pagination.currentPage);
+                    setSelectedReminder(null);
+                }}
+                initialEditMode={isDetailsEditing}
+            />
 
             <ConfirmationModal
                 isOpen={deleteModal.isOpen}

@@ -207,6 +207,27 @@ label {
   border-color: var(--text-sub);
 }
 
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-lite);
+  color: var(--text-sub);
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.btn-icon:hover {
+  background: var(--row-hover);
+  color: var(--primary-color);
+  border-color: var(--primary-glow);
+  transform: scale(1.1);
+}
+
 /* Glassmorphism System */
 .glass-panel {
   background: rgba(255, 255, 255, 0.75);

@@ -34,8 +34,6 @@ const contextService = {
                 : Promise.resolve(null);
 
             const memoriesPromise = userId ? Memory.find({ userId }).sort({ createdAt: -1 }).limit(10) : Promise.resolve([]);
-            const LocationReminder = require('../models/LocationReminder');
-
             const now = new Date();
             let userDate;
             try {
@@ -46,24 +44,20 @@ const contextService = {
                 userDate = now.toLocaleDateString('en-CA', { timeZone: 'UTC' });
             }
 
-            // Fetch standard reminders
+            // Fetch reminders (unified)
             const remindersPromise = userId ? Reminder.find({
                 userId,
-                date: { $gte: userDate }
-            }).sort({ date: 1, time: 1 }).limit(10) : Promise.resolve([]);
-
-            // Fetch location reminders
-            const locRemindersPromise = userId ? LocationReminder.find({
-                userId,
-                status: 'on_track'
-            }).sort({ createdAt: -1 }).limit(10) : Promise.resolve([]);
+                $or: [
+                    { date: { $gte: userDate } },
+                    { reminderType: 'location', status: 'on_track' }
+                ]
+            }).sort({ date: 1, time: 1 }).limit(20) : Promise.resolve([]);
 
             // 3. Execute in parallel
-            const [conversation, memoriesDocs, recentRemindersDocs, locRemindersDocs] = await Promise.all([
+            const [conversation, memoriesDocs, allRemindersDocs] = await Promise.all([
                 historyPromise,
                 memoriesPromise,
-                remindersPromise,
-                locRemindersPromise
+                remindersPromise
             ]);
 
             // 4. Process results
@@ -73,20 +67,24 @@ const contextService = {
             memories = memoriesDocs || [];
 
             // Format reminders
-            const standardReminders = (recentRemindersDocs || []).map(r => ({
-                id: r._id,
-                title: r.title,
-                time: r.time,
-                date: r.date,
-                type: 'time'
-            }));
+            const standardReminders = (allRemindersDocs || [])
+                .filter(r => r.reminderType !== 'location')
+                .map(r => ({
+                    id: r._id,
+                    title: r.title,
+                    time: r.time,
+                    date: r.date,
+                    type: 'time'
+                }));
 
-            const locationReminders = (locRemindersDocs || []).map(r => ({
-                id: r._id,
-                title: r.title,
-                location: r.location,
-                type: 'location'
-            }));
+            const locationReminders = (allRemindersDocs || [])
+                .filter(r => r.reminderType === 'location')
+                .map(r => ({
+                    id: r._id,
+                    title: r.title,
+                    location: r.location,
+                    type: 'location'
+                }));
 
             recentReminders = [...standardReminders, ...locationReminders].slice(0, 15);
 

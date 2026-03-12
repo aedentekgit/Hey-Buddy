@@ -1,8 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -26,6 +26,7 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
   late TextEditingController notesController;
   late bool isMemory;
   File? _selectedFile;
+  bool _isSaving = false;
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -33,12 +34,22 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
     super.initState();
     final type = widget.item['type'] ?? 'memory';
     isMemory = type == 'memory';
-    
+
     final dynamic extracted = widget.item['extractedData'];
-    contentController = TextEditingController(text: isMemory ? (widget.item['content'] ?? '') : '');
-    patientController = TextEditingController(text: (!isMemory && extracted != null) ? (extracted['patientName'] ?? '') : '');
-    doctorController = TextEditingController(text: (!isMemory && extracted != null) ? (extracted['doctorName'] ?? '') : '');
-    notesController = TextEditingController(text: (!isMemory && extracted != null) ? (extracted['notes'] ?? '') : '');
+    contentController = TextEditingController(
+        text: isMemory ? (widget.item['content'] ?? '') : '');
+    patientController = TextEditingController(
+        text: (!isMemory && extracted != null)
+            ? (extracted['patientName'] ?? '')
+            : '');
+    doctorController = TextEditingController(
+        text: (!isMemory && extracted != null)
+            ? (extracted['doctorName'] ?? '')
+            : '');
+    notesController = TextEditingController(
+        text: (!isMemory && extracted != null)
+            ? (extracted['notes'] ?? '')
+            : '');
   }
 
   @override
@@ -51,11 +62,12 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
   }
 
   Future<void> _save() async {
+    setState(() => _isSaving = true);
     final provider = Provider.of<MemoriesProvider>(context, listen: false);
     bool success;
     if (isMemory) {
       success = await provider.updateMemory(
-        widget.item['_id'], 
+        widget.item['_id'],
         contentController.text,
         file: _selectedFile,
       );
@@ -67,237 +79,280 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
         'notes': notesController.text,
       });
     }
-
+    if (mounted) setState(() => _isSaving = false);
     if (success && mounted) {
-      ToastUtils.showSuccessToast("Updated successfully");
+      ToastUtils.showSuccessToast('Updated successfully');
       Navigator.pop(context);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final themeColor = isMemory ? const Color(0xFF9333EA) : const Color(0xFF1D4ED8);
-    
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(
-          isMemory ? "Edit Memory" : "Edit Document",
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft, color: Color(0xFF1E293B)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        shape: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isMemory) ...[
-              Text(
-                "MEMORY CONTENT",
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: contentController,
-                maxLines: 12,
-                style: GoogleFonts.outfit(),
-                decoration: InputDecoration(
-                  hintText: "What do you want Buddy to remember?",
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: themeColor, width: 2),
-                  ),
-                ),
-              ),
-            ] else ...[
-              _buildEditField("Patient Name", patientController),
-              const SizedBox(height: 20),
-              _buildEditField("Doctor Name", doctorController),
-              const SizedBox(height: 20),
-              _buildEditField("Buddy Notes", notesController, maxLines: 6),
-            ],
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  "Save Changes",
-                  style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            if (isMemory) ...[
-              const SizedBox(height: 20),
-              _buildFileUploadSection(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFileUploadSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "ATTACHMENT",
-          style: GoogleFonts.outfit(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1,
-            color: const Color(0xFF64748B),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Column(
-            children: [
-              if (_selectedFile != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(_selectedFile!, height: 150, width: double.infinity, fit: BoxFit.cover),
-                ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () => setState(() => _selectedFile = null),
-                  icon: const Icon(LucideIcons.x, size: 16, color: Colors.red),
-                  label: Text("Remove", style: GoogleFonts.outfit(color: Colors.red)),
-                ),
-              ] else if (widget.item['fileUrl'] != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: AppConfig.formatImageUrl(widget.item['fileUrl'] as String?) ?? '',
-                    height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (ctx, url) => Container(
-                      height: 150,
-                      color: Colors.grey[100],
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-                    errorWidget: (ctx, url, err) => Container(
-                      height: 80,
-                      color: Colors.grey[100],
-                      child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(LucideIcons.upload, size: 16),
-                  label: Text("Change Attachment", style: GoogleFonts.outfit()),
-                ),
-              ] else ...[
-                InkWell(
-                  onTap: _pickImage,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Column(
-                      children: [
-                        const Icon(LucideIcons.upload, size: 32, color: Color(0xFF9333EA)),
-                        const SizedBox(height: 8),
-                        Text("Upload Image", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                        Text("Supports Images & PDFs", style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _selectedFile = File(image.path);
-      });
-    }
+    if (image != null) setState(() => _selectedFile = File(image.path));
   }
 
-  Widget _buildEditField(String label, TextEditingController controller, {int maxLines = 1}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            label.toUpperCase(),
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-              color: const Color(0xFF64748B),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Column(
+        children: [
+          // ── Header ──────────────────────────────────────────────────
+          Container(
+            color: AppColors.surface,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Icon(LucideIcons.arrowLeft,
+                            size: 18, color: AppColors.text),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isMemory ? 'Edit Memory' : 'Edit Document',
+                            style: GoogleFonts.nunito(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.text),
+                          ),
+                          Text(
+                            'Make changes and save',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: AppColors.textMid),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Save button in header
+                    GestureDetector(
+                      onTap: _isSaving ? null : _save,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _isSaving
+                              ? AppColors.accent.withOpacity(0.5)
+                              : AppColors.accent,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text(
+                                'Save',
+                                style: GoogleFonts.nunito(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-        TextField(
-          controller: controller,
-          maxLines: maxLines,
-          style: GoogleFonts.outfit(fontSize: 15),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.all(16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: isMemory ? const Color(0xFF9333EA) : const Color(0xFF1D4ED8), width: 2),
+
+          // ── Body ────────────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isMemory) ...[
+                    _SectionLabel('Memory Content'),
+                    _buildTextArea(contentController,
+                        hint: 'What do you want Buddy to remember?',
+                        maxLines: 12),
+                  ] else ...[
+                    _SectionLabel('Patient Name'),
+                    _buildTextArea(patientController, hint: 'Patient name'),
+                    const SizedBox(height: 16),
+                    _SectionLabel('Doctor Name'),
+                    _buildTextArea(doctorController, hint: 'Doctor name'),
+                    const SizedBox(height: 16),
+                    _SectionLabel('Notes'),
+                    _buildTextArea(notesController,
+                        hint: 'Additional notes', maxLines: 6),
+                  ],
+                  if (isMemory) ...[
+                    const SizedBox(height: 24),
+                    _SectionLabel('Attachment'),
+                    _buildAttachmentSection(),
+                  ],
+                ],
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _SectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.nunito(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textDim,
+          letterSpacing: 0.7,
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildTextArea(TextEditingController ctrl,
+      {String hint = '', int maxLines = 1}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: TextField(
+        controller: ctrl,
+        maxLines: maxLines,
+        style: GoogleFonts.inter(fontSize: 14, color: AppColors.text),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle:
+              GoogleFonts.inter(fontSize: 14, color: AppColors.textDim),
+          contentPadding: const EdgeInsets.all(16),
+          border: InputBorder.none,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide:
+                BorderSide(color: AppColors.accent.withOpacity(0.5), width: 1.5),
+          ),
+          enabledBorder: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentSection() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        children: [
+          if (_selectedFile != null) ...[
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(13)),
+              child: Image.file(_selectedFile!,
+                  height: 160, width: double.infinity, fit: BoxFit.cover),
+            ),
+            TextButton.icon(
+              onPressed: () => setState(() => _selectedFile = null),
+              icon: const Icon(LucideIcons.x, size: 15, color: AppColors.danger),
+              label: Text('Remove',
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: AppColors.danger)),
+            ),
+          ] else if (widget.item['fileUrl'] != null) ...[
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(13)),
+              child: CachedNetworkImage(
+                imageUrl:
+                    AppConfig.formatImageUrl(widget.item['fileUrl'] as String?) ??
+                        '',
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(
+                  height: 160,
+                  color: AppColors.bg,
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (_, __, ___) => Container(
+                  height: 80,
+                  color: AppColors.bg,
+                  child: Center(
+                    child: Icon(LucideIcons.imageOff,
+                        color: AppColors.textDim, size: 28),
+                  ),
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _pickImage,
+              icon: Icon(LucideIcons.upload, size: 15, color: AppColors.accent),
+              label: Text('Change Attachment',
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: AppColors.accent)),
+            ),
+          ] else ...[
+            GestureDetector(
+              onTap: _pickImage,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLight,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(LucideIcons.upload,
+                          size: 24, color: AppColors.accent),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Upload Image or PDF',
+                        style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.text)),
+                    const SizedBox(height: 4),
+                    Text('Tap to browse your files',
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: AppColors.textMid)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

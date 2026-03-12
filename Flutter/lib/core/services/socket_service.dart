@@ -13,6 +13,7 @@ class SocketService {
   final _statusStreamController = StreamController<bool>.broadcast();
   final _voiceAlertStreamController = StreamController<Map<String, dynamic>>.broadcast();
   final _wakeWordStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  final _chatStreamController = StreamController<Map<String, dynamic>>.broadcast();
   final _bargeInController = StreamController<dynamic>.broadcast();
   final _stopCmdController = StreamController<dynamic>.broadcast();
 
@@ -21,6 +22,7 @@ class SocketService {
   Stream<bool> get statusStream => _statusStreamController.stream;
   Stream<Map<String, dynamic>> get voiceAlertStream => _voiceAlertStreamController.stream;
   Stream<Map<String, dynamic>> get wakeWordStream => _wakeWordStreamController.stream;
+  Stream<Map<String, dynamic>> get chatStream => _chatStreamController.stream;
   Stream<dynamic> get bargeInStream => _bargeInController.stream;
   Stream<dynamic> get stopCommandStream => _stopCmdController.stream;
 
@@ -136,6 +138,13 @@ class SocketService {
       print('Stop Command Detected in Backend: $data');
       _stopCmdController.add(data);
     });
+
+    socket?.on('new_message', (data) {
+      print('New Chat Message Received: $data');
+      if (data is Map) {
+        _chatStreamController.add(Map<String, dynamic>.from(data));
+      }
+    });
     
     // Successfully started connection flow
     _isConnecting = false;
@@ -157,6 +166,18 @@ class SocketService {
     socket?.emit('user_interruption');
   }
 
+  void joinChatRoom(String roomId) {
+    socket?.emit('join_room', roomId);
+  }
+
+  void sendChatMessage(String roomId, String senderId, String content) {
+    socket?.emit('send_message', {
+      'roomId': roomId,
+      'senderId': senderId,
+      'content': content
+    });
+  }
+
   void dispose() {
     socket?.disconnect();
     _audioStreamController.close();
@@ -164,5 +185,6 @@ class SocketService {
     _statusStreamController.close();
     _voiceAlertStreamController.close();
     _wakeWordStreamController.close();
+    _chatStreamController.close();
   }
 }

@@ -169,94 +169,111 @@ const startReminderWorker = (io) => {
     // Run every minute
     cron.schedule('* * * * *', async () => {
         try {
-            console.log('--- [Reminder Worker] Checking Reminders ---');
+            console.log('--- [Reminder Worker] Checking Unified Reminders ---');
 
-            // Find all pending reminders that haven't been notified (with limit for unbounded query safety)
+            // Find all pending reminders that haven't been notified
             const pendingReminders = await Reminder.find({
                 status: 'pending',
                 notified: false
-            }).limit(500).lean().populate('userId');
+            }).limit(500).populate('userId');
 
             if (pendingReminders.length === 0) return;
 
-            for (const reminder of pendingReminders) {
+            for (let reminder of pendingReminders) {
                 const user = reminder.userId;
                 if (!user) continue;
 
-                // Get User's Timezone (default to UTC if missing)
                 const userTimezone = user.timezone || 'UTC';
-
-                // Get Current Time in User's Timezone
                 const now = new Date();
-
-                // Safely interpret precise local time
                 const userNow = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
-                const userYear = userNow.getFullYear();
-                const userMonth = userNow.getMonth(); // 0-indexed
-                const userDay = userNow.getDate();
-                const userHour = userNow.getHours();
-                const userMinute = userNow.getMinutes();
 
-                const userNowMinutes = (userHour * 60) + userMinute;
+                let shouldTrigger = false;
+                const type = reminder.reminderType || 'time';
 
-                // Parse Reminder Date (YYYY-MM-DD)
-                if (!reminder.date) continue;
-                const dateParts = reminder.date.split('-');
-                if (dateParts.length !== 3) continue;
-                const [rYear, rMonth, rDay] = dateParts.map(Number);
-                const rMonthAdjusted = rMonth - 1;
+                if (type === 'time') {
+                    // --- TIME-BASED LOGIC ---
+                    const userHour = userNow.getHours();
+                    const userMinute = userNow.getMinutes();
+                    const userNowMinutes = (userHour * 60) + userMinute;
 
-                // Parse Reminder Time
-                let rHour, rMin;
-                const timeStr = reminder.time || '00:00';
-                const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i);
+                    // Parse Date (YYYY-MM-DD)
+                    if (!reminder.date) continue;
+                    const [rYear, rMonth, rDay] = reminder.date.split('-').map(Number);
+                    const rMonthAdjusted = rMonth - 1;
 
-                if (ampmMatch) {
-                    rHour = parseInt(ampmMatch[1]);
-                    rMin = parseInt(ampmMatch[2]);
-                    const period = ampmMatch[3].toLowerCase();
-                    if (period === 'pm' && rHour < 12) rHour += 12;
-                    if (period === 'am' && rHour === 12) rHour = 0;
-                } else {
-                    const parts = timeStr.split(':');
-                    rHour = parseInt(parts[0]);
-                    rMin = parseInt(parts[1]) || 0;
-                }
+                    // Parse Time
+                    let rHour, rMin;
+                    const timeStr = reminder.time || '00:00';
+                    const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i);
+                    if (ampmMatch) {
+                        rHour = parseInt(ampmMatch[1]);
+                        rMin = parseInt(ampmMatch[2]);
+                        const period = ampmMatch[3].toLowerCase();
+                        if (period === 'pm' && rHour < 12) rHour += 12;
+                        if (period === 'am' && rHour === 12) rHour = 0;
+                    } else {
+                        const parts = timeStr.split(':');
+                        rHour = parseInt(parts[0]);
+                        rMin = parseInt(parts[1]) || 0;
+                    }
 
-                const reminderTargetMinutes = (rHour * 60) + rMin;
-                const adjustedReminderTargetMinutes = reminderTargetMinutes - (reminder.bufferTime || 0);
+                    const reminderTargetMinutes = (rHour * 60) + rMin;
+                    const adjustedTarget = reminderTargetMinutes - (reminder.bufferTime || 0);
 
-                // Check if Date matches
-                const isToday = (rYear === userYear && rMonthAdjusted === userMonth && rDay === userDay);
-                const isPastDueCurrentDay = isToday && (adjustedReminderTargetMinutes <= userNowMinutes);
-                const isOverduePastDay = (rYear < userYear) || (rYear === userYear && rMonthAdjusted < userMonth) || (rYear === userYear && rMonthAdjusted === userMonth && rDay < userDay);
+                    const isToday = (rYear === userNow.getFullYear() && rMonthAdjusted === userNow.getMonth() && rDay === userNow.getDate());
+                    const isPastDueCurrentDay = isToday && (adjustedTarget <= userNowMinutes);
+                    const isOverduePastDay = (rYear < userNow.getFullYear()) ||
+                        (rYear === userNow.getFullYear() && rMonthAdjusted < userNow.getMonth()) ||
+                        (rYear === userNow.getFullYear() && rMonthAdjusted === userNow.getMonth() && rDay < userNow.getDate());
 
-                let locationMatch = true;
-                // If it's a PURE location reminder (no time set), then geofence is mandatory.
-                // If it HAS a time, the location is a destination, so we trigger on time regardless.
-                if (!reminder.time && reminder.coordinates && reminder.coordinates.lat && reminder.coordinates.lng && reminder.geofenceRadius) {
-                    locationMatch = false;
-                    if (user.currentLocation && user.currentLocation.lat && user.currentLocation.lng) {
+                    if (isPastDueCurrentDay || isOverduePastDay) {
+                        shouldTrigger = true;
+                    }
+                } else if (type === 'location') {
+                    // --- LOCATION-BASED LOGIC ---
+                    if (reminder.coordinates?.lat && reminder.coordinates?.lng && user.currentLocation?.lat) {
                         const distance = calculateDistance(
                             user.currentLocation.lat, user.currentLocation.lng,
                             reminder.coordinates.lat, reminder.coordinates.lng
                         );
-                        if (distance <= reminder.geofenceRadius) {
-                            locationMatch = true;
-                            console.log(`[Worker] Geofence reached for "${reminder.title}" (${Math.round(distance)}m <= ${reminder.geofenceRadius}m)`);
+                        const radius = reminder.geofenceRadius || 500;
+                        if (distance <= radius) {
+                            shouldTrigger = true;
+                            console.log(`[Worker] Location trigger: "${reminder.title}" at ${Math.round(distance)}m`);
                         }
                     }
                 }
 
-                if ((isPastDueCurrentDay || isOverduePastDay) && locationMatch) {
-                    console.log(`[Worker] TRIGGERED: "${reminder.title}" for ${user.name}`);
+                if (shouldTrigger) {
+                    console.log(`[Worker] TRIGGERING: "${reminder.title}" (Type: ${type}) for ${user.email}`);
                     await triggerNotification(reminder, user, io);
-                    reminder.notified = true;
-                    await reminder.save();
+
+                    // Handle Family/Emergency notifications if enabled
+                    if (reminder.alerts?.notifyFamily || reminder.alerts?.notifyEmergency) {
+                        const Family = require('../models/Family');
+                        const family = await Family.findById(user.familyId);
+                        if (family) {
+                            const message = `[Buddy Safety] Alert for ${user.name}: Reminder "${reminder.title}" triggered at location: ${reminder.location || 'Unknown'}.`;
+
+                            // Notify Family Members
+                            if (reminder.alerts.notifyFamily) {
+                                for (const memberId of family.members) {
+                                    if (memberId === user._id) continue;
+                                    const member = await User.findById(memberId);
+                                    if (member && member.fcmTokens) {
+                                        member.fcmTokens.forEach(token =>
+                                            sendPushNotification(token, 'Family Reminder Alert', message, { type: 'family_alert' })
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Update database
+                    await Reminder.findByIdAndUpdate(reminder._id, { notified: true });
                 }
             }
-
-
         } catch (error) {
             console.error("Reminder Worker Error:", error);
         }

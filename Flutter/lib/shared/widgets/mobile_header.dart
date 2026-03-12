@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'package:buddy_mobile/core/services/location_service.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
@@ -31,35 +32,40 @@ class _MobileHeaderState extends State<MobileHeader> {
     _loadLocation();
   }
 
+
   Future<void> _loadLocation() async {
     final locationData = await _locationService.getCurrentLocation();
     if (locationData != null && mounted) {
-      setState(() {
-        _currentLocation = locationData['address'] as String?;
-      });
-
-      // Sync with backend via Provider
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      if (locationData['lat'] != null && locationData['lng'] != null) {
-        userProvider.updateLocation(
-          locationData['lat'] as double,
-          locationData['lng'] as double,
-        );
+      final newLat = locationData['lat'] as double?;
+      final newLng = locationData['lng'] as double?;
+
+      // Trust the new GPS fix and update the backend/provider
+      if (newLat != null && newLng != null) {
+        setState(() {
+          _currentLocation = locationData['address'] as String?;
+        });
+        userProvider.updateLocation(newLat, newLng);
+      } else if (newLat == null) {
+        // GPS completely failed — just show whatever is stored
+        final stored = userProvider.user['currentLocation'];
+        if (stored != null && stored['address'] != null && mounted) {
+          setState(() { _currentLocation = stored['address'] as String?; });
+        }
       }
-      
-      // Start background updates — store subscription so we can cancel on dispose.
-      // The callback fires on every 50m position change and keeps both the
-      // header text and UserProvider in sync so SmartDetailsPanel always has
-      // the freshest coordinates as a fallback.
+      // If GPS returned implausible coords, leave _currentLocation and UserProvider as-is
+      // so the stored backend address keeps showing in the header.
+
+      // Start background updates.  The same plausibility guard applies to each
+      // stream event so a stuck emulator GPS never poisons the stored location.
       _liveTrackingSubscription?.cancel();
       _liveTrackingSubscription = _locationService.startLiveTracking(
         onLocationUpdate: (String address, double lat, double lng) {
           if (!mounted) return;
-          setState(() {
-            _currentLocation = address;
-          });
-          Provider.of<UserProvider>(context, listen: false)
-              .updateLocation(lat, lng);
+          final up = Provider.of<UserProvider>(context, listen: false);
+          // Update immediately without artificial distance guards
+          setState(() { _currentLocation = address; });
+          up.updateLocation(lat, lng);
         },
       );
     }

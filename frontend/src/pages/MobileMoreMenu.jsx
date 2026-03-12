@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     Users, BarChart2, ShoppingBag, Contact, Lightbulb,
     Presentation, Smartphone, Settings, HelpCircle,
-    GitBranch, ScanLine, Eye, Calendar, BookOpen, Cpu, ShieldCheck, User
+    GitBranch, ScanLine, Eye, Calendar, BookOpen, Cpu, ShieldCheck, User, MapPin, Heart
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,6 +19,8 @@ const MobileMoreMenu = () => {
         { id: 'knowledge', label: 'Knowledge Base', icon: BookOpen, path: '/admin/knowledge' },
         { id: 'automations', label: 'Automations', icon: Cpu, path: '/admin/automations' },
         { id: 'calendar', label: 'Calendar', icon: Calendar, path: '/admin/calendar' },
+        { id: 'location-reminders', label: 'Location Reminders', icon: MapPin, path: '/admin/location-reminders' },
+        { id: 'family-hub', label: 'Family Hub', icon: Heart, path: '/admin/family-hub' },
         { id: 'management', label: 'Management', icon: ShieldCheck, path: '/admin/management' },
         { id: 'roles', label: 'Roles', icon: ShieldCheck, path: '/admin/roles' },
         { id: 'settings', label: 'System Settings', icon: Settings, path: '/admin/settings' },

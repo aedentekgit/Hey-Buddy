@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 import '../providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
@@ -46,6 +47,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   Set<Polyline> polylines = {};
   Position? currentPosition;
   GoogleMapController? mapController;
+  // Guard: prevents duplicate route-init calls when UserProvider fires multiple times
+  bool _routeInitialized = false;
 
   late double bufferTime;
   late double geofenceRadius;
@@ -115,6 +118,29 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     _initRoute();
   }
 
+  /// Called whenever an InheritedWidget (including UserProvider) above this
+  /// widget changes.  If the route hasn't been initialised yet and UserProvider
+  /// now has a real location, we retry so the map shows the route immediately
+  /// without waiting for a new GPS fix (which emulators often can't deliver).
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Always check for a fresh location from UserProvider.
+    // If we don't have a route yet (polylines empty) or if currentPosition is null,
+    // we should try (re)initializing the route.
+    final stored = Provider.of<UserProvider>(context).user['currentLocation'];
+    if (stored != null && stored['lat'] != null && stored['lng'] != null) {
+      if (currentPosition == null || polylines.isEmpty) {
+        // Only run if we actually have something to show now that we didn't before.
+        // We use a small delay or check to avoid infinite loops if GPS stays failing.
+        if (!_routeInitialized || currentPosition == null) {
+           _initRoute();
+        }
+      }
+    }
+  }
+
   Future<void> _initRoute() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -124,10 +150,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
         try {
-          currentPosition = await Geolocator.getCurrentPosition(
+          final pos = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high,
             timeLimit: const Duration(seconds: 15),
           );
+          // GPS looks valid — trust the real device/emulator fix
+          currentPosition = pos;
         } catch (e) {
           print("GPS fetch failed in _initRoute, trying stored location: $e");
         }
@@ -154,9 +182,32 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         }
       }
 
-      if (mounted && coordinates != null) {
-        _fetchRoute();
-        _fetchTravelStats(); // Refresh with actual user position
+      if (currentPosition == null) {
+        // Still no position — didChangeDependencies will retry once UserProvider arrives
+        return;
+      }
+
+      // Mark as initialised so didChangeDependencies won't fire again
+      _routeInitialized = true;
+
+      if (mounted) {
+        // Refresh the current-position marker on the map immediately
+        setState(() {});
+
+        // Animate map camera to user's current location right away
+        if (mapController != null && coordinates == null) {
+          mapController!.animateCamera(
+            CameraUpdate.newLatLngZoom(
+              LatLng(currentPosition!.latitude, currentPosition!.longitude),
+              14,
+            ),
+          );
+        }
+
+        if (coordinates != null) {
+          _fetchRoute();
+          _fetchTravelStats(); // Refresh with actual user position
+        }
       }
     } catch (e) {
       print("Error initializing route: $e");
@@ -169,13 +220,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     double lat = currentPosition!.latitude;
     double lng = currentPosition!.longitude;
 
-    // If origin is impossibly far from destination (e.g. emulator default in US)
-    // skip drawing a route — don't silently swap to a hardcoded city
-    double dist = Geolocator.distanceBetween(lat, lng, (coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble());
-    if (dist > 1000000) { // > 1000km — position is clearly wrong
-      print("Skipping route draw: origin ($lat, $lng) is ${(dist / 1000).toStringAsFixed(0)}km from destination. Waiting for real GPS fix.");
-      return;
-    }
+    // Note: No distance guard here. Even if the user is 10k km away,
+    // Google Directions API will handle it (though it might fail if there's no road).
+    // Discarding the route entirely makes the 'Smart Details' screen look broken.
 
     PolylinePoints polylinePoints = PolylinePoints(apiKey: AppConfig.googleMapsApiKey);
     PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
@@ -191,7 +238,6 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       for (var point in result.points) {
         polylineCoordinates.add(LatLng(point.latitude, point.longitude));
       }
-
       if (mounted) {
         setState(() {
           polylines.add(Polyline(
@@ -208,6 +254,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
         }
       }
+    } else {
+      print("Route fetch failed: ${result.errorMessage ?? 'No points found'}");
     }
   }
 
@@ -245,15 +293,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         }
       }
 
-      // If origin is impossibly far from destination, pass null so the backend
-      // uses its own stored user location — don't substitute a hardcoded city
-      if (lat != null && lng != null) {
-        double dist = Geolocator.distanceBetween(lat, lng, (coordinates!['lat'] as num).toDouble(), (coordinates!['lng'] as num).toDouble());
-        if (dist > 1000000) { // > 1000km — position is clearly wrong
-          lat = null;
-          lng = null;
-        }
-      }
+      // Pass actual coordinates if available (no artificial distance guard)
 
       final stats = await _taskService.fetchTravelStats(
         widget.reminder['_id'],
@@ -523,32 +563,33 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Actions
-          Row(
+    return Column(
+      children: [
+        // ── Status + Edit Settings row ──────────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(bottom: BorderSide(color: AppColors.border)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _StatusBadge(label: status == 'completed' ? "Completed" : "On Track"),
-              InkWell(
-                onTap: () {
-                  if (isEditing) {
-                    setState(() => isEditing = false);
-                  } else {
-                    setState(() => isEditing = true);
-                  }
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              GestureDetector(
+                onTap: () => setState(() => isEditing = !isEditing),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: BoxDecoration(
-                    color: isEditing ? const Color(0xFFFEE2E2) : const Color(0xFFEEF2FF),
+                    color: isEditing
+                        ? AppColors.dangerLight
+                        : AppColors.accentLight,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isEditing ? const Color(0xFFFECACA) : const Color(0xFFE0E7FF),
+                      color: isEditing
+                          ? AppColors.danger.withOpacity(0.25)
+                          : AppColors.accent.withOpacity(0.25),
                     ),
                   ),
                   child: Row(
@@ -556,16 +597,16 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                     children: [
                       Icon(
                         isEditing ? LucideIcons.x : LucideIcons.pencil,
-                        size: 14,
-                        color: isEditing ? const Color(0xFFEF4444) : Theme.of(context).primaryColor,
+                        size: 13,
+                        color: isEditing ? AppColors.danger : AppColors.accent,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Text(
                         isEditing ? "Cancel" : "Edit Settings",
-                        style: GoogleFonts.outfit(
-                          color: isEditing ? const Color(0xFFEF4444) : Theme.of(context).primaryColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                        style: GoogleFonts.nunito(
+                          color: isEditing ? AppColors.danger : AppColors.accent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -574,24 +615,41 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
+        ),
+        // ── Scrollable body ─────────────────────────────────────────────
+        Expanded(
+          child: SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           // Title
           if (isEditing)
             TextField(
               controller: titleController,
-              style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w800),
+              style: GoogleFonts.nunito(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.text),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: const Color(0xFFF1F5F9),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                fillColor: AppColors.bg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.accent.withOpacity(0.5), width: 1.5),
+                ),
                 contentPadding: const EdgeInsets.all(16),
               ),
             )
           else
             Text(
               titleController.text,
-              style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w800, height: 1.2),
+              style: GoogleFonts.nunito(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.text, height: 1.2),
             ),
           const SizedBox(height: 24),
 
@@ -870,16 +928,19 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   Expanded(
                     child: Text(
                       "Safety Buffer Time",
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text),
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      color: AppColors.accentLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text("${bufferTime.toInt()} min", style: GoogleFonts.outfit(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w800, fontSize: 13)),
+                    child: Text(
+                      "${bufferTime.toInt()} min",
+                      style: GoogleFonts.nunito(color: AppColors.accent, fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
                   ),
                 ],
               ),
@@ -887,10 +948,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 6,
-                  activeTrackColor: Theme.of(context).primaryColor,
-                  inactiveTrackColor: const Color(0xFFE2E8F0),
-                  thumbColor: Colors.white,
-                  overlayColor: Theme.of(context).primaryColor.withOpacity(0.12),
+                  activeTrackColor: AppColors.accent,
+                  inactiveTrackColor: AppColors.border,
+                  thumbColor: AppColors.surface,
+                  overlayColor: AppColors.accent.withOpacity(0.12),
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10, elevation: 3),
                 ),
                 child: Slider(
@@ -908,51 +969,75 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
               ),
               Text(
                 "Add extra time before your reminder to ensure you're never late.",
-                style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey[500], height: 1.4),
+                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMid, height: 1.4),
               ),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Theme.of(context).primaryColor.withOpacity(0.1), Theme.of(context).primaryColor.withOpacity(0.15)],
+                    colors: [
+                      AppColors.accent.withOpacity(0.08),
+                      AppColors.purple.withOpacity(0.12),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.1)),
+                  border: Border.all(color: AppColors.accent.withOpacity(0.15)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                        color: AppColors.accent.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.accent.withOpacity(0.2)),
                       ),
-                      child: Icon(LucideIcons.bell, color: Theme.of(context).primaryColor, size: 18),
+                      child: Icon(LucideIcons.bell, color: AppColors.accent, size: 22),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("ADJUSTED NOTIFICATION", style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Theme.of(context).primaryColor, letterSpacing: 1)),
-                          const SizedBox(height: 2),
+                          Text(
+                            "ADJUSTED NOTIFICATION",
+                            style: GoogleFonts.nunito(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.accent,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           _isLoadingAdjustedTime
                               ? SizedBox(
                                   height: 28,
                                   width: 28,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Theme.of(context).primaryColor,
+                                    color: AppColors.accent,
                                   ),
                                 )
                               : Text(
                                   _adjustedNotificationTime ?? _getAdjustedTime(),
-                                  style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFF1E293B)),
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.text,
+                                  ),
                                 ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Calculated: Time − (Traffic + Buffer)",
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: AppColors.textMid,
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -971,7 +1056,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 Container(
                   height: 200,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: AppColors.bg,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -1015,9 +1100,35 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                               onMapCreated: (controller) {
                                 mapController = controller;
                                 if (polylines.isNotEmpty) {
+                                  // Route already fetched — fit both endpoints in view
                                   List<LatLng> polylineCoordinates = polylines.first.points;
                                   LatLngBounds bounds = _getBounds(polylineCoordinates);
                                   mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+                                } else if (currentPosition != null && coordinates != null) {
+                                  // Have both points but route not drawn yet — show both on screen
+                                  final bounds = LatLngBounds(
+                                    southwest: LatLng(
+                                      currentPosition!.latitude < (coordinates!['lat'] as num).toDouble()
+                                          ? currentPosition!.latitude : (coordinates!['lat'] as num).toDouble(),
+                                      currentPosition!.longitude < (coordinates!['lng'] as num).toDouble()
+                                          ? currentPosition!.longitude : (coordinates!['lng'] as num).toDouble(),
+                                    ),
+                                    northeast: LatLng(
+                                      currentPosition!.latitude > (coordinates!['lat'] as num).toDouble()
+                                          ? currentPosition!.latitude : (coordinates!['lat'] as num).toDouble(),
+                                      currentPosition!.longitude > (coordinates!['lng'] as num).toDouble()
+                                          ? currentPosition!.longitude : (coordinates!['lng'] as num).toDouble(),
+                                    ),
+                                  );
+                                  mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
+                                } else if (currentPosition != null) {
+                                  // Only user location — centre map on them
+                                  mapController!.animateCamera(
+                                    CameraUpdate.newLatLngZoom(
+                                      LatLng(currentPosition!.latitude, currentPosition!.longitude),
+                                      14,
+                                    ),
+                                  );
                                 }
                               },
                               markers: {
@@ -1056,7 +1167,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.95),
+                                    color: AppColors.surface.withOpacity(0.95),
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
@@ -1128,11 +1239,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 4,
-                    activeTrackColor: isEditing
-                        ? Theme.of(context).primaryColor
-                        : const Color(0xFFE2E8F0).withOpacity(0.5),
-                    inactiveTrackColor: const Color(0xFFE2E8F0).withOpacity(0.3),
-                    thumbColor: isEditing ? Theme.of(context).primaryColor : const Color(0xFFE2E8F0),
+                    activeTrackColor: isEditing ? AppColors.accent : AppColors.border,
+                    inactiveTrackColor: AppColors.border.withOpacity(0.5),
+                    thumbColor: isEditing ? AppColors.accent : AppColors.border,
                     overlayColor: Colors.transparent,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 0),
                   ),
@@ -1157,9 +1266,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                    Container(
                      padding: const EdgeInsets.all(20),
                      decoration: BoxDecoration(
-                       color: const Color(0xFFF1F5F9).withOpacity(0.5),
+                       color: AppColors.bg,
                        borderRadius: BorderRadius.circular(20),
-                       border: Border.all(color: Colors.grey[200]!),
+                       border: Border.all(color: AppColors.border),
                      ),
                      child: Column(
                        children: [
@@ -1223,9 +1332,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: AppColors.bg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[200]!),
+                        border: Border.all(color: AppColors.border),
                       ),
                       child: Row(
                         children: [
@@ -1343,16 +1452,24 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           ),
 
           // Timeline
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 16),
-            child: Text("Timeline", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 16),
+            child: Text(
+              "TIMELINE",
+              style: GoogleFonts.nunito(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: AppColors.textDim,
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Container(
               padding: const EdgeInsets.only(left: 20, bottom: 20),
-              decoration: const BoxDecoration(
-                border: Border(left: BorderSide(color: Color(0xFFE2E8F0), width: 2)),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: AppColors.border, width: 2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1378,20 +1495,36 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             ),
           ),
 
-          // Save Button (Sticky/Bottom)
+          // Save Button
           if (isEditing)
-             Container(
-               width: double.infinity,
-               margin: const EdgeInsets.only(top: 24),
-               child: ElevatedButton(
-                 onPressed: _handleSave,
-                 child: const Text("Save Settings"),
-               ),
-             ),
+            GestureDetector(
+              onTap: _handleSave,
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 24),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  "Save Settings",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.nunito(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
 
           const SizedBox(height: 100), // Padding for bottom
         ],
       ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1473,15 +1606,19 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isGreen ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3),
+        color: isGreen ? AppColors.green.withOpacity(0.12) : AppColors.orange.withOpacity(0.12),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isGreen ? AppColors.green.withOpacity(0.3) : AppColors.orange.withOpacity(0.3),
+        ),
       ),
       child: Text(
-        label,
-        style: GoogleFonts.outfit(
-          color: isGreen ? const Color(0xFF16A34A) : const Color(0xFFCA8A04),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+        label.toUpperCase(),
+        style: GoogleFonts.nunito(
+          color: isGreen ? AppColors.green : AppColors.orange,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -1501,17 +1638,17 @@ class _InfoRow extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 18, color: Theme.of(context).primaryColor),
+          decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 18, color: AppColors.accent),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey[800])),
+              Text(label, style: GoogleFonts.nunito(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMid)),
               DefaultTextStyle(
-                style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[600]),
+                style: GoogleFonts.inter(fontSize: 14, color: AppColors.text),
                 child: child,
               ),
             ],
@@ -1534,16 +1671,10 @@ class _DetailCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: AppColors.cardShadow,
+        border: Border.all(color: AppColors.cardBorder),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -1552,21 +1683,21 @@ class _DetailCard extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
-                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                border: Border(bottom: BorderSide(color: AppColors.border)),
               ),
               child: Row(
                 children: [
-                  Icon(icon, size: 16, color: const Color(0xFF1E293B)),
+                  Icon(icon, size: 16, color: AppColors.text),
                   const SizedBox(width: 10),
                   Text(
                     title,
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.nunito(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
-                      color: const Color(0xFF1E293B),
+                      color: AppColors.text,
                     ),
                   ),
                 ],
@@ -1683,10 +1814,10 @@ class _AlertTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: AppColors.accent.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: const Color(0xFF3B82F6), size: 20),
+            child: Icon(icon, color: AppColors.accent, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1742,17 +1873,17 @@ class _TimelineItem extends StatelessWidget {
               width: 10,
               height: 10,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: Theme.of(context).primaryColor, width: 2),
+                border: Border.all(color: AppColors.accent, width: 2),
               ),
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text(time, style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500])),
+              Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)),
+              Text(time, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textDim)),
             ],
           ),
         ],

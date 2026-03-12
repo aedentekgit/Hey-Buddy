@@ -57,19 +57,21 @@ const Reminders = () => {
     useEffect(() => {
         const handleUpdate = () => {
             console.log("🔄 Background update detected, refreshing reminders...");
-            fetchReminders(pagination.currentPage);
+            fetchReminders(pagination?.currentPage || 1);
         };
         window.addEventListener('buddy-data-updated', handleUpdate);
         return () => window.removeEventListener('buddy-data-updated', handleUpdate);
-    }, [pagination.currentPage, pagination.limit]);
+    }, [pagination?.currentPage, pagination?.limit]);
 
     const fetchReminders = async (page = 1) => {
         try {
             setLoading(true);
-            const res = await voiceService.getReminders(page, pagination.limit, searchTerm);
+            const res = await voiceService.getReminders(page, pagination?.limit || 10, searchTerm);
             if (res.data.success) {
                 setReminders(res.data.data);
-                setPagination(res.data.pagination);
+                if (res.data.pagination) {
+                    setPagination(res.data.pagination);
+                }
             }
         } catch (err) {
             console.error("Fetch reminders error:", err);
@@ -244,7 +246,7 @@ const Reminders = () => {
                                         style={{ borderBottom: '1px solid var(--border-color)' }}
                                         className="mobile-stacked-row"
                                     >
-                                        <td style={{ textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', borderLeft: 'none', padding: '18px 10px' }} className="buddy-td hide-mobile-td">{(pagination.currentPage - 1) * pagination.limit + index + 1}</td>
+                                        <td style={{ textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.8rem', borderLeft: 'none', padding: '18px 10px' }} className="buddy-td hide-mobile-td">{((pagination?.currentPage || 1) - 1) * (pagination?.limit || 10) + index + 1}</td>
                                         <td style={{ borderLeft: 'none', borderRight: 'none' }} data-label="Reminder" className="buddy-td">
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
 

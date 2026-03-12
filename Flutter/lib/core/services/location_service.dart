@@ -15,7 +15,7 @@ class LocationService {
       if (token == null) return;
 
       await _dio.post(
-        '${AppConfig.baseUrl}user/location',
+        '${AppConfig.baseUrl}users/location',
         data: {
           'lat': lat,
           'lng': lng,

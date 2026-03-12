@@ -128,10 +128,14 @@ exports.getReminders = async (req, res) => {
         res.status(200).json({
             success: true,
             data,
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit)
+            pagination: {
+                total,
+                totalPages: Math.ceil(total / limit),
+                currentPage: page,
+                limit,
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -143,7 +147,7 @@ exports.createReminder = async (req, res) => {
         const {
             title, description, date, time, location, intent, priority,
             bufferTime, alerts, smartFeatures, syncToGoogle,
-            coordinates, geofenceRadius
+            coordinates, geofenceRadius, reminderType
         } = req.body;
 
         if (!title || !date || !time) {
@@ -198,10 +202,11 @@ exports.createReminder = async (req, res) => {
             location,
             coordinates,
             geofenceRadius: geofenceRadius || 500,
+            reminderType: req.body.reminderType || (time ? 'time' : 'location'),
             intent: intent || 'generic',
             priority: priority || 'medium',
             bufferTime: bufferTime || 0,
-            alerts: alerts || { push: true, email: true },
+            alerts: alerts || { push: true, email: true, notifyFamily: false, notifyEmergency: false },
             smartFeatures: smartFeatures || { earlyWarning: true, trafficAware: true, itemExitGuards: true },
             googleEventId,
             source: googleEventId ? 'google' : 'buddy'

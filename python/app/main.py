@@ -84,7 +84,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # GZipMiddleware — compresses response bodies to reduce bandwidth. Configured
 # with minimum_size=1000 to only compress responses larger than 1KB (smaller
 # responses often get larger after compression).
-from fastapi.middleware.gzip import GZIPMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 # StreamingResponse — returns an iterable/generator to the client chunk by
 #   chunk instead of buffering the entire response body in memory first.
@@ -445,7 +445,7 @@ app = FastAPI(
 # minimum_size=1000: only compress responses larger than 1KB (smaller ones
 # often get larger after gzip overhead). Note: streaming SSE responses are
 # excluded by default since they use StreamingResponse.
-app.add_middleware(GZIPMiddleware, minimum_size=1000)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # --- CORS (Cross-Origin Resource Sharing) Middleware ---
 # SECURITY: allow_origins=["*"] with allow_credentials=True is invalid per the

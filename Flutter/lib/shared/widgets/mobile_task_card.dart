@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 
+/// JSX-style reminder card with left-color-border design.
+/// Used in [ReminderListScreen] and similar contexts.
 class MobileTaskCard extends StatelessWidget {
   final String title;
   final String status;
@@ -36,373 +39,284 @@ class MobileTaskCard extends StatelessWidget {
     this.headerIcon,
   });
 
+  Color get _baseColor {
+    switch (variant) {
+      case 'danger':
+        return AppColors.danger;
+      case 'orange':
+        return AppColors.orange;
+      default:
+        return AppColors.green;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.primaryColor;
+    final color = _baseColor;
+    final bool hasLocation =
+        location.isNotEmpty && location != 'No Location';
 
-    final bool isGreen = variant == 'green';
-    final bool isDanger = variant == 'danger';
-    final bool isOrange = variant == 'orange';
-
-    // Base colors for variants
-    Color baseColor;
-    if (isDanger) {
-      baseColor = const Color(0xFFE11D48);
-    } else if (isOrange) {
-      baseColor = const Color(0xFFEA580C);
-    } else {
-      // Use consistent Emerald Green for "ON TRACK" (green variant)
-      baseColor = const Color(0xFF10B981);
-    }
-
-    // Dynamic color variations
-    final Color bgColor = isGreen 
-        ? baseColor.withOpacity(0.06) // Very light version of primary
-        : isDanger 
-            ? const Color(0xFFFFE4E6) 
-            : const Color(0xFFFFF9F0);
-            
-    final Color borderColor = isGreen 
-        ? baseColor.withOpacity(0.2) // Subtle border of primary
-        : isDanger 
-            ? const Color(0xFFFECDD3) 
-            : const Color(0xFFFEE2A0);
-
-    final Color iconBgColor = isGreen 
-        ? baseColor.withOpacity(0.12) 
-        : isDanger 
-            ? const Color(0xFFFECDD3).withOpacity(0.5)
-            : const Color(0xFFFBE7C6);
-
-    final Color iconColor = isGreen 
-        ? baseColor
-        : isDanger 
-            ? const Color(0xFFE11D48) 
-            : const Color(0xFFD6B08A);
-
-    final Color badgeColor = isGreen 
-        ? baseColor
-        : isDanger 
-            ? const Color(0xFFE11D48) 
-            : const Color(0xFFEA580C);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, 1),
-            blurRadius: 2,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Section
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+    return GestureDetector(
+      onTap: onView,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.cardBorder),
+          boxShadow: AppColors.cardShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: IntrinsicHeight(
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: iconBgColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(headerIcon ?? LucideIcons.bell, size: 20, color: iconColor),
-                ),
-                const SizedBox(width: 14),
+                // Left color stripe
+                Container(width: 4, color: color),
+                // Card content
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.outfit(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B),
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: badgeColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: badgeColor.withOpacity(0.3), width: 1),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Icon ──────────────────────────────────────────
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                color.withOpacity(0.18),
+                                color.withOpacity(0.08),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                            child: Text(
-                              status,
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: badgeColor,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: color.withOpacity(0.25)),
                           ),
-                          if (earlyWarningActive) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4), // Reduced from 6 to 4
-                                border: Border.all(color: primaryColor.withOpacity(0.2)),
-                              ),
-                              child: Row(
+                          child: Icon(
+                              headerIcon ?? LucideIcons.bell, color: color, size: 22),
+                        ),
+                        const SizedBox(width: 13),
+
+                        // ── Content ─────────────────────────────────────
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title + chevron
+                              Row(
                                 children: [
-                                  Icon(LucideIcons.shieldAlert, size: 10, color: primaryColor),
+                                  Expanded(
+                                    child: Text(
+                                      title,
+                                      style: GoogleFonts.nunito(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14.5,
+                                          color: AppColors.text),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Icon(LucideIcons.chevronRight,
+                                      size: 13, color: color),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+
+                              // Time / date
+                              Row(
+                                children: [
+                                  Icon(LucideIcons.clock,
+                                      size: 12, color: AppColors.textDim),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    "PROACTIVE",
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      color: primaryColor,
-                                      letterSpacing: 0.5,
+                                  Expanded(
+                                    child: Text(
+                                      date != null ? '$time · $date' : time,
+                                      style: GoogleFonts.inter(
+                                          fontSize: 12, color: AppColors.textMid),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                          if (isDanger) ...[ 
-                            const SizedBox(width: 8),
-                            const Text(
-                              "!",
-                              style: TextStyle(
-                                color: Color(0xFFE11D48),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: onDelete,
-                      icon: const Icon(LucideIcons.trash2, size: 16, color: Color(0xFFEF4444)),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
 
-          // Main Content Area (White background section)
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(12)),
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(LucideIcons.clock, size: 18, color: Color(0xFF1E293B)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              date != null ? "$date • $time" : time,
-                              style: GoogleFonts.outfit(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF1E293B),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (location != 'No Location' && location.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(LucideIcons.mapPin, size: 18, color: Color(0xFF1E293B)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                location,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF1E293B),
+                              // Location
+                              if (hasLocation) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(LucideIcons.mapPin,
+                                        size: 12, color: AppColors.accent),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        location,
+                                        style: GoogleFonts.inter(
+                                            fontSize: 11.5,
+                                            color: AppColors.textMid),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (eta != null) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accent.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                              color: AppColors.accent.withOpacity(0.2)),
+                                        ),
+                                        child: Text(
+                                          'ETA $eta',
+                                          style: GoogleFonts.inter(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.accent),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
+                              ],
+
+                              // Distance / ETA stats row (no location label)
+                              if (distance != null && eta != null && !hasLocation) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 10, horizontal: 14),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: const Color(0xFFF1F5F9)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _statItem(
+                                          LucideIcons.navigation, 'Distance', distance!),
+                                      Container(
+                                          width: 1,
+                                          height: 28,
+                                          color: const Color(0xFFE2E8F0)),
+                                      _statItem(LucideIcons.zap, 'ETA', eta!,
+                                          iconColor: AppColors.accent),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: 9),
+
+                              // Bottom row: status chip + action buttons
+                              Row(
+                                children: [
+                                  _Chip(label: status, color: color, small: true),
+                                  const Spacer(),
+                                  if (onEdit != null)
+                                    _iconBtn(LucideIcons.pencil,
+                                        AppColors.textMid, AppColors.bg, onEdit!),
+                                  const SizedBox(width: 8),
+                                  if (onDelete != null)
+                                    _iconBtn(LucideIcons.trash2, AppColors.danger,
+                                        AppColors.dangerLight, onDelete!),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-
-                // Stats Box (Distance & ETA)
-                if (distance != null && eta != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9), // Light grayish-blue background
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              children: [
-                                const Icon(LucideIcons.mapPin, size: 22, color: Color(0xFF94A3B8)),
-                                const SizedBox(height: 6),
-                                Text(
-                                  "Distance",
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF0F172A),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  distance!,
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF0F172A),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 1.5,
-                            height: 34,
-                            color: const Color(0xFF0F172A),
-                          ),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                const Icon(Icons.directions_car, size: 22, color: Color(0xFF2563EB)),
-                                const SizedBox(height: 6),
-                                Text(
-                                  "ETA",
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF0F172A),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  eta!,
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF0F172A),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
-
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-                // Action Buttons
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: onView,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF7ED),
-                              border: Border.all(color: const Color(0xFFFED7AA)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(LucideIcons.alertTriangle, size: 14, color: Color(0xFFEA580C)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Early Warning",
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFFC2410C),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: InkWell(
-                          onTap: onShare,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(LucideIcons.users, size: 14, color: Color(0xFF2563EB)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Family Backup",
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF1D4ED8),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statItem(IconData icon, String label, String value,
+      {Color? iconColor}) {
+    return Expanded(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 14,
+                  color: iconColor ?? const Color(0xFF64748B)),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: GoogleFonts.outfit(
+                      color: const Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(value,
+              style: GoogleFonts.outfit(
+                  color: const Color(0xFF0F172A),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
         ],
+      ),
+    );
+  }
+
+  Widget _iconBtn(
+      IconData icon, Color iconColor, Color bg, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: iconColor.withOpacity(0.2)),
+        ),
+        child: Icon(icon, size: 14, color: iconColor),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool small;
+  const _Chip(
+      {required this.label, required this.color, this.small = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: small ? 8 : 11, vertical: small ? 2 : 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.inter(
+          fontSize: small ? 10 : 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }

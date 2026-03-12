@@ -71,7 +71,7 @@ exports.processVoice = async (req, res) => {
                 model: aiConfig.model,
                 userId: userId ? userId.toString() : null,
                 memory_context: memoryString
-            }, { timeout: 15000 }); // 15s timeout for deep search
+            }, { timeout: 30000 }); // 30s timeout for deep search
 
             if (pythonResponse.data && pythonResponse.data.response) {
                 replyText = pythonResponse.data.response;
