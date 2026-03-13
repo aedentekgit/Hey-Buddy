@@ -20,6 +20,7 @@ class MobileTaskCard extends StatelessWidget {
   final VoidCallback? onView;
   final VoidCallback? onShare;
   final bool earlyWarningActive;
+  final bool isHighPriority;
   final IconData? headerIcon;
 
   const MobileTaskCard({
@@ -37,6 +38,7 @@ class MobileTaskCard extends StatelessWidget {
     this.onView,
     this.onShare,
     this.earlyWarningActive = false,
+    this.isHighPriority = false,
     this.headerIcon,
   });
 
@@ -54,8 +56,7 @@ class MobileTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _baseColor;
-    final bool hasLocation =
-        location.isNotEmpty && location != 'No Location';
+    final bool hasLocation = location.isNotEmpty && location != 'No Location';
 
     return Pressable(
       onTap: onView,
@@ -99,7 +100,10 @@ class MobileTaskCard extends StatelessWidget {
                             border: Border.all(color: color.withOpacity(0.2)),
                           ),
                           child: Icon(
-                              headerIcon ?? LucideIcons.bell, color: color, size: 24),
+                            headerIcon ?? LucideIcons.bell,
+                            color: color,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 14),
 
@@ -117,16 +121,28 @@ class MobileTaskCard extends StatelessWidget {
                                     child: Text(
                                       title,
                                       style: GoogleFonts.nunito(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 15,
-                                          color: AppColors.text,
-                                          height: 1.2),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                        color: AppColors.text,
+                                        height: 1.2,
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-                                  _Chip(label: status, color: color, small: true),
+                                  if (isHighPriority) ...[
+                                    _badgeIcon(
+                                      LucideIcons.flag,
+                                      AppColors.danger,
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  _Chip(
+                                    label: status,
+                                    color: color,
+                                    small: true,
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -134,15 +150,19 @@ class MobileTaskCard extends StatelessWidget {
                               // Time / date
                               Row(
                                 children: [
-                                  Icon(LucideIcons.clock,
-                                      size: 13, color: AppColors.textDim),
+                                  Icon(
+                                    LucideIcons.clock,
+                                    size: 13,
+                                    color: AppColors.textDim,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     date != null ? '$time · $date' : time,
                                     style: GoogleFonts.inter(
-                                        fontSize: 12, 
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textMid),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textMid,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -152,15 +172,19 @@ class MobileTaskCard extends StatelessWidget {
                               if (hasLocation) ...[
                                 Row(
                                   children: [
-                                    Icon(LucideIcons.mapPin,
-                                        size: 12, color: AppColors.accent.withOpacity(0.8)),
+                                    Icon(
+                                      LucideIcons.mapPin,
+                                      size: 12,
+                                      color: AppColors.accent.withOpacity(0.8),
+                                    ),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         location,
                                         style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            color: AppColors.textMid),
+                                          fontSize: 12,
+                                          color: AppColors.textMid,
+                                        ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -187,15 +211,28 @@ class MobileTaskCard extends StatelessWidget {
                               Row(
                                 children: [
                                   if (onShare != null)
-                                    _actionBtn(LucideIcons.share2, "Share", onShare!),
+                                    _actionBtn(
+                                      LucideIcons.share2,
+                                      "Share",
+                                      onShare!,
+                                    ),
                                   const Spacer(),
                                   if (onEdit != null)
-                                    _iconBtn(LucideIcons.pencil,
-                                        AppColors.textMid, AppColors.bg, onEdit!),
-                                  if (onEdit != null && onDelete != null) const SizedBox(width: 10),
+                                    _iconBtn(
+                                      LucideIcons.pencil,
+                                      AppColors.textMid,
+                                      AppColors.bg,
+                                      onEdit!,
+                                    ),
+                                  if (onEdit != null && onDelete != null)
+                                    const SizedBox(width: 10),
                                   if (onDelete != null)
-                                    _iconBtn(LucideIcons.trash2, AppColors.danger,
-                                        AppColors.dangerLight, onDelete!),
+                                    _iconBtn(
+                                      LucideIcons.trash2,
+                                      AppColors.danger,
+                                      AppColors.dangerLight,
+                                      onDelete!,
+                                    ),
                                 ],
                               ),
                             ],
@@ -224,72 +261,121 @@ class MobileTaskCard extends StatelessWidget {
       child: Text(
         text,
         style: GoogleFonts.inter(
-            fontSize: 9, fontWeight: FontWeight.w800, color: color),
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _badgeIcon(IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            'HIGH',
+            style: GoogleFonts.inter(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _actionBtn(IconData icon, String label, VoidCallback onTap) {
-      return GestureDetector(
-          onTap: onTap,
-          child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                  color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                      ),
-                  ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: AppColors.textMid),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textMid,
+                letterSpacing: 0.3,
               ),
-              child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                      Icon(icon, size: 13, color: AppColors.textMid),
-                      const SizedBox(width: 6),
-                      Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMid, letterSpacing: 0.3)),
-                  ],
-              ),
-          ),
-      );
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  Widget _statItem(IconData icon, String label, String value,
-      {Color? iconColor}) {
+  Widget _statItem(
+    IconData icon,
+    String label,
+    String value, {
+    Color? iconColor,
+  }) {
     return Expanded(
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 14,
-                  color: iconColor ?? const Color(0xFF64748B)),
+              Icon(icon, size: 14, color: iconColor ?? const Color(0xFF64748B)),
               const SizedBox(width: 6),
-              Text(label,
-                  style: GoogleFonts.outfit(
-                      color: const Color(0xFF64748B),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500)),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  color: const Color(0xFF64748B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(value,
-              style: GoogleFonts.outfit(
-                  color: const Color(0xFF0F172A),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF0F172A),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _iconBtn(
-      IconData icon, Color iconColor, Color bg, VoidCallback onTap) {
+    IconData icon,
+    Color iconColor,
+    Color bg,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -310,14 +396,15 @@ class _Chip extends StatelessWidget {
   final String label;
   final Color color;
   final bool small;
-  const _Chip(
-      {required this.label, required this.color, this.small = false});
+  const _Chip({required this.label, required this.color, this.small = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: small ? 8 : 11, vertical: small ? 2 : 4),
+        horizontal: small ? 8 : 11,
+        vertical: small ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.14),
         borderRadius: BorderRadius.circular(20),

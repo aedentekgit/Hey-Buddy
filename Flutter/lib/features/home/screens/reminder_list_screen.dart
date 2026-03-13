@@ -45,9 +45,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-        () => Provider.of<TasksProvider>(context, listen: false).loadTasks());
+      () => Provider.of<TasksProvider>(context, listen: false).loadTasks(),
+    );
     _searchCtrl.addListener(
-        () => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()));
+      () => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()),
+    );
   }
 
   @override
@@ -67,7 +69,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
         try {
           final td = DateTime.parse(raw);
           return td.year == d.year && td.month == d.month && td.day == d.day;
-        } catch (_) { return false; }
+        } catch (_) {
+          return false;
+        }
       }).toList();
     } else if (_activeFilter == 'Today') {
       list = list
@@ -75,19 +79,21 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
           .toList();
     } else if (_activeFilter != 'All') {
       list = list
-          .where((t) =>
-              (t['intent'] as String? ?? '')
-                  .toLowerCase()
-                  .replaceAll('_', ' ')
-                  .contains(_activeFilter.toLowerCase()))
+          .where(
+            (t) => (t['intent'] as String? ?? '')
+                .toLowerCase()
+                .replaceAll('_', ' ')
+                .contains(_activeFilter.toLowerCase()),
+          )
           .toList();
     }
     if (_searchQuery.isNotEmpty) {
       list = list
-          .where((t) =>
-              (t['title'] as String? ?? '')
-                  .toLowerCase()
-                  .contains(_searchQuery))
+          .where(
+            (t) => (t['title'] as String? ?? '').toLowerCase().contains(
+              _searchQuery,
+            ),
+          )
           .toList();
     }
     return list;
@@ -135,7 +141,8 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
     final filters = _buildFilters(allTasks);
     if (!filters.contains(_activeFilter)) {
       WidgetsBinding.instance.addPostFrameCallback(
-          (_) => setState(() => _activeFilter = 'All'));
+        (_) => setState(() => _activeFilter = 'All'),
+      );
     }
 
     return Scaffold(
@@ -152,8 +159,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               children: [
                 // Search row
                 Padding(
-                  padding:
-                      const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
                   child: Row(
                     children: [
                       GestureDetector(
@@ -166,37 +172,49 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                             borderRadius: BorderRadius.circular(11),
                             border: Border.all(color: AppColors.border),
                           ),
-                          child: const Icon(LucideIcons.arrowLeft,
-                              size: 18, color: AppColors.text),
+                          child: const Icon(
+                            LucideIcons.arrowLeft,
+                            size: 18,
+                            color: AppColors.text,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.bg,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                                color: AppColors.border, width: 1.5),
+                              color: AppColors.border,
+                              width: 1.5,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(LucideIcons.search,
-                                  size: 16, color: AppColors.textDim),
+                              const Icon(
+                                LucideIcons.search,
+                                size: 16,
+                                color: AppColors.textDim,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: TextField(
                                   controller: _searchCtrl,
                                   style: GoogleFonts.inter(
-                                      fontSize: 13.5,
-                                      color: AppColors.text),
+                                    fontSize: 13.5,
+                                    color: AppColors.text,
+                                  ),
                                   decoration: InputDecoration(
                                     hintText: 'Search reminders…',
                                     hintStyle: GoogleFonts.inter(
-                                        fontSize: 13.5,
-                                        color: AppColors.textDim),
+                                      fontSize: 13.5,
+                                      color: AppColors.textDim,
+                                    ),
                                     border: InputBorder.none,
                                     focusedBorder: InputBorder.none,
                                     enabledBorder: InputBorder.none,
@@ -232,7 +250,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: dateActive
                                   ? AppColors.accent
@@ -274,7 +294,8 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                         );
                       }
                       final f = filters[i - 1];
-                      final active = f == _activeFilter && _selectedDate == null;
+                      final active =
+                          f == _activeFilter && _selectedDate == null;
                       return GestureDetector(
                         onTap: () => setState(() {
                           _activeFilter = f;
@@ -283,11 +304,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 6),
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: active
-                                ? AppColors.accent
-                                : AppColors.bg,
+                            color: active ? AppColors.accent : AppColors.bg,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: active
@@ -301,9 +322,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                             style: GoogleFonts.nunito(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: active
-                                  ? Colors.white
-                                  : AppColors.textMid,
+                              color: active ? Colors.white : AppColors.textMid,
                             ),
                           ),
                         ),
@@ -318,10 +337,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
           ),
         ),
       ),
-      body: Builder(builder: (context) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+      body: Builder(
+        builder: (context) {
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
           final filtered = _apply(allTasks);
 
@@ -340,7 +360,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
             try {
               final d = DateTime.parse(raw);
               return DateTime(d.year, d.month, d.day);
-            } catch (_) { return null; }
+            } catch (_) {
+              return null;
+            }
           }
 
           final today = filtered
@@ -380,7 +402,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                 ],
                 if (past.isNotEmpty) ...[
                   _GroupLabel('Past', count: past.length),
-                  ...past.map((t) => _buildCard(context, t, provider, isPast: true)),
+                  ...past.map(
+                    (t) => _buildCard(context, t, provider, isPast: true),
+                  ),
                 ],
               ],
             ),
@@ -391,10 +415,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
   }
 
   Widget _buildCard(
-      BuildContext context,
-      Map<String, dynamic> task,
-      TasksProvider provider,
-      {bool isPast = false}) {
+    BuildContext context,
+    Map<String, dynamic> task,
+    TasksProvider provider, {
+    bool isPast = false,
+  }) {
     final title = task['title'] as String? ?? 'Untitled';
     final intent = task['intent'];
 
@@ -407,8 +432,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
         if (rawDate != null) {
           final d = DateTime.parse(rawDate);
           final now = DateTime.now();
-          final todayMidnight =
-              DateTime(now.year, now.month, now.day);
+          final todayMidnight = DateTime(now.year, now.month, now.day);
           final itemDate = DateTime(d.year, d.month, d.day);
           if (itemDate.isBefore(todayMidnight)) {
             shouldStrike = true;
@@ -417,8 +441,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
             if (parts.length >= 2) {
               final h = int.tryParse(parts[0]) ?? 0;
               final m = int.tryParse(parts[1]) ?? 0;
-              final reminderDt = DateTime(
-                  now.year, now.month, now.day, h, m);
+              final reminderDt = DateTime(now.year, now.month, now.day, h, m);
               if (now.isAfter(reminderDt)) shouldStrike = true;
             }
           }
@@ -428,24 +451,26 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
     final Color color = isPast
         ? const Color(0xFFB0B7C3)
         : (TaskUtils.getTaskColor(title, intent) is Color
-            ? TaskUtils.getTaskColor(title, intent) as Color
-            : AppColors.green);
+              ? TaskUtils.getTaskColor(title, intent) as Color
+              : AppColors.green);
     final icon = TaskUtils.getTaskIcon(title, intent);
-    final String timeStr =
-        DateFormatter.displayTimeString(context, task['time'] as String?);
-    final String dateStr =
-        DateFormatter.displayDateString(context, task['date'] as String?);
+    final String timeStr = DateFormatter.displayTimeString(
+      context,
+      task['time'] as String?,
+    );
+    final String dateStr = DateFormatter.displayDateString(
+      context,
+      task['date'] as String?,
+    );
     final String? location = task['location'] as String?;
     final String? etaLabel = task['_etaLabel'] as String?;
-    final bool hasLocation = location != null &&
-        location.isNotEmpty &&
-        location != 'No Location';
+    final bool hasLocation =
+        location != null && location.isNotEmpty && location != 'No Location';
 
     return Pressable(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(
-            builder: (_) => SmartDetailsScreen(task: task)),
+        MaterialPageRoute(builder: (_) => SmartDetailsScreen(task: task)),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -500,37 +525,45 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                     child: Text(
                                       title,
                                       style: GoogleFonts.nunito(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 14.5,
-                                          color: shouldStrike
-                                              ? AppColors.textDim
-                                              : AppColors.text,
-                                          decoration: shouldStrike
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                          decorationColor: AppColors.textDim),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14.5,
+                                        color: shouldStrike
+                                            ? AppColors.textDim
+                                            : AppColors.text,
+                                        decoration: shouldStrike
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        decorationColor: AppColors.textDim,
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Icon(LucideIcons.chevronRight,
-                                      size: 13, color: color),
+                                  Icon(
+                                    LucideIcons.chevronRight,
+                                    size: 13,
+                                    color: color,
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 3),
                               Row(
                                 children: [
-                                  Icon(LucideIcons.clock,
-                                      size: 12, color: AppColors.textDim),
+                                  Icon(
+                                    LucideIcons.clock,
+                                    size: 12,
+                                    color: AppColors.textDim,
+                                  ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
                                       '$timeStr · $dateStr',
                                       style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          color: shouldStrike
-                                              ? AppColors.textDim
-                                              : AppColors.textMid),
+                                        fontSize: 12,
+                                        color: shouldStrike
+                                            ? AppColors.textDim
+                                            : AppColors.textMid,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -540,15 +573,19 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Icon(LucideIcons.mapPin,
-                                        size: 12, color: AppColors.accent),
+                                    Icon(
+                                      LucideIcons.mapPin,
+                                      size: 12,
+                                      color: AppColors.accent,
+                                    ),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
                                         location!,
                                         style: GoogleFonts.inter(
-                                            fontSize: 11.5,
-                                            color: AppColors.textMid),
+                                          fontSize: 11.5,
+                                          color: AppColors.textMid,
+                                        ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -557,19 +594,29 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                       const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 1),
+                                          horizontal: 6,
+                                          vertical: 1,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: AppColors.accent.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: AppColors.accent.withOpacity(
+                                            0.12,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                           border: Border.all(
-                                              color: AppColors.accent.withOpacity(0.2)),
+                                            color: AppColors.accent.withOpacity(
+                                              0.2,
+                                            ),
+                                          ),
                                         ),
                                         child: Text(
                                           'ETA $etaLabel',
                                           style: GoogleFonts.inter(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w800,
-                                              color: AppColors.accent),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.accent,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -584,6 +631,10 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                     color: color,
                                     small: true,
                                   ),
+                                  if (task['priority'] == 'high') ...[
+                                    const SizedBox(width: 8),
+                                    const _PriorityChip(),
+                                  ],
                                 ],
                               ),
                             ],
@@ -613,22 +664,25 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               color: AppColors.accentLight,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(LucideIcons.bell,
-                size: 28, color: AppColors.accent),
+            child: const Icon(
+              LucideIcons.bell,
+              size: 28,
+              color: AppColors.accent,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'No reminders here',
             style: GoogleFonts.nunito(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.text),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.text,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Tap + to add a new reminder',
-            style:
-                GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
+            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
           ),
         ],
       ),
@@ -669,7 +723,20 @@ class _GroupLabel extends StatelessWidget {
   }
 
   String _monthName(int m) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return months[m - 1];
   }
 
@@ -684,10 +751,7 @@ class _GroupLabel extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 10),
           Text(
@@ -754,8 +818,18 @@ class _CalendarSheetState extends State<_CalendarSheet> {
 
   static const _weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   static const _months = [
-    'Jan','Feb','Mar','Apr','May','Jun',
-    'Jul','Aug','Sep','Oct','Nov','Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   bool _hasDot(int day) {
@@ -771,7 +845,9 @@ class _CalendarSheetState extends State<_CalendarSheet> {
 
   bool _isToday(int day) {
     final now = DateTime.now();
-    return now.year == _month.year && now.month == _month.month && now.day == day;
+    return now.year == _month.year &&
+        now.month == _month.month &&
+        now.day == day;
   }
 
   @override
@@ -800,8 +876,9 @@ class _CalendarSheetState extends State<_CalendarSheet> {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: () => setState(() =>
-                      _month = DateTime(_month.year, _month.month - 1)),
+                  onTap: () => setState(
+                    () => _month = DateTime(_month.year, _month.month - 1),
+                  ),
                   child: Container(
                     width: 36,
                     height: 36,
@@ -809,8 +886,11 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(LucideIcons.chevronLeft,
-                        color: Colors.white, size: 18),
+                    child: const Icon(
+                      LucideIcons.chevronLeft,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -825,8 +905,9 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () => setState(() =>
-                      _month = DateTime(_month.year, _month.month + 1)),
+                  onTap: () => setState(
+                    () => _month = DateTime(_month.year, _month.month + 1),
+                  ),
                   child: Container(
                     width: 36,
                     height: 36,
@@ -834,8 +915,11 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(LucideIcons.chevronRight,
-                        color: Colors.white, size: 18),
+                    child: const Icon(
+                      LucideIcons.chevronRight,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ],
@@ -849,17 +933,19 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                 // ── Weekday headers ──────────────────────────────
                 Row(
                   children: _weekdays
-                      .map((d) => Expanded(
-                            child: Text(
-                              d,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.nunito(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textDim,
-                              ),
+                      .map(
+                        (d) => Expanded(
+                          child: Text(
+                            d,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDim,
                             ),
-                          ))
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
                 const SizedBox(height: 8),
@@ -882,8 +968,9 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                     final hasDot = _hasDot(day);
 
                     return GestureDetector(
-                      onTap: () => widget
-                          .onSelect(DateTime(_month.year, _month.month, day)),
+                      onTap: () => widget.onSelect(
+                        DateTime(_month.year, _month.month, day),
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -897,7 +984,9 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                               borderRadius: BorderRadius.circular(10),
                               border: isToday && !isSel
                                   ? Border.all(
-                                      color: AppColors.accent, width: 1.5)
+                                      color: AppColors.accent,
+                                      width: 1.5,
+                                    )
                                   : null,
                             ),
                             child: Center(
@@ -909,8 +998,8 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                                   color: isSel
                                       ? Colors.white
                                       : isToday
-                                          ? AppColors.accent
-                                          : AppColors.text,
+                                      ? AppColors.accent
+                                      : AppColors.text,
                                 ),
                               ),
                             ),
@@ -921,9 +1010,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                               height: 4,
                               margin: const EdgeInsets.only(top: 2),
                               decoration: BoxDecoration(
-                                color: isSel
-                                    ? Colors.white
-                                    : AppColors.accent,
+                                color: isSel ? Colors.white : AppColors.accent,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -949,14 +1036,18 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                       ? 'Showing all dates'
                       : 'Selected: ${widget.selected!.day} ${_months[widget.selected!.month - 1]} ${widget.selected!.year}',
                   style: GoogleFonts.inter(
-                      fontSize: 13, color: AppColors.textMid),
+                    fontSize: 13,
+                    color: AppColors.textMid,
+                  ),
                 ),
                 const Spacer(),
                 GestureDetector(
                   onTap: widget.onClear,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 7),
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.bg,
                       borderRadius: BorderRadius.circular(20),
@@ -985,14 +1076,15 @@ class _Chip extends StatelessWidget {
   final String label;
   final Color color;
   final bool small;
-  const _Chip(
-      {required this.label, required this.color, this.small = false});
+  const _Chip({required this.label, required this.color, this.small = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: small ? 8 : 11, vertical: small ? 2 : 4),
+        horizontal: small ? 8 : 11,
+        vertical: small ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.14),
         borderRadius: BorderRadius.circular(20),
@@ -1006,6 +1098,38 @@ class _Chip extends StatelessWidget {
           color: color,
           letterSpacing: 0.4,
         ),
+      ),
+    );
+  }
+}
+
+class _PriorityChip extends StatelessWidget {
+  const _PriorityChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.danger.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.flag, size: 10, color: AppColors.danger),
+          const SizedBox(width: 4),
+          Text(
+            'HIGH',
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: AppColors.danger,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }

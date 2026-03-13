@@ -14,7 +14,11 @@ class FamilyChatScreen extends StatefulWidget {
   final String title;
   final bool isGroup;
 
-  const FamilyChatScreen({super.key, this.title = 'Private Chat', this.isGroup = false});
+  const FamilyChatScreen({
+    super.key,
+    this.title = 'Private Chat',
+    this.isGroup = false,
+  });
 
   @override
   State<FamilyChatScreen> createState() => _FamilyChatScreenState();
@@ -96,8 +100,11 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(LucideIcons.arrowLeft,
-                            size: 18, color: AppColors.text),
+                        child: const Icon(
+                          LucideIcons.arrowLeft,
+                          size: 18,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -162,24 +169,29 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
           Expanded(
             child: Consumer<FamilyProvider>(
               builder: (context, provider, _) {
-                WidgetsBinding.instance
-                    .addPostFrameCallback((_) => _scrollToBottom());
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _scrollToBottom(),
+                );
                 if (provider.messages.isEmpty) {
                   return _buildEmptyState();
                 }
                 return ListView.builder(
                   controller: _scrollController,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 20,
+                  ),
                   itemCount: provider.messages.length,
                   itemBuilder: (context, index) {
                     final msg = provider.messages[index];
                     final bool isMe =
                         msg['sender_id'] == provider.currentUserId;
-                    
+
                     String? avatar;
                     if (isMe) {
-                      avatar = context.read<UserProvider>().user['profilePicture'];
+                      avatar = context
+                          .read<UserProvider>()
+                          .user['profilePicture'];
                     } else {
                       avatar = AppConfig.formatImageUrl(msg['sender_avatar']);
                     }
@@ -210,35 +222,43 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               gradient: AppColors.headerGradient,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(LucideIcons.messageSquare,
-                size: 28, color: Colors.white),
+            child: const Icon(
+              LucideIcons.messageSquare,
+              size: 28,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 14),
           Text(
             'No messages yet',
             style: GoogleFonts.nunito(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.text),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.text,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Start the conversation!',
-            style:
-                GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
+            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> msg, bool isMe, String? avatarUrl) {
+  Widget _buildMessageBubble(
+    Map<String, dynamic> msg,
+    bool isMe,
+    String? avatarUrl,
+  ) {
     final time = _formatTime(msg['timestamp']);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // Left avatar (other person)
@@ -249,80 +269,80 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
 
           // Bubble
           ConstrainedBox(
-              constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.72),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: isMe
-                      ? const LinearGradient(
-                          colors: [Color(0xFF5B6CF9), Color(0xFF7C3AED)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : null,
-                  color: isMe ? null : AppColors.surface,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(18),
-                    topRight: const Radius.circular(18),
-                    bottomLeft: Radius.circular(isMe ? 18 : 4),
-                    bottomRight: Radius.circular(isMe ? 4 : 18),
-                  ),
-                  boxShadow: isMe
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
-                            blurRadius: 12,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.72,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: isMe
+                    ? const LinearGradient(
+                        colors: [Color(0xFF5B6CF9), Color(0xFF7C3AED)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isMe ? null : AppColors.surface,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(isMe ? 18 : 4),
+                  bottomRight: Radius.circular(isMe ? 4 : 18),
                 ),
-                child: IntrinsicWidth(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Sender name in group chat
-                      if (widget.isGroup && !isMe)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            msg['sender_name'] ?? 'Unknown',
-                            style: GoogleFonts.nunito(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.accent,
-                            ),
-                          ),
+                boxShadow: isMe
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 12,
+                          offset: const Offset(0, 3),
                         ),
-                      Text(
-                        msg['content'] ?? '',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: isMe ? Colors.white : AppColors.text,
-                          height: 1.45,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Align(
-                        alignment: Alignment.bottomRight,
+                      ],
+              ),
+              child: IntrinsicWidth(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Sender name in group chat
+                    if (widget.isGroup && !isMe)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          time,
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: isMe
-                                ? Colors.white.withOpacity(0.65)
-                                : AppColors.textDim,
+                          msg['sender_name'] ?? 'Unknown',
+                          style: GoogleFonts.nunito(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.accent,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    Text(
+                      msg['content'] ?? '',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: isMe ? Colors.white : AppColors.text,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: Text(
+                        time,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: isMe
+                              ? Colors.white.withOpacity(0.65)
+                              : AppColors.textDim,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ),
           ),
 
           // Right avatar (me)
@@ -356,7 +376,8 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                 imageUrl: avatarUrl,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => _fallbackAvatarPlaceholder(name, isMe),
-                errorWidget: (_, __, ___) => _fallbackAvatarPlaceholder(name, isMe),
+                errorWidget: (_, __, ___) =>
+                    _fallbackAvatarPlaceholder(name, isMe),
               ),
             )
           : _fallbackAvatarPlaceholder(name, isMe),
@@ -407,7 +428,10 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 0,
+                  ),
                   decoration: BoxDecoration(
                     color: _isFocused
                         ? Colors.white.withOpacity(0.95)
@@ -436,13 +460,15 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                            ),
                           ),
                           textCapitalization: TextCapitalization.sentences,
                           onSubmitted: (_) => _sendMessage(),
                         ),
                       ),
-                      
+
                       // Mic Button
                       _buildActionIconButton(
                         icon: LucideIcons.mic,
@@ -451,9 +477,9 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                           // TODO: Voice message logic
                         },
                       ),
-                      
+
                       const SizedBox(width: 4),
-                      
+
                       // Plus Button
                       _buildActionIconButton(
                         icon: LucideIcons.plus,
@@ -462,16 +488,20 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                           // TODO: Attach logic
                         },
                       ),
-                      
+
                       const SizedBox(width: 4),
-                      
+
                       // Send Button (only visible when typing)
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (child, animation) => ScaleTransition(
-                          scale: animation,
-                          child: FadeTransition(opacity: animation, child: child),
-                        ),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(
+                              scale: animation,
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                            ),
                         child: _isTyping
                             ? InkWell(
                                 key: const ValueKey('send_btn'),
@@ -479,23 +509,35 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                                 borderRadius: BorderRadius.circular(100),
                                 child: Container(
                                   padding: const EdgeInsets.all(8),
-                                  margin: const EdgeInsets.only(left: 4, right: 4),
+                                  margin: const EdgeInsets.only(
+                                    left: 4,
+                                    right: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
-                                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                                      colors: [
+                                        Color(0xFF6366F1),
+                                        Color(0xFF8B5CF6),
+                                      ],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     ),
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                                        color: const Color(
+                                          0xFF6366F1,
+                                        ).withOpacity(0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
-                                      )
+                                      ),
                                     ],
                                   ),
-                                  child: const Icon(LucideIcons.send, color: Colors.white, size: 16),
+                                  child: const Icon(
+                                    LucideIcons.send,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
                                 ),
                               )
                             : const SizedBox(key: ValueKey('empty_send')),
@@ -522,14 +564,8 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
       borderRadius: BorderRadius.circular(100),
       child: Container(
         padding: const EdgeInsets.all(8),
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          color: color,
-          size: 20,
-        ),
+        decoration: const BoxDecoration(shape: BoxShape.circle),
+        child: Icon(icon, color: color, size: 20),
       ),
     );
   }
@@ -573,7 +609,9 @@ class _StaticGradientRingPainter extends CustomPainter {
     if (!isEnabled) {
       final borderRect = Offset.zero & size;
       final borderRRect = RRect.fromRectAndRadius(
-          borderRect, Radius.circular(size.height / 2));
+        borderRect,
+        Radius.circular(size.height / 2),
+      );
       final paint = Paint()
         ..color = const Color(0xFFE2E8F0)
         ..style = PaintingStyle.stroke
@@ -583,7 +621,10 @@ class _StaticGradientRingPainter extends CustomPainter {
     }
 
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(size.height / 2));
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(size.height / 2),
+    );
 
     final List<Color> colors = [
       const Color(0xFF3B82F6), // Blue

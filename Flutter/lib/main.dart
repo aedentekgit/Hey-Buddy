@@ -18,38 +18,41 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:buddy_mobile/core/services/notification_service.dart';
 
-
-final GlobalKey<NavigatorState> globalNavigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> globalNavigatorKey =
+    GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase in the background
   try {
-     await Firebase.initializeApp();
-     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-     // iOS: Show banners when app is in foreground
-     await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-       alert: true,
-       badge: true,
-       sound: true,
-     );
+    // iOS: Show banners when app is in foreground
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
 
-     final notificationService = NotificationService();
-     await notificationService.initialize();
-     debugPrint('[Main] ✅ Firebase & Notifications initialized');
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+    debugPrint('[Main] ✅ Firebase & Notifications initialized');
   } catch (e) {
     debugPrint("[Main] ⚠️ Firebase/Notification initialization failed: $e");
   }
-  
+
   // Pre-load SharedPreferences to eliminate hydration lag
   final prefs = await SharedPreferences.getInstance();
-  
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => BrandingProvider(prefs)..fetchBranding()),
+        ChangeNotifierProvider(
+          create: (_) => BrandingProvider(prefs)..fetchBranding(),
+        ),
         ChangeNotifierProvider(create: (_) => AuthProvider()..tryAutoLogin()),
         ChangeNotifierProvider(create: (_) => MemoriesProvider()),
         ChangeNotifierProvider(create: (_) => TasksProvider()),
@@ -58,8 +61,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => BuddyProvider()),
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
         ChangeNotifierProxyProvider<BuddyProvider, FamilyProvider>(
-          create: (context) => FamilyProvider(context.read<BuddyProvider>().socketService),
-          update: (context, buddy, family) => family ?? FamilyProvider(buddy.socketService),
+          create: (context) =>
+              FamilyProvider(context.read<BuddyProvider>().socketService),
+          update: (context, buddy, family) =>
+              family ?? FamilyProvider(buddy.socketService),
         ),
       ],
       child: const BuddyApp(),
@@ -80,7 +85,7 @@ class BuddyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: branding.themeData,
           home: const SplashScreen(),
-      builder: (context, child) {
+          builder: (context, child) {
             return child!;
           },
         );

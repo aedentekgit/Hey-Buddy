@@ -18,7 +18,9 @@ class MemoryService {
       final token = await _storage.read(key: 'jwt');
 
       final response = await http.get(
-        Uri.parse('${_baseUrl}voice/memories/mix'), // Updated to correct endpoint
+        Uri.parse(
+          '${_baseUrl}voice/memories/mix',
+        ), // Updated to correct endpoint
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -46,10 +48,7 @@ class MemoryService {
 
       final response = await http.delete(
         Uri.parse('${_baseUrl}voice/memories/$memoryId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       return response.statusCode == 200;
@@ -60,7 +59,11 @@ class MemoryService {
   }
 
   // Update Memory
-  Future<bool> updateMemory(String memoryId, String content, {File? file}) async {
+  Future<bool> updateMemory(
+    String memoryId,
+    String content, {
+    File? file,
+  }) async {
     try {
       final token = await _storage.read(key: 'jwt');
       final uri = Uri.parse('${_baseUrl}voice/memories/$memoryId');
@@ -71,14 +74,18 @@ class MemoryService {
         request.headers['x-platform'] = 'mobile';
 
         String extension = file.path.split('.').last.toLowerCase();
-        MediaType mediaType = (extension == 'png') ? MediaType('image', 'png') : MediaType('image', 'jpeg');
+        MediaType mediaType = (extension == 'png')
+            ? MediaType('image', 'png')
+            : MediaType('image', 'jpeg');
         if (extension == 'pdf') mediaType = MediaType('application', 'pdf');
 
-        request.files.add(await http.MultipartFile.fromPath(
-          'file',
-          file.path,
-          contentType: mediaType,
-        ));
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'file',
+            file.path,
+            contentType: mediaType,
+          ),
+        );
         request.fields['content'] = content;
 
         var streamedResponse = await request.send();
@@ -108,10 +115,7 @@ class MemoryService {
 
       final response = await http.delete(
         Uri.parse('${_baseUrl}voice/prescriptions/$recordId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       return response.statusCode == 200;
@@ -122,7 +126,10 @@ class MemoryService {
   }
 
   // Update Prescription/Record
-  Future<bool> updatePrescription(String recordId, Map<String, dynamic> data) async {
+  Future<bool> updatePrescription(
+    String recordId,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final token = await _storage.read(key: 'jwt');
 

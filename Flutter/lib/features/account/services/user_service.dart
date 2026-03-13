@@ -30,7 +30,6 @@ class UserService {
         },
       );
 
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
@@ -57,7 +56,6 @@ class UserService {
           'x-platform': 'mobile',
         },
         body: jsonEncode(data),
-
       );
 
       return response.statusCode == 200;
@@ -71,7 +69,10 @@ class UserService {
   Future<String?> uploadProfilePicture(File file) async {
     try {
       final token = await _getToken();
-      var request = http.MultipartRequest('POST', Uri.parse('${_baseUrl}users/profile/avatar'));
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${_baseUrl}users/profile/avatar'),
+      );
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['x-platform'] = 'mobile';
 
@@ -86,11 +87,13 @@ class UserService {
         mediaType = MediaType('image', 'jpeg'); // Default
       }
 
-      request.files.add(await http.MultipartFile.fromPath(
-        'profilePicture',
-        file.path,
-        contentType: mediaType,
-      ));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'profilePicture',
+          file.path,
+          contentType: mediaType,
+        ),
+      );
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
@@ -101,7 +104,9 @@ class UserService {
           return data['data']['profilePicture'];
         }
       }
-      print("[UserService] Upload failed: ${response.statusCode} - ${response.body}");
+      print(
+        "[UserService] Upload failed: ${response.statusCode} - ${response.body}",
+      );
       return null;
     } catch (e) {
       print("[UserService] Error uploading avatar: $e");
@@ -115,10 +120,7 @@ class UserService {
       final token = await _getToken();
       final response = await http.delete(
         Uri.parse('${_baseUrl}users/profile/avatar'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       return response.statusCode == 200;
@@ -134,10 +136,7 @@ class UserService {
       final token = await _getToken();
       final response = await http.delete(
         Uri.parse('${_baseUrl}users/profile'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       return response.statusCode == 200;
@@ -153,10 +152,7 @@ class UserService {
       final token = await _getToken();
       final response = await http.post(
         Uri.parse('${_baseUrl}users/unlink-calendar'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       return response.statusCode == 200;
@@ -175,10 +171,7 @@ class UserService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       print('[UserService] Google Auth URL response: ${response.statusCode}');
@@ -189,10 +182,14 @@ class UserService {
           print('[UserService] Auth URL obtained successfully');
           return data['url'];
         } else {
-          print('[UserService] Backend returned success:false — ${data['message']}');
+          print(
+            '[UserService] Backend returned success:false — ${data['message']}',
+          );
         }
       } else {
-        print('[UserService] HTTP error ${response.statusCode}: ${response.body}');
+        print(
+          '[UserService] HTTP error ${response.statusCode}: ${response.body}',
+        );
       }
       return null;
     } catch (e) {

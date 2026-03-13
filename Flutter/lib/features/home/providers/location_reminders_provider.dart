@@ -42,7 +42,19 @@ class LocationRemindersProvider with ChangeNotifier {
     try {
       final success = await _service.updateLocationReminder(id, data);
       if (success) {
-        await loadReminders();
+        // Optimistically update memory
+        final index = _reminders.indexWhere((r) => r['_id'] == id);
+        if (index != -1) {
+          _reminders[index] = {..._reminders[index], ...data};
+          notifyListeners();
+        }
+        // Background reload without await or loading state
+        _service.fetchLocationReminders().then((res) {
+          if (res['success'] == true) {
+            _reminders = res['data'];
+            notifyListeners();
+          }
+        });
       }
       return success;
     } catch (e) {

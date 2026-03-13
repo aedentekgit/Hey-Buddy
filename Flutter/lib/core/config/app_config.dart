@@ -7,7 +7,8 @@ class AppConfig {
   // STAGING HOST (For Testing)
   static const String stagingHost = 'staging.ayuskart.com';
   // LOCAL HOST (For Device Debugging - using discovered local IP)
-  static const String localhostHost = '10.0.2.2:5001'; // 10.0.2.2 is local loopback for Android Emulator
+  static const String localhostHost =
+      '10.0.2.2:5001'; // 10.0.2.2 is local loopback for Android Emulator
 
   static String get host {
     // Priority 1: Manual override via --dart-define=API_URL=... (e.g. for CI or local IP)
@@ -18,7 +19,7 @@ class AppConfig {
     if (kDebugMode) {
       return localhostHost;
     }
-    return productionHost; 
+    return productionHost;
   }
 
   static String get protocol {
@@ -37,36 +38,37 @@ class AppConfig {
   static String get assetBaseUrl {
     return '$protocol://$host/';
   }
-  
+
   // Default branding (to be updated from API)
   static String appName = 'HeyBuddy';
-  static String primaryColor = '#6366F1'; 
+  static String primaryColor = '#6366F1';
   static String secondaryColor = '#FFFFFF';
   static String? logoUrl;
   static String? splashUrl;
-  static String? googleClientId = "653874362760-32gca8aold1hap5s8271ad4803s959h5.apps.googleusercontent.com";
+  static String? googleClientId =
+      "653874362760-32gca8aold1hap5s8271ad4803s959h5.apps.googleusercontent.com";
   static String googleMapsApiKey = "AIzaSyAdNgoVCokinFU6OD0pRxOg47RCmJ3kaA0";
 
   static String? formatImageUrl(String? path) {
-    if (path == null || path.isEmpty || path == "null" || path == "undefined") return null;
-    
+    if (path == null || path.isEmpty || path == "null" || path == "undefined")
+      return null;
+
     String finalPath = path;
 
     // 1. If it's already a full URL
     if (finalPath.startsWith('http')) {
       // Fix potential localhost/127.0.0.1 leakage from local DBs
-      if (finalPath.contains('localhost:5001') || 
+      if (finalPath.contains('localhost:5001') ||
           finalPath.contains('127.0.0.1:5001') ||
           finalPath.contains('localhost:5002') ||
           finalPath.contains('127.0.0.1:5002')) {
-        
         finalPath = finalPath
-          .replaceAll('localhost:5001', host)
-          .replaceAll('127.0.0.1:5001', host)
-          .replaceAll('localhost:5002', host)
-          .replaceAll('127.0.0.1:5002', host);
-          
-        // Crucial: After replacement, ensure protocol matches our current protocol 
+            .replaceAll('localhost:5001', host)
+            .replaceAll('127.0.0.1:5001', host)
+            .replaceAll('localhost:5002', host)
+            .replaceAll('127.0.0.1:5002', host);
+
+        // Crucial: After replacement, ensure protocol matches our current protocol
         // (Force HTTPS if we are on staging/production to avoid Cleartext blocks)
         if (host != localhostHost && finalPath.startsWith('http://')) {
           finalPath = finalPath.replaceFirst('http://', 'https://');
@@ -74,14 +76,14 @@ class AppConfig {
       }
       return finalPath;
     }
-    
+
     // 2. If it's a relative path, ensure it starts with 'uploads/' if it doesn't already
     // but first clean leading slashes
     if (finalPath.startsWith('/')) finalPath = finalPath.substring(1);
-    
+
     // If the path doesn't already contain 'uploads/', the backend usually expects it
     if (!finalPath.startsWith('uploads/')) {
-        finalPath = 'uploads/$finalPath';
+      finalPath = 'uploads/$finalPath';
     }
 
     // Force secure protocol for anything not on the local loopback
@@ -89,4 +91,3 @@ class AppConfig {
     return '$effectiveProtocol://$host/$finalPath';
   }
 }
-

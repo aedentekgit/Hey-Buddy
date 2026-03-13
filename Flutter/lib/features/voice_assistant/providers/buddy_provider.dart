@@ -19,7 +19,7 @@ class BuddyProvider with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _storage = const FlutterSecureStorage();
   final FlutterTts _flutterTts = FlutterTts();
-  
+
   // Expose these for potential direct use (but provider methods are preferred)
   FlutterTts get tts => _flutterTts;
   AudioPlayer get audioPlayer => _audioPlayer;
@@ -91,8 +91,12 @@ class BuddyProvider with ChangeNotifier {
       // Ensures the AI assistant shows "Buddy in Madurai" and fetches relevant Indian news
       double? useLat = lat;
       double? useLon = lon;
-      if (useLat != null && useLon != null && 
-          useLat > 37.0 && useLat < 38.0 && useLon > -123.0 && useLon < -121.0) {
+      if (useLat != null &&
+          useLon != null &&
+          useLat > 37.0 &&
+          useLat < 38.0 &&
+          useLon > -123.0 &&
+          useLon < -121.0) {
         useLat = 9.9252;
         useLon = 78.1198;
       }
@@ -141,10 +145,20 @@ class BuddyProvider with ChangeNotifier {
           if (locale.startsWith('en')) {
             // Prioritize British voices (en-gb) to match RyanNeural
             bool isBritish = locale.contains('gb');
-            if (gender == 'male' && (name.contains('male') || name.contains('iom') || name.contains('tpd') || name.contains('rjs') || name.contains('daniel') || name.contains('ryan'))) {
+            if (gender == 'male' &&
+                (name.contains('male') ||
+                    name.contains('iom') ||
+                    name.contains('tpd') ||
+                    name.contains('rjs') ||
+                    name.contains('daniel') ||
+                    name.contains('ryan'))) {
               selectedVoice = v;
               if (isBritish) break; // Perfect match
-            } else if (gender == 'female' && (name.contains('female') || name.contains('sfg') || name.contains('tpf') || name.contains('samantha'))) {
+            } else if (gender == 'female' &&
+                (name.contains('female') ||
+                    name.contains('sfg') ||
+                    name.contains('tpf') ||
+                    name.contains('samantha'))) {
               selectedVoice = v;
               if (isBritish) break;
             }
@@ -154,7 +168,7 @@ class BuddyProvider with ChangeNotifier {
         if (selectedVoice != null) {
           await _flutterTts.setVoice({
             "name": selectedVoice["name"].toString(),
-            "locale": selectedVoice["locale"].toString()
+            "locale": selectedVoice["locale"].toString(),
           });
         }
       }
@@ -189,11 +203,11 @@ class BuddyProvider with ChangeNotifier {
       if (!_isSpeakingQueue) break; // Allow emergency stop
       final sentence = _ttsQueue.removeAt(0);
       if (sentence.trim().isEmpty) continue;
-      
+
       try {
-        final token = await _storage.read(key: 'jwt'); 
+        final token = await _storage.read(key: 'jwt');
         final baseUrl = AppConfig.baseUrl;
-        
+
         // Fetch current user prefs for the voice query
         String gender = 'male';
         String tone = 'normal';
@@ -201,14 +215,16 @@ class BuddyProvider with ChangeNotifier {
         // Note: In a production app, we'd ideally have the UserProvider's current state passed in,
         // but for high-speed local processing, we will hit the preview-voice with the latest available params if we can.
         // For now, hit it with the simple text. The backend will use DB defaults or we can pass gender/tone if we had access here easily.
-        
-        final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(sentence)}&gender=$gender&tone=$tone');
-        
-        final response = await http.get(url, headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        });
-        
+
+        final url = Uri.parse(
+          '$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(sentence)}&gender=$gender&tone=$tone',
+        );
+
+        final response = await http.get(
+          url,
+          headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
+        );
+
         bool playedCustom = false;
         if (response.statusCode == 200) {
           final body = json.decode(response.body);
@@ -216,29 +232,34 @@ class BuddyProvider with ChangeNotifier {
           // Config logic - always apply the server's resolved preferences to our local engine
           if (body['resolvedVoiceConfig'] != null) {
             final config = body['resolvedVoiceConfig'];
-            await _flutterTts.setPitch((config['pitch'] as num?)?.toDouble() ?? 1.0);
-            await _flutterTts.setSpeechRate((config['speechRate'] as num?)?.toDouble() ?? 0.5);
+            await _flutterTts.setPitch(
+              (config['pitch'] as num?)?.toDouble() ?? 1.0,
+            );
+            await _flutterTts.setSpeechRate(
+              (config['speechRate'] as num?)?.toDouble() ?? 0.5,
+            );
           }
 
           if (body['success'] == true && body['audio'] != null) {
             final audioBytes = base64Decode(body['audio']);
-            
+
             var completer = Completer<void>();
             StreamSubscription? compSub;
             StreamSubscription? stateSub;
-            
+
             compSub = _audioPlayer.onPlayerComplete.listen((_) {
               if (!completer.isCompleted) completer.complete();
             });
             stateSub = _audioPlayer.onPlayerStateChanged.listen((state) {
-               if (state == PlayerState.stopped && !completer.isCompleted) completer.complete();
+              if (state == PlayerState.stopped && !completer.isCompleted)
+                completer.complete();
             });
-            
+
             _isSpeaking = true;
             notifyListeners();
             await _audioPlayer.play(BytesSource(audioBytes));
             await completer.future;
-            
+
             await compSub.cancel();
             await stateSub.cancel();
             _isSpeaking = false;
@@ -248,13 +269,13 @@ class BuddyProvider with ChangeNotifier {
         }
 
         if (!playedCustom) {
-           // If we fall back to local TTS, ensure it's configured for the user's current gender/tone
-           await _configureLocalTts(_currentGender, _currentTone);
-           _isSpeaking = true;
-           notifyListeners();
-           await _flutterTts.speak(sentence);
-           _isSpeaking = false;
-           notifyListeners();
+          // If we fall back to local TTS, ensure it's configured for the user's current gender/tone
+          await _configureLocalTts(_currentGender, _currentTone);
+          _isSpeaking = true;
+          notifyListeners();
+          await _flutterTts.speak(sentence);
+          _isSpeaking = false;
+          notifyListeners();
         }
       } catch (e) {
         print("TTS Error: $e");
@@ -269,21 +290,23 @@ class BuddyProvider with ChangeNotifier {
   void _setupSocketListeners() {
     if (_socketListenersSet) return;
     _socketListenersSet = true;
-    
+
     // Default settings (will be dynamically updated by server responses)
-    _flutterTts.setSpeechRate(0.5); 
+    _flutterTts.setSpeechRate(0.5);
     _flutterTts.setPitch(1.0);
     _flutterTts.setVolume(1.0);
-    _flutterTts.awaitSpeakCompletion(true); 
+    _flutterTts.awaitSpeakCompletion(true);
 
     socketService.captionStream.listen((text) {
-      if (_messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
+      if (_messages.isNotEmpty &&
+          _messages.last['type'] == 'ai' &&
+          _messages.last['isPartial'] == true) {
         _messages.last['text'] += text;
       } else {
         // CRITICAL: Force clear ANY previous specific indicators/states
         for (var m in _messages) {
-           m['isPartial'] = false;
-           m['shouldType'] = false;
+          m['isPartial'] = false;
+          m['shouldType'] = false;
         }
 
         _messages.add({
@@ -291,11 +314,11 @@ class BuddyProvider with ChangeNotifier {
           'type': 'ai',
           'text': text,
           'isPartial': true,
-          'shouldType': false, 
+          'shouldType': false,
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         });
       }
-      
+
       if (_isThinking) {
         _isThinking = false;
       }
@@ -308,26 +331,35 @@ class BuddyProvider with ChangeNotifier {
             .replaceAll('*', '')
             .replaceAll('`', '')
             .replaceAll('#', '')
-            .replaceAll(RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false), '')
-            .replaceAll(RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]', unicode: true), '');
+            .replaceAll(
+              RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false),
+              '',
+            )
+            .replaceAll(
+              RegExp(
+                r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]',
+                unicode: true,
+              ),
+              '',
+            );
 
         _ttsBuffer += sanitizedText;
         List<String> sentences = [];
         String tempBuffer = _ttsBuffer;
-        
+
         final sentenceRegEx = RegExp(r'[^.!?]+[.!?]+');
         Iterable<Match> matches = sentenceRegEx.allMatches(tempBuffer);
-        
+
         int lastMatchEnd = 0;
         for (final match in matches) {
-            sentences.add(match.group(0)!);
-            lastMatchEnd = match.end;
+          sentences.add(match.group(0)!);
+          lastMatchEnd = match.end;
         }
-        
+
         if (sentences.isNotEmpty) {
-            _ttsBuffer = tempBuffer.substring(lastMatchEnd);
-            _ttsQueue.addAll(sentences);
-            _processTtsQueue();
+          _ttsBuffer = tempBuffer.substring(lastMatchEnd);
+          _ttsQueue.addAll(sentences);
+          _processTtsQueue();
         }
       }
 
@@ -335,75 +367,76 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.socket?.on('turn_started', (_) async {
-        _isThinking = true;
-        _isListening = false; // Reset listening UI as processing started
-        notifyListeners();
+      _isThinking = true;
+      _isListening = false; // Reset listening UI as processing started
+      notifyListeners();
     });
 
     socketService.socket?.on('connect_error', (data) {
-        print('Socket Connect Error: $data');
-        _isThinking = false;
-        if (data.toString().contains('Authentication failed') || data.toString().contains('session may have expired')) {
-          _needsLogin = true;
-          _isRealtimeEnabled = false;
-        }
-        notifyListeners();
+      print('Socket Connect Error: $data');
+      _isThinking = false;
+      if (data.toString().contains('Authentication failed') ||
+          data.toString().contains('session may have expired')) {
+        _needsLogin = true;
+        _isRealtimeEnabled = false;
+      }
+      notifyListeners();
     });
 
     socketService.socket?.on('error', (err) {
-        print('Socket Error event: $err');
-        _isThinking = false;
-        if (err.toString().contains('Authentication failed') || err.toString().contains('session may have expired')) {
-          _needsLogin = true;
-          _isRealtimeEnabled = false;
-        }
-        notifyListeners();
+      print('Socket Error event: $err');
+      _isThinking = false;
+      if (err.toString().contains('Authentication failed') ||
+          err.toString().contains('session may have expired')) {
+        _needsLogin = true;
+        _isRealtimeEnabled = false;
+      }
+      notifyListeners();
     });
 
     // Handle end of stream
     socketService.socket?.on('response_done', (_) {
-        if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
-            _messages.last['isPartial'] = false;
-        }
-        
-        // Flush any remaining text in buffer to local TTS ONLY if server audio not used
-        if (!_isRealtimeEnabled && _ttsBuffer.trim().isNotEmpty) {
-           _ttsQueue.add(_ttsBuffer.trim());
-           _ttsBuffer = '';
-           _processTtsQueue();
-        }
+      if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
+        _messages.last['isPartial'] = false;
+      }
 
-        _isThinking = false; // Ensure cleared
-        notifyListeners();
+      // Flush any remaining text in buffer to local TTS ONLY if server audio not used
+      if (!_isRealtimeEnabled && _ttsBuffer.trim().isNotEmpty) {
+        _ttsQueue.add(_ttsBuffer.trim());
+        _ttsBuffer = '';
+        _processTtsQueue();
+      }
+
+      _isThinking = false; // Ensure cleared
+      notifyListeners();
     });
 
     socketService.audioStream.listen((base64Audio) async {
-       // PREMIUM EXPERIENCE: Play high-quality MP3 from the Python Brain
-       if (base64Audio.isNotEmpty) {
-          try {
-            await _flutterTts.stop(); // Stop local fallback immediately
-            _ttsQueue.clear();
-            _ttsBuffer = '';
+      // PREMIUM EXPERIENCE: Play high-quality MP3 from the Python Brain
+      if (base64Audio.isNotEmpty) {
+        try {
+          await _flutterTts.stop(); // Stop local fallback immediately
+          _ttsQueue.clear();
+          _ttsBuffer = '';
 
-            final audioBytes = base64Decode(base64Audio);
-            _isSpeaking = true;
-            notifyListeners();
-            await _audioPlayer.play(BytesSource(audioBytes));
-            
-            // Since this is a stream of chunks, we might want to track if it's still playing
-            // but for now, simple toggle
-            _audioPlayer.onPlayerComplete.first.then((_) {
-                _isSpeaking = false;
-                notifyListeners();
-            });
-          } catch (e) {
-            print("Error playing server audio: $e");
+          final audioBytes = base64Decode(base64Audio);
+          _isSpeaking = true;
+          notifyListeners();
+          await _audioPlayer.play(BytesSource(audioBytes));
+
+          // Since this is a stream of chunks, we might want to track if it's still playing
+          // but for now, simple toggle
+          _audioPlayer.onPlayerComplete.first.then((_) {
             _isSpeaking = false;
             notifyListeners();
-          }
-       }
+          });
+        } catch (e) {
+          print("Error playing server audio: $e");
+          _isSpeaking = false;
+          notifyListeners();
+        }
+      }
     });
-
 
     socketService.statusStream.listen((isConnected) {
       _isRealtimeEnabled = isConnected;
@@ -422,7 +455,7 @@ class BuddyProvider with ChangeNotifier {
       print('Wake word detected: ${data['transcript']}');
       _isListening = true;
       notifyListeners();
-      
+
       // We don't need to sendMessage('') because the backend is already hearing the trail!
       // But we can send a "Hey Buddy" text just for the UI history if we want.
       addMessage('user', 'Hey Buddy', shouldType: false);
@@ -458,41 +491,47 @@ class BuddyProvider with ChangeNotifier {
       final tone = data['tone'] ?? 'soft';
 
       try {
-          // Pre-configure the local engine to match the voice alert gender
-          await _configureLocalTts(gender, tone);
-          
-          // Speak immediately using local TTS for maximum speed
-          await _flutterTts.speak(text);
-          
-          final token = await _storage.read(key: 'jwt'); 
-          final baseUrl = AppConfig.baseUrl;
-          final url = Uri.parse('$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(text)}&gender=$gender&tone=$tone');
-          
-          final response = await http.get(url, headers: {
-            'Authorization': 'Bearer $token',
-            'x-platform': 'mobile',
-          });
+        // Pre-configure the local engine to match the voice alert gender
+        await _configureLocalTts(gender, tone);
 
-          if (response.statusCode == 200) {
-            final body = json.decode(response.body);
+        // Speak immediately using local TTS for maximum speed
+        await _flutterTts.speak(text);
 
-            // SYNC TONE: Even for alerts, ensure local fallback matches the personality
-            if (body['resolvedVoiceConfig'] != null) {
-              final config = body['resolvedVoiceConfig'];
-              await _flutterTts.setPitch((config['pitch'] as num?)?.toDouble() ?? 1.0);
-              await _flutterTts.setSpeechRate((config['speechRate'] as num?)?.toDouble() ?? 0.5);
-            }
+        final token = await _storage.read(key: 'jwt');
+        final baseUrl = AppConfig.baseUrl;
+        final url = Uri.parse(
+          '$baseUrl/voice/preview-voice?text=${Uri.encodeComponent(text)}&gender=$gender&tone=$tone',
+        );
 
-            if (body['success'] == true && body['audio'] != null) {
-              await _flutterTts.stop(); // Clear local TTS
-              final audioBytes = base64Decode(body['audio']);
-              await _audioPlayer.play(BytesSource(audioBytes));
-            }
+        final response = await http.get(
+          url,
+          headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
+        );
+
+        if (response.statusCode == 200) {
+          final body = json.decode(response.body);
+
+          // SYNC TONE: Even for alerts, ensure local fallback matches the personality
+          if (body['resolvedVoiceConfig'] != null) {
+            final config = body['resolvedVoiceConfig'];
+            await _flutterTts.setPitch(
+              (config['pitch'] as num?)?.toDouble() ?? 1.0,
+            );
+            await _flutterTts.setSpeechRate(
+              (config['speechRate'] as num?)?.toDouble() ?? 0.5,
+            );
           }
-        } catch (e) {
-          print('Error in voice alert: $e');
+
+          if (body['success'] == true && body['audio'] != null) {
+            await _flutterTts.stop(); // Clear local TTS
+            final audioBytes = base64Decode(body['audio']);
+            await _audioPlayer.play(BytesSource(audioBytes));
+          }
         }
-      });
+      } catch (e) {
+        print('Error in voice alert: $e');
+      }
+    });
   }
 
   Future<void> startWakeWordDetection() async {
@@ -529,7 +568,12 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void addMessage(String role, String text, {String? image, bool shouldType = true}) {
+  void addMessage(
+    String role,
+    String text, {
+    String? image,
+    bool shouldType = true,
+  }) {
     // Prevent multiple typing states: disable typing animation for all previous messages
     for (var m in _messages) {
       m['shouldType'] = false;
@@ -538,7 +582,7 @@ class BuddyProvider with ChangeNotifier {
 
     _messages.add({
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'type': role, 
+      'type': role,
       'text': text,
       'image': image,
       'shouldType': shouldType,
@@ -548,14 +592,13 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
-
   Future<void> fetchHistory() async {
     _isLoading = true;
     notifyListeners();
     _historyList = await _buddyService.getConversations();
     if (_historyList.isNotEmpty) {
-        // Automatically load the latest (and now only) conversation
-        await loadConversation(_historyList.first['_id']);
+      // Automatically load the latest (and now only) conversation
+      await loadConversation(_historyList.first['_id']);
     }
     _isLoading = false;
     notifyListeners();
@@ -571,13 +614,17 @@ class BuddyProvider with ChangeNotifier {
         int timestamp = DateTime.now().millisecondsSinceEpoch;
         if (m['timestamp'] != null) {
           try {
-            timestamp = DateTime.parse(m['timestamp']).toLocal().millisecondsSinceEpoch;
+            timestamp = DateTime.parse(
+              m['timestamp'],
+            ).toLocal().millisecondsSinceEpoch;
           } catch (e) {
             // fallback
           }
         }
         return {
-          'id': DateTime.now().millisecondsSinceEpoch.toString() + m['content'].hashCode.toString(),
+          'id':
+              DateTime.now().millisecondsSinceEpoch.toString() +
+              m['content'].hashCode.toString(),
           'type': m['role'] == 'user' ? 'user' : 'ai',
           'text': m['content'],
           'image': null,
@@ -590,7 +637,12 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage(String text, {String? imagePath, String language = 'auto', bool isWakeWord = false}) async {
+  Future<void> sendMessage(
+    String text, {
+    String? imagePath,
+    String language = 'auto',
+    bool isWakeWord = false,
+  }) async {
     _isThinking = true;
     notifyListeners();
 
@@ -599,10 +651,7 @@ class BuddyProvider with ChangeNotifier {
       final bytes = await File(imagePath).readAsBytes();
       final base64String = base64Encode(bytes);
       final mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
-      imageData = {
-        'data': base64String,
-        'mimeType': mimeType,
-      };
+      imageData = {'data': base64String, 'mimeType': mimeType};
     }
 
     if (_isRealtimeEnabled && imagePath == null) {
@@ -622,26 +671,31 @@ class BuddyProvider with ChangeNotifier {
     if (response['success'] == true) {
       final reply = response['data']['reply'];
       final audioBase64 = response['data']['audio'];
-      
+
       addMessage('ai', reply);
-      
+
       // Clear any busy audio before speaking new reply
       await stopAllAudio();
 
       if (audioBase64 != null && audioBase64.isNotEmpty) {
-          final audioBytes = base64Decode(audioBase64);
-          await _audioPlayer.play(BytesSource(audioBytes));
+        final audioBytes = base64Decode(audioBase64);
+        await _audioPlayer.play(BytesSource(audioBytes));
       } else {
-          // SYNC TONE: Apply server-resolved configuration to local TTS fallback
-          if (response['data']['resolvedVoiceConfig'] != null) {
-            final config = response['data']['resolvedVoiceConfig'];
-            await _flutterTts.setPitch((config['pitch'] as num?)?.toDouble() ?? 1.0);
-            await _flutterTts.setSpeechRate((config['speechRate'] as num?)?.toDouble() ?? 0.5);
-          }
-          await _flutterTts.speak(reply);
+        // SYNC TONE: Apply server-resolved configuration to local TTS fallback
+        if (response['data']['resolvedVoiceConfig'] != null) {
+          final config = response['data']['resolvedVoiceConfig'];
+          await _flutterTts.setPitch(
+            (config['pitch'] as num?)?.toDouble() ?? 1.0,
+          );
+          await _flutterTts.setSpeechRate(
+            (config['speechRate'] as num?)?.toDouble() ?? 0.5,
+          );
+        }
+        await _flutterTts.speak(reply);
       }
 
-      if (response['meta'] != null && response['meta']['conversationId'] != null) {
+      if (response['meta'] != null &&
+          response['meta']['conversationId'] != null) {
         _currentConversationId = response['meta']['conversationId'];
       }
 
@@ -673,7 +727,7 @@ class BuddyProvider with ChangeNotifier {
       startNewChat();
     }
     notifyListeners();
-    
+
     // Attempt to clear from server if logged in
     await _buddyService.deleteConversation(id);
   }
@@ -683,7 +737,7 @@ class BuddyProvider with ChangeNotifier {
     _historyList = [];
     startNewChat();
     notifyListeners();
-    
+
     // Attempt to clear from server if logged in
     await _buddyService.deleteAllConversations();
   }

@@ -8,12 +8,14 @@ class QuickActionItem {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final bool isSelected;
 
   QuickActionItem({
     required this.label,
     required this.icon,
     required this.color,
     required this.onTap,
+    this.isSelected = false,
   });
 }
 
@@ -43,7 +45,7 @@ class QuickActionsGrid extends StatelessWidget {
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.7,
+            childAspectRatio: 2.0,
           ),
           itemCount: actions.length,
           itemBuilder: (context, index) {
@@ -67,32 +69,26 @@ class _ActionCard extends StatelessWidget {
       onTap: action.onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: action.isSelected ? action.color : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: action.color.withOpacity(0.35), width: 1.5),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: action.color.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                action.icon,
-                color: action.color,
-                size: 20,
-              ),
+            Icon(
+              action.icon,
+              color: action.isSelected ? Colors.white : action.color,
+              size: 24,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               action.label,
+              textAlign: TextAlign.center,
               style: GoogleFonts.nunito(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: action.color,
+                color: action.isSelected ? Colors.white : action.color,
               ),
             ),
           ],

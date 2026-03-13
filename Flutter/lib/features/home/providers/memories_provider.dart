@@ -4,7 +4,7 @@ import 'dart:io';
 
 class MemoriesProvider extends ChangeNotifier {
   final MemoryService _memoryService = MemoryService();
-  
+
   List<dynamic> _memories = [];
   bool _isLoading = false;
 
@@ -40,7 +40,7 @@ class MemoriesProvider extends ChangeNotifier {
       } else {
         success = await _memoryService.deletePrescription(id);
       }
-      
+
       if (!success) {
         _memories = original;
         notifyListeners();
@@ -53,7 +53,11 @@ class MemoriesProvider extends ChangeNotifier {
 
   Future<bool> updateMemory(String id, String content, {File? file}) async {
     try {
-      final success = await _memoryService.updateMemory(id, content, file: file);
+      final success = await _memoryService.updateMemory(
+        id,
+        content,
+        file: file,
+      );
       if (success) {
         await loadMemories(); // Refresh
       }

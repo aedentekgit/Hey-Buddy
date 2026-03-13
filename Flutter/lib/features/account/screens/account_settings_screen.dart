@@ -10,7 +10,8 @@ import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
-import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart' as buddy;
+import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart'
+    as buddy;
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/features/account/screens/user_profile_screen.dart';
 import 'package:buddy_mobile/features/account/screens/change_password_screen.dart';
@@ -26,7 +27,6 @@ class AccountSettingsScreen extends StatefulWidget {
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen>
     with WidgetsBindingObserver {
-
   // Toggle states
   bool _voiceAlerts = true;
   bool _pushNotifications = true;
@@ -55,8 +55,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null && mounted) {
-      final success = await Provider.of<UserProvider>(context, listen: false)
-          .updateAvatar(File(picked.path));
+      final success = await Provider.of<UserProvider>(
+        context,
+        listen: false,
+      ).updateAvatar(File(picked.path));
       if (success) {
         ToastUtils.showSuccessToast('Profile picture updated');
       } else {
@@ -103,13 +105,18 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
       ),
     );
     if (ok == true && mounted) {
-      final success =
-          await Provider.of<UserProvider>(context, listen: false).deleteAccount();
+      final success = await Provider.of<UserProvider>(
+        context,
+        listen: false,
+      ).deleteAccount();
       if (success && mounted) {
         await Provider.of<AuthProvider>(context, listen: false).logout();
         if (mounted) {
           Provider.of<UserProvider>(context, listen: false).clearUser();
-          Provider.of<buddy.BuddyProvider>(context, listen: false).startNewChat();
+          Provider.of<buddy.BuddyProvider>(
+            context,
+            listen: false,
+          ).startNewChat();
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainScreen()),
             (route) => false,
@@ -121,14 +128,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
 
   // ── Google Calendar toggle ───────────────────────────────────────────────
   Future<void> _handleCalendarToggle(UserProvider userProvider) async {
-    final isConnected = userProvider.user['googleCalendarConnected'] == true ||
+    final isConnected =
+        userProvider.user['googleCalendarConnected'] == true ||
         userProvider.user['googleRefreshToken'] != null;
     if (isConnected) {
       final ok = await showDialog<bool>(
         context: context,
         builder: (_) => _ConfirmDialog(
           title: 'Disconnect Calendar',
-          message: 'Disconnect Google Calendar? Your reminders will no longer sync.',
+          message:
+              'Disconnect Google Calendar? Your reminders will no longer sync.',
           confirmLabel: 'Disconnect',
           confirmColor: AppColors.orange,
         ),
@@ -158,14 +167,19 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
           final String name = user['name'] ?? 'User';
           final String email = user['email'] ?? '';
           final String? avatarUrl = user['profilePicture'] as String?;
-          final bool calConnected = user['googleCalendarConnected'] == true ||
+          final bool calConnected =
+              user['googleCalendarConnected'] == true ||
               user['googleRefreshToken'] != null;
 
           final notificationPrefs = user['notificationPreferences'] ?? {};
-          final bool voiceAlerts = notificationPrefs['voice']?['enabled'] ?? true;
-          final bool pushNotifications = notificationPrefs['push']?['enabled'] ?? true;
-          final bool emailDigest = notificationPrefs['email']?['enabled'] ?? true;
-          final bool inAppAlerts = notificationPrefs['inApp']?['enabled'] ?? true;
+          final bool voiceAlerts =
+              notificationPrefs['voice']?['enabled'] ?? true;
+          final bool pushNotifications =
+              notificationPrefs['push']?['enabled'] ?? true;
+          final bool emailDigest =
+              notificationPrefs['email']?['enabled'] ?? true;
+          final bool inAppAlerts =
+              notificationPrefs['inApp']?['enabled'] ?? true;
           final securityProvider = Provider.of<SecurityProvider>(context);
 
           return ListView(
@@ -173,12 +187,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
             children: [
               // ── Profile card ──────────────────────────────────────────
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => UserProfileScreen(
-                      onPickImage: _pickImage,
-                    ),
+                    builder: (_) => UserProfileScreen(onPickImage: _pickImage),
                   ),
                 ),
                 child: _Card(
@@ -194,15 +207,18 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                             Text(
                               name,
                               style: GoogleFonts.nunito(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.text),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.text,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               email,
                               style: GoogleFonts.inter(
-                                  fontSize: 12, color: AppColors.textMid),
+                                fontSize: 12,
+                                color: AppColors.textMid,
+                              ),
                             ),
                           ],
                         ),
@@ -216,8 +232,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(LucideIcons.chevronRight,
-                            size: 16, color: AppColors.textMid),
+                        child: const Icon(
+                          LucideIcons.chevronRight,
+                          size: 16,
+                          color: AppColors.textMid,
+                        ),
                       ),
                     ],
                   ),
@@ -238,17 +257,22 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'Voice Alerts',
                       sub: 'Buddy speaks reminders',
                       trailing: _Toggle(
-                          value: voiceAlerts,
-                          onChanged: (v) async {
-                            final success = await userProvider.updateNotificationPreferences({
-                              'voice': {'enabled': v}
-                            });
-                            if (success) {
-                              final msg = "Voice Alerts turned ${v ? 'ON' : 'OFF'}";
-                              if (v) ToastUtils.showSuccessToast(msg);
-                              else ToastUtils.showErrorToast(msg);
-                            }
-                          }),
+                        value: voiceAlerts,
+                        onChanged: (v) async {
+                          final success = await userProvider
+                              .updateNotificationPreferences({
+                                'voice': {'enabled': v},
+                              });
+                          if (success) {
+                            final msg =
+                                "Voice Alerts turned ${v ? 'ON' : 'OFF'}";
+                            if (v)
+                              ToastUtils.showSuccessToast(msg);
+                            else
+                              ToastUtils.showErrorToast(msg);
+                          }
+                        },
+                      ),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -257,17 +281,22 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'Push Notifications',
                       sub: 'Lock screen alerts',
                       trailing: _Toggle(
-                          value: pushNotifications,
-                          onChanged: (v) async {
-                            final success = await userProvider.updateNotificationPreferences({
-                              'push': {'enabled': v}
-                            });
-                            if (success) {
-                              final msg = "Push Notifications turned ${v ? 'ON' : 'OFF'}";
-                              if (v) ToastUtils.showSuccessToast(msg);
-                              else ToastUtils.showErrorToast(msg);
-                            }
-                          }),
+                        value: pushNotifications,
+                        onChanged: (v) async {
+                          final success = await userProvider
+                              .updateNotificationPreferences({
+                                'push': {'enabled': v},
+                              });
+                          if (success) {
+                            final msg =
+                                "Push Notifications turned ${v ? 'ON' : 'OFF'}";
+                            if (v)
+                              ToastUtils.showSuccessToast(msg);
+                            else
+                              ToastUtils.showErrorToast(msg);
+                          }
+                        },
+                      ),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -276,17 +305,22 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'Email Digest',
                       sub: 'Daily summary via email',
                       trailing: _Toggle(
-                          value: emailDigest,
-                          onChanged: (v) async {
-                            final success = await userProvider.updateNotificationPreferences({
-                              'email': {'enabled': v}
-                            });
-                            if (success) {
-                              final msg = "Email Digest turned ${v ? 'ON' : 'OFF'}";
-                              if (v) ToastUtils.showSuccessToast(msg);
-                              else ToastUtils.showErrorToast(msg);
-                            }
-                          }),
+                        value: emailDigest,
+                        onChanged: (v) async {
+                          final success = await userProvider
+                              .updateNotificationPreferences({
+                                'email': {'enabled': v},
+                              });
+                          if (success) {
+                            final msg =
+                                "Email Digest turned ${v ? 'ON' : 'OFF'}";
+                            if (v)
+                              ToastUtils.showSuccessToast(msg);
+                            else
+                              ToastUtils.showErrorToast(msg);
+                          }
+                        },
+                      ),
                     ),
                     _Divider(),
                     _SettingsRow(
@@ -295,17 +329,22 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       label: 'In-App Alerts',
                       sub: 'Banners & badges',
                       trailing: _Toggle(
-                          value: inAppAlerts,
-                          onChanged: (v) async {
-                            final success = await userProvider.updateNotificationPreferences({
-                              'inApp': {'enabled': v}
-                            });
-                            if (success) {
-                              final msg = "In-App Alerts turned ${v ? 'ON' : 'OFF'}";
-                              if (v) ToastUtils.showSuccessToast(msg);
-                              else ToastUtils.showErrorToast(msg);
-                            }
-                          }),
+                        value: inAppAlerts,
+                        onChanged: (v) async {
+                          final success = await userProvider
+                              .updateNotificationPreferences({
+                                'inApp': {'enabled': v},
+                              });
+                          if (success) {
+                            final msg =
+                                "In-App Alerts turned ${v ? 'ON' : 'OFF'}";
+                            if (v)
+                              ToastUtils.showSuccessToast(msg);
+                            else
+                              ToastUtils.showErrorToast(msg);
+                          }
+                        },
+                      ),
                       isLast: true,
                     ),
                   ],
@@ -324,16 +363,21 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                   label: 'Google Calendar',
                   sub: calConnected ? 'Synced · Connected' : 'Not connected',
                   trailing: _Toggle(
-                      value: calConnected,
-                      onChanged: (v) async {
-                        await _handleCalendarToggle(userProvider);
-                        // Refresh value after toggle attempt
-                        final updatedUser = userProvider.user;
-                        final isNowConnected = updatedUser['googleCalendarConnected'] == true;
-                        final msg = "Google Calendar ${isNowConnected ? 'connected' : 'disconnected'}";
-                        if (isNowConnected) ToastUtils.showSuccessToast(msg);
-                        else ToastUtils.showErrorToast(msg);
-                      }),
+                    value: calConnected,
+                    onChanged: (v) async {
+                      await _handleCalendarToggle(userProvider);
+                      // Refresh value after toggle attempt
+                      final updatedUser = userProvider.user;
+                      final isNowConnected =
+                          updatedUser['googleCalendarConnected'] == true;
+                      final msg =
+                          "Google Calendar ${isNowConnected ? 'connected' : 'disconnected'}";
+                      if (isNowConnected)
+                        ToastUtils.showSuccessToast(msg);
+                      else
+                        ToastUtils.showErrorToast(msg);
+                    },
+                  ),
                   isLast: true,
                 ),
               ),
@@ -353,17 +397,24 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                         label: 'Biometrics',
                         sub: 'Face ID / Fingerprint',
                         trailing: _Toggle(
-                            value: securityProvider.isBiometricEnabled,
-                            onChanged: (v) async {
-                              final success = await securityProvider.toggleBiometric(v);
-                              if (success) {
-                                final msg = "Biometric Security turned ${v ? 'ON' : 'OFF'}";
-                                if (v) ToastUtils.showSuccessToast(msg);
-                                else ToastUtils.showErrorToast(msg);
-                              } else if (v) {
-                                ToastUtils.showErrorToast('Biometric authentication failed');
-                              }
-                            }),
+                          value: securityProvider.isBiometricEnabled,
+                          onChanged: (v) async {
+                            final success = await securityProvider
+                                .toggleBiometric(v);
+                            if (success) {
+                              final msg =
+                                  "Biometric Security turned ${v ? 'ON' : 'OFF'}";
+                              if (v)
+                                ToastUtils.showSuccessToast(msg);
+                              else
+                                ToastUtils.showErrorToast(msg);
+                            } else if (v) {
+                              ToastUtils.showErrorToast(
+                                'Biometric authentication failed',
+                              );
+                            }
+                          },
+                        ),
                       ),
                       _Divider(),
                     ],
@@ -372,8 +423,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       iconColor: AppColors.orange,
                       label: 'Change Password',
                       sub: 'Update your account password',
-                      trailing: Icon(LucideIcons.chevronRight,
-                          size: 15, color: AppColors.textDim),
+                      trailing: Icon(
+                        LucideIcons.chevronRight,
+                        size: 15,
+                        color: AppColors.textDim,
+                      ),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -399,8 +453,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       iconColor: AppColors.textMid,
                       label: 'Log Out',
                       sub: 'Sign out of your account',
-                      trailing: Icon(LucideIcons.chevronRight,
-                          size: 15, color: AppColors.textDim),
+                      trailing: Icon(
+                        LucideIcons.chevronRight,
+                        size: 15,
+                        color: AppColors.textDim,
+                      ),
                       onTap: _handleLogout,
                     ),
                   ],
@@ -413,6 +470,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
               _SecLabel(label: 'Danger Zone', color: AppColors.danger),
               GestureDetector(
                 onTap: _handleDeleteAccount,
+                behavior: HitTestBehavior.opaque,
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppColors.surface,
@@ -431,8 +489,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                             color: AppColors.dangerLight,
                             borderRadius: BorderRadius.circular(11),
                           ),
-                          child: const Icon(LucideIcons.alertTriangle,
-                              size: 17, color: AppColors.danger),
+                          child: const Icon(
+                            LucideIcons.alertTriangle,
+                            size: 17,
+                            color: AppColors.danger,
+                          ),
                         ),
                         const SizedBox(width: 13),
                         Column(
@@ -441,15 +502,17 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                             Text(
                               'Delete Account',
                               style: GoogleFonts.nunito(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.danger),
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.danger,
+                              ),
                             ),
                             Text(
                               'Permanently remove all data',
                               style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: const Color(0xFFF87171)),
+                                fontSize: 11,
+                                color: const Color(0xFFF87171),
+                              ),
                             ),
                           ],
                         ),
@@ -495,15 +558,19 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
               Text(
                 title,
                 style: GoogleFonts.nunito(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.text),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 desc,
                 style: GoogleFonts.inter(
-                    fontSize: 14, color: AppColors.textMid, height: 1.6),
+                  fontSize: 14,
+                  color: AppColors.textMid,
+                  height: 1.6,
+                ),
               ),
               const SizedBox(height: 24),
               GestureDetector(
@@ -516,18 +583,20 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                     borderRadius: BorderRadius.circular(15),
                     boxShadow: [
                       BoxShadow(
-                          color: AppColors.accent.withOpacity(0.4),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8)),
+                        color: AppColors.accent.withOpacity(0.4),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
                   ),
                   child: Text(
                     'Understood',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.nunito(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -612,6 +681,7 @@ class _SettingsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         child: Row(
@@ -634,15 +704,18 @@ class _SettingsRow extends StatelessWidget {
                   Text(
                     label,
                     style: GoogleFonts.nunito(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.text),
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text,
+                    ),
                   ),
                   if (sub != null)
                     Text(
                       sub!,
                       style: GoogleFonts.inter(
-                          fontSize: 11, color: AppColors.textMid),
+                        fontSize: 11,
+                        color: AppColors.textMid,
+                      ),
                     ),
                 ],
               ),
@@ -659,7 +732,11 @@ class _Toggle extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   final Color? activeColor;
-  const _Toggle({required this.value, required this.onChanged, this.activeColor});
+  const _Toggle({
+    required this.value,
+    required this.onChanged,
+    this.activeColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -670,7 +747,9 @@ class _Toggle extends StatelessWidget {
         width: 44,
         height: 25,
         decoration: BoxDecoration(
-          color: value ? (activeColor ?? Theme.of(context).primaryColor) : const Color(0xFFD1D5DB),
+          color: value
+              ? (activeColor ?? Theme.of(context).primaryColor)
+              : const Color(0xFFD1D5DB),
           borderRadius: BorderRadius.circular(13),
         ),
         child: AnimatedAlign(
@@ -685,9 +764,10 @@ class _Toggle extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1))
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
               ],
             ),
           ),
@@ -741,9 +821,10 @@ class _Avatar extends StatelessWidget {
         child: Text(
           _initials,
           style: GoogleFonts.nunito(
-              fontSize: size * 0.33,
-              fontWeight: FontWeight.w900,
-              color: Colors.white),
+            fontSize: size * 0.33,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -779,15 +860,19 @@ class _ConfirmDialog extends StatelessWidget {
             Text(
               title,
               style: GoogleFonts.nunito(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.text),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: AppColors.text,
+              ),
             ),
             const SizedBox(height: 10),
             Text(
               message,
               style: GoogleFonts.inter(
-                  fontSize: 13.5, color: AppColors.textMid, height: 1.5),
+                fontSize: 13.5,
+                color: AppColors.textMid,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -806,9 +891,10 @@ class _ConfirmDialog extends StatelessWidget {
                         'Cancel',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textMid),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textMid,
+                        ),
                       ),
                     ),
                   ),
@@ -825,15 +911,17 @@ class _ConfirmDialog extends StatelessWidget {
                             : confirmColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: confirmColor.withOpacity(0.3)),
+                          color: confirmColor.withOpacity(0.3),
+                        ),
                       ),
                       child: Text(
                         confirmLabel,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: confirmColor),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: confirmColor,
+                        ),
                       ),
                     ),
                   ),

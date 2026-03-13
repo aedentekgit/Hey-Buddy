@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class BrandingProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
   final SharedPreferences prefs;
-  
+
   bool _isLoading = true;
   bool _hasError = false;
   String? _errorMessage;
@@ -16,7 +16,7 @@ class BrandingProvider extends ChangeNotifier {
   late Color _primaryColor;
   String? _logoUrl;
   String? _splashUrl;
-  
+
   String? _latestAppVersion;
   bool _mandatoryUpdate = false;
   String? _updateUrl;
@@ -28,15 +28,16 @@ class BrandingProvider extends ChangeNotifier {
   void _hydrateFromLocal() {
     // Load from local storage for immediate render
     _appName = prefs.getString('branding_app_name') ?? AppConfig.appName;
-    
-    final colorHex = prefs.getString('branding_primary_color') ?? AppConfig.primaryColor;
+
+    final colorHex =
+        prefs.getString('branding_primary_color') ?? AppConfig.primaryColor;
     _primaryColor = _hexToColor(colorHex);
-    
+
     _logoUrl = prefs.getString('branding_logo_url');
     _splashUrl = prefs.getString('branding_splash_url');
     final savedClientId = prefs.getString('branding_google_client_id');
     final savedMapsKey = prefs.getString('branding_google_maps_api_key');
-    
+
     // Sync to AppConfig for static access
     AppConfig.appName = _appName;
     AppConfig.primaryColor = colorHex;
@@ -44,7 +45,7 @@ class BrandingProvider extends ChangeNotifier {
     AppConfig.splashUrl = _splashUrl;
     AppConfig.googleClientId = savedClientId;
     if (savedMapsKey != null) AppConfig.googleMapsApiKey = savedMapsKey;
-    
+
     _isLoading = true; // Still loading fresh data from backend
   }
 
@@ -55,34 +56,42 @@ class BrandingProvider extends ChangeNotifier {
   Color get primaryColor => _primaryColor;
   String? get logoUrl => _logoUrl;
   String? get splashUrl => _splashUrl;
-  
+
   String? get latestAppVersion => _latestAppVersion;
   bool get mandatoryUpdate => _mandatoryUpdate;
   String? get updateUrl => _updateUrl;
 
   Future<void> fetchBranding() async {
     try {
-      debugPrint('[BRANDING] Fetching public settings from: ${AppConfig.baseUrl}');
-      final result = await _settingsService.getPublicSettings().timeout(const Duration(seconds: 30));
+      debugPrint(
+        '[BRANDING] Fetching public settings from: ${AppConfig.baseUrl}',
+      );
+      final result = await _settingsService.getPublicSettings().timeout(
+        const Duration(seconds: 30),
+      );
       if (result['success'] == true) {
         final data = result['data'];
         if (data != null) {
           final mobileApp = data['mobileApp'];
           final appearance = data['appearance'];
-          
+
           if (mobileApp != null) {
             final newAppName = mobileApp['appName'] ?? AppConfig.appName;
-            
+
             Color newPrimaryColor = _primaryColor;
-            if (mobileApp['primaryColor'] != null && mobileApp['primaryColor'].toString().isNotEmpty) {
+            if (mobileApp['primaryColor'] != null &&
+                mobileApp['primaryColor'].toString().isNotEmpty) {
               newPrimaryColor = _hexToColor(mobileApp['primaryColor']);
-            } else if (appearance != null && appearance['accentColor'] != null) {
+            } else if (appearance != null &&
+                appearance['accentColor'] != null) {
               newPrimaryColor = _hexToColor(appearance['accentColor']);
             }
-            
+
             String? newLogoUrl = AppConfig.formatImageUrl(mobileApp['appLogo']);
-            String? newSplashUrl = AppConfig.formatImageUrl(mobileApp['splashIcon']);
-            
+            String? newSplashUrl = AppConfig.formatImageUrl(
+              mobileApp['splashIcon'],
+            );
+
             // Capture Google Client ID
             String? newGoogleClientId;
             if (data['googleAuth'] != null) {
@@ -91,8 +100,9 @@ class BrandingProvider extends ChangeNotifier {
 
             // Capture Google Maps Key
             String? newGoogleMapsApiKey;
-            if (data['googleMaps'] != null && data['googleMaps']['enabled'] == true) {
-               newGoogleMapsApiKey = data['googleMaps']['apiKey'];
+            if (data['googleMaps'] != null &&
+                data['googleMaps']['enabled'] == true) {
+              newGoogleMapsApiKey = data['googleMaps']['apiKey'];
             }
 
             // Update variables
@@ -100,22 +110,36 @@ class BrandingProvider extends ChangeNotifier {
             _primaryColor = newPrimaryColor;
             _logoUrl = newLogoUrl;
             _splashUrl = newSplashUrl;
-            
+
             _latestAppVersion = mobileApp['latestAppVersion'];
             _mandatoryUpdate = mobileApp['mandatoryUpdate'] ?? false;
             _updateUrl = mobileApp['updateUrl'];
 
             // Persist for next run
             await prefs.setString('branding_app_name', _appName);
-            await prefs.setString('branding_primary_color', '#${_primaryColor.value.toRadixString(16).substring(2)}');
-            if (_logoUrl != null) await prefs.setString('branding_logo_url', _logoUrl!);
-            if (_splashUrl != null) await prefs.setString('branding_splash_url', _splashUrl!);
-            if (newGoogleClientId != null) await prefs.setString('branding_google_client_id', newGoogleClientId);
-            if (newGoogleMapsApiKey != null) await prefs.setString('branding_google_maps_api_key', newGoogleMapsApiKey);
+            await prefs.setString(
+              'branding_primary_color',
+              '#${_primaryColor.value.toRadixString(16).substring(2)}',
+            );
+            if (_logoUrl != null)
+              await prefs.setString('branding_logo_url', _logoUrl!);
+            if (_splashUrl != null)
+              await prefs.setString('branding_splash_url', _splashUrl!);
+            if (newGoogleClientId != null)
+              await prefs.setString(
+                'branding_google_client_id',
+                newGoogleClientId,
+              );
+            if (newGoogleMapsApiKey != null)
+              await prefs.setString(
+                'branding_google_maps_api_key',
+                newGoogleMapsApiKey,
+              );
 
             // Update AppConfig
             AppConfig.appName = _appName;
-            AppConfig.primaryColor = '#${_primaryColor.value.toRadixString(16).substring(2)}';
+            AppConfig.primaryColor =
+                '#${_primaryColor.value.toRadixString(16).substring(2)}';
             AppConfig.logoUrl = _logoUrl;
             AppConfig.splashUrl = _splashUrl;
             if (newGoogleClientId != null) {
@@ -128,7 +152,8 @@ class BrandingProvider extends ChangeNotifier {
         }
       } else {
         _hasError = true;
-        _errorMessage = result['message'] ?? 'Failed to fetch branding settings';
+        _errorMessage =
+            result['message'] ?? 'Failed to fetch branding settings';
       }
     } catch (e) {
       // Don't show error if we have local data as fallback
@@ -192,9 +217,7 @@ class BrandingProvider extends ChangeNotifier {
         foregroundColor: Colors.white,
         elevation: 2,
         minimumSize: const Size(double.infinity, 48),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w600,
@@ -206,9 +229,7 @@ class BrandingProvider extends ChangeNotifier {
         foregroundColor: _primaryColor,
         side: BorderSide(color: _primaryColor, width: 1.2),
         minimumSize: const Size(double.infinity, 48),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w600,

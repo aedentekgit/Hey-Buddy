@@ -37,7 +37,10 @@ class DateFormatter {
   // ─── String-based input helpers ───────────────────────────────────────────
 
   /// Format a raw ISO date string ("2026-03-15T...") using the given format.
-  static String formatDateString(String? dateStr, {String format = 'DD/MM/YYYY'}) {
+  static String formatDateString(
+    String? dateStr, {
+    String format = 'DD/MM/YYYY',
+  }) {
     if (dateStr == null || dateStr.isEmpty) return 'No date';
     try {
       final date = DateTime.parse(dateStr).toLocal();
@@ -105,7 +108,11 @@ class DateFormatter {
   }
 
   /// Display both date and time using user preferences, e.g. "15/03/2026 • 05:30 PM"
-  static String displayDateTime(BuildContext context, String? dateStr, String? timeStr) {
+  static String displayDateTime(
+    BuildContext context,
+    String? dateStr,
+    String? timeStr,
+  ) {
     final date = displayDateString(context, dateStr);
     final time = displayTimeString(context, timeStr);
     if (dateStr == null || dateStr.isEmpty) return time;

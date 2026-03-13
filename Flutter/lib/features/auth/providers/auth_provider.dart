@@ -9,37 +9,32 @@ import '../services/auth_service.dart';
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   final NotificationService _notificationService = NotificationService();
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-  );
-  
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    webOptions: WebOptions(
-      dbName: 'BuddyStore',
-      publicKey: 'BuddyKey',
-    ),
+    webOptions: WebOptions(dbName: 'BuddyStore', publicKey: 'BuddyKey'),
   );
-  
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
-  
+
   String? _token;
   String? get token => _token;
 
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       final result = await _authService.login(email, password);
-      
+
       if (result['success'] == true && result['data'] != null) {
         final data = result['data'];
-        _token = data['token']; 
-        
+        _token = data['token'];
+
         if (_token != null) {
           await _storage.write(key: 'jwt', value: _token);
-          
+
           // Trigger FCM Token update now that we have the auth token
           _notificationService.updateToken();
 
@@ -51,7 +46,7 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Login Error: $e');
     }
-    
+
     _isLoading = false;
     notifyListeners();
     return false;
@@ -62,18 +57,24 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint('[AUTH] Starting Google Sign-In with Server Client ID: ${AppConfig.googleClientId}');
-      
-      // Step 1: Trigger Google Sign In 
+      debugPrint(
+        '[AUTH] Starting Google Sign-In with Server Client ID: ${AppConfig.googleClientId}',
+      );
+
+      // Step 1: Trigger Google Sign In
       // Passing the serverClientId is VITAL for Android to receive an idToken
       final googleSignInInstance = GoogleSignIn(
         serverClientId: AppConfig.googleClientId,
-        scopes: ['email', 'profile', 'https://www.googleapis.com/auth/calendar'],
+        scopes: [
+          'email',
+          'profile',
+          'https://www.googleapis.com/auth/calendar',
+        ],
         forceCodeForRefreshToken: true,
       );
 
       final GoogleSignInAccount? account = await googleSignInInstance.signIn();
-      
+
       if (account == null) {
         _isLoading = false;
         notifyListeners();
@@ -85,7 +86,8 @@ class AuthProvider with ChangeNotifier {
       final String? idToken = auth.idToken;
 
       if (idToken == null) {
-        final errorMsg = 'Google Login Error: ID Token is null. Check if Web Client ID is correct in Admin Settings.';
+        final errorMsg =
+            'Google Login Error: ID Token is null. Check if Web Client ID is correct in Admin Settings.';
         debugPrint(errorMsg);
         ToastUtils.showErrorToast('Google Login Failed: Missing ID Token');
         _isLoading = false;
@@ -95,26 +97,31 @@ class AuthProvider with ChangeNotifier {
 
       // Step 3: Call backend
       final String? serverAuthCode = account.serverAuthCode;
-      debugPrint('[AUTH] Received Server Auth Code: ${serverAuthCode != null ? "YES" : "NO"}');
-      
-      final result = await _authService.googleLogin(idToken, serverAuthCode: serverAuthCode);
-      
+      debugPrint(
+        '[AUTH] Received Server Auth Code: ${serverAuthCode != null ? "YES" : "NO"}',
+      );
+
+      final result = await _authService.googleLogin(
+        idToken,
+        serverAuthCode: serverAuthCode,
+      );
+
       if (result['success'] == true && result['data'] != null) {
         final data = result['data'];
         _token = data['token'];
-        
+
         if (_token != null) {
           await _storage.write(key: 'jwt', value: _token);
           _notificationService.updateToken();
-          
+
           _isLoading = false;
           notifyListeners();
           return true;
         }
       } else {
-         final backendMsg = result['message'] ?? 'Backend verification failed';
-         debugPrint('[AUTH] Backend Error: $backendMsg');
-         ToastUtils.showErrorToast(backendMsg);
+        final backendMsg = result['message'] ?? 'Backend verification failed';
+        debugPrint('[AUTH] Backend Error: $backendMsg');
+        ToastUtils.showErrorToast(backendMsg);
       }
     } catch (e) {
       debugPrint('Google Login Exception: $e');
@@ -126,10 +133,14 @@ class AuthProvider with ChangeNotifier {
     return false;
   }
 
-  Future<Map<String, dynamic>> register(String name, String email, String password) async {
+  Future<Map<String, dynamic>> register(
+    String name,
+    String email,
+    String password,
+  ) async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       final result = await _authService.register(name, email, password);
       return result;
@@ -160,17 +171,20 @@ class AuthProvider with ChangeNotifier {
     }
     notifyListeners();
   }
+
   Future<bool> forgotPassword(String email) async {
     _isLoading = true;
     notifyListeners();
-    
+
     final result = await _authService.forgotPassword(email);
-    
+
     _isLoading = false;
     notifyListeners();
-    
+
     if (result['success'] == true) {
-      ToastUtils.showSuccessToast(result['message'] ?? 'OTP sent to your email');
+      ToastUtils.showSuccessToast(
+        result['message'] ?? 'OTP sent to your email',
+      );
       return true;
     } else {
       ToastUtils.showErrorToast(result['message'] ?? 'Failed to send OTP');
@@ -181,29 +195,33 @@ class AuthProvider with ChangeNotifier {
   Future<bool> verifyResetOtp(String email, String otp) async {
     _isLoading = true;
     notifyListeners();
-    
+
     final result = await _authService.verifyResetOtp(email, otp);
-    
+
     _isLoading = false;
     notifyListeners();
-    
+
     if (result['success'] == true) {
       return true;
     } else {
-       ToastUtils.showErrorToast(result['message'] ?? 'Invalid OTP');
+      ToastUtils.showErrorToast(result['message'] ?? 'Invalid OTP');
       return false;
     }
   }
 
-  Future<bool> resetPassword(String email, String otp, String newPassword) async {
+  Future<bool> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+  ) async {
     _isLoading = true;
     notifyListeners();
-    
+
     final result = await _authService.resetPassword(email, otp, newPassword);
-    
+
     _isLoading = false;
     notifyListeners();
-    
+
     if (result['success'] == true) {
       ToastUtils.showSuccessToast('Password reset successfully');
       return true;
@@ -213,18 +231,27 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> changePassword(String currentPassword, String newPassword) async {
+  Future<bool> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
     if (_token == null) return false;
     _isLoading = true;
     notifyListeners();
 
     try {
-      final result = await _authService.changePassword(currentPassword, newPassword, _token!);
+      final result = await _authService.changePassword(
+        currentPassword,
+        newPassword,
+        _token!,
+      );
       if (result['success'] == true) {
         ToastUtils.showSuccessToast('Password updated successfully');
         return true;
       } else {
-        ToastUtils.showErrorToast(result['message'] ?? 'Failed to update password');
+        ToastUtils.showErrorToast(
+          result['message'] ?? 'Failed to update password',
+        );
         return false;
       }
     } catch (e) {
@@ -236,4 +263,3 @@ class AuthProvider with ChangeNotifier {
     }
   }
 }
-

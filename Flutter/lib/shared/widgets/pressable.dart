@@ -22,8 +22,10 @@ class _PressableState extends State<Pressable>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 80),      // press down — fast
-      reverseDuration: const Duration(milliseconds: 300), // release — spring back
+      duration: const Duration(milliseconds: 80), // press down — fast
+      reverseDuration: const Duration(
+        milliseconds: 300,
+      ), // release — spring back
     );
     _scale = Tween<double>(begin: 1.0, end: 0.93).animate(
       CurvedAnimation(
@@ -49,10 +51,8 @@ class _PressableState extends State<Pressable>
       onTapCancel: () => _ctrl.reverse(),
       child: AnimatedBuilder(
         animation: _scale,
-        builder: (_, child) => Transform.scale(
-          scale: _scale.value,
-          child: child,
-        ),
+        builder: (_, child) =>
+            Transform.scale(scale: _scale.value, child: child),
         child: widget.child,
       ),
     );

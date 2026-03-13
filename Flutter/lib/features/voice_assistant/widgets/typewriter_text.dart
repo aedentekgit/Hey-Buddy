@@ -18,12 +18,12 @@ class TypewriterText extends StatefulWidget {
     this.enabled = true,
   });
 
-
   @override
   State<TypewriterText> createState() => _TypewriterTextState();
 }
 
-class _TypewriterTextState extends State<TypewriterText> with SingleTickerProviderStateMixin {
+class _TypewriterTextState extends State<TypewriterText>
+    with SingleTickerProviderStateMixin {
   AnimationController? _controller;
   late Animation<int> _characterCount;
 
@@ -64,10 +64,9 @@ class _TypewriterTextState extends State<TypewriterText> with SingleTickerProvid
     }
 
     final int charactersToType = characters - startAt;
-    
+
     // If no new characters to type, just stay at current state
     if (charactersToType <= 0) return;
-
 
     final Duration durationForRemaining = Duration(
       milliseconds: widget.duration.inMilliseconds * charactersToType,
@@ -79,9 +78,10 @@ class _TypewriterTextState extends State<TypewriterText> with SingleTickerProvid
       duration: durationForRemaining,
     );
 
-    _characterCount = StepTween(begin: startAt, end: characters).animate(
-      CurvedAnimation(parent: _controller!, curve: widget.curve),
-    );
+    _characterCount = StepTween(
+      begin: startAt,
+      end: characters,
+    ).animate(CurvedAnimation(parent: _controller!, curve: widget.curve));
 
     _controller!.forward();
   }

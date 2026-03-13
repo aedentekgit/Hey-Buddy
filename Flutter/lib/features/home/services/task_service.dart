@@ -9,7 +9,11 @@ class TaskService {
 
   String get _baseUrl => AppConfig.baseUrl;
 
-  Future<Map<String, dynamic>> fetchReminders({int page = 1, int limit = 10, String search = ''}) async {
+  Future<Map<String, dynamic>> fetchReminders({
+    int page = 1,
+    int limit = 10,
+    String search = '',
+  }) async {
     try {
       final token = await _storage.read(key: 'jwt');
 
@@ -38,10 +42,7 @@ class TaskService {
 
       final response = await http.delete(
         Uri.parse('${_baseUrl}voice/$id'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       return response.statusCode == 200;
@@ -100,20 +101,21 @@ class TaskService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchTravelStats(String id, {double? lat, double? lng}) async {
+  Future<Map<String, dynamic>?> fetchTravelStats(
+    String id, {
+    double? lat,
+    double? lng,
+  }) async {
     try {
       final token = await _storage.read(key: 'jwt');
       String url = '${_baseUrl}reminders/$id/travel-stats';
       if (lat != null && lng != null) {
         url += '?lat=$lat&lng=$lng';
       }
-      
+
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
       if (response.statusCode == 200) {
@@ -134,10 +136,7 @@ class TaskService {
       final token = await _storage.read(key: 'jwt');
       final response = await http.delete(
         Uri.parse('${_baseUrl}reminders/$reminderId/unshare/$userId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -181,4 +180,3 @@ class TaskService {
     }
   }
 }
-

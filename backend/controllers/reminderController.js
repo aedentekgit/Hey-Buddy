@@ -100,6 +100,50 @@ exports.getAdjustedNotification = (req, res) => {
     }
 };
 
+// ─── Overdue Status Helper ──────────────────────────────────────────────────
+function appendOverdueStatus(data) {
+    const isArray = Array.isArray(data);
+    const records = isArray ? data : [data];
+    const now = new Date();
+
+    const augmented = records.map(r => {
+        let isOverdue = false;
+        // Evaluate if past the deadline, regardless of status, so UI can show Pending switch if needed
+        if (r.date && r.time) {
+            let reminderHour = 0;
+            let reminderMin = 0;
+            const timeStr = r.time || '00:00';
+            const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i);
+
+            if (ampmMatch) {
+                reminderHour = parseInt(ampmMatch[1], 10);
+                reminderMin = parseInt(ampmMatch[2], 10);
+                const period = ampmMatch[3].toLowerCase();
+                if (period === 'pm' && reminderHour < 12) reminderHour += 12;
+                if (period === 'am' && reminderHour === 12) reminderHour = 0;
+            } else {
+                const parts = timeStr.split(':');
+                reminderHour = parseInt(parts[0], 10) || 0;
+                reminderMin = parseInt(parts[1], 10) || 0;
+            }
+
+            const reminderDateTime = new Date(r.date);
+            reminderDateTime.setHours(reminderHour, reminderMin, 0, 0);
+
+            if (reminderDateTime < now) {
+                isOverdue = true;
+            }
+        }
+
+        const obj = typeof r.toObject === 'function' ? r.toObject() : r;
+        return {
+            ...obj,
+            isOverdue
+        };
+    });
+
+    return isArray ? augmented : augmented[0];
+}
 
 exports.getReminders = async (req, res) => {
     try {
@@ -125,9 +169,12 @@ exports.getReminders = async (req, res) => {
             .limit(limit)
             .sort({ updatedAt: -1 });
 
+        // Process records to append `isOverdue` dynamically
+        const augmentedData = appendOverdueStatus(data);
+
         res.status(200).json({
             success: true,
-            data,
+            data: augmentedData,
             pagination: {
                 total,
                 totalPages: Math.ceil(total / limit),
@@ -212,7 +259,7 @@ exports.createReminder = async (req, res) => {
             source: googleEventId ? 'google' : 'buddy'
         });
 
-        res.status(201).json({ success: true, data: reminder });
+        res.status(201).json({ success: true, data: appendOverdueStatus(reminder) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -272,7 +319,7 @@ exports.updateReminder = async (req, res) => {
 
         const updatedReminder = await Reminder.findByIdAndUpdate(id, updateData, { new: true });
 
-        res.status(200).json({ success: true, data: updatedReminder });
+        res.status(200).json({ success: true, data: appendOverdueStatus(updatedReminder) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

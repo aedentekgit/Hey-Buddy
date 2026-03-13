@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/features/voice_assistant/screens/buddy_assistant_page.dart';
 import 'package:buddy_mobile/features/explore/screens/explore_screen.dart';
@@ -24,13 +23,16 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 1; // Default to Buddy Assistant
-  final List<int> _tabHistory = [1];
+  int _currentIndex = 0; // Default to Buddy Assistant (now at index 0)
+  late PageController _pageController;
+  final List<int> _tabHistory = [0];
   bool _isSettingsSubPage = false;
 
   late final List<Widget> _pages;
 
   void _updateTab(int index) {
+    if (_currentIndex == index) return;
+    
     setState(() {
       _currentIndex = index;
       if (_tabHistory.isEmpty || _tabHistory.last != index) {
@@ -38,11 +40,23 @@ class _MainScreenState extends State<MainScreen> {
       }
     });
 
-    if (index == 0) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+
+    if (index == 1) { // Now Explore is index 1
       Future.microtask(() {
         if (mounted) {
-          Provider.of<TasksProvider>(context, listen: false).loadTasks(silent: true);
-          Provider.of<MemoriesProvider>(context, listen: false).loadMemories(silent: true);
+          Provider.of<TasksProvider>(
+            context,
+            listen: false,
+          ).loadTasks(silent: true);
+          Provider.of<MemoriesProvider>(
+            context,
+            listen: false,
+          ).loadMemories(silent: true);
         }
       });
     }
@@ -51,14 +65,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
     _requestLocationPermission();
     _checkBiometrics();
 
     _pages = [
-      ExploreScreen(
-        onMemoryTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MemoryListScreen())),
-        onReminderTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReminderListScreen())),
-      ),
       BuddyAssistantPage(
         isIntegrated: true,
         onClose: () {
@@ -66,12 +77,25 @@ class _MainScreenState extends State<MainScreen> {
           if (auth.token != null) {
             _updateTab(3); // Go to Settings
           } else {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
           }
         },
-        onExplore: () => _onTabTapped(0), // Go to Explore
+        onExplore: () => _onTabTapped(1), // Go to Explore (now index 1)
       ),
-      const MemoryListScreen(), 
+      ExploreScreen(
+        onMemoryTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const MemoryListScreen()),
+        ),
+        onReminderTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ReminderListScreen()),
+        ),
+      ),
+      const MemoryListScreen(),
       AccountSettingsScreen(
         onSubViewChanged: (isSubPage) {
           setState(() {
@@ -82,10 +106,19 @@ class _MainScreenState extends State<MainScreen> {
     ];
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   void _onTabTapped(int index) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.token == null && index != 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+    if (auth.token == null && index != 0) { // Index 0 is Buddy (Assistant)
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
       return;
     }
     _updateTab(index);
@@ -143,17 +176,34 @@ class _MainScreenState extends State<MainScreen> {
                     currentIndex: _currentIndex,
                     onTabTapped: _onTabTapped,
                     onProfileTapped: () {
-                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      final auth = Provider.of<AuthProvider>(
+                        context,
+                        listen: false,
+                      );
                       if (auth.token != null) {
                         _updateTab(3);
                       } else {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LoginScreen(),
+                          ),
+                        );
                       }
                     },
                   ),
                 Expanded(
-                  child: IndexedStack(
-                    index: _currentIndex,
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentIndex = index;
+                        if (_tabHistory.isEmpty || _tabHistory.last != index) {
+                          _tabHistory.add(index);
+                        }
+                      });
+                    },
+                    physics: const BouncingScrollPhysics(),
                     children: _pages,
                   ),
                 ),
@@ -191,4 +241,3 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 }
-

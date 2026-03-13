@@ -7,7 +7,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 class FamilyProvider extends ChangeNotifier {
   final FamilyService _service = FamilyService();
   final SocketService _socketService;
-  
+
   List<dynamic> members = [];
   List<dynamic> requests = [];
   List<dynamic> messages = [];

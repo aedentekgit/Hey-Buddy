@@ -24,7 +24,7 @@ if (process.env.NODE_ENV === 'development') {
 // General API rate limit
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100,
+    max: process.env.NODE_ENV === 'development' ? 2000 : 100, // Allow more requests in dev for testing
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' }
@@ -49,6 +49,37 @@ const otpLimiter = rateLimit({
 });
 
 const app = express();
+const http = require('http');
+const { Server } = require('socket.io');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: [
+            config.FRONTEND_URL,
+            config.FRONTEND_URL_ALT,
+            config.AI_SERVICE_URL,
+            'https://ayuskart.com',
+            'https://staging.ayuskart.com',
+            'capacitor://localhost',
+            'http://localhost',
+            'http://localhost:5001',
+            'http://localhost:8000',
+            'http://localhost:3000',
+            'http://localhost:5173'
+        ].filter(Boolean),
+        credentials: true
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling']
+});
+
+// Initialize Socket.io Handlers
+const voiceHandler = require('./sockets/voiceHandler');
+const chatHandler = require('./sockets/chatHandler');
+voiceHandler(io);
+chatHandler(io);
 
 // Security & Performance Middleware (FIRST)
 app.use(helmet({
@@ -158,21 +189,50 @@ if (process.env.NODE_ENV === 'development') {
     });
 }
 
-// Database connection
-// SECURITY: No hardcoded fallback URI. MONGODB_URI must be explicitly set in .env.
-// A missing URI causes an early failure rather than silently connecting to a remote IP.
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) {
-    console.error('[FATAL] MONGODB_URI environment variable is not set. Refusing to start.');
-    process.exit(1);
-}
+// Database connection & Server Startup
+const startServer = async () => {
+    try {
+        const MONGODB_URI = process.env.MONGODB_URI;
+        if (!MONGODB_URI) {
+            console.error('[FATAL] MONGODB_URI environment variable is not set. Refusing to start.');
+            process.exit(1);
+        }
 
-mongoose.connect(MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((err) => {
-        console.error('MongoDB connection failed:', err.message);
+        console.log('Connecting to MongoDB...');
+        mongoose.set('bufferCommands', false);
+        await mongoose.connect(MONGODB_URI, {
+            serverSelectionTimeoutMS: 5000, // Fail fast (5s) instead of 30s
+            connectTimeoutMS: 10000,
+        });
+        console.log('✅ Connected to MongoDB');
+
+        // Start listening after successful DB connection
+        const PORT = config.PORT;
+        const { startReminderWorker } = require('./services/reminderWorker');
+        const { startSmartReminderScheduler } = require('./schedulers/smartReminderScheduler');
+
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 Server is running on port ${PORT}`);
+            console.log(`Backend fully initialized at ${new Date().toISOString()}`);
+
+            // Initialize workers & schedulers
+            startReminderWorker(io);
+            startSmartReminderScheduler(io);
+        });
+
+    } catch (err) {
+        console.error('❌ MongoDB connection failed:', err.message);
+        if (err.message.includes('ETIMEDOUT') || err.message.includes('connectTimeoutMS')) {
+            console.error('TIP: Port 27017 might be blocked or the remote server is down.');
+            console.error('If developing locally, try starting your local MongoDB:');
+            console.error('  brew services start mongodb-community');
+            console.error('And update your MONGODB_URI in .env to: mongodb://localhost:27017/staging_Heybuddy');
+        }
         process.exit(1);
-    });
+    }
+};
+
+startServer();
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -183,49 +243,6 @@ app.use((err, req, res, next) => {
         message: err.message || 'Internal Server Error',
         error: process.env.NODE_ENV === 'development' ? err : {}
     });
-});
-
-const http = require('http');
-const { Server } = require('socket.io');
-
-const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: [
-            config.FRONTEND_URL,
-            config.FRONTEND_URL_ALT,
-            config.AI_SERVICE_URL,
-            'https://ayuskart.com',
-            'https://staging.ayuskart.com',
-            // SECURITY: 'null' removed (same reason as HTTP CORS above)
-            'capacitor://localhost',
-            'http://localhost',
-            'http://localhost:5001'
-        ].filter(Boolean),
-        credentials: true
-    },
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ['websocket', 'polling'],
-    allowEIO3: true // Support older socket.io clients if needed
-});
-
-// Initialize Socket.io Handlers
-const voiceHandler = require('./sockets/voiceHandler');
-const chatHandler = require('./sockets/chatHandler');
-
-voiceHandler(io);
-chatHandler(io);
-
-const PORT = config.PORT;
-const { startReminderWorker } = require('./services/reminderWorker');
-const { startSmartReminderScheduler } = require('./schedulers/smartReminderScheduler');
-
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Backend fully initialized at ${new Date().toISOString()}`);
-    startReminderWorker(io);
-    startSmartReminderScheduler(io); // Start AI-powered reminder features
 });
 
 // Uncaught exception handler

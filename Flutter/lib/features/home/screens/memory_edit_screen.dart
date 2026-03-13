@@ -37,19 +37,21 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
 
     final dynamic extracted = widget.item['extractedData'];
     contentController = TextEditingController(
-        text: isMemory ? (widget.item['content'] ?? '') : '');
+      text: isMemory ? (widget.item['content'] ?? '') : '',
+    );
     patientController = TextEditingController(
-        text: (!isMemory && extracted != null)
-            ? (extracted['patientName'] ?? '')
-            : '');
+      text: (!isMemory && extracted != null)
+          ? (extracted['patientName'] ?? '')
+          : '',
+    );
     doctorController = TextEditingController(
-        text: (!isMemory && extracted != null)
-            ? (extracted['doctorName'] ?? '')
-            : '');
+      text: (!isMemory && extracted != null)
+          ? (extracted['doctorName'] ?? '')
+          : '',
+    );
     notesController = TextEditingController(
-        text: (!isMemory && extracted != null)
-            ? (extracted['notes'] ?? '')
-            : '');
+      text: (!isMemory && extracted != null) ? (extracted['notes'] ?? '') : '',
+    );
   }
 
   @override
@@ -120,8 +122,11 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(LucideIcons.arrowLeft,
-                            size: 18, color: AppColors.text),
+                        child: const Icon(
+                          LucideIcons.arrowLeft,
+                          size: 18,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -132,14 +137,17 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                           Text(
                             isMemory ? 'Edit Memory' : 'Edit Document',
                             style: GoogleFonts.nunito(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.text),
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.text,
+                            ),
                           ),
                           Text(
                             'Make changes and save',
                             style: GoogleFonts.inter(
-                                fontSize: 11, color: AppColors.textMid),
+                              fontSize: 11,
+                              color: AppColors.textMid,
+                            ),
                           ),
                         ],
                       ),
@@ -150,7 +158,9 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: _isSaving
                               ? AppColors.accent.withOpacity(0.5)
@@ -162,14 +172,17 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : Text(
                                 'Save',
                                 style: GoogleFonts.nunito(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
                               ),
                       ),
                     ),
@@ -188,9 +201,11 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                 children: [
                   if (isMemory) ...[
                     _SectionLabel('Memory Content'),
-                    _buildTextArea(contentController,
-                        hint: 'What do you want Buddy to remember?',
-                        maxLines: 12),
+                    _buildTextArea(
+                      contentController,
+                      hint: 'What do you want Buddy to remember?',
+                      maxLines: 12,
+                    ),
                   ] else ...[
                     _SectionLabel('Patient Name'),
                     _buildTextArea(patientController, hint: 'Patient name'),
@@ -199,8 +214,11 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                     _buildTextArea(doctorController, hint: 'Doctor name'),
                     const SizedBox(height: 16),
                     _SectionLabel('Notes'),
-                    _buildTextArea(notesController,
-                        hint: 'Additional notes', maxLines: 6),
+                    _buildTextArea(
+                      notesController,
+                      hint: 'Additional notes',
+                      maxLines: 6,
+                    ),
                   ],
                   if (isMemory) ...[
                     const SizedBox(height: 24),
@@ -231,8 +249,11 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
     );
   }
 
-  Widget _buildTextArea(TextEditingController ctrl,
-      {String hint = '', int maxLines = 1}) {
+  Widget _buildTextArea(
+    TextEditingController ctrl, {
+    String hint = '',
+    int maxLines = 1,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -246,14 +267,15 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
         style: GoogleFonts.inter(fontSize: 14, color: AppColors.text),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle:
-              GoogleFonts.inter(fontSize: 14, color: AppColors.textDim),
+          hintStyle: GoogleFonts.inter(fontSize: 14, color: AppColors.textDim),
           contentPadding: const EdgeInsets.all(16),
           border: InputBorder.none,
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide:
-                BorderSide(color: AppColors.accent.withOpacity(0.5), width: 1.5),
+            borderSide: BorderSide(
+              color: AppColors.accent.withOpacity(0.5),
+              width: 1.5,
+            ),
           ),
           enabledBorder: InputBorder.none,
         ),
@@ -274,26 +296,39 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
         children: [
           if (_selectedFile != null) ...[
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(13)),
-              child: Image.file(_selectedFile!,
-                  height: 160, width: double.infinity, fit: BoxFit.cover),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(13),
+              ),
+              child: Image.file(
+                _selectedFile!,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
             ),
             TextButton.icon(
               onPressed: () => setState(() => _selectedFile = null),
-              icon: const Icon(LucideIcons.x, size: 15, color: AppColors.danger),
-              label: Text('Remove',
-                  style: GoogleFonts.inter(
-                      fontSize: 13, color: AppColors.danger)),
+              icon: const Icon(
+                LucideIcons.x,
+                size: 15,
+                color: AppColors.danger,
+              ),
+              label: Text(
+                'Remove',
+                style: GoogleFonts.inter(fontSize: 13, color: AppColors.danger),
+              ),
             ),
           ] else if (widget.item['fileUrl'] != null) ...[
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(13)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(13),
+              ),
               child: CachedNetworkImage(
                 imageUrl:
-                    AppConfig.formatImageUrl(widget.item['fileUrl'] as String?) ??
-                        '',
+                    AppConfig.formatImageUrl(
+                      widget.item['fileUrl'] as String?,
+                    ) ??
+                    '',
                 height: 160,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -306,8 +341,11 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                   height: 80,
                   color: AppColors.bg,
                   child: Center(
-                    child: Icon(LucideIcons.imageOff,
-                        color: AppColors.textDim, size: 28),
+                    child: Icon(
+                      LucideIcons.imageOff,
+                      color: AppColors.textDim,
+                      size: 28,
+                    ),
                   ),
                 ),
               ),
@@ -315,9 +353,10 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
             TextButton.icon(
               onPressed: _pickImage,
               icon: Icon(LucideIcons.upload, size: 15, color: AppColors.accent),
-              label: Text('Change Attachment',
-                  style: GoogleFonts.inter(
-                      fontSize: 13, color: AppColors.accent)),
+              label: Text(
+                'Change Attachment',
+                style: GoogleFonts.inter(fontSize: 13, color: AppColors.accent),
+              ),
             ),
           ] else ...[
             GestureDetector(
@@ -333,19 +372,29 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                         color: AppColors.accentLight,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(LucideIcons.upload,
-                          size: 24, color: AppColors.accent),
+                      child: const Icon(
+                        LucideIcons.upload,
+                        size: 24,
+                        color: AppColors.accent,
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    Text('Upload Image or PDF',
-                        style: GoogleFonts.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.text)),
+                    Text(
+                      'Upload Image or PDF',
+                      style: GoogleFonts.nunito(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('Tap to browse your files',
-                        style: GoogleFonts.inter(
-                            fontSize: 12, color: AppColors.textMid)),
+                    Text(
+                      'Tap to browse your files',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.textMid,
+                      ),
+                    ),
                   ],
                 ),
               ),

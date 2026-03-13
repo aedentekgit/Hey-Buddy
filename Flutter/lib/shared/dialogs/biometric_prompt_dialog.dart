@@ -34,7 +34,11 @@ class BiometricPromptDialog extends StatelessWidget {
                 color: branding.primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(LucideIcons.fingerprint, size: 40, color: branding.primaryColor),
+              child: Icon(
+                LucideIcons.fingerprint,
+                size: 40,
+                color: branding.primaryColor,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
@@ -65,10 +69,18 @@ class BiometricPromptDialog extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: branding.primaryColor,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   elevation: 0,
                 ),
-                child: Text("Yes, Enable Now", style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 16)),
+                child: Text(
+                  "Yes, Enable Now",
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -76,9 +88,17 @@ class BiometricPromptDialog extends StatelessWidget {
               onPressed: () => Navigator.pop(context, false),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF94A3B8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
-              child: Text("Maybe Later", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
+              child: Text(
+                "Maybe Later",
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
             ),
           ],
         ),

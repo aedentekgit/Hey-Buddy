@@ -13,7 +13,8 @@ class KeyboardGuidedHover extends StatefulWidget {
   State<KeyboardGuidedHover> createState() => _KeyboardGuidedHoverState();
 }
 
-class _KeyboardGuidedHoverState extends State<KeyboardGuidedHover> with SingleTickerProviderStateMixin {
+class _KeyboardGuidedHoverState extends State<KeyboardGuidedHover>
+    with SingleTickerProviderStateMixin {
   final _storage = const FlutterSecureStorage();
   bool _isFirstTime = false;
   bool _hasInitialCheckDone = false;
@@ -117,7 +118,10 @@ class _KeyboardGuidedHoverState extends State<KeyboardGuidedHover> with SingleTi
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.75),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.4),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.08),
@@ -134,7 +138,11 @@ class _KeyboardGuidedHoverState extends State<KeyboardGuidedHover> with SingleTi
                     color: primaryColor.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.auto_awesome_rounded, color: primaryColor, size: 22),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    color: primaryColor,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
+
 class MobileMemoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onView;
@@ -30,28 +31,63 @@ class MobileMemoryCard extends StatelessWidget {
     // 6-color rotating palette for memory cards
     const List<List<Color>> memoryPalettes = [
       // 0 - Purple
-      [Color(0xFFF3E8FF), Color(0xFFD8B4FE), Color(0xFFE9D5FF), Color(0xFF9333EA)],
+      [
+        Color(0xFFF3E8FF),
+        Color(0xFFD8B4FE),
+        Color(0xFFE9D5FF),
+        Color(0xFF9333EA),
+      ],
       // 1 - Rose
-      [Color(0xFFFFF1F2), Color(0xFFFECACC), Color(0xFFFFE4E6), Color(0xFFE11D48)],
+      [
+        Color(0xFFFFF1F2),
+        Color(0xFFFECACC),
+        Color(0xFFFFE4E6),
+        Color(0xFFE11D48),
+      ],
       // 2 - Amber
-      [Color(0xFFFFFBEB), Color(0xFFFDE68A), Color(0xFFFEF3C7), Color(0xFFD97706)],
+      [
+        Color(0xFFFFFBEB),
+        Color(0xFFFDE68A),
+        Color(0xFFFEF3C7),
+        Color(0xFFD97706),
+      ],
       // 3 - Teal
-      [Color(0xFFEFFAF6), Color(0xFFACE0D6), Color(0xFFCAECE1), Color(0xFF0D9488)],
+      [
+        Color(0xFFEFFAF6),
+        Color(0xFFACE0D6),
+        Color(0xFFCAECE1),
+        Color(0xFF0D9488),
+      ],
       // 4 - Indigo
-      [Color(0xFFEEF2FF), Color(0xFFC7D2FE), Color(0xFFE0E7FF), Color(0xFF4F46E5)],
+      [
+        Color(0xFFEEF2FF),
+        Color(0xFFC7D2FE),
+        Color(0xFFE0E7FF),
+        Color(0xFF4F46E5),
+      ],
       // 5 - Emerald
-      [Color(0xFFECFDF5), Color(0xFF6EE7B7), Color(0xFFD1FAE5), Color(0xFF059669)],
+      [
+        Color(0xFFECFDF5),
+        Color(0xFF6EE7B7),
+        Color(0xFFD1FAE5),
+        Color(0xFF059669),
+      ],
     ];
 
     final palette = isMemory
         ? memoryPalettes[index % memoryPalettes.length]
-        : [const Color(0xFFEFFAF6), const Color(0xFFACE0D6), const Color(0xFFCAECE1), const Color(0xFF88B5A8)];
+        : [
+            const Color(0xFFEFFAF6),
+            const Color(0xFFACE0D6),
+            const Color(0xFFCAECE1),
+            const Color(0xFF88B5A8),
+          ];
 
     final Color activeBg = palette[0];
     final Color activeBorder = palette[1];
     final Color activeIconBg = palette[2];
     final Color activePrimary = palette[3];
-    final IconData icon = isMemory ? LucideIcons.brain : LucideIcons.fileText;
+    final IconData icon = isMemory ? LucideIcons.database : LucideIcons.fileText;
 
     // Button Styles - match the palette primary color
     final Color viewBtnBg = activeBg;
@@ -67,25 +103,31 @@ class MobileMemoryCard extends StatelessWidget {
         ? (item['content'] ?? 'No Content')
         : (item['fileName'] ?? 'Medical Document');
 
-
-
     final user = Provider.of<UserProvider>(context, listen: false).user;
     final dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
 
     String formatDate(String? dateStr) {
-       if (dateStr == null) return '';
-       try {
-         return DateFormatter.formatDate(DateTime.parse(dateStr), format: dateFormat);
-       } catch (e) {
-         return dateStr;
-       }
+      if (dateStr == null) return '';
+      try {
+        return DateFormatter.formatDate(
+          DateTime.parse(dateStr),
+          format: dateFormat,
+        );
+      } catch (e) {
+        return dateStr;
+      }
     }
 
     final String date = formatDate(item['createdAt']);
     final dynamic extracted = item['extractedData'];
-    final String? patientName = (!isMemory && extracted != null) ? extracted['patientName'] : null;
-    final String? doctorName = (!isMemory && extracted != null) ? extracted['doctorName'] : null;
-    final String? contentTeaser = isMemory && (item['content']?.length ?? 0) > 80
+    final String? patientName = (!isMemory && extracted != null)
+        ? extracted['patientName']
+        : null;
+    final String? doctorName = (!isMemory && extracted != null)
+        ? extracted['doctorName']
+        : null;
+    final String? contentTeaser =
+        isMemory && (item['content']?.length ?? 0) > 80
         ? "${(item['content'] as String).substring(0, 120)}..."
         : null;
 
@@ -104,7 +146,9 @@ class MobileMemoryCard extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.5), // Slightly inset to stay inside border
+        borderRadius: BorderRadius.circular(
+          16.5,
+        ), // Slightly inset to stay inside border
         child: Column(
           children: [
             // Header Section (Tinted Background)
@@ -156,7 +200,11 @@ class MobileMemoryCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                             ],
-                            Icon(LucideIcons.calendar, size: 10, color: const Color(0xFF64748B)),
+                            Icon(
+                              LucideIcons.calendar,
+                              size: 10,
+                              color: const Color(0xFF64748B),
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               date,
@@ -181,7 +229,11 @@ class MobileMemoryCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                         child: const Padding(
                           padding: EdgeInsets.all(4.0),
-                          child: Icon(LucideIcons.trash2, size: 16, color: Color(0xFFEF4444)),
+                          child: Icon(
+                            LucideIcons.trash2,
+                            size: 16,
+                            color: Color(0xFFEF4444),
+                          ),
                         ),
                       ),
                     ),
@@ -247,14 +299,19 @@ class MobileMemoryCard extends StatelessWidget {
                             ),
                           ),
                         // Attachment thumbnail strip
-                        if (item['fileUrl'] != null && (item['fileUrl'] as String).isNotEmpty) ...[
+                        if (item['fileUrl'] != null &&
+                            (item['fileUrl'] as String).isNotEmpty) ...[
                           const SizedBox(height: 10),
                           Stack(
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
                                 child: CachedNetworkImage(
-                                  imageUrl: AppConfig.formatImageUrl(item['fileUrl'] as String?) ?? '',
+                                  imageUrl:
+                                      AppConfig.formatImageUrl(
+                                        item['fileUrl'] as String?,
+                                      ) ??
+                                      '',
                                   height: 90,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
@@ -264,7 +321,11 @@ class MobileMemoryCard extends StatelessWidget {
                                       color: Colors.grey[100],
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
                                   ),
                                   errorWidget: (ctx, url, err) => Container(
                                     height: 60,
@@ -273,20 +334,35 @@ class MobileMemoryCard extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        Icon(LucideIcons.fileText, size: 16, color: Colors.grey[400]),
+                                        Icon(
+                                          LucideIcons.fileText,
+                                          size: 16,
+                                          color: Colors.grey[400],
+                                        ),
                                         const SizedBox(width: 6),
-                                        Text('Attachment', style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[400])),
+                                        Text(
+                                          'Attachment',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 11,
+                                            color: Colors.grey[400],
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ),
                               ),
                               Positioned(
-                                top: 6, right: 6,
+                                top: 6,
+                                right: 6,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withOpacity(0.6),
                                     borderRadius: BorderRadius.circular(8),
@@ -294,9 +370,20 @@ class MobileMemoryCard extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(LucideIcons.paperclip, size: 9, color: Colors.white),
+                                      const Icon(
+                                        LucideIcons.paperclip,
+                                        size: 9,
+                                        color: Colors.white,
+                                      ),
                                       const SizedBox(width: 3),
-                                      Text('Attachment', style: GoogleFonts.outfit(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        'Attachment',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 9,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),

@@ -43,7 +43,7 @@ class MobileNavbar extends StatelessWidget {
               children: [
                 _buildNavItem(context, 0, LucideIcons.bell, "Reminder"),
                 _buildCenterLabel(context), // Center label "Buddy" (index 1)
-                _buildNavItem(context, 2, LucideIcons.brain, "Memory"),
+                _buildNavItem(context, 2, LucideIcons.database, "Memory"),
                 _buildNavItem(context, 3, LucideIcons.moreHorizontal, "More"),
               ],
             ),
@@ -58,7 +58,12 @@ class MobileNavbar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, int index, IconData icon, String label) {
+  Widget _buildNavItem(
+    BuildContext context,
+    int index,
+    IconData icon,
+    String label,
+  ) {
     final bool isSelected = currentIndex == index;
     final Color primaryColor = Theme.of(context).primaryColor;
     final Color color = isSelected ? primaryColor : const Color(0xFF94A3B8);
@@ -103,7 +108,9 @@ class MobileNavbar extends StatelessWidget {
               style: GoogleFonts.outfit(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: isSelected ? Theme.of(context).primaryColor : const Color(0xFF475569),
+                color: isSelected
+                    ? Theme.of(context).primaryColor
+                    : const Color(0xFF475569),
               ),
             ),
           ],

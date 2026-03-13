@@ -49,10 +49,12 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-        () => Provider.of<MemoriesProvider>(context, listen: false)
-            .loadMemories());
+      () =>
+          Provider.of<MemoriesProvider>(context, listen: false).loadMemories(),
+    );
     _searchCtrl.addListener(
-        () => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()));
+      () => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()),
+    );
   }
 
   @override
@@ -65,21 +67,24 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
     var list = items;
     if (_activeFilter != 'All') {
       list = list
-          .where((m) =>
-              (m['tags'] as List?)
-                  ?.any((t) => t
-                      .toString()
-                      .toLowerCase()
-                      .contains(_activeFilter.toLowerCase())) ??
-              false)
+          .where(
+            (m) =>
+                (m['tags'] as List?)?.any(
+                  (t) => t.toString().toLowerCase().contains(
+                    _activeFilter.toLowerCase(),
+                  ),
+                ) ??
+                false,
+          )
           .toList();
     }
     if (_searchQuery.isNotEmpty) {
       list = list
-          .where((m) =>
-              (m['content'] as String? ?? '')
-                  .toLowerCase()
-                  .contains(_searchQuery))
+          .where(
+            (m) => (m['content'] as String? ?? '').toLowerCase().contains(
+              _searchQuery,
+            ),
+          )
           .toList();
     }
     return list;
@@ -93,7 +98,8 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
     // Reset active filter if it no longer exists in data
     if (!filters.contains(_activeFilter)) {
       WidgetsBinding.instance.addPostFrameCallback(
-          (_) => setState(() => _activeFilter = 'All'));
+        (_) => setState(() => _activeFilter = 'All'),
+      );
     }
     final filtered = _apply(allItems);
 
@@ -123,36 +129,49 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
                             borderRadius: BorderRadius.circular(11),
                             border: Border.all(color: AppColors.border),
                           ),
-                          child: const Icon(LucideIcons.arrowLeft,
-                              size: 18, color: AppColors.text),
+                          child: const Icon(
+                            LucideIcons.arrowLeft,
+                            size: 18,
+                            color: AppColors.text,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.bg,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                                color: AppColors.border, width: 1.5),
+                              color: AppColors.border,
+                              width: 1.5,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(LucideIcons.search,
-                                  size: 16, color: AppColors.textDim),
+                              const Icon(
+                                LucideIcons.search,
+                                size: 16,
+                                color: AppColors.textDim,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: TextField(
                                   controller: _searchCtrl,
                                   style: GoogleFonts.inter(
-                                      fontSize: 13.5, color: AppColors.text),
+                                    fontSize: 13.5,
+                                    color: AppColors.text,
+                                  ),
                                   decoration: InputDecoration(
                                     hintText: 'Search memories…',
                                     hintStyle: GoogleFonts.inter(
-                                        fontSize: 13.5,
-                                        color: AppColors.textDim),
+                                      fontSize: 13.5,
+                                      color: AppColors.textDim,
+                                    ),
                                     border: InputBorder.none,
                                     focusedBorder: InputBorder.none,
                                     enabledBorder: InputBorder.none,
@@ -187,7 +206,9 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 6),
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: active ? AppColors.accent : AppColors.bg,
                             borderRadius: BorderRadius.circular(20),
@@ -203,9 +224,7 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
                             style: GoogleFonts.nunito(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: active
-                                  ? Colors.white
-                                  : AppColors.textMid,
+                              color: active ? Colors.white : AppColors.textMid,
                             ),
                           ),
                         ),
@@ -223,28 +242,29 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : filtered.isEmpty
-              ? _buildEmpty()
-              : RefreshIndicator(
-                  onRefresh: () => provider.loadMemories(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) {
-                      final item = filtered[i];
-                      final color = _palette[i % _palette.length];
-                      return _MemoryCard(
-                        item: item,
-                        color: color,
-                        onView: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  MemoryDetailsScreen(item: item, color: color)),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+          ? _buildEmpty()
+          : RefreshIndicator(
+              onRefresh: () => provider.loadMemories(),
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
+                itemCount: filtered.length,
+                itemBuilder: (_, i) {
+                  final item = filtered[i];
+                  final color = _palette[i % _palette.length];
+                  return _MemoryCard(
+                    item: item,
+                    color: color,
+                    onView: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            MemoryDetailsScreen(item: item, color: color),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
     );
   }
 
@@ -260,22 +280,25 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
               color: AppColors.accentLight,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(LucideIcons.brain,
-                size: 28, color: AppColors.accent),
+            child: const Icon(
+              LucideIcons.database,
+              size: 28,
+              color: AppColors.accent,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'No memories found',
             style: GoogleFonts.nunito(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.text),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.text,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Your memories will appear here once saved.',
-            style:
-                GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
+            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
           ),
         ],
       ),
@@ -315,10 +338,7 @@ class _MemoryCard extends StatelessWidget {
   String get _title {
     final type = item['type'] ?? 'memory';
     return type == 'memory'
-        ? (item['content'] as String? ?? 'Memory')
-            .split('\n')
-            .first
-            .trim()
+        ? (item['content'] as String? ?? 'Memory').split('\n').first.trim()
         : (item['fileName'] as String? ?? 'Document');
   }
 
@@ -391,15 +411,19 @@ class _MemoryCard extends StatelessWidget {
                                     child: Text(
                                       _title,
                                       style: GoogleFonts.nunito(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 14.5,
-                                          color: AppColors.text),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14.5,
+                                        color: AppColors.text,
+                                      ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Icon(LucideIcons.chevronRight,
-                                      size: 13, color: color),
+                                  Icon(
+                                    LucideIcons.chevronRight,
+                                    size: 13,
+                                    color: color,
+                                  ),
                                 ],
                               ),
                               if (_preview.isNotEmpty) ...[
@@ -407,7 +431,9 @@ class _MemoryCard extends StatelessWidget {
                                 Text(
                                   _preview,
                                   style: GoogleFonts.inter(
-                                      fontSize: 12, color: AppColors.textMid),
+                                    fontSize: 12,
+                                    color: AppColors.textMid,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -416,14 +442,18 @@ class _MemoryCard extends StatelessWidget {
                                 const SizedBox(height: 5),
                                 Row(
                                   children: [
-                                    Icon(LucideIcons.clock,
-                                        size: 11, color: AppColors.textDim),
+                                    Icon(
+                                      LucideIcons.clock,
+                                      size: 11,
+                                      color: AppColors.textDim,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       _date,
                                       style: GoogleFonts.inter(
-                                          fontSize: 11,
-                                          color: AppColors.textDim),
+                                        fontSize: 11,
+                                        color: AppColors.textDim,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -432,11 +462,18 @@ class _MemoryCard extends StatelessWidget {
                                 const SizedBox(height: 9),
                                 Row(
                                   children: [
-                                    ..._tags.take(2).map(
+                                    ..._tags
+                                        .take(2)
+                                        .map(
                                           (t) => Padding(
-                                            padding: const EdgeInsets.only(right: 6),
+                                            padding: const EdgeInsets.only(
+                                              right: 6,
+                                            ),
                                             child: _Chip(
-                                                label: t, color: color, small: true),
+                                              label: t,
+                                              color: color,
+                                              small: true,
+                                            ),
                                           ),
                                         ),
                                   ],
@@ -462,14 +499,15 @@ class _Chip extends StatelessWidget {
   final String label;
   final Color color;
   final bool small;
-  const _Chip(
-      {required this.label, required this.color, this.small = false});
+  const _Chip({required this.label, required this.color, this.small = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: small ? 8 : 11, vertical: small ? 2 : 4),
+        horizontal: small ? 8 : 11,
+        vertical: small ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.14),
         borderRadius: BorderRadius.circular(20),

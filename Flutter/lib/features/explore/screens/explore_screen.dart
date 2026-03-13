@@ -21,11 +21,7 @@ class ExploreScreen extends StatefulWidget {
   final VoidCallback? onMemoryTap;
   final VoidCallback? onReminderTap;
 
-  const ExploreScreen({
-    super.key,
-    this.onMemoryTap,
-    this.onReminderTap,
-  });
+  const ExploreScreen({super.key, this.onMemoryTap, this.onReminderTap});
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -40,10 +36,14 @@ class _ExploreScreenState extends State<ExploreScreen>
   void initState() {
     super.initState();
     Future.microtask(() {
-      Provider.of<MemoriesProvider>(context, listen: false)
-          .loadMemories(silent: true);
-      Provider.of<TasksProvider>(context, listen: false)
-          .loadTasks(silent: true);
+      Provider.of<MemoriesProvider>(
+        context,
+        listen: false,
+      ).loadMemories(silent: true);
+      Provider.of<TasksProvider>(
+        context,
+        listen: false,
+      ).loadTasks(silent: true);
     });
   }
 
@@ -81,13 +81,15 @@ class _ExploreScreenState extends State<ExploreScreen>
                 onMemoryTap: widget.onMemoryTap ?? () {},
                 onReminderTap: widget.onReminderTap ?? () {},
                 onLocationTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const LocationRemindersScreen())),
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LocationRemindersScreen(),
+                  ),
+                ),
                 onFamilyTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const FamilyHubScreen())),
+                  context,
+                  MaterialPageRoute(builder: (_) => const FamilyHubScreen()),
+                ),
               ),
             ),
             const SizedBox(height: 22),
@@ -104,9 +106,10 @@ class _ExploreScreenState extends State<ExploreScreen>
                     child: Text(
                       'View all →',
                       style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accent),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accent,
+                      ),
                     ),
                   ),
                 ],
@@ -129,9 +132,10 @@ class _ExploreScreenState extends State<ExploreScreen>
                     child: Text(
                       'All tasks →',
                       style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accent),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accent,
+                      ),
                     ),
                   ),
                 ],
@@ -196,8 +200,8 @@ class _HeroCardState extends State<_HeroCard> {
       }
 
       final city = address.split(',').first.trim();
-      final region = address.contains(',') 
-          ? address.split(',').last.trim() 
+      final region = address.contains(',')
+          ? address.split(',').last.trim()
           : '';
 
       setState(() {
@@ -224,9 +228,11 @@ class _HeroCardState extends State<_HeroCard> {
         children: [
           // Decorative circles
           Positioned(
-            top: -18, right: -18,
+            top: -18,
+            right: -18,
             child: Container(
-              width: 140, height: 140,
+              width: 140,
+              height: 140,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: Color(0x18FFFFFF),
@@ -234,9 +240,11 @@ class _HeroCardState extends State<_HeroCard> {
             ),
           ),
           Positioned(
-            top: 50, right: 45,
+            top: 50,
+            right: 45,
             child: Container(
-              width: 95, height: 95,
+              width: 95,
+              height: 95,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: Color(0x12FFFFFF),
@@ -269,8 +277,10 @@ class _HeroCardState extends State<_HeroCard> {
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
@@ -283,9 +293,10 @@ class _HeroCardState extends State<_HeroCard> {
                       Text(
                         _locationText,
                         style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
@@ -316,15 +327,34 @@ class _QuickActionsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      _Action('Memory', LucideIcons.brain, AppColors.accent, 'Store anything',
-          onMemoryTap),
-      _Action('Reminder', LucideIcons.bell, AppColors.teal, 'Set a task',
-          onReminderTap),
-      _Action('Location Reminder', LucideIcons.mapPin, AppColors.orange, 'Geo-trigger',
-          onLocationTap),
       _Action(
-          'Family', LucideIcons.users, AppColors.pink, '3 members online',
-          onFamilyTap),
+        'Memory',
+        LucideIcons.database,
+        AppColors.accent,
+        'Store anything',
+        onMemoryTap,
+      ),
+      _Action(
+        'Reminder',
+        LucideIcons.bell,
+        AppColors.teal,
+        'Set a task',
+        onReminderTap,
+      ),
+      _Action(
+        'Location Reminder',
+        LucideIcons.mapPin,
+        AppColors.orange,
+        'Geo-trigger',
+        onLocationTap,
+      ),
+      _Action(
+        'Family',
+        LucideIcons.users,
+        AppColors.pink,
+        '3 members online',
+        onFamilyTap,
+      ),
     ];
 
     return GridView.count(
@@ -381,15 +411,15 @@ class _ActionCard extends StatelessWidget {
             Text(
               action.label,
               style: GoogleFonts.nunito(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               action.sub,
-              style: GoogleFonts.inter(
-                  fontSize: 11, color: AppColors.textMid),
+              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMid),
             ),
           ],
         ),
@@ -408,10 +438,12 @@ class _MemoryMarquee extends StatelessWidget {
     return Consumer<MemoriesProvider>(
       builder: (context, provider, _) {
         final titles = provider.memories
-            .map((m) => (m['content'] as String? ?? 'Memory')
-                .split('\n')
-                .first
-                .trim())
+            .map(
+              (m) => (m['content'] as String? ?? 'Memory')
+                  .split('\n')
+                  .first
+                  .trim(),
+            )
             .toList();
 
         if (titles.isEmpty) {
@@ -457,8 +489,7 @@ class _MarqueeRowState extends State<_MarqueeRow> {
   void initState() {
     super.initState();
     _ctrl = ScrollController(initialScrollOffset: 2000);
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _start());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
   }
 
   void _start() {
@@ -495,25 +526,26 @@ class _MarqueeRowState extends State<_MarqueeRow> {
           onTap: widget.onTap,
           child: Container(
             margin: const EdgeInsets.only(right: 8),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.border),
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 6,
-                    offset: const Offset(0, 1))
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1),
+                ),
               ],
             ),
             child: Text(
               label,
               style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textMid),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMid,
+              ),
               maxLines: 1,
             ),
           ),
@@ -545,9 +577,7 @@ class _TodayReminders extends StatelessWidget {
         }
 
         return Column(
-          children: today
-              .map((t) => _ReminderCard(task: t))
-              .toList(),
+          children: today.map((t) => _ReminderCard(task: t)).toList(),
         );
       },
     );
@@ -574,22 +604,25 @@ class _EmptyReminders extends StatelessWidget {
               color: AppColors.accentLight,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(LucideIcons.bell,
-                size: 28, color: AppColors.accent),
+            child: const Icon(
+              LucideIcons.bell,
+              size: 28,
+              color: AppColors.accent,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'No reminders today',
             style: GoogleFonts.nunito(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.text),
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.text,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Tap + to add a new reminder',
-            style: GoogleFonts.inter(
-                fontSize: 13, color: AppColors.textMid),
+            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
           ),
         ],
       ),
@@ -611,14 +644,15 @@ class _ReminderCard extends StatelessWidget {
         ? TaskUtils.getTaskColor(title, intent) as Color
         : AppColors.green;
     final icon = TaskUtils.getTaskIcon(title, intent);
-    final String timeStr =
-        DateFormatter.displayTimeString(context, task['time'] as String?);
+    final String timeStr = DateFormatter.displayTimeString(
+      context,
+      task['time'] as String?,
+    );
     final String? location = task['location'] as String?;
     final String? etaLabel = task['_etaLabel'] as String?;
 
-    final bool hasLocation = location != null &&
-        location.isNotEmpty &&
-        location != 'No Location';
+    final bool hasLocation =
+        location != null && location.isNotEmpty && location != 'No Location';
 
     return Pressable(
       onTap: () => Navigator.push(
@@ -640,10 +674,7 @@ class _ReminderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Left color stripe
-                Container(
-                  width: 5,
-                  color: color,
-                ),
+                Container(width: 5, color: color),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(14, 16, 16, 16),
@@ -658,7 +689,7 @@ class _ReminderCard extends StatelessWidget {
                             gradient: LinearGradient(
                               colors: [
                                 color.withOpacity(0.15),
-                                color.withOpacity(0.05)
+                                color.withOpacity(0.05),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
@@ -683,26 +714,31 @@ class _ReminderCard extends StatelessWidget {
                                     child: Text(
                                       title,
                                       style: GoogleFonts.nunito(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w800,
-                                          color: isOverdue
-                                              ? AppColors.textDim
-                                              : AppColors.text,
-                                          height: 1.2,
-                                          decoration: isOverdue
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                          decorationColor: AppColors.textDim),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: isOverdue
+                                            ? AppColors.textDim
+                                            : AppColors.text,
+                                        height: 1.2,
+                                        decoration: isOverdue
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        decorationColor: AppColors.textDim,
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-                                  _Chip(
-                                    label: intent?.toString() ?? 'Task',
-                                    color: color,
-                                    small: true,
-                                  ),
+                                    _Chip(
+                                      label: intent?.toString() ?? 'Task',
+                                      color: color,
+                                      small: true,
+                                    ),
+                                    if (task['priority'] == 'high') ...[
+                                      const SizedBox(width: 8),
+                                      const _PriorityChip(),
+                                    ],
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -710,15 +746,19 @@ class _ReminderCard extends StatelessWidget {
                               // Middle Row: Time
                               Row(
                                 children: [
-                                  Icon(LucideIcons.clock,
-                                      size: 13, color: AppColors.textMid),
+                                  Icon(
+                                    LucideIcons.clock,
+                                    size: 13,
+                                    color: AppColors.textMid,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     timeStr,
                                     style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textMid),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textMid,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -728,16 +768,20 @@ class _ReminderCard extends StatelessWidget {
                               Row(
                                 children: [
                                   if (hasLocation) ...[
-                                    Icon(LucideIcons.mapPin,
-                                        size: 12, color: color.withOpacity(0.7)),
+                                    Icon(
+                                      LucideIcons.mapPin,
+                                      size: 12,
+                                      color: color.withOpacity(0.7),
+                                    ),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         location,
                                         style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w400,
-                                            color: AppColors.textMid),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                          color: AppColors.textMid,
+                                        ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -748,21 +792,28 @@ class _ReminderCard extends StatelessWidget {
                                     const SizedBox(width: 12),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.accent.withOpacity(0.1),
+                                        color: AppColors.accent.withOpacity(
+                                          0.1,
+                                        ),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(
-                                            color: AppColors.accent
-                                                .withOpacity(0.2)),
+                                          color: AppColors.accent.withOpacity(
+                                            0.2,
+                                          ),
+                                        ),
                                       ),
                                       child: Text(
                                         'ETA $etaLabel',
                                         style: GoogleFonts.inter(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w800,
-                                            color: AppColors.accent,
-                                            letterSpacing: 0.2),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.accent,
+                                          letterSpacing: 0.2,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -794,9 +845,10 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: GoogleFonts.nunito(
-          fontSize: 15,
-          fontWeight: FontWeight.w800,
-          color: AppColors.text),
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+        color: AppColors.text,
+      ),
     );
   }
 }
@@ -811,7 +863,9 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: small ? 8 : 11, vertical: small ? 2 : 4),
+        horizontal: small ? 8 : 11,
+        vertical: small ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.14),
         borderRadius: BorderRadius.circular(20),
@@ -829,3 +883,36 @@ class _Chip extends StatelessWidget {
     );
   }
 }
+
+class _PriorityChip extends StatelessWidget {
+  const _PriorityChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.danger.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.flag, size: 10, color: AppColors.danger),
+          const SizedBox(width: 3),
+          Text(
+            'HIGH',
+            style: GoogleFonts.inter(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: AppColors.danger,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

@@ -27,6 +27,8 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
   bool _notifyPhone = true;
   bool _notifyFamily = false;
   bool _notifyEmergency = false;
+  late String _priority;
+  late String _status;
 
   @override
   void initState() {
@@ -34,6 +36,8 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
     final r = widget.reminder;
     _bufferMinutes = (r['bufferTime'] ?? 15).toDouble();
     _warningLevel = r['warningLevel'] ?? 'medium';
+    _priority = r['priority'] ?? 'medium';
+    _status = r['status'] ?? 'pending';
     _notifyPhone = r['notifyPhone'] ?? true;
     _notifyFamily = r['notifyFamily'] ?? false;
     _notifyEmergency = r['notifyEmergency'] ?? false;
@@ -212,8 +216,16 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                 children: [
                   // Status badge + title
                   _StatusChip(
-                    isCompleted: isCompleted,
-                    label: isCompleted ? 'Completed' : 'On Track',
+                    label: _status == 'completed'
+                        ? 'Completed'
+                        : (_status == 'snoozed'
+                            ? 'Snoozed'
+                            : (_status == 'pending'
+                                ? 'Pending'
+                                : (_status == 'risk_alert'
+                                    ? 'Risk Alert'
+                                    : 'On Track'))),
+                    status: _status,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -254,24 +266,40 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                         label: 'Complete',
                         icon: LucideIcons.checkCircle2,
                         color: AppColors.green,
+                        isSelected: _status == 'completed',
                         onTap: _handleComplete,
                       ),
                       QuickActionItem(
                         label: 'Snooze',
                         icon: LucideIcons.alarmClock,
                         color: AppColors.orange,
+                        isSelected: _status == 'snoozed',
                         onTap: _handleSnooze,
                       ),
-                      QuickActionItem(
-                        label: 'Reschedule',
-                        icon: LucideIcons.clock,
-                        color: AppColors.accent,
-                        onTap: _handleReschedule,
-                      ),
+                      if (widget.reminder['isOverdue'] == true)
+                        QuickActionItem(
+                          label: 'Pending',
+                          icon: LucideIcons.clock,
+                          color: AppColors.danger,
+                          isSelected: _status == 'pending',
+                          onTap: _handlePending,
+                        )
+                      else
+                        QuickActionItem(
+                          label: 'Reschedule',
+                          icon: LucideIcons.clock,
+                          color: AppColors.accent,
+                          onTap: _handleReschedule,
+                        ),
                       QuickActionItem(
                         label: 'Priority',
                         icon: LucideIcons.flag,
-                        color: AppColors.textMid,
+                        color: _priority == 'high'
+                            ? AppColors.danger
+                            : (_priority == 'medium'
+                                ? AppColors.orange
+                                : AppColors.textMid),
+                        isSelected: _priority != 'low',
                         onTap: _handlePriority,
                       ),
                     ],
@@ -573,25 +601,73 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
   }
 
   Future<void> _handleComplete() async {
+    final oldStatus = _status;
+    final targetStatus = oldStatus == 'completed' ? 'on_track' : 'completed';
+    setState(() => _status = targetStatus);
+
     final id = widget.reminder['_id'];
     final success = await context
         .read<LocationRemindersProvider>()
-        .updateReminder(id, {'status': 'completed'});
-    if (success && mounted) {
-      ToastUtils.showSuccessToast("Reminder marked as completed");
-      Navigator.pop(context);
+        .updateReminder(id, {'status': targetStatus});
+
+    if (!success && mounted) {
+      setState(() => _status = oldStatus);
+      ToastUtils.showErrorToast("Failed to update status (Server Busy)");
+    } else if (mounted) {
+      final msg = targetStatus == 'completed' 
+          ? "Reminder marked as completed" 
+          : "Reminder returned to on track";
+      ToastUtils.showSuccessToast(msg);
+    }
+  }
+
+  Future<void> _handlePending() async {
+    final oldStatus = _status;
+    final targetStatus = oldStatus == 'pending' ? 'on_track' : 'pending';
+    setState(() => _status = targetStatus);
+
+    final id = widget.reminder['_id'];
+    final success = await context
+        .read<LocationRemindersProvider>()
+        .updateReminder(id, {'status': targetStatus});
+
+    if (!success && mounted) {
+      setState(() => _status = oldStatus);
+      ToastUtils.showErrorToast("Failed to update status (Server Busy)");
+    } else if (mounted) {
+      final msg = targetStatus == 'pending' 
+          ? "Reminder marked as pending" 
+          : "Reminder returned to on track";
+      ToastUtils.showSuccessToast(msg);
     }
   }
 
   Future<void> _handleSnooze() async {
+    final oldStatus = _status;
+    final targetStatus = oldStatus == 'snoozed' ? 'on_track' : 'snoozed';
+    setState(() => _status = targetStatus);
+
     final id = widget.reminder['_id'];
     final rawTime = widget.reminder['time'] ?? '12:00 PM';
     final snoozed = _snoozeTime(rawTime, 30);
+    
+    final updateData = {'status': targetStatus};
+    if (targetStatus == 'snoozed') {
+      updateData['time'] = snoozed;
+    }
+
     final success = await context
         .read<LocationRemindersProvider>()
-        .updateReminder(id, {'time': snoozed});
-    if (success && mounted) {
-      ToastUtils.showSuccessToast("Snoozed for 30 minutes ($snoozed)");
+        .updateReminder(id, updateData);
+
+    if (!success && mounted) {
+      setState(() => _status = oldStatus);
+      ToastUtils.showErrorToast("Failed to update snooze (Server Busy)");
+    } else if (mounted) {
+      final msg = targetStatus == 'snoozed'
+          ? "Snoozed for 30 minutes ($snoozed)"
+          : "Snooze removed";
+      ToastUtils.showSuccessToast(msg);
     }
   }
 
@@ -630,20 +706,27 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
   }
 
   Future<void> _handlePriority() async {
-    final id = widget.reminder['_id'];
-    final current = widget.reminder['priority'] ?? 'medium';
-    String next = 'medium';
+    final current = _priority;
+    String next = 'low';
     if (current == 'low')
       next = 'medium';
     else if (current == 'medium')
       next = 'high';
-    else if (current == 'high')
+    else
       next = 'low';
 
+    final oldPriority = _priority;
+    setState(() => _priority = next);
+
+    final id = widget.reminder['_id'];
     final success = await context
         .read<LocationRemindersProvider>()
         .updateReminder(id, {'priority': next});
-    if (success && mounted) {
+
+    if (!success && mounted) {
+      setState(() => _priority = oldPriority);
+      ToastUtils.showErrorToast("Failed to update priority (Server Busy)");
+    } else if (mounted) {
       ToastUtils.showSuccessToast("Priority updated to ${next.toUpperCase()}");
     }
   }
@@ -785,13 +868,19 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
 // ── Shared widgets ──────────────────────────────────────────────────────────
 
 class _StatusChip extends StatelessWidget {
-  final bool isCompleted;
+  final String status;
   final String label;
-  const _StatusChip({required this.isCompleted, required this.label});
+  const _StatusChip({required this.status, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    final color = isCompleted ? AppColors.green : AppColors.teal;
+    Color color = AppColors.orange;
+    if (status == 'completed' || label == 'On Track') {
+      color = AppColors.green;
+    } else if (status == 'pending' || status == 'risk_alert') {
+      color = AppColors.danger;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(

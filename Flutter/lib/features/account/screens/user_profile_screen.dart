@@ -30,7 +30,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void initState() {
     super.initState();
     final user = Provider.of<UserProvider>(context, listen: false).user;
-    _nameCtrl  = TextEditingController(text: user['name'] ?? '');
+    _nameCtrl = TextEditingController(text: user['name'] ?? '');
     _emailCtrl = TextEditingController(text: user['email'] ?? '');
     _phoneCtrl = TextEditingController(text: user['phone'] ?? '');
     _dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
@@ -51,7 +51,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final ok = await provider.updateProfile(
       _nameCtrl.text.trim(),
       _phoneCtrl.text.trim(),
-      '',
+      provider.user['address'] ?? '', // Preserve existing address if not edited here
       dateFormat: _dateFormat,
       timeFormat: _timeFormat,
       timezone: _timezone,
@@ -63,7 +63,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (ok) {
       ToastUtils.showSuccessToast('Profile updated');
     } else {
-      ToastUtils.showErrorToast('Failed to update profile');
+      final String msg = provider.error.isNotEmpty 
+          ? provider.error 
+          : 'Failed to update profile';
+      ToastUtils.showErrorToast(msg);
     }
   }
 
@@ -87,8 +90,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppColors.surface,
-                      border:
-                          Border(bottom: BorderSide(color: AppColors.border)),
+                      border: Border(
+                        bottom: BorderSide(color: AppColors.border),
+                      ),
                     ),
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                     child: Row(
@@ -103,8 +107,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               borderRadius: BorderRadius.circular(11),
                               border: Border.all(color: AppColors.border),
                             ),
-                            child: const Icon(LucideIcons.arrowLeft,
-                                size: 18, color: AppColors.text),
+                            child: const Icon(
+                              LucideIcons.arrowLeft,
+                              size: 18,
+                              color: AppColors.text,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -123,7 +130,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               Text(
                                 'View and edit your details',
                                 style: GoogleFonts.inter(
-                                    fontSize: 11, color: AppColors.textMid),
+                                  fontSize: 11,
+                                  color: AppColors.textMid,
+                                ),
                               ),
                             ],
                           ),
@@ -144,7 +153,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: _editMode
                                   ? AppColors.bg
@@ -200,14 +211,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       borderRadius: BorderRadius.circular(9),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppColors.accent.withOpacity(0.4),
+                                          color: AppColors.accent.withOpacity(
+                                            0.4,
+                                          ),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
-                                    child: const Icon(LucideIcons.camera,
-                                        size: 13, color: Colors.white),
+                                    child: const Icon(
+                                      LucideIcons.camera,
+                                      size: 13,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -218,15 +234,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       Text(
                         name,
                         style: GoogleFonts.nunito(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.text),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.text,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         user['email'] ?? '',
                         style: GoogleFonts.inter(
-                            fontSize: 13, color: AppColors.textMid),
+                          fontSize: 13,
+                          color: AppColors.textMid,
+                        ),
                       ),
                       const SizedBox(height: 28),
 
@@ -298,7 +317,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         value: _timeFormat == '24' ? '24-hour' : '12-hour',
                         editable: _editMode,
                         options: ['12-hour', '24-hour'],
-                        onChanged: (v) => setState(() => _timeFormat = v.contains('24') ? '24' : '12'),
+                        onChanged: (v) => setState(
+                          () => _timeFormat = v.contains('24') ? '24' : '12',
+                        ),
                       ),
                       _buildDivider(),
                       _buildPickerField(
@@ -307,7 +328,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         label: 'Timezone',
                         value: _timezone,
                         editable: _editMode,
-                        options: ['UTC', 'IST', 'EST', 'CST', 'PST', 'GMT', 'CET'],
+                        options: [
+                          'UTC',
+                          'Asia/Kolkata',
+                          'Asia/Calcutta',
+                          'IST',
+                          'EST',
+                          'CST',
+                          'PST',
+                          'GMT',
+                          'CET',
+                        ],
                         onChanged: (v) => setState(() => _timezone = v),
                       ),
 
@@ -388,8 +419,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
         : name.isNotEmpty
-            ? name[0].toUpperCase()
-            : 'U';
+        ? name[0].toUpperCase()
+        : 'U';
     return Container(
       width: size,
       height: size,
@@ -401,9 +432,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: Text(
           initials,
           style: GoogleFonts.nunito(
-              fontSize: size * 0.33,
-              fontWeight: FontWeight.w900,
-              color: Colors.white),
+            fontSize: size * 0.33,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -424,8 +456,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildDivider() =>
-      Container(height: 1, color: AppColors.border);
+  Widget _buildDivider() => Container(height: 1, color: AppColors.border);
 
   Widget _buildField({
     required IconData icon,
@@ -458,21 +489,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 Text(
                   label,
                   style: GoogleFonts.inter(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDim,
-                      letterSpacing: 0.3),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDim,
+                    letterSpacing: 0.3,
+                  ),
                 ),
                 const SizedBox(height: 5),
                 editable
                     ? Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 9),
+                          horizontal: 12,
+                          vertical: 9,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.accentLight,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: AppColors.accent.withOpacity(0.35)),
+                            color: AppColors.accent.withOpacity(0.35),
+                          ),
                         ),
                         child: TextField(
                           controller: controller,
@@ -493,7 +528,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             fillColor: Colors.transparent,
                             hintText: hint,
                             hintStyle: GoogleFonts.nunito(
-                                fontSize: 14, color: AppColors.textDim),
+                              fontSize: 14,
+                              color: AppColors.textDim,
+                            ),
                           ),
                         ),
                       )
@@ -546,10 +583,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 Text(
                   label,
                   style: GoogleFonts.inter(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDim,
-                      letterSpacing: 0.3),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDim,
+                    letterSpacing: 0.3,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -599,23 +637,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 Text(
                   label,
                   style: GoogleFonts.inter(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDim,
-                      letterSpacing: 0.3),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDim,
+                    letterSpacing: 0.3,
+                  ),
                 ),
                 const SizedBox(height: 5),
                 editable
                     ? GestureDetector(
-                        onTap: () => _showPicker(label, options, value, onChanged),
+                        onTap: () =>
+                            _showPicker(label, options, value, onChanged),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 9),
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.accentLight,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                                color: AppColors.accent.withOpacity(0.35)),
+                              color: AppColors.accent.withOpacity(0.35),
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -629,8 +672,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   ),
                                 ),
                               ),
-                              Icon(LucideIcons.chevronDown,
-                                  size: 14, color: AppColors.textMid),
+                              Icon(
+                                LucideIcons.chevronDown,
+                                size: 14,
+                                color: AppColors.textMid,
+                              ),
                             ],
                           ),
                         ),
@@ -651,8 +697,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  void _showPicker(String title, List<String> options, String current,
-      ValueChanged<String> onChanged) {
+  void _showPicker(
+    String title,
+    List<String> options,
+    String current,
+    ValueChanged<String> onChanged,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -677,33 +727,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Text(
               'Select $title',
               style: GoogleFonts.nunito(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.text),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
+              ),
             ),
             const SizedBox(height: 16),
-            ...options.map((opt) => ListTile(
-                  title: Text(
-                    opt,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: opt == current
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: opt == current
-                          ? AppColors.accent
-                          : AppColors.text,
-                    ),
+            ...options.map(
+              (opt) => ListTile(
+                title: Text(
+                  opt,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: opt == current
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: opt == current ? AppColors.accent : AppColors.text,
                   ),
-                  trailing: opt == current
-                      ? const Icon(LucideIcons.check,
-                          color: AppColors.accent, size: 20)
-                      : null,
-                  onTap: () {
-                    onChanged(opt);
-                    Navigator.pop(context);
-                  },
-                )),
+                ),
+                trailing: opt == current
+                    ? const Icon(
+                        LucideIcons.check,
+                        color: AppColors.accent,
+                        size: 20,
+                      )
+                    : null,
+                onTap: () {
+                  onChanged(opt);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
             const SizedBox(height: 32),
           ],
         ),

@@ -62,9 +62,9 @@ class _LocationReminderCreateScreenState
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(primary: AppColors.accent),
-        ),
+        data: Theme.of(
+          context,
+        ).copyWith(colorScheme: ColorScheme.light(primary: AppColors.accent)),
         child: child!,
       ),
     );
@@ -81,15 +81,14 @@ class _LocationReminderCreateScreenState
       context: context,
       initialTime: TimeOfDay.now(),
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(primary: AppColors.accent),
-        ),
+        data: Theme.of(
+          context,
+        ).copyWith(colorScheme: ColorScheme.light(primary: AppColors.accent)),
         child: child!,
       ),
     );
     if (picked != null) {
-      final hour =
-          picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
+      final hour = picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
       final period = picked.period == DayPeriod.am ? 'AM' : 'PM';
       setState(() {
         _timeController.text =
@@ -111,19 +110,19 @@ class _LocationReminderCreateScreenState
     };
 
     final success = isEditing
-        ? await context
-            .read<LocationRemindersProvider>()
-            .updateReminder(widget.reminder!['_id'], data)
-        : await context
-            .read<LocationRemindersProvider>()
-            .createReminder(data);
+        ? await context.read<LocationRemindersProvider>().updateReminder(
+            widget.reminder!['_id'],
+            data,
+          )
+        : await context.read<LocationRemindersProvider>().createReminder(data);
 
     if (mounted) {
       setState(() => _isLoading = false);
       if (success) {
         Navigator.pop(context, true);
         ToastUtils.showSuccessToast(
-            isEditing ? 'Reminder updated' : 'Location reminder created');
+          isEditing ? 'Reminder updated' : 'Location reminder created',
+        );
       } else {
         ToastUtils.showErrorToast('Failed to save reminder');
       }
@@ -144,8 +143,7 @@ class _LocationReminderCreateScreenState
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  border:
-                      Border(bottom: BorderSide(color: AppColors.border)),
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                 child: Row(
@@ -160,8 +158,11 @@ class _LocationReminderCreateScreenState
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(LucideIcons.arrowLeft,
-                            size: 18, color: AppColors.text),
+                        child: const Icon(
+                          LucideIcons.arrowLeft,
+                          size: 18,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -184,7 +185,9 @@ class _LocationReminderCreateScreenState
                                 ? 'Update reminder details'
                                 : 'Set a location-based reminder',
                             style: GoogleFonts.inter(
-                                fontSize: 11, color: AppColors.textMid),
+                              fontSize: 11,
+                              color: AppColors.textMid,
+                            ),
                           ),
                         ],
                       ),
@@ -273,28 +276,28 @@ class _LocationReminderCreateScreenState
                   Row(
                     children: [
                       _WarningOption(
-                          label: 'Low',
-                          value: 'low',
-                          color: AppColors.green,
-                          selected: _warningLevel == 'low',
-                          onTap: () =>
-                              setState(() => _warningLevel = 'low')),
+                        label: 'Low',
+                        value: 'low',
+                        color: AppColors.green,
+                        selected: _warningLevel == 'low',
+                        onTap: () => setState(() => _warningLevel = 'low'),
+                      ),
                       const SizedBox(width: 8),
                       _WarningOption(
-                          label: 'Medium',
-                          value: 'medium',
-                          color: AppColors.orange,
-                          selected: _warningLevel == 'medium',
-                          onTap: () =>
-                              setState(() => _warningLevel = 'medium')),
+                        label: 'Medium',
+                        value: 'medium',
+                        color: AppColors.orange,
+                        selected: _warningLevel == 'medium',
+                        onTap: () => setState(() => _warningLevel = 'medium'),
+                      ),
                       const SizedBox(width: 8),
                       _WarningOption(
-                          label: 'High',
-                          value: 'high',
-                          color: AppColors.danger,
-                          selected: _warningLevel == 'high',
-                          onTap: () =>
-                              setState(() => _warningLevel = 'high')),
+                        label: 'High',
+                        value: 'high',
+                        color: AppColors.danger,
+                        selected: _warningLevel == 'high',
+                        onTap: () => setState(() => _warningLevel = 'high'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 36),
@@ -322,14 +325,13 @@ class _LocationReminderCreateScreenState
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white),
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               ),
                             )
                           : Text(
-                              isEditing
-                                  ? 'Update Reminder'
-                                  : 'Create Reminder',
+                              isEditing ? 'Update Reminder' : 'Create Reminder',
                               textAlign: TextAlign.center,
                               style: GoogleFonts.nunito(
                                 fontSize: 15,
@@ -399,24 +401,27 @@ class _StyledField extends StatelessWidget {
         validator: validator,
         cursorColor: AppColors.accent,
         style: GoogleFonts.nunito(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: AppColors.text),
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: AppColors.text,
+        ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle:
-              GoogleFonts.inter(fontSize: 13, color: AppColors.textDim),
+          hintStyle: GoogleFonts.inter(fontSize: 13, color: AppColors.textDim),
           prefixIcon: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Icon(icon, size: 17, color: color),
           ),
-          prefixIconConstraints:
-              const BoxConstraints(minWidth: 0, minHeight: 0),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 0,
+            minHeight: 0,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 15,
+          ),
           border: InputBorder.none,
-          errorStyle: GoogleFonts.inter(
-              fontSize: 11, color: AppColors.danger),
+          errorStyle: GoogleFonts.inter(fontSize: 11, color: AppColors.danger),
         ),
       ),
     );
@@ -444,8 +449,7 @@ class _TappableField extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
@@ -463,9 +467,9 @@ class _TappableField extends StatelessWidget {
                     ? GoogleFonts.nunito(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.text)
-                    : GoogleFonts.inter(
-                        fontSize: 13, color: AppColors.textDim),
+                        color: AppColors.text,
+                      )
+                    : GoogleFonts.inter(fontSize: 13, color: AppColors.textDim),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

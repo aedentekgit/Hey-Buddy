@@ -37,7 +37,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     setState(() => _processing = true);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     final success = await authProvider.changePassword(
       _currentPwdCtrl.text,
       _newPwdCtrl.text,
@@ -80,8 +80,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(LucideIcons.arrowLeft,
-                            size: 19, color: AppColors.text),
+                        child: const Icon(
+                          LucideIcons.arrowLeft,
+                          size: 19,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -100,7 +103,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           Text(
                             'Update your account security',
                             style: GoogleFonts.inter(
-                                fontSize: 11.5, color: AppColors.textMid),
+                              fontSize: 11.5,
+                              color: AppColors.textMid,
+                            ),
                           ),
                         ],
                       ),
@@ -111,8 +116,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         color: AppColors.accentLight,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(LucideIcons.shieldCheck,
-                          size: 18, color: AppColors.accent),
+                      child: const Icon(
+                        LucideIcons.shieldCheck,
+                        size: 18,
+                        color: AppColors.accent,
+                      ),
                     ),
                   ],
                 ),
@@ -131,7 +139,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   children: [
                     _buildInfoCard(),
                     const SizedBox(height: 32),
-                    
+
                     Text(
                       'CURRENT PASSWORD',
                       style: GoogleFonts.inter(
@@ -146,13 +154,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       controller: _currentPwdCtrl,
                       hint: 'Enter your current password',
                       obscure: _obscureCurrent,
-                      onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                      onToggle: () =>
+                          setState(() => _obscureCurrent = !_obscureCurrent),
                       icon: LucideIcons.lock,
                       iconColor: AppColors.orange,
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     Text(
                       'NEW PASSWORD',
                       style: GoogleFonts.inter(
@@ -167,17 +176,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       controller: _newPwdCtrl,
                       hint: 'Minimum 8 characters',
                       obscure: _obscureNew,
-                      onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                      onToggle: () =>
+                          setState(() => _obscureNew = !_obscureNew),
                       icon: LucideIcons.key,
                       iconColor: AppColors.teal,
                       validator: (v) {
-                        if (v == null || v.length < 8) return 'Password too short';
+                        if (v == null || v.length < 8)
+                          return 'Password too short';
                         return null;
                       },
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     Text(
                       'CONFIRM NEW PASSWORD',
                       style: GoogleFonts.inter(
@@ -192,17 +203,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       controller: _confirmPwdCtrl,
                       hint: 'Re-type your new password',
                       obscure: _obscureConfirm,
-                      onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      onToggle: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
                       icon: LucideIcons.checkCircle,
                       iconColor: AppColors.green,
                       validator: (v) {
-                        if (v != _newPwdCtrl.text) return 'Passwords do not match';
+                        if (v != _newPwdCtrl.text)
+                          return 'Passwords do not match';
                         return null;
                       },
                     ),
-                    
+
                     const SizedBox(height: 48),
-                    
+
                     // Button
                     GestureDetector(
                       onTap: _processing ? null : _handleSubmit,
@@ -221,27 +234,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           ],
                         ),
                         child: _processing
-                          ? const Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  'Update Password',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: 0.2,
+                                  ),
                                 ),
                               ),
-                            )
-                          : Center(
-                              child: Text(
-                                'Update Password',
-                                style: GoogleFonts.nunito(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ),
                       ),
                     ),
                   ],
@@ -277,17 +290,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               color: AppColors.orange.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(LucideIcons.alertTriangle,
-                color: AppColors.orange, size: 20),
+            child: const Icon(
+              LucideIcons.alertTriangle,
+              color: AppColors.orange,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
               'Make sure your new password is at least 8 characters long and includes numbers or symbols for better security.',
               style: GoogleFonts.inter(
-                  fontSize: 12.5,
-                  color: AppColors.textMid,
-                  height: 1.5),
+                fontSize: 12.5,
+                color: AppColors.textMid,
+                height: 1.5,
+              ),
             ),
           ),
         ],

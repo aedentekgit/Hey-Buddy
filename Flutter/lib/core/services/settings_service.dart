@@ -2,10 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 
 class SettingsService {
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: AppConfig.baseUrl,
-    headers: {'x-platform': 'mobile'},
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(baseUrl: AppConfig.baseUrl, headers: {'x-platform': 'mobile'}),
+  );
 
   Future<Map<String, dynamic>> getPublicSettings() async {
     try {

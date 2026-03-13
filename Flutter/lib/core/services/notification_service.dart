@@ -13,7 +13,7 @@ import 'package:firebase_core/firebase_core.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  
+
   print("[FCM Background] messageId: ${message.messageId}");
   print("[FCM Background] title: ${message.notification?.title}");
   print("[FCM Background] body: ${message.notification?.body}");
@@ -30,7 +30,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (isDataOnly && text != null && text.isNotEmpty) {
     final localNotif = FlutterLocalNotificationsPlugin();
     const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
-    await localNotif.initialize(const InitializationSettings(android: androidInit));
+    await localNotif.initialize(
+      const InitializationSettings(android: androidInit),
+    );
 
     await localNotif.show(
       message.hashCode,
@@ -87,7 +89,8 @@ class NotificationService {
     // 1. Create Android notification channel
     await _localNotif
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_channel);
 
     // 2. Initialize local notifications plugin
@@ -187,13 +190,17 @@ class NotificationService {
 
     // 7. Handle notification tap when app is in background (but not killed)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('[FCM] App opened from notification: ${message.notification?.title}');
+      print(
+        '[FCM] App opened from notification: ${message.notification?.title}',
+      );
     });
 
     // 8. Check if app was opened from a terminated-state notification
     final RemoteMessage? initialMessage = await _fcm.getInitialMessage();
     if (initialMessage != null) {
-      print('[FCM] App launched from notification: ${initialMessage.notification?.title}');
+      print(
+        '[FCM] App launched from notification: ${initialMessage.notification?.title}',
+      );
     }
   }
 

@@ -17,8 +17,8 @@ class MobileAppHeader extends StatelessWidget {
     required this.onProfileTapped,
   });
 
-  bool get _buddyActive   => currentIndex == 1;
-  bool get _exploreActive => currentIndex == 0 || currentIndex == 2;
+  bool get _buddyActive => currentIndex == 0;
+  bool get _exploreActive => currentIndex == 1 || currentIndex == 2;
   bool get _settingsActive => currentIndex == 3;
 
   @override
@@ -26,9 +26,7 @@ class MobileAppHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: 60,
-      decoration: const BoxDecoration(
-        gradient: AppColors.headerGradient,
-      ),
+      decoration: const BoxDecoration(gradient: AppColors.headerGradient),
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
       child: Row(
         children: [
@@ -37,14 +35,14 @@ class MobileAppHeader extends StatelessWidget {
             icon: LucideIcons.user,
             label: 'Buddy',
             active: _buddyActive,
-            onTap: () => onTabTapped(1),
+            onTap: () => onTabTapped(0),
           ),
           const SizedBox(width: 20),
           _NavTab(
             icon: LucideIcons.compass,
             label: 'Explore',
             active: _exploreActive,
-            onTap: () => onTabTapped(0),
+            onTap: () => onTabTapped(1),
           ),
           const Spacer(),
           // ── Settings button ───────────────────────────────────────
@@ -111,9 +109,7 @@ class _NavTab extends StatelessWidget {
             Icon(
               icon,
               size: active ? 24 : 18,
-              color: active
-                  ? Colors.white
-                  : Colors.white.withOpacity(0.45),
+              color: active ? Colors.white : Colors.white.withOpacity(0.45),
             ),
             if (active) ...[
               const SizedBox(width: 8),

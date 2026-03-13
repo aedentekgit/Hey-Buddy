@@ -9,21 +9,19 @@ class LocationService {
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
 
-  Future<void> updateLocationOnBackend(double lat, double lng, String address) async {
+  Future<void> updateLocationOnBackend(
+    double lat,
+    double lng,
+    String address,
+  ) async {
     try {
       final token = await _storage.read(key: 'jwt');
       if (token == null) return;
 
       await _dio.post(
         '${AppConfig.baseUrl}users/location',
-        data: {
-          'lat': lat,
-          'lng': lng,
-          'address': address,
-        },
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+        data: {'lat': lat, 'lng': lng, 'address': address},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       print("Backend location updated: $lat, $lng");
     } catch (e) {
@@ -45,27 +43,36 @@ class LocationService {
     );
 
     // Return the subscription so callers can cancel it and avoid memory leaks
-    return Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-      (Position position) async {
-        try {
-          // Reverse geocode to get address
-          List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
-          final p = placemarks.isNotEmpty ? placemarks[0] : null;
-          final locality = p?.locality ?? '';
-          final region   = p?.administrativeArea ?? '';
-          final String address = (locality.isNotEmpty && region.isNotEmpty)
-              ? '$locality, $region'
-              : (locality.isNotEmpty ? locality : (region.isNotEmpty ? region : 'Unknown'));
+    return Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) async {
+      try {
+        // Reverse geocode to get address
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        final p = placemarks.isNotEmpty ? placemarks[0] : null;
+        final locality = p?.locality ?? '';
+        final region = p?.administrativeArea ?? '';
+        final String address = (locality.isNotEmpty && region.isNotEmpty)
+            ? '$locality, $region'
+            : (locality.isNotEmpty
+                  ? locality
+                  : (region.isNotEmpty ? region : 'Unknown'));
 
-          // Notify caller so UI/state can update immediately
-          onLocationUpdate?.call(address, position.latitude, position.longitude);
+        // Notify caller so UI/state can update immediately
+        onLocationUpdate?.call(address, position.latitude, position.longitude);
 
-          await updateLocationOnBackend(position.latitude, position.longitude, address);
-        } catch (e) {
-          print("Live tracking update failed: $e");
-        }
-      },
-    );
+        await updateLocationOnBackend(
+          position.latitude,
+          position.longitude,
+          address,
+        );
+      } catch (e) {
+        print("Live tracking update failed: $e");
+      }
+    });
   }
 
   Future<Map<String, dynamic>?> getCurrentLocation() async {
@@ -85,34 +92,38 @@ class LocationService {
         return null;
       }
     }
-    
+
     if (permission == LocationPermission.deniedForever) {
       return null;
-    } 
+    }
 
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 15),
       );
-      
-      List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
       String address = "Unknown Location";
-      
+
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         List<String> addressParts = [];
-        
+
         if (place.locality != null && place.locality!.isNotEmpty) {
-           addressParts.add(place.locality!);
+          addressParts.add(place.locality!);
         }
-        
-        if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+
+        if (place.administrativeArea != null &&
+            place.administrativeArea!.isNotEmpty) {
           addressParts.add(place.administrativeArea!);
         }
 
         if (addressParts.isEmpty && place.name != null) {
-           addressParts.add(place.name!);
+          addressParts.add(place.name!);
         }
 
         address = addressParts.join(", ");

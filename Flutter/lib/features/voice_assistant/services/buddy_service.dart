@@ -20,11 +20,14 @@ class BuddyService {
       'Content-Type': 'application/json',
       'x-platform': 'mobile',
     };
-    
-    if (token != null && token.isNotEmpty && token != "null" && token != "undefined") {
+
+    if (token != null &&
+        token.isNotEmpty &&
+        token != "null" &&
+        token != "undefined") {
       headers['Authorization'] = 'Bearer $token';
     }
-    
+
     return headers;
   }
 
@@ -38,40 +41,46 @@ class BuddyService {
   }) async {
     try {
       final headers = await _getHeaders();
-      final response = await http.post(
-        Uri.parse('${_baseUrl}voice/parse'),
-        headers: headers,
-        body: jsonEncode({
-          'text': text,
-          'image': image,
-          'language': language,
-          'history': history,
-          'conversationId': conversationId,
-          'timeZone': DateTime.now().timeZoneName,
-          'clientTimestamp': DateTime.now().millisecondsSinceEpoch,
-        }),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse('${_baseUrl}voice/parse'),
+            headers: headers,
+            body: jsonEncode({
+              'text': text,
+              'image': image,
+              'language': language,
+              'history': history,
+              'conversationId': conversationId,
+              'timeZone': DateTime.now().timeZoneName,
+              'clientTimestamp': DateTime.now().millisecondsSinceEpoch,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return {'success': false, 'message': 'Status: ${response.statusCode}', 'statusCode': response.statusCode};
+      return {
+        'success': false,
+        'message': 'Status: ${response.statusCode}',
+        'statusCode': response.statusCode,
+      };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }
 
   // Reminders
-  Future<Map<String, dynamic>> saveReminder(Map<String, dynamic> reminderData, String saveTo) async {
+  Future<Map<String, dynamic>> saveReminder(
+    Map<String, dynamic> reminderData,
+    String saveTo,
+  ) async {
     try {
       final headers = await _getHeaders();
       final response = await http.post(
         Uri.parse('${_baseUrl}voice/save'),
         headers: headers,
-        body: jsonEncode({
-          'reminderData': reminderData,
-          'saveTo': saveTo,
-        }),
+        body: jsonEncode({'reminderData': reminderData, 'saveTo': saveTo}),
       );
       return jsonDecode(response.body);
     } catch (e) {
@@ -85,10 +94,7 @@ class BuddyService {
       final token = await _getToken();
       final response = await http.get(
         Uri.parse('${_baseUrl}conversations'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -105,10 +111,7 @@ class BuddyService {
       final token = await _getToken();
       final response = await http.get(
         Uri.parse('${_baseUrl}conversations/$id'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -125,10 +128,7 @@ class BuddyService {
       final token = await _getToken();
       final response = await http.delete(
         Uri.parse('${_baseUrl}conversations/$id'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -141,10 +141,7 @@ class BuddyService {
       final token = await _getToken();
       final response = await http.delete(
         Uri.parse('${_baseUrl}conversations'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -153,20 +150,30 @@ class BuddyService {
   }
 
   // Prescription / Image Analysis
-  Future<Map<String, dynamic>> uploadPrescription(File file, String language) async {
+  Future<Map<String, dynamic>> uploadPrescription(
+    File file,
+    String language,
+  ) async {
     try {
       final token = await _getToken();
-      var request = http.MultipartRequest('POST', Uri.parse('${_baseUrl}voice/upload-prescription'));
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${_baseUrl}voice/upload-prescription'),
+      );
       request.headers['Authorization'] = 'Bearer $token';
-      
-      String extension = file.path.split('.').last.toLowerCase();
-      MediaType mediaType = (extension == 'png') ? MediaType('image', 'png') : MediaType('image', 'jpeg');
 
-      request.files.add(await http.MultipartFile.fromPath(
-        'document',
-        file.path,
-        contentType: mediaType,
-      ));
+      String extension = file.path.split('.').last.toLowerCase();
+      MediaType mediaType = (extension == 'png')
+          ? MediaType('image', 'png')
+          : MediaType('image', 'jpeg');
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'document',
+          file.path,
+          contentType: mediaType,
+        ),
+      );
       request.fields['language'] = language;
 
       var streamedResponse = await request.send();
@@ -178,7 +185,10 @@ class BuddyService {
     }
   }
 
-  Future<Map<String, dynamic>> confirmMedicalReminders(String prescriptionId, Map<String, dynamic> confirmationData) async {
+  Future<Map<String, dynamic>> confirmMedicalReminders(
+    String prescriptionId,
+    Map<String, dynamic> confirmationData,
+  ) async {
     try {
       final token = await _getToken();
       final response = await http.post(
@@ -206,14 +216,17 @@ class BuddyService {
       if (lat != null && lon != null) {
         url += '?lat=$lat&lon=$lon';
       }
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(Uri.parse(url), headers: headers)
+          .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return {'success': false, 'message': 'Status: ${response.statusCode}', 'statusCode': response.statusCode};
+      return {
+        'success': false,
+        'message': 'Status: ${response.statusCode}',
+        'statusCode': response.statusCode,
+      };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }

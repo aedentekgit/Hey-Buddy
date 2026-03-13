@@ -28,7 +28,12 @@ class BuddyAssistantPage extends StatefulWidget {
   final bool isIntegrated;
   final VoidCallback? onClose;
   final VoidCallback? onExplore;
-  const BuddyAssistantPage({super.key, this.isIntegrated = false, this.onClose, this.onExplore});
+  const BuddyAssistantPage({
+    super.key,
+    this.isIntegrated = false,
+    this.onClose,
+    this.onExplore,
+  });
 
   @override
   State<BuddyAssistantPage> createState() => _BuddyAssistantPageState();
@@ -39,7 +44,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
   final SpeechToText _speechToText = SpeechToText();
-  
+
   bool _isListening = false;
   final String _selectedLanguage = "en-GB";
   File? _selectedImage;
@@ -54,7 +59,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<BuddyProvider>(context, listen: false);
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      
+
       provider.fetchHistory().then((_) {
         _scrollToBottom(false);
       });
@@ -73,19 +78,22 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       double? lat = userProvider.user['currentLocation']?['lat'];
       double? lon = userProvider.user['currentLocation']?['lng'];
-      
+
       if (lat == null || lon == null) {
         Geolocator.checkPermission().then((permission) {
-          if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+          if (permission == LocationPermission.always ||
+              permission == LocationPermission.whileInUse) {
             Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-              timeLimit: const Duration(seconds: 15),
-            ).then((pos) {
-              userProvider.setGuestLocation(pos.latitude, pos.longitude);
-              provider.fetchLocalNews(pos.latitude, pos.longitude);
-            }).catchError((e) {
-              provider.fetchLocalNews(null, null);
-            });
+                  desiredAccuracy: LocationAccuracy.high,
+                  timeLimit: const Duration(seconds: 15),
+                )
+                .then((pos) {
+                  userProvider.setGuestLocation(pos.latitude, pos.longitude);
+                  provider.fetchLocalNews(pos.latitude, pos.longitude);
+                })
+                .catchError((e) {
+                  provider.fetchLocalNews(null, null);
+                });
           } else {
             provider.fetchLocalNews(null, null);
           }
@@ -100,12 +108,14 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final currentToken = auth.token;
-    
+
     // Only reconnect if the token actually changed (login or logout)
     if (currentToken != _lastKnownToken) {
-      print('[BuddyPage] Auth token changed (${_lastKnownToken == null ? 'was guest' : 'was logged in'} → ${currentToken == null ? 'now guest' : 'now logged in'}). Reconnecting socket...');
+      print(
+        '[BuddyPage] Auth token changed (${_lastKnownToken == null ? 'was guest' : 'was logged in'} → ${currentToken == null ? 'now guest' : 'now logged in'}). Reconnecting socket...',
+      );
       _lastKnownToken = currentToken;
-      
+
       final provider = Provider.of<BuddyProvider>(context, listen: false);
       // Force a full socket reconnect so it picks up the new JWT
       provider.toggleRealtime(false);
@@ -117,7 +127,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     }
   }
 
-
   Future<void> _initSpeech() async {
     try {
       // Check status first to avoid forced OS prompt if already determined
@@ -125,15 +134,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       if (status.isDenied) {
         status = await Permission.microphone.request();
       }
-      
+
       if (status != PermissionStatus.granted) {
         if (kDebugMode) print('Microphone permission not granted');
         return;
       }
 
       bool available = await _speechToText.initialize(
-        onStatus: (status) { if (kDebugMode) print('STT Status: $status'); },
-        onError: (error) { if (kDebugMode) print('STT Error: $error'); },
+        onStatus: (status) {
+          if (kDebugMode) print('STT Status: $status');
+        },
+        onError: (error) {
+          if (kDebugMode) print('STT Error: $error');
+        },
       );
       if (kDebugMode) print('STT Available: $available');
     } catch (e) {
@@ -145,15 +158,18 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     try {
       final provider = Provider.of<BuddyProvider>(context, listen: false);
       final tts = provider.tts;
-      
+
       await tts.setLanguage(_selectedLanguage);
-      
+
       // Use pre-resolved voice configurations from backend payload
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final resolvedConfig = userProvider.user['resolvedVoiceConfig'] as Map<String, dynamic>? ?? {};
-      
+      final resolvedConfig =
+          userProvider.user['resolvedVoiceConfig'] as Map<String, dynamic>? ??
+          {};
+
       double pitch = (resolvedConfig['pitch'] as num?)?.toDouble() ?? 1.0;
-      double speechRate = (resolvedConfig['speechRate'] as num?)?.toDouble() ?? 0.5;
+      double speechRate =
+          (resolvedConfig['speechRate'] as num?)?.toDouble() ?? 0.5;
 
       await tts.setSpeechRate(speechRate);
       await tts.setVolume(1.0);
@@ -193,7 +209,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     });
   }
 
-
   Future<void> _handleSend() async {
     final text = _inputController.text.trim();
     if (text.isEmpty && _selectedImage == null) return;
@@ -204,10 +219,33 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     if (auth.token == null) {
       final lower = text.toLowerCase();
       final actionKeywords = [
-        'remind', 'reminder', 'remember', 'memo', 'memory', 'save', 'note',
-        'schedule', 'alarm', 'alert', 'set a', 'add a', 'create a', 'store',
-        'don\'t forget', 'dont forget', 'keep track', 'task', 'todo', 'to-do',
-        'plan', 'appointment', 'meeting', 'event', 'at ', 'pm', 'am',
+        'remind',
+        'reminder',
+        'remember',
+        'memo',
+        'memory',
+        'save',
+        'note',
+        'schedule',
+        'alarm',
+        'alert',
+        'set a',
+        'add a',
+        'create a',
+        'store',
+        'don\'t forget',
+        'dont forget',
+        'keep track',
+        'task',
+        'todo',
+        'to-do',
+        'plan',
+        'appointment',
+        'meeting',
+        'event',
+        'at ',
+        'pm',
+        'am',
       ];
       final isActionRequest = actionKeywords.any((kw) => lower.contains(kw));
       if (isActionRequest) {
@@ -220,7 +258,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
     // Capture image path before clearing
     final imagePath = _selectedImage?.path;
-    
+
     // Add user message locally
     provider.addMessage('user', text, image: imagePath);
     _inputController.clear();
@@ -230,11 +268,15 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     _scrollToBottom();
 
     // Send to API
-    await provider.sendMessage(text, imagePath: imagePath, language: _selectedLanguage);
-    
+    await provider.sendMessage(
+      text,
+      imagePath: imagePath,
+      language: _selectedLanguage,
+    );
+
     // Restart wake word detection after manual response processed
     if (!provider.isStreaming) {
-       provider.startWakeWordDetection();
+      provider.startWakeWordDetection();
     }
 
     _scrollToBottom();
@@ -242,12 +284,22 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   /// Returns a human-friendly reason string for the auth prompt.
   String _detectActionReason(String lower) {
-    if (lower.contains('remind') || lower.contains('reminder')) return 'set a Reminder';
-    if (lower.contains('memory') || lower.contains('memo') || lower.contains('remember')) return 'save a Memory';
+    if (lower.contains('remind') || lower.contains('reminder'))
+      return 'set a Reminder';
+    if (lower.contains('memory') ||
+        lower.contains('memo') ||
+        lower.contains('remember'))
+      return 'save a Memory';
     if (lower.contains('note')) return 'save a Note';
     if (lower.contains('alarm')) return 'set an Alarm';
-    if (lower.contains('schedule') || lower.contains('appointment') || lower.contains('meeting')) return 'schedule an Event';
-    if (lower.contains('task') || lower.contains('todo') || lower.contains('to-do')) return 'create a Task';
+    if (lower.contains('schedule') ||
+        lower.contains('appointment') ||
+        lower.contains('meeting'))
+      return 'schedule an Event';
+    if (lower.contains('task') ||
+        lower.contains('todo') ||
+        lower.contains('to-do'))
+      return 'create a Task';
     return 'save this';
   }
 
@@ -262,52 +314,59 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   void _startListening() async {
     try {
-        if (!_speechToText.isAvailable) {
-            await _initSpeech();
-        }
-        
-        if (!_speechToText.isAvailable) {
-            if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Speech recognition not available. Please check permissions in Settings.'),
-                        backgroundColor: Colors.redAccent,
-                    ),
-                );
-            }
-            return;
-        }
-        
-        final provider = Provider.of<BuddyProvider>(context, listen: false);
-        await provider.stopAllAudio(); // STOP AI IMMEDIATELY WHEN USER WANTS TO TALK
-        
-        // Stop background wake word streaming to free up mic for local STT
-        await provider.stopWakeWordDetection();
+      if (!_speechToText.isAvailable) {
+        await _initSpeech();
+      }
 
-        setState(() => _isListening = true);
-        await _speechToText.listen(
-          onResult: (result) {
-            if (kDebugMode) print('STT Result: "${result.recognizedWords}" (Final: ${result.finalResult})');
-            setState(() {
-                _inputController.text = result.recognizedWords;
-            });
-            if (result.finalResult) {
-              if (kDebugMode) print('STT Final Result arrived. Sending message...');
-              setState(() => _isListening = false);
-              _handleSend();
-            }
-          },
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 2),
-          listenMode: ListenMode.confirmation,
-          cancelOnError: false,
-          onSoundLevelChange: (level) {
-              // Optional: Update animation based on level
-          },
-        );
+      if (!_speechToText.isAvailable) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Speech recognition not available. Please check permissions in Settings.',
+              ),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return;
+      }
+
+      final provider = Provider.of<BuddyProvider>(context, listen: false);
+      await provider
+          .stopAllAudio(); // STOP AI IMMEDIATELY WHEN USER WANTS TO TALK
+
+      // Stop background wake word streaming to free up mic for local STT
+      await provider.stopWakeWordDetection();
+
+      setState(() => _isListening = true);
+      await _speechToText.listen(
+        onResult: (result) {
+          if (kDebugMode)
+            print(
+              'STT Result: "${result.recognizedWords}" (Final: ${result.finalResult})',
+            );
+          setState(() {
+            _inputController.text = result.recognizedWords;
+          });
+          if (result.finalResult) {
+            if (kDebugMode)
+              print('STT Final Result arrived. Sending message...');
+            setState(() => _isListening = false);
+            _handleSend();
+          }
+        },
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 2),
+        listenMode: ListenMode.confirmation,
+        cancelOnError: false,
+        onSoundLevelChange: (level) {
+          // Optional: Update animation based on level
+        },
+      );
     } catch (e) {
-        if (kDebugMode) print('STT Exception during listen: $e');
-        setState(() => _isListening = false);
+      if (kDebugMode) print('STT Exception during listen: $e');
+      setState(() => _isListening = false);
     }
   }
 
@@ -347,9 +406,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               Expanded(
                 child: Stack(
                   children: [
-                    provider.messages.isEmpty 
-                      ? _buildEmptyState(provider, branding) 
-                      : _buildChatList(provider, branding),
+                    provider.messages.isEmpty
+                        ? _buildEmptyState(provider, branding)
+                        : _buildChatList(provider, branding),
                   ],
                 ),
               ),
@@ -362,9 +421,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       ),
     );
   }
-
-
-
 
   Widget _buildEmptyState(BuddyProvider provider, BrandingProvider branding) {
     return SingleChildScrollView(
@@ -379,10 +435,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  branding.primaryColor,
-                  const Color(0xFF7C3AED),
-                ],
+                colors: [branding.primaryColor, const Color(0xFF7C3AED)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -403,13 +456,16 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 2),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.4),
+                      width: 2,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
                         blurRadius: 10,
-                      )
-                    ]
+                      ),
+                    ],
                   ),
                   child: ClipOval(
                     child: Image.asset(
@@ -473,15 +529,24 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               ),
               const Spacer(),
               _smallActionButton(
-                icon: provider.isFetchingNews ? LucideIcons.refreshCw : LucideIcons.rotateCcw,
+                icon: provider.isFetchingNews
+                    ? LucideIcons.refreshCw
+                    : LucideIcons.rotateCcw,
                 label: provider.isFetchingNews ? "Loading..." : "Refresh",
                 color: branding.primaryColor,
-                onTap: provider.isFetchingNews ? null : () {
-                  final userProvider = Provider.of<UserProvider>(context, listen: false);
-                  final lat = userProvider.user['currentLocation']?['lat'];
-                  final lon = userProvider.user['currentLocation']?['lng'];
-                  provider.fetchLocalNews(lat, lon);
-                },
+                onTap: provider.isFetchingNews
+                    ? null
+                    : () {
+                        final userProvider = Provider.of<UserProvider>(
+                          context,
+                          listen: false,
+                        );
+                        final lat =
+                            userProvider.user['currentLocation']?['lat'];
+                        final lon =
+                            userProvider.user['currentLocation']?['lng'];
+                        provider.fetchLocalNews(lat, lon);
+                      },
               ),
             ],
           ),
@@ -493,27 +558,54 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Column(
                   children: [
-                    CircularProgressIndicator(strokeWidth: 3, color: branding.primaryColor),
+                    CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: branding.primaryColor,
+                    ),
                     const SizedBox(height: 16),
-                    Text("Analyzing surroundings...", style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMid)),
+                    Text(
+                      "Analyzing surroundings...",
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppColors.textMid,
+                      ),
+                    ),
                   ],
                 ),
               ),
             )
           else if (provider.localNews.isEmpty) ...[
-            _buildSuggestionItem("What is the format of T20 WC 2026? 📜", branding, LucideIcons.helpCircle),
+            _buildSuggestionItem(
+              "What is the format of T20 WC 2026? 📜",
+              branding,
+              LucideIcons.helpCircle,
+            ),
             const SizedBox(height: 14),
-            _buildSuggestionItem("Budget 2026: Taxpayers' Relief 💰", branding, LucideIcons.wallet),
+            _buildSuggestionItem(
+              "Budget 2026: Taxpayers' Relief 💰",
+              branding,
+              LucideIcons.wallet,
+            ),
             const SizedBox(height: 14),
-            _buildSuggestionItem("Convert photo of paper doc to document", branding, LucideIcons.fileText),
+            _buildSuggestionItem(
+              "Convert photo of paper doc to document",
+              branding,
+              LucideIcons.fileText,
+            ),
           ] else
             ...provider.localNews.map((news) {
               IconData icon = LucideIcons.info;
-              if (news.toLowerCase().contains('weather')) icon = LucideIcons.cloudSun;
-              if (news.toLowerCase().contains('event') || news.toLowerCase().contains('fest')) icon = LucideIcons.partyPopper;
-              if (news.toLowerCase().contains('traffic') || news.toLowerCase().contains('infra')) icon = LucideIcons.car;
-              if (news.toLowerCase().contains('alert')) icon = LucideIcons.alertTriangle;
-              
+              if (news.toLowerCase().contains('weather'))
+                icon = LucideIcons.cloudSun;
+              if (news.toLowerCase().contains('event') ||
+                  news.toLowerCase().contains('fest'))
+                icon = LucideIcons.partyPopper;
+              if (news.toLowerCase().contains('traffic') ||
+                  news.toLowerCase().contains('infra'))
+                icon = LucideIcons.car;
+              if (news.toLowerCase().contains('alert'))
+                icon = LucideIcons.alertTriangle;
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: _buildSuggestionItem(news, branding, icon),
@@ -525,7 +617,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
   }
 
-  Widget _buildSuggestionItem(String text, BrandingProvider branding, [IconData? icon]) {
+  Widget _buildSuggestionItem(
+    String text,
+    BrandingProvider branding, [
+    IconData? icon,
+  ]) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -575,7 +671,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     ),
                   ),
                 ),
-                Icon(LucideIcons.chevronRight, size: 16, color: Colors.grey[300]),
+                Icon(
+                  LucideIcons.chevronRight,
+                  size: 16,
+                  color: Colors.grey[300],
+                ),
               ],
             ),
           ),
@@ -588,20 +688,20 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Container(
       width: 180,
       height: 180,
-      
+
       decoration: BoxDecoration(
         color: branding.primaryColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: CustomPaint(
-        painter: PixelPainter(branding.primaryColor),
-      ),
+      child: CustomPaint(painter: PixelPainter(branding.primaryColor)),
     );
   }
 
   Widget _buildChatList(BuddyProvider provider, BrandingProvider branding) {
     int totalMessages = provider.messages.length;
-    int displayCount = totalMessages > _messageLimit ? _messageLimit : totalMessages;
+    int displayCount = totalMessages > _messageLimit
+        ? _messageLimit
+        : totalMessages;
     bool hasMore = totalMessages > _messageLimit;
     bool showThinking = provider.isThinking;
 
@@ -627,16 +727,16 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               children: [
                 if (hasMore) ...[
                   _smallActionButton(
-                    icon: LucideIcons.refreshCw, 
-                    label: "Load More", 
+                    icon: LucideIcons.refreshCw,
+                    label: "Load More",
                     color: branding.primaryColor,
                     onTap: () => setState(() => _messageLimit += 15),
                   ),
                   const SizedBox(width: 12),
                 ],
                 _smallActionButton(
-                  icon: LucideIcons.trash2, 
-                  label: "Clear History", 
+                  icon: LucideIcons.trash2,
+                  label: "Clear History",
                   color: Colors.redAccent,
                   onTap: () => _showClearHistoryDialog(context, provider),
                 ),
@@ -651,19 +751,28 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
   }
 
-  Widget _buildMessageItem(Map<String, dynamic> msg, BrandingProvider branding) {
+  Widget _buildMessageItem(
+    Map<String, dynamic> msg,
+    BrandingProvider branding,
+  ) {
     final isUser = msg['type'] == 'user';
-    final userProvider = Provider.of<UserProvider>(context, listen: false); // already defined in build, but _buildMessageItem is a separate method
+    final userProvider = Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ); // already defined in build, but _buildMessageItem is a separate method
     final ts = DateFormatter.formatTime(
       DateTime.fromMillisecondsSinceEpoch(
-          msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch),
+        msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+      ),
       format: userProvider.user['timeFormat'] ?? '12',
     );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
@@ -672,16 +781,25 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ],
           ConstrainedBox(
             constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.76),
+              maxWidth: MediaQuery.of(context).size.width * 0.76,
+            ),
             child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     gradient: isUser
                         ? LinearGradient(
-                            colors: [branding.primaryColor, const Color(0xFF7C3AED)],
+                            colors: [
+                              branding.primaryColor,
+                              const Color(0xFF7C3AED),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
@@ -695,7 +813,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: isUser 
+                        color: isUser
                             ? branding.primaryColor.withOpacity(0.18)
                             : Colors.black.withOpacity(0.04),
                         blurRadius: 15,
@@ -711,11 +829,22 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(14),
                           child: CachedNetworkImage(
-                            imageUrl: msg['image'], // Using CachedNetworkImage if it's a URL
+                            imageUrl:
+                                msg['image'], // Using CachedNetworkImage if it's a URL
                             width: 240,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(height: 180, color: Colors.grey[100], child: const Center(child: CircularProgressIndicator())),
-                            errorWidget: (context, url, error) => Image.file(File(msg['image']), width: 240, fit: BoxFit.cover), // Fallback to file if it was a file path
+                            placeholder: (context, url) => Container(
+                              height: 180,
+                              color: Colors.grey[100],
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Image.file(
+                              File(msg['image']),
+                              width: 240,
+                              fit: BoxFit.cover,
+                            ), // Fallback to file if it was a file path
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -735,19 +864,23 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                           data: msg['text'],
                           styleSheet: MarkdownStyleSheet(
                             p: GoogleFonts.inter(
-                                color: const Color(0xFF1E293B),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                height: 1.5),
+                              color: const Color(0xFF1E293B),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              height: 1.5,
+                            ),
                             strong: GoogleFonts.inter(
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF0F172A)),
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F172A),
+                            ),
                             listBullet: GoogleFonts.inter(
-                                color: const Color(0xFF1E293B)),
+                              color: const Color(0xFF1E293B),
+                            ),
                             code: GoogleFonts.firaCode(
-                                fontSize: 13,
-                                backgroundColor: const Color(0xFFF1F5F9),
-                                color: branding.primaryColor),
+                              fontSize: 13,
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              color: branding.primaryColor,
+                            ),
                           ),
                         ),
                     ],
@@ -767,10 +900,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               ],
             ),
           ),
-          if (isUser) ...[
-            const SizedBox(width: 10),
-            _buildUserAvatar(),
-          ],
+          if (isUser) ...[const SizedBox(width: 10), _buildUserAvatar()],
         ],
       ),
     );
@@ -820,7 +950,12 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
   }
 
-  Widget _smallActionButton({required IconData icon, required String label, required Color color, VoidCallback? onTap}) {
+  Widget _smallActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -854,21 +989,18 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Container(
       width: 34,
       height: 34,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-      ),
+      decoration: const BoxDecoration(shape: BoxShape.circle),
       child: ClipOval(
         child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
             ? CachedNetworkImage(
                 imageUrl: branding.logoUrl!,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Image.asset('assets/app_icon.png', fit: BoxFit.cover),
-                errorWidget: (context, url, error) => Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+                placeholder: (context, url) =>
+                    Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+                errorWidget: (context, url, error) =>
+                    Image.asset('assets/app_icon.png', fit: BoxFit.cover),
               )
-            : Image.asset(
-                'assets/app_icon.png',
-                fit: BoxFit.cover,
-              ),
+            : Image.asset('assets/app_icon.png', fit: BoxFit.cover),
       ),
     );
   }
@@ -882,9 +1014,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Container(
       width: 34,
       height: 34,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-      ),
+      decoration: const BoxDecoration(shape: BoxShape.circle),
       child: ClipOval(
         child: avatarUrl != null && avatarUrl.isNotEmpty
             ? CachedNetworkImage(
@@ -967,26 +1097,30 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   }
 
   Widget _buildDot(int index, BrandingProvider branding) {
-      return TweenAnimationBuilder(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(seconds: 1),
-          builder: (context, double value, child) {
-              return Opacity(
-                  opacity: (math.sin((value * 6.28) + (index * 1.5)) + 1) / 2,
-                  child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                          color: branding.primaryColor,
-                          shape: BoxShape.circle,
-                      ),
-                  ),
-              );
-          },
-      );
+    return TweenAnimationBuilder(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(seconds: 1),
+      builder: (context, double value, child) {
+        return Opacity(
+          opacity: (math.sin((value * 6.28) + (index * 1.5)) + 1) / 2,
+          child: Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: branding.primaryColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+        );
+      },
+    );
   }
 
-  Widget _buildInputArea(BuddyProvider provider, BrandingProvider branding, AuthProvider auth) {
+  Widget _buildInputArea(
+    BuddyProvider provider,
+    BrandingProvider branding,
+    AuthProvider auth,
+  ) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       color: Colors.transparent,
@@ -1005,25 +1139,40 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: Colors.white, width: 3),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
-                    image: DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover),
+                    image: DecorationImage(
+                      image: FileImage(_selectedImage!),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
                 Positioned(
-                  right: -8, top: -8,
+                  right: -8,
+                  top: -8,
                   child: GestureDetector(
                     onTap: () => setState(() => _selectedImage = null),
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.white, 
+                        color: Colors.white,
                         shape: BoxShape.circle,
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                          ),
                         ],
                       ),
-                      child: const Icon(LucideIcons.x, size: 14, color: Color(0xFF1E293B)),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 14,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
                   ),
                 ),
@@ -1044,31 +1193,47 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
   }
 
-  Widget _buildQuickAction(String title, IconData icon, VoidCallback onTap, BrandingProvider branding) {
-      return Expanded(
-          child: InkWell(
-              onTap: onTap,
-              child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                  ),
-                  child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                          Icon(icon, size: 16, color: branding.primaryColor),
-                          const SizedBox(width: 8),
-                          Text(title, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))),
-                      ],
-                  ),
+  Widget _buildQuickAction(
+    String title,
+    IconData icon,
+    VoidCallback onTap,
+    BrandingProvider branding,
+  ) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
+            ],
           ),
-      );
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: branding.primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showAuthPrompt({String reason = 'use this feature'}) {
@@ -1086,7 +1251,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           children: [
             // Handle bar
             Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
@@ -1095,15 +1261,24 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             const SizedBox(height: 24),
             // Icon
             Container(
-              width: 64, height: 64,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [branding.primaryColor, branding.primaryColor.withOpacity(0.7)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [
+                    branding.primaryColor,
+                    branding.primaryColor.withOpacity(0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(LucideIcons.logIn, color: Colors.white, size: 30),
+              child: const Icon(
+                LucideIcons.logIn,
+                color: Colors.white,
+                size: 30,
+              ),
             ),
             const SizedBox(height: 20),
             Text(
@@ -1132,16 +1307,27 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
                 },
                 icon: const Icon(LucideIcons.logIn, size: 18),
-                label: Text('Sign In to Continue', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
+                label: Text(
+                  'Sign In to Continue',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: branding.primaryColor,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),
@@ -1174,20 +1360,37 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Clear Chat History", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: const Color(0xFF1E293B))),
-        content: Text("Are you sure you want to delete all chat history? This action cannot be undone.", style: GoogleFonts.outfit(color: const Color(0xFF64748B))),
+        title: Text(
+          "Clear Chat History",
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF1E293B),
+          ),
+        ),
+        content: Text(
+          "Are you sure you want to delete all chat history? This action cannot be undone.",
+          style: GoogleFonts.outfit(color: const Color(0xFF64748B)),
+        ),
         actions: [
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context), 
+                  onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: Text("Cancel", style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                  child: Text(
+                    "Cancel",
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1200,10 +1403,18 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.redAccent,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: Text("Delete All", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    "Delete All",
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1212,7 +1423,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       ),
     );
   }
-
 }
 
 class PixelPainter extends CustomPainter {
@@ -1226,15 +1436,15 @@ class PixelPainter extends CustomPainter {
     const int count = 600;
 
     for (int i = 0; i < count; i++) {
-        final double x = random.nextDouble() * size.width;
-        final double y = random.nextDouble() * size.height;
-        final double pixelSize = 1.0 + random.nextDouble() * 2.0;
-        final double opacity = 0.1 + random.nextDouble() * 0.4;
-        
-        canvas.drawRect(
-            Rect.fromLTWH(x, y, pixelSize, pixelSize), 
-            Paint()..color = primaryColor.withOpacity(opacity)
-        );
+      final double x = random.nextDouble() * size.width;
+      final double y = random.nextDouble() * size.height;
+      final double pixelSize = 1.0 + random.nextDouble() * 2.0;
+      final double opacity = 0.1 + random.nextDouble() * 0.4;
+
+      canvas.drawRect(
+        Rect.fromLTWH(x, y, pixelSize, pixelSize),
+        Paint()..color = primaryColor.withOpacity(opacity),
+      );
     }
   }
 

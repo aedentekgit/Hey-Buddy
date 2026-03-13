@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -624,26 +625,322 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   }
 
   Future<void> _handleComplete() async {
+    final oldStatus = status;
+    final targetStatus = oldStatus == 'completed' ? 'on_track' : 'completed';
+    setState(() => status = targetStatus);
+    
     final success = await Provider.of<TasksProvider>(
       context,
       listen: false,
-    ).updateTask(widget.reminder['_id'], {'status': 'completed'});
-    if (success && mounted) {
-      ToastUtils.showSuccessToast("Reminder marked as completed");
-      Navigator.maybePop(context);
+    ).updateTask(widget.reminder['_id'], {'status': targetStatus});
+    
+    if (!success && mounted) {
+      setState(() => status = oldStatus);
+      ToastUtils.showErrorToast("Failed to update status (Server Busy)");
+    } else if (mounted) {
+      final msg = targetStatus == 'completed' 
+          ? "Reminder marked as completed" 
+          : "Reminder returned to on track";
+      ToastUtils.showSuccessToast(msg);
     }
   }
 
-  Future<void> _handleSnooze() async {
-    final rawTime = timeController.text;
-    final snoozed = _snoozeTime(rawTime, 30);
+  Future<void> _handlePending() async {
+    final oldStatus = status;
+    final targetStatus = oldStatus == 'pending' ? 'on_track' : 'pending';
+    setState(() => status = targetStatus);
+
     final success = await Provider.of<TasksProvider>(
       context,
       listen: false,
-    ).updateTask(widget.reminder['_id'], {'time': snoozed});
-    if (success && mounted) {
-      setState(() => timeController.text = snoozed);
-      ToastUtils.showSuccessToast("Snoozed for 30 minutes ($snoozed)");
+    ).updateTask(widget.reminder['_id'], {'status': targetStatus});
+
+    if (!success && mounted) {
+      setState(() => status = oldStatus);
+      ToastUtils.showErrorToast("Failed to update status (Server Busy)");
+    } else if (mounted) {
+      final msg = targetStatus == 'pending' 
+          ? "Reminder marked as pending" 
+          : "Reminder returned to on track";
+      ToastUtils.showSuccessToast(msg);
+    }
+  }
+
+  Future<int?> _showSnoozeSelection() async {
+    DateTime tempTime = DateTime.now();
+    bool showingCustom = false;
+
+    return await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 10),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 48),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(LucideIcons.x, size: 20, color: AppColors.textMid),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  showingCustom ? 'Custom Snooze' : 'Snooze Reminder',
+                  style: GoogleFonts.nunito(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.text,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (!showingCustom) ...[
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.8,
+                    children: [
+                      _buildSnoozeCard(15, '15 Min', LucideIcons.alarmClock, context),
+                      _buildSnoozeCard(30, '30 Min', LucideIcons.alarmClock, context),
+                      _buildSnoozeCard(60, '1 Hour', LucideIcons.hourglass, context),
+                      _buildSnoozeCard(120, '2 Hours', LucideIcons.timer, context),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  GestureDetector(
+                    onTap: () => setSheetState(() => showingCustom = true),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppColors.accent, const Color(0xFF6366F1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(LucideIcons.calendarClock, color: Colors.white, size: 20),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Set Custom Time',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Icon(LucideIcons.chevronRight, color: Colors.white70, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  SizedBox(
+                    height: 200,
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      initialDateTime: DateTime.now().add(const Duration(minutes: 5)),
+                      onDateTimeChanged: (DateTime dt) => tempTime = dt,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => setSheetState(() => showingCustom = false),
+                          child: Text('Back', style: GoogleFonts.nunito(fontWeight: FontWeight.bold, color: AppColors.textMid)),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(context, -3),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              'Confirm',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (status == 'snoozed' && !showingCustom) ...[
+                  const SizedBox(height: 24),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context, -1),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.danger.withOpacity(0.2)),
+                      ),
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(LucideIcons.alarmClockOff, color: AppColors.danger, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'TURN OFF SNOOZE',
+                              style: GoogleFonts.nunito(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.danger,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).then((val) {
+      if (val == -3) {
+        _tempSnoozeTime = tempTime;
+      }
+      return val;
+    });
+  }
+
+  // Helper variable to bypass picker
+  DateTime? _tempSnoozeTime;
+
+  Widget _buildSnoozeCard(int mins, String label, IconData icon, BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context, mins),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppColors.orange, size: 22),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomTimeCard() {
+    // This is no longer used directly as a Widget but retained if needed or can be removed
+    return const SizedBox.shrink();
+  }
+
+  String _formatTimeOfDay(TimeOfDay tod) {
+    final hour = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
+    final min = tod.minute.toString().padLeft(2, '0');
+    final period = tod.period == DayPeriod.am ? 'AM' : 'PM';
+    return "${hour.toString().padLeft(2, '0')}:$min $period";
+  }
+
+  Future<void> _handleSnooze() async {
+    final oldStatus = status;
+    final int? picked = await _showSnoozeSelection();
+
+    if (picked == null) return;
+
+    String targetStatus = 'snoozed';
+    String snoozedTime = "";
+    final originalTime = widget.reminder['time'] ?? timeController.text;
+
+    if (picked == -1) {
+      targetStatus = 'on_track';
+      snoozedTime = originalTime;
+    } else if (picked == -3 && _tempSnoozeTime != null) {
+      snoozedTime = _formatTimeOfDay(TimeOfDay.fromDateTime(_tempSnoozeTime!));
+      _tempSnoozeTime = null; // reset
+    } else {
+      snoozedTime = _snoozeTime(originalTime, picked);
+    }
+
+    final oldTime = timeController.text;
+
+    setState(() {
+      timeController.text = snoozedTime;
+      status = targetStatus;
+    });
+
+    final updateData = {
+      'status': targetStatus,
+      'time': snoozedTime,
+    };
+
+    final success = await Provider.of<TasksProvider>(
+      context,
+      listen: false,
+    ).updateTask(widget.reminder['_id'], updateData);
+
+    if (!success && mounted) {
+      setState(() {
+        timeController.text = oldTime;
+        status = oldStatus;
+      });
+      ToastUtils.showErrorToast("Failed to update snooze (Server Busy)");
+    } else if (mounted) {
+      final msg = targetStatus == 'snoozed'
+          ? "Snoozed until $snoozedTime"
+          : "Snooze removed (Rescheduled for $originalTime)";
+      ToastUtils.showSuccessToast(msg);
     }
   }
 
@@ -683,20 +980,26 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
   Future<void> _handlePriority() async {
     final current = priority;
-    String next = 'medium';
+    String next = 'low';
     if (current == 'low')
       next = 'medium';
     else if (current == 'medium')
       next = 'high';
-    else if (current == 'high')
+    else
       next = 'low';
+
+    final oldPriority = priority;
+    setState(() => priority = next);
 
     final success = await Provider.of<TasksProvider>(
       context,
       listen: false,
     ).updateTask(widget.reminder['_id'], {'priority': next});
-    if (success && mounted) {
-      setState(() => priority = next);
+
+    if (!success && mounted) {
+      setState(() => priority = oldPriority);
+      ToastUtils.showErrorToast("Failed to update priority (Server Busy)");
+    } else if (mounted) {
       ToastUtils.showSuccessToast("Priority updated to ${next.toUpperCase()}");
     }
   }
@@ -869,7 +1172,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
               _StatusBadge(
                 label: status == 'completed'
                     ? "Completed"
-                    : (status == 'risk_alert' ? "Risk Alert" : "On Track"),
+                    : (status == 'snoozed'
+                        ? "Snoozed"
+                        : (status == 'pending'
+                            ? "Pending"
+                            : (status == 'risk_alert'
+                                ? "Risk Alert"
+                                : "On Track"))),
               ),
               Row(
                 children: [
@@ -1961,24 +2270,41 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         label: 'Complete',
                         icon: LucideIcons.checkCircle2,
                         color: AppColors.green,
+                        isSelected: status == 'completed',
                         onTap: _handleComplete,
                       ),
                       QuickActionItem(
-                        label: 'Snooze',
-                        icon: LucideIcons.alarmClock,
+                        label: status == 'snoozed' ? 'Snoozed until\n${timeController.text}' : 'Snooze',
+                        icon: status == 'snoozed' ? LucideIcons.alarmClock : LucideIcons.alarmClock,
                         color: AppColors.orange,
+                        isSelected: status == 'snoozed',
                         onTap: _handleSnooze,
                       ),
-                      QuickActionItem(
-                        label: 'Reschedule',
-                        icon: LucideIcons.clock,
-                        color: AppColors.accent,
-                        onTap: _handleReschedule,
-                      ),
+
+                      if (widget.reminder['isOverdue'] == true)
+                        QuickActionItem(
+                          label: 'Pending',
+                          icon: LucideIcons.clock,
+                          color: AppColors.danger,
+                          isSelected: status == 'pending',
+                          onTap: _handlePending,
+                        )
+                      else
+                        QuickActionItem(
+                          label: 'Reschedule',
+                          icon: LucideIcons.clock,
+                          color: AppColors.accent,
+                          onTap: _handleReschedule,
+                        ),
                       QuickActionItem(
                         label: 'Priority',
                         icon: LucideIcons.flag,
-                        color: AppColors.textMid,
+                        color: priority == 'high'
+                            ? AppColors.danger
+                            : (priority == 'medium'
+                                ? AppColors.orange
+                                : AppColors.textMid),
+                        isSelected: priority != 'low',
                         onTap: _handlePriority,
                       ),
                     ],
@@ -2181,39 +2507,33 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: 16),
-                  child: Container(
-                    padding: const EdgeInsets.only(left: 20, bottom: 20),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(color: AppColors.border, width: 2),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (timeline.isEmpty)
-                          _TimelineItem(
-                            title: "Reminder Created",
-                            time: widget.reminder['createdAt'] != null
-                                ? _formatFullDateTime(
-                                    widget.reminder['createdAt'],
-                                  )
-                                : "Just now",
-                            isFirst: true,
-                          )
-                        else
-                          ...timeline.asMap().entries.map(
-                            (e) => _TimelineItem(
-                              title: e.value['action'] ?? '',
-                              time: e.value['timestamp'] != null
-                                  ? _formatFullDateTime(e.value['timestamp'])
-                                  : "",
-                              isFirst: e.key == 0,
-                            ),
-                          ),
-                      ],
-                    ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    children: [
+                      if (timeline.isEmpty)
+                        _TimelineItem(
+                          title: "Reminder Created",
+                          time: widget.reminder['createdAt'] != null
+                              ? _formatFullDateTime(widget.reminder['createdAt'])
+                              : "Just now",
+                          icon: LucideIcons.plusCircle,
+                          color: AppColors.accent,
+                          isLast: true,
+                        )
+                      else
+                        ...timeline.asMap().entries.map((e) {
+                          final action = e.value['action'] ?? '';
+                          return _TimelineItem(
+                            title: action,
+                            time: e.value['timestamp'] != null
+                                ? _formatFullDateTime(e.value['timestamp'])
+                                : "",
+                            icon: _getTimelineIcon(action),
+                            color: _getTimelineColor(action),
+                            isLast: e.key == timeline.length - 1,
+                          );
+                        }),
+                    ],
                   ),
                 ),
 
@@ -2292,6 +2612,28 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     }
   }
 
+  IconData _getTimelineIcon(String action) {
+    final a = action.toLowerCase();
+    if (a.contains('created')) return LucideIcons.plusCircle;
+    if (a.contains('completed')) return LucideIcons.checkCircle2;
+    if (a.contains('snoozed')) return LucideIcons.alarmClock;
+    if (a.contains('alert') || a.contains('guard')) return LucideIcons.shieldAlert;
+    if (a.contains('updated') || a.contains('reschedule'))
+      return LucideIcons.refreshCw;
+    if (a.contains('risk')) return LucideIcons.alertTriangle;
+    return LucideIcons.circle;
+  }
+
+  Color _getTimelineColor(String action) {
+    final a = action.toLowerCase();
+    if (a.contains('created')) return AppColors.accent;
+    if (a.contains('completed')) return AppColors.green;
+    if (a.contains('snoozed')) return AppColors.orange;
+    if (a.contains('alert') || a.contains('risk') || a.contains('guard'))
+      return AppColors.danger;
+    return AppColors.textMid;
+  }
+
   void _addContact() {
     showDialog(
       context: context,
@@ -2345,24 +2687,26 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isGreen = label == "On Track" || label == "Completed";
+    Color color = AppColors.orange;
+    if (label == "On Track" || label == "Completed") {
+      color = AppColors.green;
+    } else if (label == "Pending" || label == "Risk Alert" || label == "Overdue") {
+      color = AppColors.danger;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isGreen
-            ? AppColors.green.withOpacity(0.12)
-            : AppColors.orange.withOpacity(0.12),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isGreen
-              ? AppColors.green.withOpacity(0.3)
-              : AppColors.orange.withOpacity(0.3),
+          color: color.withOpacity(0.3),
         ),
       ),
       child: Text(
         label.toUpperCase(),
         style: GoogleFonts.nunito(
-          color: isGreen ? AppColors.green : AppColors.orange,
+          color: color,
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.5,
@@ -2652,53 +2996,88 @@ class _AlertTile extends StatelessWidget {
 class _TimelineItem extends StatelessWidget {
   final String title;
   final String time;
-  final bool isFirst;
+  final IconData icon;
+  final Color color;
+  final bool isLast;
 
   const _TimelineItem({
     required this.title,
     required this.time,
-    this.isFirst = false,
+    required this.icon,
+    required this.color,
+    this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Stack(
-        clipBehavior: Clip.none,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Positioned(
-            left: -26,
-            top: 4,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.accent, width: 2),
+          // Vertical Line & Dot
+          Column(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+                ),
+                child: Icon(icon, size: 12, color: color),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.border.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          // Content
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(
+                    title,
+                    style: GoogleFonts.nunito(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.clock,
+                        size: 10,
+                        color: AppColors.textDim.withOpacity(0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        time,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textDim,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  color: AppColors.text,
-                ),
-              ),
-              Text(
-                time,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: AppColors.textDim,
-                ),
-              ),
-            ],
           ),
         ],
       ),

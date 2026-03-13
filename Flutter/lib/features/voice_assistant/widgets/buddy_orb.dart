@@ -52,9 +52,13 @@ class _BuddyOrbState extends State<BuddyOrb> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     double baseSize = widget.isTalking ? 240 : 200;
-    
+
     return AnimatedBuilder(
-      animation: Listenable.merge([_pulseController, _rotationController, _waveController]),
+      animation: Listenable.merge([
+        _pulseController,
+        _rotationController,
+        _waveController,
+      ]),
       builder: (context, child) {
         return Stack(
           alignment: Alignment.center,
@@ -67,7 +71,9 @@ class _BuddyOrbState extends State<BuddyOrb> with TickerProviderStateMixin {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    widget.baseColor.withValues(alpha: 0.15 * (1.0 + _pulseController.value)),
+                    widget.baseColor.withValues(
+                      alpha: 0.15 * (1.0 + _pulseController.value),
+                    ),
                     widget.baseColor.withValues(alpha: 0.0),
                   ],
                 ),
@@ -82,7 +88,9 @@ class _BuddyOrbState extends State<BuddyOrb> with TickerProviderStateMixin {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    widget.baseColor.withValues(alpha: 0.3 * (1.1 - _pulseController.value)),
+                    widget.baseColor.withValues(
+                      alpha: 0.3 * (1.1 - _pulseController.value),
+                    ),
                     widget.baseColor.withValues(alpha: 0.0),
                   ],
                 ),
@@ -138,13 +146,15 @@ class OrbPainter extends CustomPainter {
 
     int arcCount = 12;
     for (int i = 0; i < arcCount; i++) {
-      double angle = (i * (360 / arcCount) * math.pi / 180) + (rotation * 2 * math.pi);
+      double angle =
+          (i * (360 / arcCount) * math.pi / 180) + (rotation * 2 * math.pi);
       double opacity = 0.1 + (0.4 * math.sin(angle + (pulse * 5)));
-      
+
       paint.color = color.withValues(alpha: opacity.clamp(0.0, 1.0));
-      
-      double sweepAngle = math.pi / 2 + (isTalking ? math.sin(wave * 2 * math.pi) * 0.5 : 0);
-      
+
+      double sweepAngle =
+          math.pi / 2 + (isTalking ? math.sin(wave * 2 * math.pi) * 0.5 : 0);
+
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius * (0.9 + (i * 0.01))),
         angle,
@@ -158,15 +168,19 @@ class OrbPainter extends CustomPainter {
     final particlePaint = Paint()..style = PaintingStyle.fill;
     final random = math.Random(42);
     for (int i = 0; i < 20; i++) {
-        double pAngle = random.nextDouble() * 2 * math.pi + (rotation * (random.nextBool() ? 1 : -1));
-        double pDistance = radius * (0.8 + random.nextDouble() * 0.4);
-        double pSize = 1.0 + random.nextDouble() * 2.0;
-        
-        double pX = center.dx + math.cos(pAngle) * pDistance;
-        double pY = center.dy + math.sin(pAngle) * pDistance;
-        
-        particlePaint.color = color.withValues(alpha: 0.2 + (0.3 * math.sin(wave * 2 * math.pi + i)));
-        canvas.drawCircle(Offset(pX, pY), pSize, particlePaint);
+      double pAngle =
+          random.nextDouble() * 2 * math.pi +
+          (rotation * (random.nextBool() ? 1 : -1));
+      double pDistance = radius * (0.8 + random.nextDouble() * 0.4);
+      double pSize = 1.0 + random.nextDouble() * 2.0;
+
+      double pX = center.dx + math.cos(pAngle) * pDistance;
+      double pY = center.dy + math.sin(pAngle) * pDistance;
+
+      particlePaint.color = color.withValues(
+        alpha: 0.2 + (0.3 * math.sin(wave * 2 * math.pi + i)),
+      );
+      canvas.drawCircle(Offset(pX, pY), pSize, particlePaint);
     }
 
     // 3. Central Energy Core
@@ -178,8 +192,12 @@ class OrbPainter extends CustomPainter {
           color.withValues(alpha: 0.0),
         ],
       ).createShader(Rect.fromCircle(center: center, radius: radius * 0.4));
-      
-    canvas.drawCircle(center, radius * (0.3 + (isTalking ? 0.05 * math.sin(wave * 4 * math.pi) : 0)), corePaint);
+
+    canvas.drawCircle(
+      center,
+      radius * (0.3 + (isTalking ? 0.05 * math.sin(wave * 4 * math.pi) : 0)),
+      corePaint,
+    );
   }
 
   @override

@@ -35,7 +35,10 @@ class FamilyService {
     return [];
   }
 
-  Future<Map<String, dynamic>> respondToRequest(String requestId, String action) async {
+  Future<Map<String, dynamic>> respondToRequest(
+    String requestId,
+    String action,
+  ) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}family/respond'),
       headers: await _getHeaders(),

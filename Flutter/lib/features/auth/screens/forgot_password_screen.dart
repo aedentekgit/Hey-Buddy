@@ -18,7 +18,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   bool _obscurePassword = true;
   int _currentStep = 0; // 0: Email, 1: OTP, 2: New Password
 
@@ -31,7 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final success = await auth.forgotPassword(email);
-    
+
     if (success && mounted) {
       setState(() {
         _currentStep = 1;
@@ -49,7 +49,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final success = await auth.verifyResetOtp(email, otp);
-    
+
     if (success && mounted) {
       setState(() {
         _currentStep = 2;
@@ -68,7 +68,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final success = await auth.resetPassword(email, otp, newPassword);
-    
+
     if (success && mounted) {
       Navigator.of(context).pop(); // Go back to login screen
     }
@@ -113,10 +113,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 children: [
                   const SizedBox(height: 20),
                   Text(
-                    _currentStep == 0 
-                      ? "Reset Password" 
-                      : _currentStep == 1 
-                        ? "Verify OTP" 
+                    _currentStep == 0
+                        ? "Reset Password"
+                        : _currentStep == 1
+                        ? "Verify OTP"
                         : "New Password",
                     style: GoogleFonts.outfit(
                       fontSize: 32,
@@ -127,10 +127,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _currentStep == 0 
-                      ? "Enter your email address to receive a verification code." 
-                      : _currentStep == 1 
-                        ? "We've sent a 6-digit code to your email." 
+                    _currentStep == 0
+                        ? "Enter your email address to receive a verification code."
+                        : _currentStep == 1
+                        ? "We've sent a 6-digit code to your email."
                         : "At least 6 characters to keep your account secure.",
                     style: GoogleFonts.inter(
                       fontSize: 15,
@@ -139,7 +139,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                   const SizedBox(height: 40),
-                  
+
                   if (_currentStep == 0) ...[
                     _buildTextField(
                       controller: _emailController,
@@ -174,7 +174,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       icon: LucideIcons.lock,
                       isPassword: true,
                       obscure: _obscurePassword,
-                      onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
+                      onToggle: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                     const SizedBox(height: 32),
                     _buildButton(
@@ -209,8 +210,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: Text(
             label,
             style: GoogleFonts.outfit(
-              fontSize: 11, 
-              fontWeight: FontWeight.w800, 
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
               color: const Color(0xFF64748B),
               letterSpacing: 1.2,
             ),
@@ -232,23 +233,34 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscure,
-            style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1E293B),
+            ),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 20),
               suffixIcon: isPassword
                   ? IconButton(
-                      onPressed: onToggle, 
+                      onPressed: onToggle,
                       icon: Icon(
-                        obscure ? LucideIcons.eyeOff : LucideIcons.eye, 
-                        color: const Color(0xFF94A3B8), 
+                        obscure ? LucideIcons.eyeOff : LucideIcons.eye,
+                        color: const Color(0xFF94A3B8),
                         size: 18,
                       ),
                     )
                   : null,
               hintText: hint,
-              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 14, fontWeight: FontWeight.w400),
+              hintStyle: GoogleFonts.inter(
+                color: const Color(0xFF94A3B8),
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 18,
+              ),
               isDense: true,
             ),
           ),
@@ -268,21 +280,37 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       height: 58,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: branding.primaryColor,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          elevation: 0,
-          shadowColor: branding.primaryColor.withOpacity(0.5),
-        ).copyWith(
-          elevation: WidgetStateProperty.resolveWith<double>((states) {
-            if (states.contains(WidgetState.pressed)) return 0;
-            return 12;
-          }),
-        ),
+        style:
+            ElevatedButton.styleFrom(
+              backgroundColor: branding.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              elevation: 0,
+              shadowColor: branding.primaryColor.withOpacity(0.5),
+            ).copyWith(
+              elevation: WidgetStateProperty.resolveWith<double>((states) {
+                if (states.contains(WidgetState.pressed)) return 0;
+                return 12;
+              }),
+            ),
         child: isLoading
-            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-            : Text(text, style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w700)),
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                text,
+                style: GoogleFonts.outfit(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
       ),
     );
   }

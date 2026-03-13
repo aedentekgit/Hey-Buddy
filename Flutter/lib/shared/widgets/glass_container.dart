@@ -36,13 +36,15 @@ class GlassContainer extends StatelessWidget {
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        boxShadow: boxShadow ?? [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow:
+            boxShadow ??
+            [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
@@ -53,10 +55,9 @@ class GlassContainer extends StatelessWidget {
             decoration: BoxDecoration(
               color: color.withOpacity(opacity),
               borderRadius: BorderRadius.circular(borderRadius),
-              border: border ?? Border.all(
-                color: color.withOpacity(0.2),
-                width: 1.5,
-              ),
+              border:
+                  border ??
+                  Border.all(color: color.withOpacity(0.2), width: 1.5),
             ),
             child: child,
           ),

@@ -8,7 +8,8 @@ class BiometricService {
 
   Future<bool> isBiometricAvailable() async {
     final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
-    final bool canAuthenticate = canAuthenticateWithBiometrics || await auth.isDeviceSupported();
+    final bool canAuthenticate =
+        canAuthenticateWithBiometrics || await auth.isDeviceSupported();
     return canAuthenticate;
   }
 
@@ -21,7 +22,9 @@ class BiometricService {
     }
   }
 
-  Future<bool> authenticate({String message = 'Authenticate to access your account'}) async {
+  Future<bool> authenticate({
+    String message = 'Authenticate to access your account',
+  }) async {
     try {
       final bool didAuthenticate = await auth.authenticate(
         localizedReason: message,

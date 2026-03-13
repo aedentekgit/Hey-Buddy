@@ -168,8 +168,19 @@ const updateProfile = async (req, res) => {
         if (phone !== undefined) user.phone = phone;
         if (address !== undefined) user.address = address;
         if (timezone !== undefined) user.timezone = timezone;
-        if (req.body.dateFormat !== undefined) user.dateFormat = req.body.dateFormat;
-        if (req.body.timeFormat !== undefined) user.timeFormat = req.body.timeFormat;
+
+        if (req.body.dateFormat !== undefined) {
+            const df = req.body.dateFormat;
+            if (['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'].includes(df)) {
+                user.dateFormat = df;
+            }
+        }
+
+        if (req.body.timeFormat !== undefined) {
+            const tf = String(req.body.timeFormat);
+            if (tf.includes('12')) user.timeFormat = '12';
+            else if (tf.includes('24')) user.timeFormat = '24';
+        }
 
         // Defensive fix for corrupted fcmTokens that blocks validation
         if (user.fcmTokens && Array.isArray(user.fcmTokens)) {

@@ -27,22 +27,22 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkAuth() async {
     final branding = Provider.of<BrandingProvider>(context, listen: false);
-    
+
     // Wait for initial branding load
     while (branding.isLoading) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
-    
+
     if (branding.hasError) return; // Stop here if there's a backend error
 
-    await Future.delayed(const Duration(seconds: 1)); // Extra total splash time for branding
+    await Future.delayed(
+      const Duration(seconds: 1),
+    ); // Extra total splash time for branding
     if (!mounted) return;
-    
-
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.tryAutoLogin();
-    
+
     // Request location permission centrally
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> {
     } catch (_) {}
 
     if (!mounted) return;
-    
+
     // Biometric Security Check
     final security = Provider.of<SecurityProvider>(context, listen: false);
     if (auth.token != null && security.isBiometricEnabled) {
@@ -69,14 +69,10 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     // Always go to MainScreen; it will handle showing the Assistant by default for guest users
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
   }
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -138,10 +134,19 @@ class _SplashScreenState extends State<SplashScreen> {
                             ? CachedNetworkImage(
                                 imageUrl: branding.splashUrl!,
                                 height: 80,
-                                placeholder: (context, url) => const SizedBox(height: 80, width: 80),
-                                errorWidget: (context, url, error) => Icon(Icons.auto_awesome, size: 48, color: branding.primaryColor),
+                                placeholder: (context, url) =>
+                                    const SizedBox(height: 80, width: 80),
+                                errorWidget: (context, url, error) => Icon(
+                                  Icons.auto_awesome,
+                                  size: 48,
+                                  color: branding.primaryColor,
+                                ),
                               )
-                            : Icon(Icons.auto_awesome, size: 48, color: branding.primaryColor),
+                            : Icon(
+                                Icons.auto_awesome,
+                                size: 48,
+                                color: branding.primaryColor,
+                              ),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -159,7 +164,9 @@ class _SplashScreenState extends State<SplashScreen> {
                       width: 40,
                       child: LinearProgressIndicator(
                         backgroundColor: branding.primaryColor.withOpacity(0.1),
-                        valueColor: AlwaysStoppedAnimation<Color>(branding.primaryColor),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          branding.primaryColor,
+                        ),
                         borderRadius: BorderRadius.circular(10),
                         minHeight: 4,
                       ),
@@ -189,7 +196,11 @@ class _SplashScreenState extends State<SplashScreen> {
                   color: Colors.red.shade50,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(LucideIcons.cloudOff, size: 64, color: Colors.red.shade400),
+                child: Icon(
+                  LucideIcons.cloudOff,
+                  size: 64,
+                  color: Colors.red.shade400,
+                ),
               ),
               const SizedBox(height: 32),
               Text(
@@ -223,7 +234,10 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                   child: Text(
                     branding.errorMessage!,
-                    style: GoogleFonts.firaCode(fontSize: 12, color: const Color(0xFF475569)),
+                    style: GoogleFonts.firaCode(
+                      fontSize: 12,
+                      color: const Color(0xFF475569),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -238,11 +252,19 @@ class _SplashScreenState extends State<SplashScreen> {
                     _checkAuth();
                   },
                   icon: const Icon(LucideIcons.rotateCcw, size: 18),
-                  label: Text("Retry Connection", style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 16)),
+                  label: Text(
+                    "Retry Connection",
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: branding.primaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                     elevation: 0,
                   ),
                 ),

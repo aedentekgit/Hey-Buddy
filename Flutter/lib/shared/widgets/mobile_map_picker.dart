@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -6,10 +5,11 @@ import 'package:geolocator/geolocator.dart';
 
 class MobileMapPicker extends StatefulWidget {
   final Map<String, dynamic>? initialCoordinates;
-  final Function(Map<String, dynamic> coordinates, String address) onLocationSelected;
+  final Function(Map<String, dynamic> coordinates, String address)
+  onLocationSelected;
 
   const MobileMapPicker({
-    super.key, 
+    super.key,
     this.initialCoordinates,
     required this.onLocationSelected,
   });
@@ -26,8 +26,8 @@ class _MobileMapPickerState extends State<MobileMapPicker> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialCoordinates != null && 
-        widget.initialCoordinates!['lat'] != null && 
+    if (widget.initialCoordinates != null &&
+        widget.initialCoordinates!['lat'] != null &&
         widget.initialCoordinates!['lng'] != null) {
       _selectedLocation = LatLng(
         widget.initialCoordinates!['lat'],
@@ -43,7 +43,9 @@ class _MobileMapPickerState extends State<MobileMapPicker> {
         Marker(
           markerId: const MarkerId('selected'),
           position: pos,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueViolet,
+          ),
         ),
       };
     });
@@ -54,12 +56,12 @@ class _MobileMapPickerState extends State<MobileMapPicker> {
       _selectedLocation = pos;
     });
     _updateMarkers(pos);
-    
+
     // In a real app, we'd reverse geocode here using geocoding package
-    widget.onLocationSelected({
-      'lat': pos.latitude,
-      'lng': pos.longitude,
-    }, "Custom Location (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})");
+    widget.onLocationSelected(
+      {'lat': pos.latitude, 'lng': pos.longitude},
+      "Custom Location (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})",
+    );
   }
 
   Future<void> _goToCurrentLocation() async {

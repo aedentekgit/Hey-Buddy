@@ -5,7 +5,7 @@ import 'package:buddy_mobile/core/config/app_config.dart';
 
 class UserProvider extends ChangeNotifier {
   final UserService _userService = UserService();
-  
+
   // Use a map or a User model (Map for flexibility for now)
   Map<String, dynamic> _user = {};
   bool _isLoading = false;
@@ -33,7 +33,9 @@ class UserProvider extends ChangeNotifier {
       if (fetched.isNotEmpty) {
         _user = Map<String, dynamic>.from(fetched);
         if (_user['profilePicture'] != null) {
-          _user['profilePicture'] = _formatProfilePictureUrl(_user['profilePicture']);
+          _user['profilePicture'] = _formatProfilePictureUrl(
+            _user['profilePicture'],
+          );
         }
       }
     } catch (e) {
@@ -45,20 +47,23 @@ class UserProvider extends ChangeNotifier {
   }
 
   // Update Profile
-  Future<bool> updateProfile(String name, String phone, String address, {String? dateFormat, String? timeFormat, String? timezone}) async {
+  Future<bool> updateProfile(
+    String name,
+    String phone,
+    String address, {
+    String? dateFormat,
+    String? timeFormat,
+    String? timezone,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final data = {
-        'name': name,
-        'phone': phone,
-        'address': address,
-      };
+      final data = {'name': name, 'phone': phone, 'address': address};
       if (dateFormat != null) data['dateFormat'] = dateFormat;
       if (timeFormat != null) data['timeFormat'] = timeFormat;
       if (timezone != null) data['timezone'] = timezone;
-      
+
       final success = await _userService.updateProfile(data);
 
       if (success) {
@@ -73,7 +78,9 @@ class UserProvider extends ChangeNotifier {
       }
       return false;
     } catch (e) {
-      _error = e.toString();
+      _error = e.toString().contains('429') 
+          ? 'Too many requests. Please wait a moment.' 
+          : 'Failed to update profile: $e';
       return false;
     } finally {
       _isLoading = false;
@@ -146,11 +153,12 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
     try {
       // Optimistic update
-      final currentPrefs = _user['notificationPreferences'] as Map<String, dynamic>? ?? {};
+      final currentPrefs =
+          _user['notificationPreferences'] as Map<String, dynamic>? ?? {};
       final newPrefs = {...currentPrefs, ...prefs};
-      
+
       final success = await _userService.updateProfile({
-        'notificationPreferences': newPrefs
+        'notificationPreferences': newPrefs,
       });
 
       if (success) {
@@ -169,11 +177,12 @@ class UserProvider extends ChangeNotifier {
   Future<bool> updateVoicePreferences(Map<String, dynamic> prefs) async {
     notifyListeners();
     try {
-      final currentPrefs = _user['voicePreferences'] as Map<String, dynamic>? ?? {};
+      final currentPrefs =
+          _user['voicePreferences'] as Map<String, dynamic>? ?? {};
       final newPrefs = {...currentPrefs, ...prefs};
-      
+
       final success = await _userService.updateProfile({
-        'voicePreferences': newPrefs
+        'voicePreferences': newPrefs,
       });
 
       if (success) {
@@ -256,6 +265,3 @@ class UserProvider extends ChangeNotifier {
     return AppConfig.formatImageUrl(path);
   }
 }
-
-
-

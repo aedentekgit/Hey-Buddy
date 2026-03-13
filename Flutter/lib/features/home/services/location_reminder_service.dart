@@ -47,7 +47,10 @@ class LocationReminderService {
     }
   }
 
-  Future<bool> updateLocationReminder(String id, Map<String, dynamic> data) async {
+  Future<bool> updateLocationReminder(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final token = await _storage.read(key: 'jwt');
       final response = await http.put(
@@ -71,10 +74,7 @@ class LocationReminderService {
       final token = await _storage.read(key: 'jwt');
       final response = await http.delete(
         Uri.parse('${_baseUrl}location-reminders/$id'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -107,10 +107,7 @@ class LocationReminderService {
       final token = await _storage.read(key: 'jwt');
       final response = await http.post(
         Uri.parse('${_baseUrl}location-reminders/$id/family-backup'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'x-platform': 'mobile',
-        },
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
       return response.statusCode == 200;
     } catch (e) {

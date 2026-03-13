@@ -11,7 +11,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:buddy_mobile/core/services/location_service.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 
-
 class MobileHeader extends StatefulWidget {
   const MobileHeader({super.key});
 
@@ -32,7 +31,6 @@ class _MobileHeaderState extends State<MobileHeader> {
     _loadLocation();
   }
 
-
   Future<void> _loadLocation() async {
     final locationData = await _locationService.getCurrentLocation();
     if (locationData != null && mounted) {
@@ -50,7 +48,9 @@ class _MobileHeaderState extends State<MobileHeader> {
         // GPS completely failed — just show whatever is stored
         final stored = userProvider.user['currentLocation'];
         if (stored != null && stored['address'] != null && mounted) {
-          setState(() { _currentLocation = stored['address'] as String?; });
+          setState(() {
+            _currentLocation = stored['address'] as String?;
+          });
         }
       }
       // If GPS returned implausible coords, leave _currentLocation and UserProvider as-is
@@ -64,7 +64,9 @@ class _MobileHeaderState extends State<MobileHeader> {
           if (!mounted) return;
           final up = Provider.of<UserProvider>(context, listen: false);
           // Update immediately without artificial distance guards
-          setState(() { _currentLocation = address; });
+          setState(() {
+            _currentLocation = address;
+          });
           up.updateLocation(lat, lng);
         },
       );
@@ -95,7 +97,7 @@ class _MobileHeaderState extends State<MobileHeader> {
             color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -124,63 +126,82 @@ class _MobileHeaderState extends State<MobileHeader> {
                             color: primaryColor.withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
-                          )
+                          ),
                         ],
                         border: Border.all(color: Colors.white, width: 2),
                       ),
                       child: ClipOval(
-                        child: AppConfig.formatImageUrl(user['profilePicture']) != null
+                        child:
+                            AppConfig.formatImageUrl(user['profilePicture']) !=
+                                null
                             ? CachedNetworkImage(
-                                imageUrl: AppConfig.formatImageUrl(user['profilePicture'])!,
+                                imageUrl: AppConfig.formatImageUrl(
+                                  user['profilePicture'],
+                                )!,
                                 fit: BoxFit.cover,
-                                errorWidget: (context, url, error) => const Icon(LucideIcons.user, color: Colors.white, size: 20),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(
+                                      LucideIcons.user,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                               )
-
-                            : (branding.logoUrl != null 
-                                ? CachedNetworkImage(imageUrl: branding.logoUrl!, fit: BoxFit.cover)
-                                : const Icon(LucideIcons.user, color: Colors.white, size: 20)),
+                            : (branding.logoUrl != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: branding.logoUrl!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : const Icon(
+                                      LucideIcons.user,
+                                      color: Colors.white,
+                                      size: 20,
+                                    )),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    
+
                     // Text Info
                     Expanded(
-                      child: _isSearchVisible 
-                        ? const SizedBox.shrink() 
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                user['name'] ?? branding.appName, 
-                                style: GoogleFonts.outfit(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF1E293B),
-                                  height: 1.2,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Icon(LucideIcons.mapPin, size: 10, color: primaryColor),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _currentLocation ?? "Locating...", 
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF64748B),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                      child: _isSearchVisible
+                          ? const SizedBox.shrink()
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  user['name'] ?? branding.appName,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF1E293B),
+                                    height: 1.2,
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.mapPin,
+                                      size: 10,
+                                      color: primaryColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _currentLocation ?? "Locating...",
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF64748B),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                     ),
                   ],
                 ),
@@ -204,12 +225,18 @@ class _MobileHeaderState extends State<MobileHeader> {
                   decoration: BoxDecoration(
                     color: _isSearchVisible ? primaryColor : Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _isSearchVisible ? primaryColor : Colors.grey[200]!),
+                    border: Border.all(
+                      color: _isSearchVisible
+                          ? primaryColor
+                          : Colors.grey[200]!,
+                    ),
                   ),
                   child: Icon(
                     _isSearchVisible ? LucideIcons.x : LucideIcons.search,
                     size: 18,
-                    color: _isSearchVisible ? Colors.white : const Color(0xFF1E293B),
+                    color: _isSearchVisible
+                        ? Colors.white
+                        : const Color(0xFF1E293B),
                   ),
                 ),
               ),
@@ -218,34 +245,41 @@ class _MobileHeaderState extends State<MobileHeader> {
 
           // Collapsible Search Bar
           if (_isSearchVisible)
-             Padding(
-               padding: const EdgeInsets.only(top: 12),
-               child: TextField(
-                 controller: _searchController,
-                 autofocus: true,
-                 style: GoogleFonts.outfit(fontSize: 14, color: Colors.black87),
-                 decoration: InputDecoration(
-                   hintText: "Ask anything...",
-                   hintStyle: GoogleFonts.outfit(fontSize: 14, color: Colors.grey[400]),
-                   prefixIcon: Icon(LucideIcons.search, size: 16, color: Colors.grey[400]),
-                   contentPadding: const EdgeInsets.all(12),
-                   fillColor: Colors.grey[50],
-                   filled: true,
-                   border: OutlineInputBorder(
-                     borderRadius: BorderRadius.circular(10),
-                     borderSide: BorderSide(color: Colors.grey[200]!),
-                   ),
-                   enabledBorder: OutlineInputBorder(
-                     borderRadius: BorderRadius.circular(10),
-                     borderSide: BorderSide(color: Colors.grey[200]!),
-                   ),
-                   focusedBorder: OutlineInputBorder(
-                     borderRadius: BorderRadius.circular(10),
-                     borderSide: BorderSide(color: primaryColor),
-                   ),
-                 ),
-               ),
-             ),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: GoogleFonts.outfit(fontSize: 14, color: Colors.black87),
+                decoration: InputDecoration(
+                  hintText: "Ask anything...",
+                  hintStyle: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: Colors.grey[400],
+                  ),
+                  prefixIcon: Icon(
+                    LucideIcons.search,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                  fillColor: Colors.grey[50],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[200]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[200]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: primaryColor),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

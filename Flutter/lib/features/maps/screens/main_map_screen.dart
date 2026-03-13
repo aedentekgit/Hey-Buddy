@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
@@ -15,11 +14,13 @@ class MainMapScreen extends StatefulWidget {
 
 class _MainMapScreenState extends State<MainMapScreen> {
   GoogleMapController? _mapController;
-  
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => Provider.of<TasksProvider>(context, listen: false).loadTasks());
+    Future.microtask(
+      () => Provider.of<TasksProvider>(context, listen: false).loadTasks(),
+    );
   }
 
   Set<Marker> _buildMarkers(List<dynamic> tasks) {
@@ -33,7 +34,9 @@ class _MainMapScreenState extends State<MainMapScreen> {
           snippet: "${t['time'] ?? 'All day'} - ${t['location'] ?? ''}",
         ),
         icon: BitmapDescriptor.defaultMarkerWithHue(
-          t['status'] == 'completed' ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueViolet
+          t['status'] == 'completed'
+              ? BitmapDescriptor.hueGreen
+              : BitmapDescriptor.hueViolet,
         ),
       );
     }).toSet();
@@ -54,12 +57,17 @@ class _MainMapScreenState extends State<MainMapScreen> {
                 children: [
                   GoogleMap(
                     initialCameraPosition: CameraPosition(
-                      target: provider.tasks.any((t) => t['coordinates'] != null)
-                        ? LatLng(
-                            provider.tasks.firstWhere((t) => t['coordinates'] != null)['coordinates']['lat'],
-                            provider.tasks.firstWhere((t) => t['coordinates'] != null)['coordinates']['lng']
-                          )
-                        : const LatLng(20.5937, 78.9629), // Center of India
+                      target:
+                          provider.tasks.any((t) => t['coordinates'] != null)
+                          ? LatLng(
+                              provider.tasks.firstWhere(
+                                (t) => t['coordinates'] != null,
+                              )['coordinates']['lat'],
+                              provider.tasks.firstWhere(
+                                (t) => t['coordinates'] != null,
+                              )['coordinates']['lng'],
+                            )
+                          : const LatLng(20.5937, 78.9629), // Center of India
                       zoom: 12,
                     ),
                     onMapCreated: (controller) => _mapController = controller,
@@ -70,25 +78,35 @@ class _MainMapScreenState extends State<MainMapScreen> {
                   ),
                   if (provider.isLoading)
                     const Center(child: CircularProgressIndicator()),
-                  
+
                   // Legend or Floating Action
                   Positioned(
                     bottom: 20,
                     right: 20,
                     child: FloatingActionButton(
                       onPressed: () {
-                         if (provider.tasks.any((t) => t['coordinates'] != null)) {
-                           final first = provider.tasks.firstWhere((t) => t['coordinates'] != null);
-                           _mapController?.animateCamera(
-                             CameraUpdate.newLatLngZoom(
-                               LatLng(first['coordinates']['lat'], first['coordinates']['lng']), 
-                               14
-                             )
-                           );
-                         }
+                        if (provider.tasks.any(
+                          (t) => t['coordinates'] != null,
+                        )) {
+                          final first = provider.tasks.firstWhere(
+                            (t) => t['coordinates'] != null,
+                          );
+                          _mapController?.animateCamera(
+                            CameraUpdate.newLatLngZoom(
+                              LatLng(
+                                first['coordinates']['lat'],
+                                first['coordinates']['lng'],
+                              ),
+                              14,
+                            ),
+                          );
+                        }
                       },
                       backgroundColor: Theme.of(context).primaryColor,
-                      child: const Icon(LucideIcons.navigation2, color: Colors.white),
+                      child: const Icon(
+                        LucideIcons.navigation2,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],

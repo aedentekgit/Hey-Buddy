@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -9,7 +8,11 @@ class SmartDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> task;
   final bool isEditMode;
 
-  const SmartDetailsScreen({super.key, required this.task, this.isEditMode = false});
+  const SmartDetailsScreen({
+    super.key,
+    required this.task,
+    this.isEditMode = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -39,8 +42,11 @@ class SmartDetailsScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(LucideIcons.arrowLeft,
-                            size: 18, color: AppColors.text),
+                        child: const Icon(
+                          LucideIcons.arrowLeft,
+                          size: 18,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -59,7 +65,9 @@ class SmartDetailsScreen extends StatelessWidget {
                           Text(
                             'Location-based reminder',
                             style: GoogleFonts.inter(
-                                fontSize: 11, color: AppColors.textMid),
+                              fontSize: 11,
+                              color: AppColors.textMid,
+                            ),
                           ),
                         ],
                       ),

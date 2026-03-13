@@ -126,7 +126,9 @@ class MemoryDetailsScreen extends StatelessWidget {
         title: Text(
           type == 'memory' ? 'Forget Memory?' : 'Delete Document?',
           style: GoogleFonts.nunito(
-              fontWeight: FontWeight.w900, color: AppColors.text),
+            fontWeight: FontWeight.w900,
+            color: AppColors.text,
+          ),
         ),
         content: Text(
           type == 'memory'
@@ -137,25 +139,36 @@ class MemoryDetailsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
-                style: GoogleFonts.nunito(
-                    fontWeight: FontWeight.w700, color: AppColors.textMid)),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textMid,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context); // close dialog
-              final provider =
-                  Provider.of<MemoriesProvider>(context, listen: false);
+              final provider = Provider.of<MemoriesProvider>(
+                context,
+                listen: false,
+              );
               await provider.deleteItem(item['_id'], type);
               if (context.mounted) {
                 ToastUtils.showSuccessToast(
-                    type == 'memory' ? 'Memory forgotten' : 'Document deleted');
+                  type == 'memory' ? 'Memory forgotten' : 'Document deleted',
+                );
                 Navigator.pop(context); // go back to list
               }
             },
-            child: Text('Delete',
-                style: GoogleFonts.nunito(
-                    fontWeight: FontWeight.w800, color: AppColors.danger)),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w800,
+                color: AppColors.danger,
+              ),
+            ),
           ),
         ],
       ),
@@ -183,8 +196,7 @@ class MemoryDetailsScreen extends StatelessWidget {
             onBack: () => Navigator.pop(context),
             onEdit: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => MemoryEditScreen(item: item)),
+              MaterialPageRoute(builder: (_) => MemoryEditScreen(item: item)),
             ),
             onDelete: () => _showDeleteDialog(context),
           ),
@@ -202,10 +214,7 @@ class MemoryDetailsScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          c.withOpacity(0.12),
-                          c.withOpacity(0.04),
-                        ],
+                        colors: [c.withOpacity(0.12), c.withOpacity(0.04)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -220,16 +229,15 @@ class MemoryDetailsScreen extends StatelessWidget {
                           height: 64,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                c.withOpacity(0.22),
-                                c.withOpacity(0.1),
-                              ],
+                              colors: [c.withOpacity(0.22), c.withOpacity(0.1)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(20),
-                            border:
-                                Border.all(color: c.withOpacity(0.25), width: 2),
+                            border: Border.all(
+                              color: c.withOpacity(0.25),
+                              width: 2,
+                            ),
                           ),
                           child: Icon(_icon, color: c, size: 30),
                         ),
@@ -241,9 +249,10 @@ class MemoryDetailsScreen extends StatelessWidget {
                               Text(
                                 _title,
                                 style: GoogleFonts.nunito(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.text),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.text,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -262,8 +271,9 @@ class MemoryDetailsScreen extends StatelessWidget {
                                 Text(
                                   _updatedAt,
                                   style: GoogleFonts.inter(
-                                      fontSize: 11,
-                                      color: AppColors.textMid),
+                                    fontSize: 11,
+                                    color: AppColors.textMid,
+                                  ),
                                 ),
                               ],
                             ],
@@ -288,15 +298,9 @@ class MemoryDetailsScreen extends StatelessWidget {
                       child: Column(
                         children: [
                           for (int i = 0; i < fields.length; i++) ...[
-                            _FieldRow(
-                              label: fields[i][0],
-                              value: fields[i][1],
-                            ),
+                            _FieldRow(label: fields[i][0], value: fields[i][1]),
                             if (i < fields.length - 1)
-                              Container(
-                                height: 1,
-                                color: AppColors.border,
-                              ),
+                              Container(height: 1, color: AppColors.border),
                           ],
                         ],
                       ),
@@ -319,9 +323,10 @@ class MemoryDetailsScreen extends StatelessWidget {
                       child: Text(
                         notes,
                         style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: AppColors.textMid,
-                            height: 1.65),
+                          fontSize: 13,
+                          color: AppColors.textMid,
+                          height: 1.65,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -387,8 +392,11 @@ class _Header extends StatelessWidget {
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: const Icon(LucideIcons.arrowLeft,
-                      size: 18, color: AppColors.text),
+                  child: const Icon(
+                    LucideIcons.arrowLeft,
+                    size: 18,
+                    color: AppColors.text,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -399,16 +407,19 @@ class _Header extends StatelessWidget {
                     Text(
                       title,
                       style: GoogleFonts.nunito(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.text),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.text,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       'Memory Details',
                       style: GoogleFonts.inter(
-                          fontSize: 11, color: AppColors.textMid),
+                        fontSize: 11,
+                        color: AppColors.textMid,
+                      ),
                     ),
                   ],
                 ),
@@ -439,10 +450,14 @@ class _Header extends StatelessWidget {
                     color: AppColors.dangerLight,
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(
-                        color: AppColors.danger.withOpacity(0.2)),
+                      color: AppColors.danger.withOpacity(0.2),
+                    ),
                   ),
-                  child: const Icon(LucideIcons.trash2,
-                      size: 16, color: AppColors.danger),
+                  child: const Icon(
+                    LucideIcons.trash2,
+                    size: 16,
+                    color: AppColors.danger,
+                  ),
                 ),
               ),
             ],
@@ -494,9 +509,10 @@ class _FieldRow extends StatelessWidget {
             child: Text(
               label,
               style: GoogleFonts.inter(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textMid),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textMid,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -506,9 +522,10 @@ class _FieldRow extends StatelessWidget {
               value,
               textAlign: TextAlign.right,
               style: GoogleFonts.nunito(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+              ),
             ),
           ),
         ],
@@ -552,8 +569,11 @@ class _FileCard extends StatelessWidget {
   final String fileUrl;
   final Color color;
   final bool isImage;
-  const _FileCard(
-      {required this.fileUrl, required this.color, required this.isImage});
+  const _FileCard({
+    required this.fileUrl,
+    required this.color,
+    required this.isImage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -583,8 +603,11 @@ class _FileCard extends StatelessWidget {
                 height: 120,
                 color: AppColors.bg,
                 child: Center(
-                  child: Icon(LucideIcons.imageOff,
-                      color: AppColors.textDim, size: 32),
+                  child: Icon(
+                    LucideIcons.imageOff,
+                    color: AppColors.textDim,
+                    size: 32,
+                  ),
                 ),
               ),
             )
@@ -607,7 +630,9 @@ class _FileCard extends StatelessWidget {
                     child: Text(
                       fileUrl.split('/').last,
                       style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600, fontSize: 13),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -631,15 +656,15 @@ class _FileCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.externalLink,
-                      size: 13, color: color),
+                  Icon(LucideIcons.externalLink, size: 13, color: color),
                   const SizedBox(width: 6),
                   Text(
                     'Open Full View',
                     style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: color),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
                   ),
                 ],
               ),
