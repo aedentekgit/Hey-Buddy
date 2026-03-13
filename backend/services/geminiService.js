@@ -107,26 +107,22 @@ const toolHandlers = {
             // Only add notes if the schema has it (we'll add it to schema next)
             if (notes) reminderData.notes = notes;
 
-            // --- GOOGLE CALENDAR SYNC ---
-            let googleEventId = null;
-            const User = require('../models/User'); // Ensure User model is available
-            const user = await User.findById(userId);
-
-            if (user && user.googleRefreshToken) {
-                try {
-                    const { createGoogleCalendarEvent } = require('./googleCalendarService');
-                    console.log('[GeminiTools] Syncing to Google Calendar...');
-                    googleEventId = await createGoogleCalendarEvent(userId, reminderData);
-                    reminderData.googleEventId = googleEventId;
-                    reminderData.source = 'google';
-                    console.log('[GeminiTools] Google Event Created:', googleEventId);
-                } catch (calErr) {
-                    console.error('[GeminiTools] Google Sync failed:', calErr.message);
-                }
-            }
-
+            // Create reminder in database
             console.log('[GeminiTools] Creating reminder in DB:', JSON.stringify(reminderData));
             const reminder = await Reminder.create(reminderData);
+
+            // Background Google Calendar Sync
+            const { syncReminder } = require('./googleCalendarService');
+            syncReminder(user, reminder).then(async (googleEventId) => {
+                if (googleEventId) {
+                    await Reminder.findByIdAndUpdate(reminder._id, {
+                        googleEventId,
+                        source: 'google'
+                    });
+                    console.log(`[GeminiSync] Updated reminder ${reminder._id} with Google Event ID: ${googleEventId}`);
+                }
+            }).catch(err => console.error('[GeminiSync] Background sync error:', err));
+
 
             let message = `Reminder created${location ? ` for ${location}` : ''}.`;
             if (location && !coordinates.lat) {
@@ -242,23 +238,23 @@ const toolHandlers = {
         // Simple merge
         Object.assign(reminder, updateData);
 
-        // --- GOOGLE CALENDAR SYNC UPDATE ---
-        const User = require('../models/User');
-        const user = await User.findById(userId);
+        // Background Google Calendar Sync Update
+        const { syncReminder, updateGoogleCalendarEvent } = require('./googleCalendarService');
         if (user && user.googleRefreshToken) {
-            try {
-                const { createGoogleCalendarEvent, updateGoogleCalendarEvent } = require('./googleCalendarService');
-                if (reminder.googleEventId) {
-                    await updateGoogleCalendarEvent(userId, reminder.googleEventId, reminder.toObject());
-                    console.log('[GeminiTools] Google Calendar updated.');
-                } else {
-                    const eventId = await createGoogleCalendarEvent(userId, reminder.toObject());
-                    reminder.googleEventId = eventId;
-                    reminder.source = 'google';
-                    console.log('[GeminiTools] New Google Event created during update:', eventId);
-                }
-            } catch (calErr) {
-                console.error('[GeminiTools] Update Google Sync failed:', calErr.message);
+            if (reminder.googleEventId) {
+                updateGoogleCalendarEvent(userId, reminder.googleEventId, reminder.toObject()).catch(err => {
+                    console.error('[GeminiSync] Update Google Sync failed:', err.message);
+                });
+            } else {
+                syncReminder(user, reminder).then(async (googleEventId) => {
+                    if (googleEventId) {
+                        await Reminder.findByIdAndUpdate(reminder._id, {
+                            googleEventId,
+                            source: 'google'
+                        });
+                        console.log(`[GeminiSync] New Google Event created during update: ${googleEventId}`);
+                    }
+                }).catch(err => console.error('[GeminiSync] Background sync error during update:', err));
             }
         }
 

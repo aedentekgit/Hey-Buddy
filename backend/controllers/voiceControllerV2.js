@@ -166,24 +166,24 @@ exports.saveReminder = async (req, res) => {
             }
         }
 
-        let googleEventId = null;
-        if (req.user.googleRefreshToken) {
-            try {
-                console.log('[SaveReminder] Automatic Google Sync Triggered...');
-                googleEventId = await createGoogleCalendarEvent(userId, reminderData);
-                console.log('[SaveReminder] Google Event Created:', googleEventId);
-            } catch (err) {
-                console.error("[SaveReminder] Google Calendar Sync failed:", err.message);
-            }
-        }
-
-        console.log('[SaveReminder] Saving to DB...');
+        // Create reminder in database
         const reminder = await Reminder.create({
             userId,
-            ...reminderData,
-            googleEventId,
-            source: googleEventId ? 'google' : 'buddy'
+            ...reminderData
         });
+
+        // Background Google Calendar Sync
+        const { syncReminder } = require('../services/googleCalendarService');
+        syncReminder(req.user, reminder).then(async (googleEventId) => {
+            if (googleEventId) {
+                await Reminder.findByIdAndUpdate(reminder._id, {
+                    googleEventId,
+                    source: 'google'
+                });
+                console.log(`[SaveReminder] Updated with Google Event ID: ${googleEventId}`);
+            }
+        }).catch(err => console.error('[SaveReminder] Background sync error:', err));
+
 
         console.log('[SaveReminder] Successfully saved to DB:', reminder._id);
         res.status(201).json({ success: true, data: reminder });

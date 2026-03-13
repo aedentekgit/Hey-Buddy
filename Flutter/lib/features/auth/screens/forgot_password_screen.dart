@@ -6,6 +6,8 @@ import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:buddy_mobile/shared/utils/text_formatters.dart';
+import 'package:flutter/services.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -146,6 +148,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       label: "EMAIL ADDRESS",
                       hint: "alex@example.com",
                       icon: LucideIcons.mail,
+                      keyboardType: TextInputType.emailAddress,
+                      inputFormatters: [LowerCaseTextFormatter()],
                     ),
                     const SizedBox(height: 32),
                     _buildButton(
@@ -159,6 +163,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       label: "VERIFICATION CODE",
                       hint: "0 0 0 0 0 0",
                       icon: LucideIcons.key,
+                      keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 32),
                     _buildButton(
@@ -201,6 +206,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     bool isPassword = false,
     bool obscure = false,
     VoidCallback? onToggle,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,6 +241,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscure,
+            keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
+            inputFormatters: inputFormatters,
             style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,

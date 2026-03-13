@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy_mobile/core/services/notification_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
@@ -155,7 +156,16 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> logout() async {
     _token = null;
-    await _storage.delete(key: 'jwt');
+
+    // If biometrics is enabled, we keep the token in secure storage so the user can "Quick Unlock"
+    // otherwise we delete it for security.
+    final prefs = await SharedPreferences.getInstance();
+    final bool biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+
+    if (!biometricEnabled) {
+      await _storage.delete(key: 'jwt');
+    }
+
     try {
       await _googleSignIn.signOut();
     } catch (e) {

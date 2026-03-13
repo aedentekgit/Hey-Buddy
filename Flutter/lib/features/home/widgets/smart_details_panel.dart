@@ -20,6 +20,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 
 class SmartDetailsPanel extends StatefulWidget {
   final Map<String, dynamic> reminder;
@@ -70,6 +71,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   String? _adjustedNotificationTime;
   bool _isLoadingAdjustedTime = false;
   Timer? _adjDebounce;
+  
+  // Collaboration
+  late bool notifyCreator;
+  bool _isSearchingFamily = false;
+  List<dynamic> _familySearchResults = [];
+  final TextEditingController _familySearchController = TextEditingController();
 
   @override
   void initState() {
@@ -112,6 +119,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     // A hardcoded city would produce wrong distance, travel time, and route.
 
     sharedWith = List.from(r['sharedWith'] ?? []);
+    notifyCreator = r['notifyCreator'] ?? true;
 
     // Wire up autocomplete listener
     locationController.addListener(_onLocationChanged);
@@ -401,7 +409,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || userId == null) return;
 
     final success = await _taskService.unshareReminder(
       widget.reminder['_id'],
@@ -410,9 +418,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     if (success) {
       ToastUtils.showSuccessToast("User removed from sharing");
       if (mounted) {
-        setState(
-          () => sharedWith.removeWhere((s) => s['user']['_id'] == userId),
-        );
+        setState(() {
+          sharedWith.removeWhere((s) {
+            final uid = (s['user'] is Map) ? s['user']['_id'] : s['user'];
+            return uid == userId || s['_id'] == userId;
+          });
+        });
       }
     } else {
       ToastUtils.showErrorToast("Failed to remove user");
@@ -620,6 +631,22 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           }
         });
         ToastUtils.showErrorToast("Failed to update setting");
+      }
+    }
+  }
+
+  Future<void> _toggleNotifyCreator(bool value) async {
+    setState(() => notifyCreator = value);
+    if (!isEditing) {
+      final success = await Provider.of<TasksProvider>(
+        context,
+        listen: false,
+      ).updateTask(widget.reminder['_id'], {'notifyCreator': notifyCreator});
+      if (success) {
+        ToastUtils.showSuccessToast("Location Sharing ${value ? 'ON' : 'OFF'}");
+      } else {
+        setState(() => notifyCreator = !value);
+        ToastUtils.showErrorToast("Failed to update");
       }
     }
   }
@@ -1136,6 +1163,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       'smartFeatures': smartFeatures,
       'status': status,
       'coordinates': coordinates,
+      'notifyCreator': notifyCreator,
+      'sharedWith': sharedWith
+          .where((s) => s['user'] != null)
+          .map((s) => {
+                'user': (s['user'] is Map) ? s['user']['_id'] : s['user'],
+                'permissions': s['permissions'] ?? 'view',
+              })
+          .toList(),
     };
 
     final success = await Provider.of<TasksProvider>(
@@ -2317,6 +2352,77 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   title: "COLLABORATION",
                   icon: LucideIcons.share2,
                   children: [
+                    if (isEditing) ...[
+                      // Search Bar
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        child: TextField(
+                          controller: _familySearchController,
+                          style: GoogleFonts.outfit(color: AppColors.text, fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: "Search family members...",
+                            hintStyle: const TextStyle(color: AppColors.textMid),
+                            prefixIcon: const Icon(LucideIcons.search, color: AppColors.textMid, size: 18),
+                            filled: true,
+                            fillColor: AppColors.bg,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                          ),
+                          onChanged: (val) {
+                            if (val.isEmpty) {
+                              setState(() => _familySearchResults = []);
+                              return;
+                            }
+                            final famProv = Provider.of<FamilyProvider>(context, listen: false);
+                            if (famProv.members.isEmpty) famProv.loadData();
+                            
+                            setState(() {
+                              _familySearchResults = famProv.members.where((m) {
+                                final name = (m['name'] ?? '').toString().toLowerCase();
+                                final email = (m['email'] ?? '').toString().toLowerCase();
+                                final q = val.toLowerCase();
+                                return name.contains(q) || email.contains(q);
+                              }).toList();
+                            });
+                          },
+                        ),
+                      ),
+                      if (_familySearchResults.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            children: _familySearchResults.map((user) => ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: user['profilePicture'] != null 
+                                    ? CachedNetworkImageProvider(AppConfig.formatImageUrl(user['profilePicture'])!) 
+                                    : null,
+                                child: user['profilePicture'] == null ? Text(user['name']?[0] ?? 'U') : null,
+                              ),
+                              title: Text(user['name'] ?? 'Unknown', style: GoogleFonts.outfit(fontSize: 14)),
+                              subtitle: Text(user['email'] ?? '', style: GoogleFonts.outfit(fontSize: 12)),
+                              trailing: IconButton(
+                                icon: const Icon(LucideIcons.plusCircle, color: AppColors.accent),
+                                onPressed: () {
+                                   setState(() {
+                                      if (!sharedWith.any((s) => s['user']['_id'] == user['_id'])) {
+                                        sharedWith.add({'user': user, 'permissions': 'view'});
+                                      }
+                                      _familySearchController.clear();
+                                      _familySearchResults = [];
+                                      FocusScope.of(context).unfocus();
+                                   });
+                                },
+                              ),
+                            )).toList(),
+                          )
+                        ),
+                      const SizedBox(height: 8),
+                    ],
                     if (sharedWith.isEmpty)
                       Text(
                         "Not shared with anyone",
@@ -2418,8 +2524,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                     size: 16,
                                     color: Colors.red,
                                   ),
-                                  onPressed: () =>
-                                      _unshareUser(s['user']['_id']),
+                                  onPressed: () {
+                                    final uid = (s['user'] is Map)
+                                        ? s['user']['_id']
+                                        : (s['user'] ?? s['_id']);
+                                    _unshareUser(uid.toString());
+                                  },
                                 ),
                             ],
                           ),
@@ -2427,6 +2537,21 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       ),
                   ],
                 ),
+
+                if (sharedWith.isNotEmpty || isEditing)
+                  _DetailCard(
+                    title: "LOCATION SHARING",
+                    icon: LucideIcons.mapPin,
+                    children: [
+                      _AlertTile(
+                        icon: LucideIcons.userCheck,
+                        label: "Include My Location",
+                        sub: "Receive alerts based on your own location. Turn off to delegate task entirely.",
+                        value: notifyCreator,
+                        onChanged: (v) => _toggleNotifyCreator(v),
+                      ),
+                    ],
+                  ),
 
                 // Family Backup
 

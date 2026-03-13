@@ -13,6 +13,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
 import 'package:buddy_mobile/shared/dialogs/biometric_prompt_dialog.dart';
+import 'package:buddy_mobile/shared/utils/text_formatters.dart';
+import 'package:flutter/services.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,6 +27,37 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoCheckBiometrics();
+    });
+  }
+
+  Future<void> _autoCheckBiometrics() async {
+    final security = Provider.of<SecurityProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    // If we have no token in memory, try to load from storage
+    // (This works if logout preserved the token for biometric use)
+    if (auth.token == null) {
+      await auth.tryAutoLogin();
+    }
+
+    // If still no token, we can't do biometric login
+    if (auth.token == null) return;
+
+    if (security.isBiometricEnabled) {
+      final success = await security.authenticate();
+      if (success && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
+      }
+    }
+  }
 
   void _handleLogin() async {
     final email = _emailController.text.trim();
@@ -196,6 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           label: "EMAIL ADDRESS",
                           hint: "alex@example.com",
                           icon: LucideIcons.mail,
+                          keyboardType: TextInputType.emailAddress,
+                          inputFormatters: [LowerCaseTextFormatter()],
                         ),
                         const SizedBox(height: 20),
                         _buildTextField(
@@ -442,6 +477,9 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isPassword = false,
     bool obscure = false,
     VoidCallback? onToggle,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,6 +512,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscure,
+            keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
+            inputFormatters: inputFormatters,
             style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,

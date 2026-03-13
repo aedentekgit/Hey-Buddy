@@ -10,6 +10,9 @@ import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 import 'package:buddy_mobile/shared/widgets/pressable.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter/cupertino.dart';
+
 
 class ReminderListScreen extends StatefulWidget {
   const ReminderListScreen({super.key});
@@ -23,6 +26,392 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   DateTime? _selectedDate; // null = show all (default: current+upcoming)
+  DateTime? _tempSnoozeTime;
+
+  Future<void> _handleComplete(Map<String, dynamic> task) async {
+    final provider = Provider.of<TasksProvider>(context, listen: false);
+    final success =
+        await provider.updateTask(task['_id'], {'status': 'completed'});
+    if (success) ToastUtils.showSuccessToast("Marked as completed");
+  }
+
+  Future<void> _handleDelete(Map<String, dynamic> task) async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: const Text('Delete Reminder?'),
+            content: const Text(
+              'Are you sure you want to delete this reminder? This action cannot be undone.',
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                child: const Text('Delete'),
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true) {
+      final provider = Provider.of<TasksProvider>(context, listen: false);
+      final success = await provider.deleteTask(task['_id']);
+      if (success) ToastUtils.showSuccessToast("Reminder deleted");
+    }
+  }
+
+  Future<void> _handleSnooze(Map<String, dynamic> task) async {
+    final int? picked = await _showSnoozeSelection(task['status'] == 'snoozed');
+    if (picked == null) return;
+
+    String targetStatus = 'snoozed';
+    String snoozedTime = "";
+    final originalTime = task['time'] ?? "";
+
+    if (picked == -1) {
+      targetStatus = 'on_track';
+      snoozedTime = originalTime;
+    } else if (picked == -3 && _tempSnoozeTime != null) {
+      snoozedTime = _formatTimeOfDay(TimeOfDay.fromDateTime(_tempSnoozeTime!));
+      _tempSnoozeTime = null;
+    } else {
+      snoozedTime = _snoozeTime(originalTime, picked);
+    }
+
+    final success = await Provider.of<TasksProvider>(
+      context,
+      listen: false,
+    ).updateTask(task['_id'], {'status': targetStatus, 'time': snoozedTime});
+
+    if (success) {
+      ToastUtils.showSuccessToast(
+        targetStatus == 'snoozed' ? "Snoozed until $snoozedTime" : "Snooze removed",
+      );
+    }
+  }
+
+  String _formatTimeOfDay(TimeOfDay tod) {
+    final hour = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
+    final min = tod.minute.toString().padLeft(2, '0');
+    final period = tod.period == DayPeriod.am ? 'AM' : 'PM';
+    return "${hour.toString().padLeft(2, '0')}:$min $period";
+  }
+
+  String _snoozeTime(String timeStr, int minutes) {
+    try {
+      final parts = timeStr.split(':');
+      int hour = int.parse(parts[0]);
+      final rest = parts[1].trim();
+      final minuteStr = rest.substring(0, 2);
+      int minute = int.parse(minuteStr);
+      bool isPM = timeStr.toUpperCase().contains('PM');
+      bool isAM = timeStr.toUpperCase().contains('AM');
+
+      if (isPM && hour < 12) hour += 12;
+      if (isAM && hour == 12) hour = 0;
+
+      DateTime dt = DateTime(2024, 1, 1, hour, minute).add(
+        Duration(minutes: minutes),
+      );
+
+      int newHour = dt.hour;
+      int newMinute = dt.minute;
+      String suffix = newHour >= 12 ? 'PM' : 'AM';
+      int displayHour =
+          newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
+
+      return "${displayHour.toString().padLeft(2, '0')}:${newMinute.toString().padLeft(2, '0')} $suffix";
+    } catch (_) {
+      return timeStr;
+    }
+  }
+
+  Future<int?> _showSnoozeSelection(bool currentlySnoozed) async {
+    DateTime tempTime = DateTime.now();
+    bool showingCustom = false;
+
+    return await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder:
+            (context, setSheetState) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MediaQuery.of(context).padding.bottom + 10,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox(width: 48),
+                        Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.x,
+                            size: 20,
+                            color: AppColors.textMid,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      showingCustom ? 'Custom Snooze' : 'Snooze Reminder',
+                      style: GoogleFonts.nunito(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.text,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (!showingCustom) ...[
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.8,
+                        children: [
+                          _buildSnoozeCard(
+                            15,
+                            '15 Min',
+                            LucideIcons.alarmClock,
+                            context,
+                          ),
+                          _buildSnoozeCard(
+                            30,
+                            '30 Min',
+                            LucideIcons.alarmClock,
+                            context,
+                          ),
+                          _buildSnoozeCard(
+                            60,
+                            '1 Hour',
+                            LucideIcons.hourglass,
+                            context,
+                          ),
+                          _buildSnoozeCard(
+                            120,
+                            '2 Hours',
+                            LucideIcons.timer,
+                            context,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: () => setSheetState(() => showingCustom = true),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 18,
+                            horizontal: 24,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.accent, const Color(0xFF6366F1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.calendarClock,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Set Custom Time',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                LucideIcons.chevronRight,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      SizedBox(
+                        height: 200,
+                        child: CupertinoDatePicker(
+                          mode: CupertinoDatePickerMode.time,
+                          initialDateTime: DateTime.now().add(
+                            const Duration(minutes: 5),
+                          ),
+                          onDateTimeChanged: (DateTime dt) => tempTime = dt,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed:
+                                  () => setSheetState(
+                                    () => showingCustom = false,
+                                  ),
+                              child: Text(
+                                'Back',
+                                style: GoogleFonts.nunito(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textMid,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(context, -3),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  'Confirm',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (currentlySnoozed && !showingCustom) ...[
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context, -1),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.danger.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  LucideIcons.alarmClockOff,
+                                  color: AppColors.danger,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'TURN OFF SNOOZE',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.danger,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+      ),
+    ).then((val) {
+      if (val == -3) {
+        _tempSnoozeTime = tempTime;
+      }
+      return val;
+    });
+  }
+
+  Widget _buildSnoozeCard(
+    int mins,
+    String label,
+    IconData icon,
+    BuildContext context,
+  ) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context, mins),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppColors.accent, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: AppColors.text,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   List<String> _buildFilters(List<Map<String, dynamic>> tasks) {
     final intentSet = <String>{};
@@ -467,189 +856,246 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
     final bool hasLocation =
         location != null && location.isNotEmpty && location != 'No Location';
 
-    return Pressable(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => SmartDetailsScreen(task: task)),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
-          boxShadow: AppColors.cardShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Left color stripe
-                Container(width: 4, color: color),
-                // Card content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Icon container
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                color.withOpacity(0.18),
-                                color.withOpacity(0.08),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: color.withOpacity(0.25)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Slidable(
+        key: ValueKey(task['_id']),
+        startActionPane: ActionPane(
+          motion: const BehindMotion(),
+          extentRatio: 0.6,
+          children: [
+            _SlidableAction(
+              label: 'Edit',
+              icon: LucideIcons.pencil,
+              color: AppColors.accent,
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => SmartDetailsScreen(
+                            task: task,
+                            isEditMode: true,
                           ),
-                          child: Icon(icon, color: color, size: 22),
-                        ),
-                        const SizedBox(width: 13),
-                        // Content
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      title,
-                                      style: GoogleFonts.nunito(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14.5,
-                                        color: shouldStrike
-                                            ? AppColors.textDim
-                                            : AppColors.text,
-                                        decoration: shouldStrike
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                        decorationColor: AppColors.textDim,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Icon(
-                                    LucideIcons.chevronRight,
-                                    size: 13,
-                                    color: color,
-                                  ),
-                                ],
+                    ),
+                  ),
+            ),
+            _SlidableAction(
+              label: 'Snooze',
+              icon: LucideIcons.alarmClock,
+              color: AppColors.orange,
+              onTap: () => _handleSnooze(task),
+            ),
+            _SlidableAction(
+              label: 'Done',
+              icon: LucideIcons.checkCircle2,
+              color: AppColors.green,
+              onTap: () => _handleComplete(task),
+            ),
+          ],
+        ),
+        endActionPane: ActionPane(
+          motion: const BehindMotion(),
+          extentRatio: 0.25,
+          children: [
+            _SlidableAction(
+              label: 'Delete',
+              icon: LucideIcons.trash2,
+              color: AppColors.danger,
+              onTap: () => _handleDelete(task),
+            ),
+          ],
+        ),
+        child: Pressable(
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SmartDetailsScreen(task: task),
+                ),
+              ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder),
+              boxShadow: AppColors.cardShadow,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Left color stripe
+                    Container(width: 4, color: color),
+                    // Card content
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Icon container
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    color.withOpacity(0.18),
+                                    color.withOpacity(0.08),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: color.withOpacity(0.25),
+                                ),
                               ),
-                              const SizedBox(height: 3),
-                              Row(
+                              child: Icon(icon, color: color, size: 22),
+                            ),
+                            const SizedBox(width: 13),
+                            // Content
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    LucideIcons.clock,
-                                    size: 12,
-                                    color: AppColors.textDim,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      '$timeStr · $dateStr',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        color: shouldStrike
-                                            ? AppColors.textDim
-                                            : AppColors.textMid,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (hasLocation) ...[
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      LucideIcons.mapPin,
-                                      size: 12,
-                                      color: AppColors.accent,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        location!,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11.5,
-                                          color: AppColors.textMid,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (etaLabel != null) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 1,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.accent.withOpacity(
-                                            0.12,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          border: Border.all(
-                                            color: AppColors.accent.withOpacity(
-                                              0.2,
-                                            ),
-                                          ),
-                                        ),
+                                  Row(
+                                    children: [
+                                      Expanded(
                                         child: Text(
-                                          'ETA $etaLabel',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 9,
+                                          title,
+                                          style: GoogleFonts.nunito(
                                             fontWeight: FontWeight.w800,
-                                            color: AppColors.accent,
+                                            fontSize: 14.5,
+                                            color:
+                                                shouldStrike
+                                                    ? AppColors.textDim
+                                                    : AppColors.text,
+                                            decoration:
+                                                shouldStrike
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                            decorationColor: AppColors.textDim,
                                           ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Icon(
+                                        LucideIcons.chevronRight,
+                                        size: 13,
+                                        color: color,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        LucideIcons.clock,
+                                        size: 12,
+                                        color: AppColors.textDim,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          '$timeStr · $dateStr',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color:
+                                                shouldStrike
+                                                    ? AppColors.textDim
+                                                    : AppColors.textMid,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],
-                                  ],
-                                ),
-                              ],
-                              const SizedBox(height: 9),
-                              Row(
-                                children: [
-                                  _Chip(
-                                    label: intent?.toString() ?? 'Task',
-                                    color: color,
-                                    small: true,
                                   ),
-                                  if (task['priority'] == 'high') ...[
-                                    const SizedBox(width: 8),
-                                    const _PriorityChip(),
+                                  if (hasLocation) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          LucideIcons.mapPin,
+                                          size: 12,
+                                          color: AppColors.accent,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            location!,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 11.5,
+                                              color: AppColors.textMid,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (etaLabel != null) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.accent
+                                                  .withOpacity(0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: AppColors.accent
+                                                    .withOpacity(0.2),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'ETA $etaLabel',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppColors.accent,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ],
+                                  const SizedBox(height: 9),
+                                  Row(
+                                    children: [
+                                      _Chip(
+                                        label: intent?.toString() ?? 'Task',
+                                        color: color,
+                                        small: true,
+                                      ),
+                                      if (task['priority'] == 'high') ...[
+                                        const SizedBox(width: 8),
+                                        const _PriorityChip(),
+                                      ],
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
+
   }
 
   Widget _buildEmpty() {
@@ -1134,3 +1580,61 @@ class _PriorityChip extends StatelessWidget {
     );
   }
 }
+
+class _SlidableAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SlidableAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: GestureDetector(
+          onTap: () {
+            Slidable.of(context)?.close();
+            onTap();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

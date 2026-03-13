@@ -8,6 +8,9 @@ import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 import 'package:buddy_mobile/features/home/screens/location_reminder_create_screen.dart';
 import 'package:buddy_mobile/features/home/providers/location_reminders_provider.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class LocationRemindersScreen extends StatefulWidget {
   const LocationRemindersScreen({super.key});
@@ -21,6 +24,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
   String _activeFilter = 'All';
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  DateTime? _tempSnoozeTime;
 
   @override
   void initState() {
@@ -239,7 +243,49 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                 itemCount: filtered.length,
                 itemBuilder: (context, index) {
                   final reminder = Map<String, dynamic>.from(filtered[index]);
-                  return _buildLocationReminderCard(reminder, index);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: Slidable(
+                      key: ValueKey(reminder['_id']),
+                      startActionPane: ActionPane(
+                        motion: const BehindMotion(),
+                        extentRatio: 0.6,
+                        children: [
+                          _SlidableAction(
+                            label: 'Edit',
+                            icon: LucideIcons.pencil,
+                            color: AppColors.accent,
+                            onTap: () => _handleEdit(reminder),
+                          ),
+                          _SlidableAction(
+                            label: 'Snooze',
+                            icon: LucideIcons.alarmClock,
+                            color: AppColors.orange,
+                            onTap: () => _handleSnooze(reminder),
+                          ),
+                          _SlidableAction(
+                            label: 'Done',
+                            icon: LucideIcons.checkCircle2,
+                            color: AppColors.green,
+                            onTap: () => _handleComplete(reminder),
+                          ),
+                        ],
+                      ),
+                      endActionPane: ActionPane(
+                        motion: const BehindMotion(),
+                        extentRatio: 0.25,
+                        children: [
+                          _SlidableAction(
+                            label: 'Delete',
+                            icon: LucideIcons.trash2,
+                            color: AppColors.danger,
+                            onTap: () => _handleDelete(reminder),
+                          ),
+                        ],
+                      ),
+                      child: _buildLocationReminderCard(reminder, index),
+                    ),
+                  );
                 },
               ),
             ),
@@ -292,10 +338,11 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
 
     // Status text mapping
     String statusText = 'ON TRACK';
-    if (isDanger)
+    if (isDanger) {
       statusText = 'Risk Alert';
-    else if (status == 'completed')
+    } else if (status == 'completed') {
       statusText = 'COMPLETED';
+    }
 
     return MobileTaskCard(
       title: reminder['title'] ?? 'Untitled',
@@ -312,6 +359,414 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
       onShare: () => _onFamilyBackup(reminder),
       earlyWarningActive: reminder['earlyWarningSet'] ?? false,
       isHighPriority: reminder['priority'] == 'high',
+    );
+  }
+
+  void _handleEdit(Map<String, dynamic> reminder) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LocationReminderCreateScreen(reminder: reminder),
+      ),
+    );
+  }
+
+  Future<void> _handleComplete(Map<String, dynamic> reminder) async {
+    final provider = context.read<LocationRemindersProvider>();
+    final success = await provider.updateReminder(reminder['_id'], {
+      'status': 'completed',
+    });
+    if (success) ToastUtils.showSuccessToast("Marked as completed");
+  }
+
+  Future<void> _handleDelete(Map<String, dynamic> reminder) async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: const Text('Delete Reminder?'),
+            content: const Text(
+              'Are you sure you want to delete this reminder? This action cannot be undone.',
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                child: const Text('Delete'),
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true && mounted) {
+      final provider = context.read<LocationRemindersProvider>();
+      final success = await provider.deleteReminder(reminder['_id']);
+      if (success && mounted) ToastUtils.showSuccessToast("Reminder deleted");
+    }
+  }
+
+  Future<void> _handleSnooze(Map<String, dynamic> reminder) async {
+    final int? picked = await _showSnoozeSelection(
+      reminder['status'] == 'snoozed',
+    );
+    if (picked == null) return;
+
+    String targetStatus = 'snoozed';
+    String snoozedTime = "";
+    final originalTime = reminder['time'] ?? "";
+
+    if (picked == -1) {
+      targetStatus = 'on_track';
+      snoozedTime = originalTime;
+    } else if (picked == -3 && _tempSnoozeTime != null) {
+      snoozedTime = _formatTimeOfDay(TimeOfDay.fromDateTime(_tempSnoozeTime!));
+      _tempSnoozeTime = null;
+    } else {
+      snoozedTime = _snoozeTime(originalTime, picked);
+    }
+
+    if (mounted) {
+      final success = await context.read<LocationRemindersProvider>().updateReminder(
+        reminder['_id'],
+        {'status': targetStatus, 'time': snoozedTime},
+      );
+
+      if (success && mounted) {
+        ToastUtils.showSuccessToast(
+          targetStatus == 'snoozed'
+              ? "Snoozed until $snoozedTime"
+              : "Snooze removed",
+        );
+      }
+    }
+  }
+
+  String _formatTimeOfDay(TimeOfDay tod) {
+    final hour = tod.hourOfPeriod == 0 ? 12 : tod.hourOfPeriod;
+    final min = tod.minute.toString().padLeft(2, '0');
+    final period = tod.period == DayPeriod.am ? 'AM' : 'PM';
+    return "${hour.toString().padLeft(2, '0')}:$min $period";
+  }
+
+  String _snoozeTime(String timeStr, int minutes) {
+    try {
+      final parts = timeStr.split(':');
+      int hour = int.parse(parts[0]);
+      final rest = parts[1].trim();
+      final minuteStr = rest.substring(0, 2);
+      int minute = int.parse(minuteStr);
+      bool isPM = timeStr.toUpperCase().contains('PM');
+      bool isAM = timeStr.toUpperCase().contains('AM');
+
+      if (isPM && hour < 12) hour += 12;
+      if (isAM && hour == 12) hour = 0;
+
+      DateTime dt = DateTime(2024, 1, 1, hour, minute).add(
+        Duration(minutes: minutes),
+      );
+
+      int newHour = dt.hour;
+      int newMinute = dt.minute;
+      String suffix = newHour >= 12 ? 'PM' : 'AM';
+      int displayHour =
+          newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
+
+      return "${displayHour.toString().padLeft(2, '0')}:${newMinute.toString().padLeft(2, '0')} $suffix";
+    } catch (_) {
+      return timeStr;
+    }
+  }
+
+  Future<int?> _showSnoozeSelection(bool currentlySnoozed) async {
+    DateTime tempTime = DateTime.now();
+    bool showingCustom = false;
+
+    return await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setSheetState) => Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(32),
+                    ),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    MediaQuery.of(context).padding.bottom + 10,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const SizedBox(width: 48),
+                            Container(
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                LucideIcons.x,
+                                size: 20,
+                                color: AppColors.textMid,
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          showingCustom ? 'Custom Snooze' : 'Snooze Reminder',
+                          style: GoogleFonts.nunito(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.text,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        if (!showingCustom) ...[
+                          GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 1.8,
+                            children: [
+                              _buildSnoozeOption(
+                                15,
+                                '15 Min',
+                                LucideIcons.alarmClock,
+                                context,
+                              ),
+                              _buildSnoozeOption(
+                                30,
+                                '30 Min',
+                                LucideIcons.alarmClock,
+                                context,
+                              ),
+                              _buildSnoozeOption(
+                                60,
+                                '1 Hour',
+                                LucideIcons.hourglass,
+                                context,
+                              ),
+                              _buildSnoozeOption(
+                                120,
+                                '2 Hours',
+                                LucideIcons.timer,
+                                context,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          GestureDetector(
+                            onTap:
+                                () => setSheetState(() => showingCustom = true),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 18,
+                                horizontal: 24,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    AppColors.accent,
+                                    Color(0xFF6366F1),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        LucideIcons.calendarClock,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Set Custom Time',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Icon(
+                                    LucideIcons.chevronRight,
+                                    color: Colors.white70,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          SizedBox(
+                            height: 200,
+                            child: CupertinoDatePicker(
+                              mode: CupertinoDatePickerMode.time,
+                              initialDateTime: DateTime.now().add(
+                                const Duration(minutes: 5),
+                              ),
+                              onDateTimeChanged: (DateTime dt) => tempTime = dt,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextButton(
+                                  onPressed:
+                                      () => setSheetState(
+                                        () => showingCustom = false,
+                                      ),
+                                  child: Text(
+                                    'Back',
+                                    style: GoogleFonts.nunito(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textMid,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => Navigator.pop(context, -3),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      'Confirm',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (currentlySnoozed && !showingCustom) ...[
+                          const SizedBox(height: 24),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context, -1),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                color: AppColors.danger.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: AppColors.danger.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.alarmClockOff,
+                                      color: AppColors.danger,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'TURN OFF SNOOZE',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.danger,
+                                        letterSpacing: 1.1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ),
+          ),
+    ).then((val) {
+      if (val == -3) {
+        _tempSnoozeTime = tempTime;
+      }
+      return val;
+    });
+  }
+
+  Widget _buildSnoozeOption(
+    int mins,
+    String label,
+    IconData icon,
+    BuildContext context,
+  ) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context, mins),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppColors.accent, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -351,56 +806,61 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
       }
     }
   }
+}
 
-  Future<void> _confirmDelete(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Reminder'),
-        content: const Text('Are you sure you want to delete this reminder?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+class _SlidableAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SlidableAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: GestureDetector(
+          onTap: () {
+            Slidable.of(context)?.close();
+            onTap();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+        ),
       ),
     );
-
-    if (confirm == true) {
-      final success = await context
-          .read<LocationRemindersProvider>()
-          .deleteReminder(id);
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Location reminder deleted'),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFF10B981),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Failed to delete reminder'),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFFEF4444),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        }
-      }
-    }
   }
 }

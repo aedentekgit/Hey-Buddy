@@ -72,3 +72,11 @@ ai_debug.txt
 # Large Binaries
 *.apk
 *.ipa
+*.docx
+*.doc
+*.pdf
+
+# Python generated
+__pycache__/
+*.py[cod]
+*$py.class

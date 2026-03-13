@@ -530,7 +530,7 @@ class _EmergencyCard extends StatelessWidget {
 }
 
 // ── Invite card ────────────────────────────────────────────────────────────
-class _InviteCard extends StatelessWidget {
+class _InviteCard extends StatefulWidget {
   final TextEditingController ctrl;
   final bool isLoading;
   final VoidCallback onSend;
@@ -542,83 +542,127 @@ class _InviteCard extends StatelessWidget {
   });
 
   @override
+  State<_InviteCard> createState() => _InviteCardState();
+}
+
+class _InviteCardState extends State<_InviteCard> {
+  bool _isFocused = false;
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Invite New Member',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            child: Text(
+              'Invite New Member',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
+              ),
             ),
           ),
-          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(50),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: TextField(
-                    controller: ctrl,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: AppColors.text,
-                    ),
-                    decoration: InputDecoration.collapsed(
-                      hintText: 'Gmail or Apple ID',
-                      hintStyle: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppColors.textDim,
+                child: Focus(
+                  onFocusChange: (focused) => setState(() => _isFocused = focused),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: _isFocused ? AppColors.surface : AppColors.bg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _isFocused ? AppColors.accent : AppColors.border,
+                        width: _isFocused ? 1.5 : 1.0,
                       ),
+                      boxShadow: _isFocused
+                          ? [
+                              BoxShadow(
+                                color: AppColors.accent.withOpacity(0.12),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          LucideIcons.mail,
+                          size: 18,
+                          color: _isFocused ? AppColors.accent : AppColors.textDim,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: widget.ctrl,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: AppColors.text,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            onSubmitted: (_) => widget.onSend(),
+                            decoration: InputDecoration(
+                              hintText: 'Email or Apple ID',
+                              hintStyle: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: AppColors.textDim,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              border: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              isCollapsed: true,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               GestureDetector(
-                onTap: isLoading ? null : onSend,
-                child: Container(
-                  width: 46,
-                  height: 46,
+                onTap: widget.isLoading ? null : widget.onSend,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    shape: BoxShape.circle,
+                    color: widget.isLoading ? AppColors.accent.withOpacity(0.5) : AppColors.accent,
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accent.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                        color: AppColors.accent.withOpacity(0.35),
+                        blurRadius: 15,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: isLoading
+                  child: widget.isLoading
                       ? const Padding(
-                          padding: EdgeInsets.all(13),
+                          padding: EdgeInsets.all(14),
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
+                            strokeWidth: 2.5,
                             color: Colors.white,
                           ),
                         )
                       : const Icon(
                           LucideIcons.send,
-                          size: 18,
+                          size: 20,
                           color: Colors.white,
                         ),
                 ),
@@ -630,6 +674,7 @@ class _InviteCard extends StatelessWidget {
     );
   }
 }
+
 
 // ── Pending request card ───────────────────────────────────────────────────
 class _PendingCard extends StatelessWidget {

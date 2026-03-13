@@ -74,8 +74,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       // and never reconnects after login.
       auth.addListener(_onAuthChanged);
 
-      // Fetch Local News based on location gracefully
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      
       double? lat = userProvider.user['currentLocation']?['lat'];
       double? lon = userProvider.user['currentLocation']?['lng'];
 

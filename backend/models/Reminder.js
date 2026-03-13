@@ -132,6 +132,10 @@ const reminderSchema = new mongoose.Schema({
         ref: 'User',
         default: null
     },
+    notifyCreator: {
+        type: Boolean,
+        default: true
+    },
     isPublic: {
         type: Boolean,
         default: false

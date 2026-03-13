@@ -8,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:buddy_mobile/shared/utils/text_formatters.dart';
+import 'package:flutter/services.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -156,6 +158,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     hint: "alex@example.com",
                     icon: LucideIcons.mail,
                     keyboardType: TextInputType.emailAddress,
+                    inputFormatters: [LowerCaseTextFormatter()],
                   ),
                   const SizedBox(height: 18),
                   _buildTextField(
@@ -336,6 +339,7 @@ class _SignupScreenState extends State<SignupScreen> {
     bool obscure = false,
     VoidCallback? onToggle,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,6 +373,7 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: controller,
             obscureText: obscure,
             keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
             style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,

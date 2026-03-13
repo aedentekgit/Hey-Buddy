@@ -85,6 +85,7 @@ from config import (
     EMBEDDING_MODEL,     # Name of the HuggingFace model, e.g. "all-MiniLM-L6-v2"
     CHUNK_SIZE,          # Maximum characters per text chunk (e.g. 1000)
     CHUNK_OVERLAP,       # Characters of overlap between consecutive chunks (e.g. 200)
+    BUDDY_INTERNAL_SECRET, # Internal secret for service-to-service auth
 )
 
 
@@ -209,7 +210,8 @@ class VectorStoreService:
         """
         try:
             session = await self._get_http_session()
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+            headers = {"Authorization": f"Bearer {BUDDY_INTERNAL_SECRET}"} if BUDDY_INTERNAL_SECRET else {}
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
                 if resp.status == 200:
                     return await resp.json()
                 else:

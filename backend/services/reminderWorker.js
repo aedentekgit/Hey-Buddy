@@ -110,11 +110,11 @@ const triggerNotification = async (reminder, user, io) => {
     if (reminder.alerts?.email !== false && user.notificationPreferences?.email?.enabled !== false && user.email) {
         try {
             console.log(`[Worker] Sending Email reminder to ${user.email}`);
-            await sendEmail({
-                to: user.email,
-                subject: `Reminder: ${reminder.title}`,
-                text: `Hello ${user.name},\n\nThis is a reminder for: ${reminder.title}\n\nTime: ${reminder.time}\nDate: ${reminder.date}\nNotes: ${reminder.notes || 'None'}`,
-                html: `<div style="font-family: sans-serif; padding: 20px;">
+            await sendEmail(
+                user.email,
+                `Reminder: ${reminder.title}`,
+                `Hello ${user.name},\n\nThis is a reminder for: ${reminder.title}\n\nTime: ${reminder.time}\nDate: ${reminder.date}\nNotes: ${reminder.notes || 'None'}`,
+                `<div style="font-family: sans-serif; padding: 20px;">
                     <h2>Reminder Alert</h2>
                     <p><strong>Title:</strong> ${reminder.title}</p>
                     <p><strong>Time:</strong> ${reminder.time}</p>
@@ -123,7 +123,7 @@ const triggerNotification = async (reminder, user, io) => {
                     <hr />
                     <p>Sent via Buddy AI Assistant</p>
                 </div>`
-            });
+            );
         } catch (err) {
             console.error(`[Worker] Email failed: ${err.message}`);
         }
@@ -175,7 +175,7 @@ const startReminderWorker = (io) => {
             const pendingReminders = await Reminder.find({
                 status: 'pending',
                 notified: false
-            }).limit(500).populate('userId');
+            }).limit(500).populate('userId').populate('sharedWith.user');
 
             if (pendingReminders.length === 0) return;
 
@@ -188,6 +188,7 @@ const startReminderWorker = (io) => {
                 const userNow = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
 
                 let shouldTrigger = false;
+                let triggerBySharedUser = null; // To keep track of who triggered it
                 const type = reminder.reminderType || 'time';
 
                 if (type === 'time') {
@@ -231,22 +232,66 @@ const startReminderWorker = (io) => {
                     }
                 } else if (type === 'location') {
                     // --- LOCATION-BASED LOGIC ---
-                    if (reminder.coordinates?.lat && reminder.coordinates?.lng && user.currentLocation?.lat) {
+                    const radius = reminder.geofenceRadius || 500;
+
+                    // 1. Check Creator Location (if notifyCreator !== false)
+                    if (reminder.notifyCreator !== false && reminder.coordinates?.lat && reminder.coordinates?.lng && user.currentLocation?.lat) {
                         const distance = calculateDistance(
                             user.currentLocation.lat, user.currentLocation.lng,
                             reminder.coordinates.lat, reminder.coordinates.lng
                         );
-                        const radius = reminder.geofenceRadius || 500;
                         if (distance <= radius) {
                             shouldTrigger = true;
-                            console.log(`[Worker] Location trigger: "${reminder.title}" at ${Math.round(distance)}m`);
+                            console.log(`[Worker] Location trigger (Creator): "${reminder.title}" at ${Math.round(distance)}m`);
+                        }
+                    }
+
+                    // 2. Check Shared Users Locations
+                    if (!shouldTrigger && reminder.sharedWith && reminder.sharedWith.length > 0) {
+                        for (const shared of reminder.sharedWith) {
+                            const sharedUser = shared.user;
+                            if (sharedUser && sharedUser.currentLocation?.lat && reminder.coordinates?.lat) {
+                                const dist = calculateDistance(
+                                    sharedUser.currentLocation.lat, sharedUser.currentLocation.lng,
+                                    reminder.coordinates.lat, reminder.coordinates.lng
+                                );
+                                if (dist <= radius) {
+                                    shouldTrigger = true;
+                                    triggerBySharedUser = sharedUser;
+                                    console.log(`[Worker] Location trigger (Shared User ${sharedUser.email}): "${reminder.title}" at ${Math.round(dist)}m`);
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
 
                 if (shouldTrigger) {
-                    console.log(`[Worker] TRIGGERING: "${reminder.title}" (Type: ${type}) for ${user.email}`);
-                    await triggerNotification(reminder, user, io);
+                    console.log(`[Worker] TRIGGERING: "${reminder.title}" (Type: ${type})`);
+
+                    // Trigger for Creator
+                    if (triggerBySharedUser) {
+                        // Custom notification for creator about shared user
+                        const customReminder = { ...reminder.toObject(), title: `${triggerBySharedUser.name} has arrived for: ${reminder.title}` };
+                        await triggerNotification(customReminder, user, io);
+
+                        // Trigger for Shared User
+                        await triggerNotification(reminder, triggerBySharedUser, io);
+                    } else {
+                        // Triggered by Creator physically (or time-based)
+                        if (type === 'time' || reminder.notifyCreator !== false) {
+                            await triggerNotification(reminder, user, io);
+                        }
+
+                        // Notify shared users if time-based or creator arrived
+                        if (reminder.sharedWith && reminder.sharedWith.length > 0) {
+                            for (const shared of reminder.sharedWith) {
+                                if (shared.user) {
+                                    await triggerNotification(reminder, shared.user, io);
+                                }
+                            }
+                        }
+                    }
 
                     // Handle Family/Emergency notifications if enabled
                     if (reminder.alerts?.notifyFamily || reminder.alerts?.notifyEmergency) {

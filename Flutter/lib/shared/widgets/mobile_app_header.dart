@@ -4,7 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 
 /// Top navigation header — matches the JSX TopNav gradient design.
-/// Index mapping: 0 = Explore, 1 = Buddy, 2 = Memory, 3 = Settings
+/// Index mapping: 0 = Buddy, 1 = Explore, 2 = Settings
 class MobileAppHeader extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTabTapped;
@@ -18,8 +18,8 @@ class MobileAppHeader extends StatelessWidget {
   });
 
   bool get _buddyActive => currentIndex == 0;
-  bool get _exploreActive => currentIndex == 1 || currentIndex == 2;
-  bool get _settingsActive => currentIndex == 3;
+  bool get _exploreActive => currentIndex == 1;
+  bool get _settingsActive => currentIndex == 2;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +30,24 @@ class MobileAppHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
       child: Row(
         children: [
+          if (_settingsActive)
+            GestureDetector(
+              onTap: () => Navigator.maybePop(context),
+              child: Container(
+                width: 38,
+                height: 38,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  LucideIcons.chevronLeft,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
           // ── Left tabs ────────────────────────────────────────────
           _NavTab(
             icon: LucideIcons.user,

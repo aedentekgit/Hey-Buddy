@@ -47,7 +47,7 @@ try {
 
     // Package AI Service
     const aiExcludeFlags = `--exclude='./venv' --exclude='./__pycache__' --exclude='./.env' --exclude='./.git' --exclude='./database/chats_data' --exclude='./database/vector_store' --exclude='*.tar.gz'`;
-    execSync(`cd ai-service && tar ${aiExcludeFlags} -czvf ../${aiArchiveName} .`, { stdio: 'inherit' });
+    execSync(`cd python && tar ${aiExcludeFlags} -czvf ../${aiArchiveName} .`, { stdio: 'inherit' });
 
     // Step 3: Ensure server directories exist and upload archives
     console.log(`\n[3/6] 📤 Uploading packages to VPS (${SERVER})...`);

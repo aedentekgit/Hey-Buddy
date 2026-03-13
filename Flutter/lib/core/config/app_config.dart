@@ -15,11 +15,13 @@ class AppConfig {
     const String envUrl = String.fromEnvironment('API_URL');
     if (envUrl.isNotEmpty) return envUrl;
 
-    // Priority 2: Use Localhost in Debug mode, Production in Release mode
+    // Priority 2: Use Localhost in Debug mode
     if (kDebugMode) {
       return localhostHost;
     }
-    return productionHost;
+    
+    // Priority 3: Default to Staging for releases (unless intentionally built for Production via API_URL)
+    return stagingHost;
   }
 
   static String get protocol {

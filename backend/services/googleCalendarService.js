@@ -131,3 +131,58 @@ exports.deleteGoogleCalendarEvent = async (userId, eventId) => {
         throw error;
     }
 };
+
+/**
+ * Syncs all unsynced pending reminders for a user to Google Calendar.
+ */
+exports.syncAllReminders = async (userId) => {
+    const Reminder = require('../models/Reminder');
+    try {
+        const user = await User.findById(userId);
+        if (!user || !user.googleRefreshToken) return;
+
+        // Fetch pending time-based reminders that don't have a googleEventId
+        const reminders = await Reminder.find({
+            userId,
+            status: 'pending',
+            reminderType: 'time',
+            googleEventId: null
+        });
+
+        console.log(`[GoogleSync] Found ${reminders.length} unsynced reminders for user ${userId}`);
+
+        for (const reminder of reminders) {
+            try {
+                // Ensure it has date and time before syncing
+                if (reminder.date && reminder.time) {
+                    const eventId = await exports.createGoogleCalendarEvent(userId, reminder);
+                    reminder.googleEventId = eventId;
+                    reminder.source = 'google';
+                    await reminder.save();
+                    console.log(`[GoogleSync] Synced reminder: ${reminder.title}`);
+                }
+            } catch (err) {
+                console.error(`[GoogleSync] Failed to sync reminder ${reminder._id}:`, err.message);
+            }
+        }
+    } catch (error) {
+        console.error("[GoogleSync] SyncAllReminders failed:", error.message);
+    }
+};
+
+/**
+ * Helper to sync a single reminder if user has Google Calendar connected.
+ */
+exports.syncReminder = async (user, reminderData) => {
+    if (!user || !user.googleRefreshToken) return null;
+    try {
+        console.log(`[GoogleSync] Pushing reminder "${reminderData.title}" to Google Calendar...`);
+        const eventId = await exports.createGoogleCalendarEvent(user._id, reminderData);
+        return eventId;
+    } catch (err) {
+        console.error(`[GoogleSync] Failed for reminder "${reminderData.title}":`, err.message);
+        return null;
+    }
+};
+
+

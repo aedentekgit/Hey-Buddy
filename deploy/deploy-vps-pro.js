@@ -51,7 +51,9 @@ try {
     // 5. Extract and Restart on VPS
     console.log(`⚙️  Extracting and Restarting on VPS ${TITLE}...`);
 
-    const releaseName = new Date().toISOString().replace(/[:.]/g, '-');
+    const releaseName = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const SHARED_VENV = `${REMOTE_PATH}/shared/venv`;
+
     const remoteCommands = `
         cd ${REMOTE_PATH} &&
         mkdir -p releases/${releaseName}/frontend/dist &&
@@ -62,36 +64,48 @@ try {
         mkdir -p shared/ai_database/chats_data &&
         mkdir -p shared/ai_database/vector_store &&
         
+        # Unpack
         tar -xzf frontend.tar.gz -C releases/${releaseName}/frontend/dist &&
         tar -xzf backend.tar.gz -C releases/${releaseName}/backend &&
         tar -xzf ai-service.tar.gz -C releases/${releaseName}/ai-service &&
         
-        # Backend setup
-        cd releases/${releaseName}/backend &&
+        # Shared resources
+        cd releases/${releaseName} &&
+        ln -sfn ${REMOTE_PATH}/shared/.env backend/.env &&
+        ln -sfn ${REMOTE_PATH}/shared/uploads backend/uploads &&
+        ln -sfn ${REMOTE_PATH}/shared/.env ai-service/.env &&
+        ln -sfn ${REMOTE_PATH}/shared/ai_database ai-service/database &&
+        
+        # Backend dependencies
+        cd backend &&
         npm install --omit=dev &&
-        ln -sfn ${REMOTE_PATH}/shared/.env .env &&
-        ln -sfn ${REMOTE_PATH}/shared/uploads uploads &&
         
-        # AI Service setup
-        cd ../ai-service &&
-        [ -d venv ] || python3 -m venv venv &&
-        ./venv/bin/pip install -r requirements.txt &&
-        ln -sfn ${REMOTE_PATH}/shared/.env .env &&
-        ln -sfn ${REMOTE_PATH}/shared/ai_database database &&
+        # AI Service dependencies (using shared venv)
+        if [ ! -d "${SHARED_VENV}" ]; then
+            python3 -m venv ${SHARED_VENV}
+        fi
+        ${SHARED_VENV}/bin/pip install --upgrade pip &&
+        ${SHARED_VENV}/bin/pip install -r ../ai-service/requirements.txt &&
         
-        cd ../../../ &&
+        # Switch current link
+        cd ${REMOTE_PATH} &&
         ln -sfn releases/${releaseName} current &&
         
         # Restart Backend
         pm2 delete ${PM2_NAME} || true &&
-        pm2 start server.js --name ${PM2_NAME} --cwd ${REMOTE_PATH}/current/backend &&
+        PORT=${BACKEND_PORT} pm2 start server.js --name ${PM2_NAME} --cwd ${REMOTE_PATH}/current/backend &&
         
-        # Restart AI Service (with custom port)
+        # Restart AI Service
         pm2 delete ${PM2_AI_NAME} || true &&
-        PORT=${AI_PORT} pm2 start run.py --name ${PM2_AI_NAME} --interpreter ${REMOTE_PATH}/current/ai-service/venv/bin/python3 --cwd ${REMOTE_PATH}/current/ai-service &&
+        PORT=${AI_PORT} pm2 start run.py --name ${PM2_AI_NAME} --interpreter ${SHARED_VENV}/bin/python3 --cwd ${REMOTE_PATH}/current/ai-service &&
         
-        # Cleanup
-        rm ${REMOTE_PATH}/frontend.tar.gz ${REMOTE_PATH}/backend.tar.gz ${REMOTE_PATH}/ai-service.tar.gz &&
+        # Cleanup archives on VPS
+        rm frontend.tar.gz backend.tar.gz ai-service.tar.gz &&
+        
+        # PRUNE OLD RELEASES (Keep 3)
+        cd releases &&
+        ls -t | tail -n +4 | xargs rm -rf || true &&
+        
         pm2 save
     `;
 

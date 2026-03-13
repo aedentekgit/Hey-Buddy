@@ -7,6 +7,10 @@ import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/screens/memory_details_screen.dart';
 import 'package:buddy_mobile/shared/utils/memory_icon_utils.dart';
 import 'package:buddy_mobile/shared/widgets/pressable.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'package:buddy_mobile/features/home/screens/memory_edit_screen.dart';
 
 class MemoryListScreen extends StatefulWidget {
   const MemoryListScreen({super.key});
@@ -61,6 +65,41 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleDelete(Map<String, dynamic> item) async {
+    final type = item['type'] ?? 'memory';
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: Text(type == 'memory' ? 'Forget Memory?' : 'Delete Document?'),
+            content: Text(
+              type == 'memory'
+                  ? 'Are you sure you want Buddy to forget this memory?'
+                  : 'Are you sure you want to delete this document?',
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                child: const Text('Delete'),
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true) {
+      final provider = Provider.of<MemoriesProvider>(context, listen: false);
+      await provider.deleteItem(item['_id'], type);
+      ToastUtils.showSuccessToast(
+        type == 'memory' ? 'Memory forgotten' : 'Document deleted',
+      );
+    }
   }
 
   List<Map<String, dynamic>> _apply(List<Map<String, dynamic>> items) {
@@ -254,6 +293,11 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
                   return _MemoryCard(
                     item: item,
                     color: color,
+                    onEdit: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => MemoryEditScreen(item: item)),
+                    ),
+                    onDelete: () => _handleDelete(item),
                     onView: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -311,11 +355,15 @@ class _MemoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final Color color;
   final VoidCallback onView;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _MemoryCard({
     required this.item,
     required this.color,
     required this.onView,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   IconData get _icon => getMemoryIcon(item);
@@ -356,137 +404,166 @@ class _MemoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Pressable(
-      onTap: onView,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
-          boxShadow: AppColors.cardShadow,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Slidable(
+        key: ValueKey(item['_id']),
+        startActionPane: ActionPane(
+          motion: const BehindMotion(),
+          extentRatio: 0.25,
+          children: [
+            _SlidableAction(
+              label: 'Edit',
+              icon: LucideIcons.pencil,
+              color: AppColors.accent,
+              onTap: onEdit,
+            ),
+          ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Left color stripe
-                Container(width: 4, color: color),
-                // Card content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Icon container
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                color.withOpacity(0.18),
-                                color.withOpacity(0.08),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+        endActionPane: ActionPane(
+          motion: const BehindMotion(),
+          extentRatio: 0.25,
+          children: [
+            _SlidableAction(
+              label: 'Delete',
+              icon: LucideIcons.trash2,
+              color: AppColors.danger,
+              onTap: onDelete,
+            ),
+          ],
+        ),
+        child: Pressable(
+          onTap: onView,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder),
+              boxShadow: AppColors.cardShadow,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Left color stripe
+                    Container(width: 4, color: color),
+                    // Card content
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Icon container
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    color.withOpacity(0.18),
+                                    color.withOpacity(0.08),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: color.withOpacity(0.25)),
+                              ),
+                              child: Icon(_icon, color: color, size: 22),
                             ),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: color.withOpacity(0.25)),
-                          ),
-                          child: Icon(_icon, color: color, size: 22),
-                        ),
-                        const SizedBox(width: 13),
-                        // Content
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                            const SizedBox(width: 13),
+                            // Content
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      _title,
-                                      style: GoogleFonts.nunito(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14.5,
-                                        color: AppColors.text,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _title,
+                                          style: GoogleFonts.nunito(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14.5,
+                                            color: AppColors.text,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                      maxLines: 2,
+                                      Icon(
+                                        LucideIcons.chevronRight,
+                                        size: 13,
+                                        color: color,
+                                      ),
+                                    ],
+                                  ),
+                                  if (_preview.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _preview,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: AppColors.textMid,
+                                      ),
+                                      maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  Icon(
-                                    LucideIcons.chevronRight,
-                                    size: 13,
-                                    color: color,
-                                  ),
-                                ],
-                              ),
-                              if (_preview.isNotEmpty) ...[
-                                const SizedBox(height: 3),
-                                Text(
-                                  _preview,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: AppColors.textMid,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                              if (_date.isNotEmpty) ...[
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      LucideIcons.clock,
-                                      size: 11,
-                                      color: AppColors.textDim,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _date,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        color: AppColors.textDim,
-                                      ),
-                                    ),
                                   ],
-                                ),
-                              ],
-                              if (_tags.isNotEmpty) ...[
-                                const SizedBox(height: 9),
-                                Row(
-                                  children: [
-                                    ..._tags
-                                        .take(2)
-                                        .map(
-                                          (t) => Padding(
-                                            padding: const EdgeInsets.only(
-                                              right: 6,
-                                            ),
-                                            child: _Chip(
-                                              label: t,
-                                              color: color,
-                                              small: true,
-                                            ),
+                                  if (_date.isNotEmpty) ...[
+                                    const SizedBox(height: 5),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          LucideIcons.clock,
+                                          size: 11,
+                                          color: AppColors.textDim,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _date,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            color: AppColors.textDim,
                                           ),
                                         ),
+                                      ],
+                                    ),
                                   ],
-                                ),
-                              ],
-                            ],
-                          ),
+                                  if (_tags.isNotEmpty) ...[
+                                    const SizedBox(height: 9),
+                                    Row(
+                                      children: [
+                                        ..._tags
+                                            .take(2)
+                                            .map(
+                                              (t) => Padding(
+                                                padding: const EdgeInsets.only(
+                                                  right: 6,
+                                                ),
+                                                child: _Chip(
+                                                  label: t,
+                                                  color: color,
+                                                  small: true,
+                                                ),
+                                              ),
+                                            ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -520,6 +597,63 @@ class _Chip extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: color,
           letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _SlidableAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SlidableAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: GestureDetector(
+          onTap: () {
+            Slidable.of(context)?.close();
+            onTap();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
