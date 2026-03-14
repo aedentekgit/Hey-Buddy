@@ -30,7 +30,7 @@ class TasksProvider with ChangeNotifier {
         _enrichWithTravelStats();
       }
     } catch (e) {
-      print("Error loading tasks: $e");
+      debugPrint("Error loading tasks: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -55,7 +55,7 @@ class TasksProvider with ChangeNotifier {
           ).timeout(const Duration(seconds: 8));
         }
       } catch (e) {
-        print("[TasksProvider] Could not get GPS: $e");
+        debugPrint("[TasksProvider] Could not get GPS: $e");
       }
 
       // For each task that has a location + ID, fetch live stats
@@ -89,7 +89,7 @@ class TasksProvider with ChangeNotifier {
             final destLng = (coords['lng'] as num).toDouble();
             final distKm = _haversineKm(useLat, useLng, destLat, destLng);
             if (distKm > 1000) {
-              print(
+              debugPrint(
                 "[TasksProvider] GPS is ${distKm.toStringAsFixed(0)}km from destination — using Madurai fallback.",
               );
               // Use Madurai as fallback (same as SmartDetailsPanel._initRoute)
@@ -135,13 +135,13 @@ class TasksProvider with ChangeNotifier {
             anyUpdated = true;
           }
         } catch (e) {
-          print("[TasksProvider] Travel stats failed for $id: $e");
+          debugPrint("[TasksProvider] Travel stats failed for $id: $e");
         }
       }
 
       if (anyUpdated) notifyListeners();
     } catch (e) {
-      print("[TasksProvider] _enrichWithTravelStats error: $e");
+      debugPrint("[TasksProvider] _enrichWithTravelStats error: $e");
     }
   }
 

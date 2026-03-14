@@ -261,7 +261,7 @@ class _HeroCardState extends State<_HeroCard> {
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white.withOpacity(0.75),
+                    color: Colors.white.withValues(alpha: 0.75),
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -282,7 +282,7 @@ class _HeroCardState extends State<_HeroCard> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -401,9 +401,9 @@ class _ActionCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: action.color.withOpacity(0.14),
+                color: action.color.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: action.color.withOpacity(0.2)),
+                border: Border.all(color: action.color.withValues(alpha: 0.2)),
               ),
               child: Icon(action.icon, size: 19, color: action.color),
             ),
@@ -533,7 +533,7 @@ class _MarqueeRowState extends State<_MarqueeRow> {
               border: Border.all(color: AppColors.border),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 6,
                   offset: const Offset(0, 1),
                 ),
@@ -688,14 +688,14 @@ class _ReminderCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                color.withOpacity(0.15),
-                                color.withOpacity(0.05),
+                                color.withValues(alpha: 0.15),
+                                color.withValues(alpha: 0.05),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: color.withOpacity(0.2)),
+                            border: Border.all(color: color.withValues(alpha: 0.2)),
                           ),
                           child: Icon(icon, color: color, size: 24),
                         ),
@@ -771,7 +771,7 @@ class _ReminderCard extends StatelessWidget {
                                     Icon(
                                       LucideIcons.mapPin,
                                       size: 12,
-                                      color: color.withOpacity(0.7),
+                                      color: color.withValues(alpha: 0.7),
                                     ),
                                     const SizedBox(width: 6),
                                     Expanded(
@@ -796,12 +796,12 @@ class _ReminderCard extends StatelessWidget {
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.accent.withOpacity(
+                                        color: AppColors.accent.withValues(alpha: 
                                           0.1,
                                         ),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(
-                                          color: AppColors.accent.withOpacity(
+                                          color: AppColors.accent.withValues(alpha: 
                                             0.2,
                                           ),
                                         ),
@@ -867,9 +867,9 @@ class _Chip extends StatelessWidget {
         vertical: small ? 2 : 4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label.replaceAll('_', ' ').toUpperCase(),
@@ -892,9 +892,9 @@ class _PriorityChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.danger.withOpacity(0.12),
+        color: AppColors.danger.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+        border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

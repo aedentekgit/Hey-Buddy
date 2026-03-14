@@ -111,7 +111,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
     // Only reconnect if the token actually changed (login or logout)
     if (currentToken != _lastKnownToken) {
-      print(
+      debugPrint(
         '[BuddyPage] Auth token changed (${_lastKnownToken == null ? 'was guest' : 'was logged in'} → ${currentToken == null ? 'now guest' : 'now logged in'}). Reconnecting socket...',
       );
       _lastKnownToken = currentToken;
@@ -136,21 +136,21 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       }
 
       if (status != PermissionStatus.granted) {
-        if (kDebugMode) print('Microphone permission not granted');
+        if (kDebugMode) debugPrint('Microphone permission not granted');
         return;
       }
 
       bool available = await _speechToText.initialize(
         onStatus: (status) {
-          if (kDebugMode) print('STT Status: $status');
+          if (kDebugMode) debugPrint('STT Status: $status');
         },
         onError: (error) {
-          if (kDebugMode) print('STT Error: $error');
+          if (kDebugMode) debugPrint('STT Error: $error');
         },
       );
-      if (kDebugMode) print('STT Available: $available');
+      if (kDebugMode) debugPrint('STT Available: $available');
     } catch (e) {
-      if (kDebugMode) print('Error initializing speech: $e');
+      if (kDebugMode) debugPrint('Error initializing speech: $e');
     }
   }
 
@@ -175,7 +175,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       await tts.setVolume(1.0);
       await tts.setPitch(pitch);
     } catch (e) {
-      if (kDebugMode) print('Error initializing TTS: $e');
+      if (kDebugMode) debugPrint('Error initializing TTS: $e');
     }
   }
 
@@ -343,7 +343,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       await _speechToText.listen(
         onResult: (result) {
           if (kDebugMode)
-            print(
+            debugPrint(
               'STT Result: "${result.recognizedWords}" (Final: ${result.finalResult})',
             );
           setState(() {
@@ -351,7 +351,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           });
           if (result.finalResult) {
             if (kDebugMode)
-              print('STT Final Result arrived. Sending message...');
+              debugPrint('STT Final Result arrived. Sending message...');
             setState(() => _isListening = false);
             _handleSend();
           }
@@ -365,7 +365,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         },
       );
     } catch (e) {
-      if (kDebugMode) print('STT Exception during listen: $e');
+      if (kDebugMode) debugPrint('STT Exception during listen: $e');
       setState(() => _isListening = false);
     }
   }
@@ -442,7 +442,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: branding.primaryColor.withOpacity(0.3),
+                  color: branding.primaryColor.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -454,15 +454,15 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       width: 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                       ),
                     ],
@@ -494,7 +494,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           height: 1.4,
                         ),
                       ),
@@ -630,7 +630,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -653,7 +653,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: branding.primaryColor.withOpacity(0.1),
+                      color: branding.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(icon, color: branding.primaryColor, size: 20),
@@ -690,7 +690,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       height: 180,
 
       decoration: BoxDecoration(
-        color: branding.primaryColor.withOpacity(0.05),
+        color: branding.primaryColor.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: CustomPaint(painter: PixelPainter(branding.primaryColor)),
@@ -814,8 +814,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     boxShadow: [
                       BoxShadow(
                         color: isUser
-                            ? branding.primaryColor.withOpacity(0.18)
-                            : Colors.black.withOpacity(0.04),
+                            ? branding.primaryColor.withValues(alpha: 0.18)
+                            : Colors.black.withValues(alpha: 0.04),
                         blurRadius: 15,
                         offset: const Offset(0, 4),
                       ),
@@ -927,7 +927,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -962,9 +962,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
+          color: color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.1)),
+          border: Border.all(color: color.withValues(alpha: 0.1)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1062,10 +1062,10 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.black.withOpacity(0.04)),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha: 0.02),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1140,7 +1140,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     border: Border.all(color: Colors.white, width: 3),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -1163,7 +1163,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 4,
                           ),
                         ],
@@ -1210,7 +1210,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1267,7 +1267,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 gradient: LinearGradient(
                   colors: [
                     branding.primaryColor,
-                    branding.primaryColor.withOpacity(0.7),
+                    branding.primaryColor.withValues(alpha: 0.7),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -1443,7 +1443,7 @@ class PixelPainter extends CustomPainter {
 
       canvas.drawRect(
         Rect.fromLTWH(x, y, pixelSize, pixelSize),
-        Paint()..color = primaryColor.withOpacity(opacity),
+        Paint()..color = primaryColor.withValues(alpha: opacity),
       );
     }
   }

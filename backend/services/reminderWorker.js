@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const Reminder = require('../models/Reminder');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Guest = require('../models/Guest');
 const { sendPushNotification } = require('./notificationService');
 const { findAgentByUserId } = require('../sockets/voiceHandler');
 const { calculateDistance } = require('./smartReminderService');
@@ -180,8 +181,37 @@ const startReminderWorker = (io) => {
             if (pendingReminders.length === 0) return;
 
             for (let reminder of pendingReminders) {
-                const user = reminder.userId;
-                if (!user) continue;
+                let user = reminder.userId;
+
+                // --- FIX: Handle Guest Users ---
+                // If user is null (population failed) but userId exists, it's a guest or deleted user
+                if (!user || typeof user === 'string') {
+                    const userIdStr = typeof user === 'string' ? user : (reminder.userId ? reminder.userId.toString() : '');
+
+                    if (userIdStr.startsWith('guest_')) {
+                        console.log(`[Worker] Handling Guest Reminder: ${reminder.title} (GuestID: ${userIdStr})`);
+                        // Fetch real guest data from the database
+                        const guestData = await Guest.findById(userIdStr);
+                        user = {
+                            _id: userIdStr,
+                            name: 'Guest User',
+                            email: 'guest@buddy.internal',
+                            timezone: 'UTC',
+                            fcmTokens: guestData ? guestData.fcmTokens : [],
+                            currentLocation: guestData ? guestData.currentLocation : null,
+                            notificationPreferences: {
+                                voice: { enabled: true },
+                                push: { enabled: true },
+                                inApp: { enabled: true }
+                            },
+                            voicePreferences: { gender: 'female', tone: 'soft' }
+                        };
+                    } else {
+                        // Truly missing user, skip
+                        console.warn(`[Worker] Skipping reminder ${reminder._id} - User not found.`);
+                        continue;
+                    }
+                }
 
                 const userTimezone = user.timezone || 'UTC';
                 const now = new Date();

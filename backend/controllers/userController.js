@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Guest = require('../models/Guest');
 const paginate = require('../utils/paginate');
 const fs = require('fs');
 const path = require('path');
@@ -132,16 +133,26 @@ const deleteUser = async (req, res) => {
 // Save FCM token
 const saveFcmToken = async (req, res) => {
     try {
-        const userId = req.user._id;
-        const { token } = req.body;
+        const { token, guestId } = req.body;
+        const userId = req.user ? req.user._id : (guestId || req.decodedUserId);
 
         if (!token) {
             return res.status(400).json({ success: false, message: 'Token is required' });
         }
 
-        await User.findByIdAndUpdate(userId, {
-            $addToSet: { fcmTokens: token }
-        });
+        if (req.user) {
+            await User.findByIdAndUpdate(userId, {
+                $addToSet: { fcmTokens: token }
+            });
+        } else if (userId && userId.startsWith('guest_')) {
+            await Guest.findByIdAndUpdate(
+                userId,
+                { $addToSet: { fcmTokens: token }, lastActive: new Date() },
+                { upsert: true }
+            );
+        } else {
+            return res.status(401).json({ success: false, message: 'Not authorized or missing guest ID' });
+        }
 
         res.json({ success: true, message: 'Token saved' });
     } catch (error) {
@@ -276,33 +287,34 @@ const unlinkCalendar = async (req, res) => {
 // Update user location for smart reminder features
 const updateLocation = async (req, res) => {
     try {
-        const { lat, lng } = req.body;
-        const user = await User.findById(req.user._id);
+        const { lat, lng, guestId } = req.body;
+        const userId = req.user ? req.user._id : (guestId || req.decodedUserId);
 
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'Not authorized or missing guest ID' });
         }
 
-        // Move current location to previous location
-        if (user.currentLocation) {
-            user.previousLocation = {
-                lat: user.currentLocation.lat,
-                lng: user.currentLocation.lng,
-                timestamp: user.currentLocation.timestamp
-            };
+        let previousLocation = null;
+
+        if (req.user) {
+            const user = await User.findById(userId);
+            if (user) {
+                previousLocation = user.currentLocation;
+                user.previousLocation = previousLocation ? { ...previousLocation } : null;
+                user.currentLocation = { lat, lng, timestamp: new Date() };
+                await user.save();
+            }
+        } else if (userId.startsWith('guest_')) {
+            const guest = await Guest.findById(userId) || new Guest({ _id: userId });
+            previousLocation = guest.currentLocation;
+            guest.previousLocation = previousLocation ? { ...previousLocation } : null;
+            guest.currentLocation = { lat, lng, timestamp: new Date() };
+            guest.lastActive = new Date();
+            await guest.save();
         }
 
-        // Update current location
-        user.currentLocation = {
-            lat,
-            lng,
-            timestamp: new Date()
-        };
-
-        await user.save();
-
-        // Trigger smart checks immediately (non-blocking) for this specific user
-        checkItemExitGuards(req.user._id).catch(err => console.error('Immediate exit guard check failed:', err));
+        // Trigger smart checks (item exit guards)
+        checkItemExitGuards(userId).catch(err => console.error('Exit guard check failed:', err));
 
         res.json({ success: true, message: 'Location updated successfully' });
     } catch (error) {

@@ -71,7 +71,7 @@ class _MobileMapPickerState extends State<MobileMapPicker> {
       _mapController?.animateCamera(CameraUpdate.newLatLngZoom(currentPos, 15));
       _handleMapTap(currentPos);
     } catch (e) {
-      print("Error getting current location: $e");
+      debugPrint("Error getting current location: $e");
     }
   }
 
@@ -84,7 +84,7 @@ class _MobileMapPickerState extends State<MobileMapPicker> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

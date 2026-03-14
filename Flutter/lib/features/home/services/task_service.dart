@@ -1,3 +1,5 @@
+import "package:flutter/foundation.dart";
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -31,7 +33,7 @@ class TaskService {
       }
       return {'success': false, 'data': []};
     } catch (e) {
-      print("Error fetching reminders: $e");
+      debugPrint("Error fetching reminders: $e");
       return {'success': false, 'data': []};
     }
   }
@@ -47,7 +49,7 @@ class TaskService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("Error deleting reminder: $e");
+      debugPrint("Error deleting reminder: $e");
       return false;
     }
   }
@@ -68,7 +70,7 @@ class TaskService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("Error updating reminder: $e");
+      debugPrint("Error updating reminder: $e");
       return false;
     }
   }
@@ -96,7 +98,7 @@ class TaskService {
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print("Error creating reminder: $e");
+      debugPrint("Error creating reminder: $e");
       return false;
     }
   }
@@ -126,7 +128,7 @@ class TaskService {
       }
       return null;
     } catch (e) {
-      print("Error fetching travel stats: $e");
+      debugPrint("Error fetching travel stats: $e");
       return null;
     }
   }
@@ -140,7 +142,7 @@ class TaskService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("Error unsharing reminder: $e");
+      debugPrint("Error unsharing reminder: $e");
       return false;
     }
   }
@@ -175,7 +177,7 @@ class TaskService {
       }
       return null;
     } catch (e) {
-      print("Error fetching adjusted notification: $e");
+      debugPrint("Error fetching adjusted notification: $e");
       return null;
     }
   }

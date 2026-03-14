@@ -94,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   height: 400,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: branding.primaryColor.withOpacity(0.08),
+                    color: branding.primaryColor.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -106,7 +106,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   height: 300,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF7C3AED).withOpacity(0.08),
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -124,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           borderRadius: BorderRadius.circular(32),
                           boxShadow: [
                             BoxShadow(
-                              color: branding.primaryColor.withOpacity(0.15),
+                              color: branding.primaryColor.withValues(alpha: 0.15),
                               blurRadius: 30,
                               offset: const Offset(0, 15),
                             ),
@@ -163,7 +163,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     SizedBox(
                       width: 40,
                       child: LinearProgressIndicator(
-                        backgroundColor: branding.primaryColor.withOpacity(0.1),
+                        backgroundColor: branding.primaryColor.withValues(alpha: 0.1),
                         valueColor: AlwaysStoppedAnimation<Color>(
                           branding.primaryColor,
                         ),
@@ -284,7 +284,7 @@ class _SplashScreenState extends State<SplashScreen> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: branding.primaryColor.withOpacity(0.1),
+            color: branding.primaryColor.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),

@@ -17,6 +17,9 @@ class AppConfig {
 
     // Priority 2: Use Localhost in Debug mode
     if (kDebugMode) {
+      // If we are on a real device, 10.0.2.2 won't work. 
+      // This is a common issue. We should ideally use the local IP of the dev machine.
+      // For now, we keep 10.0.2.2 as default for Android Emulator, but this can be overridden via --dart-define
       return localhostHost;
     }
     

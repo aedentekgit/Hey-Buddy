@@ -79,7 +79,7 @@ const App = () => {
                                         <Route
                                             path="/admin/calendar"
                                             element={
-                                                <ProtectedRoute pageId="calendar">
+                                                <ProtectedRoute pageId="reminders">
                                                     <Calendar />
                                                 </ProtectedRoute>
                                             }

@@ -1,3 +1,5 @@
+import "package:flutter/foundation.dart";
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -23,7 +25,7 @@ class LocationReminderService {
       }
       return {'success': false, 'data': []};
     } catch (e) {
-      print("Error fetching location reminders: $e");
+      debugPrint("Error fetching location reminders: $e");
       return {'success': false, 'data': []};
     }
   }
@@ -42,7 +44,7 @@ class LocationReminderService {
       );
       return response.statusCode == 201 || response.statusCode == 200;
     } catch (e) {
-      print("Error creating location reminder: $e");
+      debugPrint("Error creating location reminder: $e");
       return false;
     }
   }
@@ -64,7 +66,7 @@ class LocationReminderService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("Error updating location reminder: $e");
+      debugPrint("Error updating location reminder: $e");
       return false;
     }
   }
@@ -78,7 +80,7 @@ class LocationReminderService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("Error deleting location reminder: $e");
+      debugPrint("Error deleting location reminder: $e");
       return false;
     }
   }
@@ -97,7 +99,7 @@ class LocationReminderService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("Error setting early warning: $e");
+      debugPrint("Error setting early warning: $e");
       return false;
     }
   }
@@ -111,7 +113,7 @@ class LocationReminderService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("Error setting family backup: $e");
+      debugPrint("Error setting family backup: $e");
       return false;
     }
   }

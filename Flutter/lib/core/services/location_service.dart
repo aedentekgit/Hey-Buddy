@@ -1,3 +1,5 @@
+import "package:flutter/foundation.dart";
+
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -23,9 +25,9 @@ class LocationService {
         data: {'lat': lat, 'lng': lng, 'address': address},
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      print("Backend location updated: $lat, $lng");
+      debugPrint("Backend location updated: $lat, $lng");
     } catch (e) {
-      print("Failed to update backend location: $e");
+      debugPrint("Failed to update backend location: $e");
     }
   }
 
@@ -70,7 +72,7 @@ class LocationService {
           address,
         );
       } catch (e) {
-        print("Live tracking update failed: $e");
+        debugPrint("Live tracking update failed: $e");
       }
     });
   }
@@ -135,7 +137,7 @@ class LocationService {
         'lng': position.longitude,
       };
     } catch (e) {
-      print("Location service error: $e");
+      debugPrint("Location service error: $e");
       return null;
     }
   }

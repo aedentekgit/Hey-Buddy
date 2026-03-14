@@ -274,6 +274,23 @@ class GroqService:
                     temperature=0.6,
                     request_timeout=GROQ_REQUEST_TIMEOUT,
                 ))
+            elif provider.lower() == 'deepseek':
+                self.llms.append(ChatOpenAI(
+                    model=model or "deepseek-chat",
+                    openai_api_key=api_key,
+                    base_url="https://api.deepseek.com/v1",
+                    temperature=0.6,
+                    request_timeout=GROQ_REQUEST_TIMEOUT,
+                ))
+            elif provider.lower() == 'anthropic':
+                # Note: requires langchain-anthropic package
+                logger.warning("Anthropic/Claude requested but langchain-anthropic is not installed. Falling back to Groq.")
+                self.llms.append(ChatGroq(
+                    groq_api_key=api_key if 'gsk' in str(api_key) else GROQ_API_KEY,
+                    model_name=GROQ_MODEL,
+                    temperature=0.6,
+                    request_timeout=GROQ_REQUEST_TIMEOUT,
+                ))
             else:
                  # Default to Groq
                  self.llms.append(ChatGroq(
@@ -317,8 +334,9 @@ class GroqService:
                 ))
 
         if not self.llms:
-            raise ValueError(
-                "No AI providers (Groq, Gemini, or OpenAI) configured."
+            logger.warning(
+                "No AI providers (Groq, Gemini, or OpenAI) configured in .env. "
+                "Service will rely on dynamic key injection via request payload."
             )
 
         self.vector_store_service = vector_store_service
@@ -825,10 +843,12 @@ class GroqService:
             system_message += (
                 "\n\n=== GUEST SECURITY POLICY ===\n"
                 "The current user is NOT logged in. They are a guest.\n"
-                "If they ask for ANY personal details, reminders, memories, "
+                "1. If they ask for ANY EXISTING personal details, reminders, memories, "
                 "addresses, phone numbers, or past private conversation history, "
                 "you MUST refuse and reply exactly: 'Please login to check the details.'\n"
-                "Do not try to find or provide this info even if you think you have it."
+                "2. However, you ARE allowed to help them set NEW reminders, timers, or save NEW ephemeral memories for the current session. "
+                "You can confirm the details of what you just created, but do not fetch older data.\n"
+                "Do not try to find or provide older info even if you think you have it."
             )
 
         # ── Step 3: Build the LangChain prompt template ──

@@ -293,7 +293,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                     ? null
                     : [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
+                          color: Colors.black.withValues(alpha: 0.06),
                           blurRadius: 12,
                           offset: const Offset(0, 3),
                         ),
@@ -334,7 +334,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           color: isMe
-                              ? Colors.white.withOpacity(0.65)
+                              ? Colors.white.withValues(alpha: 0.65)
                               : AppColors.textDim,
                         ),
                       ),
@@ -411,7 +411,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
             borderRadius: BorderRadius.circular(100),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6366F1).withOpacity(0.08),
+                color: const Color(0xFF6366F1).withValues(alpha: 0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -434,8 +434,8 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: _isFocused
-                        ? Colors.white.withOpacity(0.95)
-                        : Colors.white.withOpacity(0.85),
+                        ? Colors.white.withValues(alpha: 0.95)
+                        : Colors.white.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Row(
@@ -527,7 +527,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                                       BoxShadow(
                                         color: const Color(
                                           0xFF6366F1,
-                                        ).withOpacity(0.3),
+                                        ).withValues(alpha: 0.3),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),

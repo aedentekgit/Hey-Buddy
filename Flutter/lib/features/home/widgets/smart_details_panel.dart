@@ -168,7 +168,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           // GPS looks valid — trust the real device/emulator fix
           currentPosition = pos;
         } catch (e) {
-          print("GPS fetch failed in _initRoute, trying stored location: $e");
+          debugPrint("GPS fetch failed in _initRoute, trying stored location: $e");
         }
       }
 
@@ -189,7 +189,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             altitudeAccuracy: 0,
             headingAccuracy: 0,
           );
-          print(
+          debugPrint(
             "Using UserProvider stored location as fallback: ${currentPosition!.latitude}, ${currentPosition!.longitude}",
           );
         }
@@ -223,7 +223,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         }
       }
     } catch (e) {
-      print("Error initializing route: $e");
+      debugPrint("Error initializing route: $e");
     }
   }
 
@@ -277,7 +277,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         }
       }
     } else {
-      print("Route fetch failed: ${result.errorMessage ?? 'No points found'}");
+      debugPrint("Route fetch failed: ${result.errorMessage ?? 'No points found'}");
     }
   }
 
@@ -332,7 +332,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             double distanceKm = stats['distance'] / 1000.0;
             double autoRadiusKm = (distanceKm / 2.0).clamp(0.2, 5.0);
             geofenceRadius = autoRadiusKm * 1000.0;
-            print(
+            debugPrint(
               "[Geofence] Auto-calculated radius: ${autoRadiusKm.toStringAsFixed(2)}km for distance: ${distanceKm.toStringAsFixed(2)}km",
             );
           }
@@ -838,9 +838,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.danger.withOpacity(0.08),
+                        color: AppColors.danger.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.danger.withOpacity(0.2)),
+                        border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
                       ),
                       child: Center(
                         child: Row(
@@ -1226,7 +1226,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         color: AppColors.dangerLight,
                         borderRadius: BorderRadius.circular(11),
                         border: Border.all(
-                          color: AppColors.danger.withOpacity(0.25),
+                          color: AppColors.danger.withValues(alpha: 0.25),
                         ),
                       ),
                       child: const Icon(
@@ -1252,8 +1252,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         borderRadius: BorderRadius.circular(11),
                         border: Border.all(
                           color: isEditing
-                              ? AppColors.danger.withOpacity(0.25)
-                              : AppColors.accent.withOpacity(0.25),
+                              ? AppColors.danger.withValues(alpha: 0.25)
+                              : AppColors.accent.withValues(alpha: 0.25),
                         ),
                       ),
                       child: Row(
@@ -1316,7 +1316,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
-                          color: AppColors.accent.withOpacity(0.5),
+                          color: AppColors.accent.withValues(alpha: 0.5),
                           width: 1.5,
                         ),
                       ),
@@ -1384,14 +1384,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                             ? Colors.grey[200]
                                             : const Color(
                                                 0xFF7C3AED,
-                                              ).withOpacity(0.1),
+                                              ).withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                           color: _isGettingLocation
                                               ? Colors.grey[300]!
                                               : const Color(
                                                   0xFF7C3AED,
-                                                ).withOpacity(0.3),
+                                                ).withValues(alpha: 0.3),
                                         ),
                                       ),
                                       child: Row(
@@ -1444,7 +1444,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                     borderRadius: BorderRadius.circular(14),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.10),
+                                        color: Colors.black.withValues(alpha: 0.10),
                                         blurRadius: 16,
                                         offset: const Offset(0, 4),
                                       ),
@@ -1452,7 +1452,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                     border: Border.all(
                                       color: const Color(
                                         0xFF7C3AED,
-                                      ).withOpacity(0.15),
+                                      ).withValues(alpha: 0.15),
                                     ),
                                   ),
                                   child: ClipRRect(
@@ -1479,7 +1479,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                                   : Border(
                                                       bottom: BorderSide(
                                                         color: Colors.grey
-                                                            .withOpacity(0.12),
+                                                            .withValues(alpha: 0.12),
                                                       ),
                                                     ),
                                             ),
@@ -1491,7 +1491,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                                   decoration: BoxDecoration(
                                                     color: const Color(
                                                       0xFF7C3AED,
-                                                    ).withOpacity(0.08),
+                                                    ).withValues(alpha: 0.08),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: const Icon(
@@ -1566,12 +1566,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                     decoration: BoxDecoration(
                                       color: const Color(
                                         0xFF10B981,
-                                      ).withOpacity(0.1),
+                                      ).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: const Color(
                                           0xFF10B981,
-                                        ).withOpacity(0.3),
+                                        ).withValues(alpha: 0.3),
                                       ),
                                     ),
                                     child: Row(
@@ -1617,7 +1617,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                   decoration: BoxDecoration(
                                     color: const Color(
                                       0xFF10B981,
-                                    ).withOpacity(0.1),
+                                    ).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
@@ -1727,7 +1727,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         activeTrackColor: AppColors.accent,
                         inactiveTrackColor: AppColors.border,
                         thumbColor: AppColors.surface,
-                        overlayColor: AppColors.accent.withOpacity(0.12),
+                        overlayColor: AppColors.accent.withValues(alpha: 0.12),
                         thumbShape: const RoundSliderThumbShape(
                           enabledThumbRadius: 10,
                           elevation: 3,
@@ -1760,15 +1760,15 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppColors.accent.withOpacity(0.08),
-                            AppColors.purple.withOpacity(0.12),
+                            AppColors.accent.withValues(alpha: 0.08),
+                            AppColors.purple.withValues(alpha: 0.12),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.accent.withOpacity(0.15),
+                          color: AppColors.accent.withValues(alpha: 0.15),
                         ),
                       ),
                       child: Row(
@@ -1777,10 +1777,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                             width: 48,
                             height: 48,
                             decoration: BoxDecoration(
-                              color: AppColors.accent.withOpacity(0.12),
+                              color: AppColors.accent.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: AppColors.accent.withOpacity(0.2),
+                                color: AppColors.accent.withValues(alpha: 0.2),
                               ),
                             ),
                             child: Icon(
@@ -1856,7 +1856,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -2030,7 +2030,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                           radius: geofenceRadius,
                                           fillColor: Theme.of(
                                             context,
-                                          ).primaryColor.withOpacity(0.12),
+                                          ).primaryColor.withValues(alpha: 0.12),
                                           strokeColor: Theme.of(
                                             context,
                                           ).primaryColor,
@@ -2052,7 +2052,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                           vertical: 14,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: AppColors.surface.withOpacity(
+                                          color: AppColors.surface.withValues(alpha: 
                                             0.95,
                                           ),
                                           borderRadius: BorderRadius.circular(
@@ -2060,7 +2060,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withOpacity(
+                                              color: Colors.black.withValues(alpha: 
                                                 0.1,
                                               ),
                                               blurRadius: 10,
@@ -2076,7 +2076,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                               size: 28,
                                               color: Theme.of(
                                                 context,
-                                              ).primaryColor.withOpacity(0.8),
+                                              ).primaryColor.withValues(alpha: 0.8),
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
@@ -2164,7 +2164,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                           activeTrackColor: isEditing
                               ? AppColors.accent
                               : AppColors.border,
-                          inactiveTrackColor: AppColors.border.withOpacity(0.5),
+                          inactiveTrackColor: AppColors.border.withValues(alpha: 0.5),
                           thumbColor: isEditing
                               ? AppColors.accent
                               : AppColors.border,
@@ -2450,7 +2450,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                   shape: BoxShape.circle,
                                   color: Theme.of(
                                     context,
-                                  ).primaryColor.withOpacity(0.1),
+                                  ).primaryColor.withValues(alpha: 0.1),
                                   border: Border.all(
                                     color: Colors.white,
                                     width: 1.5,
@@ -2822,10 +2822,10 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
         ),
       ),
       child: Text(
@@ -2980,7 +2980,7 @@ class _SmartFeatureTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: tagColor.withOpacity(0.1),
+              color: tagColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, size: 20, color: tagColor),
@@ -3077,7 +3077,7 @@ class _AlertTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.1),
+              color: AppColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: AppColors.accent, size: 20),
@@ -3146,9 +3146,9 @@ class _TimelineItem extends StatelessWidget {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
-                  border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+                  border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
                 ),
                 child: Icon(icon, size: 12, color: color),
               ),
@@ -3158,7 +3158,7 @@ class _TimelineItem extends StatelessWidget {
                     width: 2,
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.border.withOpacity(0.5),
+                      color: AppColors.border.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(1),
                     ),
                   ),
@@ -3187,7 +3187,7 @@ class _TimelineItem extends StatelessWidget {
                       Icon(
                         LucideIcons.clock,
                         size: 10,
-                        color: AppColors.textDim.withOpacity(0.6),
+                        color: AppColors.textDim.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(

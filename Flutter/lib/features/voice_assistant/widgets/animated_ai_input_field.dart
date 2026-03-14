@@ -193,17 +193,17 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
           final List<Color> gradientColors = [
             const Color(
               0xFF3B82F6,
-            ).withOpacity(widget.isEnabled ? 1 : 0.3), // Vibrant Blue
+            ).withValues(alpha: widget.isEnabled ? 1 : 0.3), // Vibrant Blue
             const Color(
               0xFF8B5CF6,
-            ).withOpacity(widget.isEnabled ? 1 : 0.3), // Vibrant Purple
+            ).withValues(alpha: widget.isEnabled ? 1 : 0.3), // Vibrant Purple
             const Color(
               0xFFD946EF,
-            ).withOpacity(widget.isEnabled ? 1 : 0.3), // Vibrant Pink
+            ).withValues(alpha: widget.isEnabled ? 1 : 0.3), // Vibrant Pink
             const Color(
               0xFF6366F1,
-            ).withOpacity(widget.isEnabled ? 1 : 0.3), // Indigo
-            const Color(0xFF3B82F6).withOpacity(widget.isEnabled ? 1 : 0.3),
+            ).withValues(alpha: widget.isEnabled ? 1 : 0.3), // Indigo
+            const Color(0xFF3B82F6).withValues(alpha: widget.isEnabled ? 1 : 0.3),
           ];
 
           return Opacity(
@@ -217,7 +217,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                   boxShadow: widget.isEnabled
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF6366F1).withOpacity(
+                            color: const Color(0xFF6366F1).withValues(alpha: 
                               0.08 + (0.12 * hoverVal) + (0.05 * pulseVal),
                             ),
                             blurRadius: 20 + (10 * hoverVal) + (5 * pulseVal),
@@ -248,8 +248,8 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                         ),
                         decoration: BoxDecoration(
                           color: _isFocused
-                              ? Colors.white.withOpacity(0.95)
-                              : Colors.white.withOpacity(
+                              ? Colors.white.withValues(alpha: 0.95)
+                              : Colors.white.withValues(alpha: 
                                   0.85 + (0.05 * hoverVal),
                                 ),
                           borderRadius: BorderRadius.circular(100),
@@ -363,7 +363,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                                             BoxShadow(
                                               color: const Color(
                                                 0xFF6366F1,
-                                              ).withOpacity(0.3),
+                                              ).withValues(alpha: 0.3),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -428,7 +428,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isPulsing
-              ? Colors.red.withOpacity(0.1 + (0.1 * pulseVal))
+              ? Colors.red.withValues(alpha: 0.1 + (0.1 * pulseVal))
               : Colors.transparent,
           shape: BoxShape.circle,
         ),

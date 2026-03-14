@@ -37,7 +37,7 @@ const PERSONALITIES = {
         writingStyle: 'Strong and decisive. Short, high-energy sentences.'
     },
     'male_normal': {
-        voice: 'Ryan', // Named after Ryan Neural
+        voice: 'Puck', // 'Ryan' is not supported by Gemini Live Native Audio model. 'Puck' is a good male alternative.
         name: 'Buddy',
         tone: 'normal',
         fallbackLang: 'en-GB', // Matches Python backend defaults

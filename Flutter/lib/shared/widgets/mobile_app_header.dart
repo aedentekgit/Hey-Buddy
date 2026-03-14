@@ -38,7 +38,7 @@ class MobileAppHeader extends StatelessWidget {
                 height: 38,
                 margin: const EdgeInsets.only(right: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -73,12 +73,12 @@ class MobileAppHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(13),
                 color: _settingsActive
-                    ? Colors.white.withOpacity(0.95)
-                    : Colors.white.withOpacity(0.15),
+                    ? Colors.white.withValues(alpha: 0.95)
+                    : Colors.white.withValues(alpha: 0.15),
                 boxShadow: _settingsActive
                     ? [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.18),
+                          color: Colors.black.withValues(alpha: 0.18),
                           blurRadius: 12,
                           offset: const Offset(0, 2),
                         ),
@@ -90,7 +90,7 @@ class MobileAppHeader extends StatelessWidget {
                 size: 17,
                 color: _settingsActive
                     ? AppColors.accent
-                    : Colors.white.withOpacity(0.9),
+                    : Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ),
@@ -127,7 +127,7 @@ class _NavTab extends StatelessWidget {
             Icon(
               icon,
               size: active ? 24 : 18,
-              color: active ? Colors.white : Colors.white.withOpacity(0.45),
+              color: active ? Colors.white : Colors.white.withValues(alpha: 0.45),
             ),
             if (active) ...[
               const SizedBox(width: 8),

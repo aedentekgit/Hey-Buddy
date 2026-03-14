@@ -41,7 +41,7 @@ class FamilyProvider extends ChangeNotifier {
       members = await _service.getMembers();
       requests = await _service.getRequests();
     } catch (e) {
-      print('Load Family Data Error: $e');
+      debugPrint('Load Family Data Error: $e');
     } finally {
       isLoading = false;
       notifyListeners();

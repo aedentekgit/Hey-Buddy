@@ -20,4 +20,5 @@ langchain-google-genai
 langchain-openai
 google-generativeai
 openai
+langchain-anthropic
 edge-tts

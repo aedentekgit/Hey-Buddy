@@ -189,7 +189,7 @@ class _MainScreenState extends State<MainScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                primaryColor.withOpacity(0.08),
+                primaryColor.withValues(alpha: 0.08),
                 const Color(0xFFF9FAFF),
                 const Color(0xFFF9FAFF),
               ],

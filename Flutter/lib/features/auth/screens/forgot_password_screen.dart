@@ -102,7 +102,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: branding.primaryColor.withOpacity(0.05),
+                color: branding.primaryColor.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -232,7 +232,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -299,7 +299,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 borderRadius: BorderRadius.circular(18),
               ),
               elevation: 0,
-              shadowColor: branding.primaryColor.withOpacity(0.5),
+              shadowColor: branding.primaryColor.withValues(alpha: 0.5),
             ).copyWith(
               elevation: WidgetStateProperty.resolveWith<double>((states) {
                 if (states.contains(WidgetState.pressed)) return 0;

@@ -71,7 +71,7 @@ class _ActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: action.isSelected ? action.color : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: action.color.withOpacity(0.35), width: 1.5),
+          border: Border.all(color: action.color.withValues(alpha: 0.35), width: 1.5),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

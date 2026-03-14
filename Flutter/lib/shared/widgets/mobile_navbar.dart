@@ -24,7 +24,7 @@ class MobileNavbar extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             offset: const Offset(0, -4),
             blurRadius: 10,
           ),
@@ -129,13 +129,13 @@ class MobileNavbar extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
-            colors: [primaryColor.withOpacity(0.9), primaryColor],
+            colors: [primaryColor.withValues(alpha: 0.9), primaryColor],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: primaryColor.withOpacity(0.3),
+              color: primaryColor.withValues(alpha: 0.3),
               offset: const Offset(0, 8),
               blurRadius: 16,
             ),

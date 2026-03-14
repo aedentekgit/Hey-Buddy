@@ -1,3 +1,5 @@
+import "package:flutter/foundation.dart";
+
 import 'dart:async';
 import 'package:record/record.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
@@ -30,12 +32,12 @@ class AudioStreamService {
         });
 
         _isStreaming = true;
-        print('🎙️ Audio streaming started (PCM 16kHz)');
+        debugPrint('🎙️ Audio streaming started (PCM 16kHz)');
       } else {
-        print('❌ Microphone permission denied');
+        debugPrint('❌ Microphone permission denied');
       }
     } catch (e) {
-      print('❌ Error starting audio stream: $e');
+      debugPrint('❌ Error starting audio stream: $e');
     }
   }
 
@@ -45,7 +47,7 @@ class AudioStreamService {
     await _audioSubscription?.cancel();
     await _recorder.stop();
     _isStreaming = false;
-    print('🛑 Audio streaming stopped');
+    debugPrint('🛑 Audio streaming stopped');
   }
 
   void dispose() {

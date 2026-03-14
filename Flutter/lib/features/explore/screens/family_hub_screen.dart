@@ -328,7 +328,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.accent.withOpacity(0.4),
+                          color: AppColors.accent.withValues(alpha: 0.4),
                           blurRadius: 18,
                           offset: const Offset(0, 8),
                         ),
@@ -424,12 +424,12 @@ class _EmergencyCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.45),
+            color: Colors.white.withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.danger.withOpacity(0.2)),
+            border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.danger.withOpacity(0.08),
+                color: AppColors.danger.withValues(alpha: 0.08),
                 blurRadius: 30,
                 offset: const Offset(0, 10),
               ),
@@ -452,7 +452,7 @@ class _EmergencyCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.danger.withOpacity(0.5),
+                              color: AppColors.danger.withValues(alpha: 0.5),
                               blurRadius: 20,
                               spreadRadius: 0,
                             ),
@@ -503,7 +503,7 @@ class _EmergencyCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.danger.withOpacity(0.4),
+                        color: AppColors.danger.withValues(alpha: 0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 6),
                       ),
@@ -590,7 +590,7 @@ class _InviteCardState extends State<_InviteCard> {
                       boxShadow: _isFocused
                           ? [
                               BoxShadow(
-                                color: AppColors.accent.withOpacity(0.12),
+                                color: AppColors.accent.withValues(alpha: 0.12),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -642,11 +642,11 @@ class _InviteCardState extends State<_InviteCard> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: widget.isLoading ? AppColors.accent.withOpacity(0.5) : AppColors.accent,
+                    color: widget.isLoading ? AppColors.accent.withValues(alpha: 0.5) : AppColors.accent,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accent.withOpacity(0.35),
+                        color: AppColors.accent.withValues(alpha: 0.35),
                         blurRadius: 15,
                         offset: const Offset(0, 6),
                       ),
@@ -790,7 +790,7 @@ class _MemberCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: AppColors.border),
           ),
@@ -805,14 +805,14 @@ class _MemberCard extends StatelessWidget {
                     height: 50,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [avatarColor, avatarColor.withOpacity(0.8)],
+                        colors: [avatarColor, avatarColor.withValues(alpha: 0.8)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(50 / 2.4),
                       boxShadow: [
                         BoxShadow(
-                          color: avatarColor.withOpacity(0.4),
+                          color: avatarColor.withValues(alpha: 0.4),
                           blurRadius: 10,
                           offset: const Offset(0, 3),
                         ),

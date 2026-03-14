@@ -50,7 +50,7 @@ class BuddyAgent extends EventEmitter {
             ]);
 
             this.aiConfig = aiConfig;
-            const geminiKey = dbSettings?.ai?.geminiApiKey || process.env.GEMINI_API_KEY;
+            const geminiKey = aiConfig.voiceApiKey || process.env.GEMINI_API_KEY;
 
             // 2. Initialize Gemini (USED ONLY FOR STT NOW)
             if (!this.ai && geminiKey) {
@@ -66,10 +66,8 @@ class BuddyAgent extends EventEmitter {
             this.timeZone = timeZone;
 
             // 3. Connect Ears (Gemini STT)
-            // We give it a strict system instruction to ONLY transcribe to keep latency low
-            // and prevent it from trying to be the brain.
             const sttInstruction = "You are the 'Ears' of Buddy. Listen to the user and transcribe their words exactly. DO NOT RESPOND. Just provide transcripts.";
-            const modelPath = 'models/gemini-2.5-flash-native-audio-latest'; // Specially supported Bidi model for this key
+            const modelPath = aiConfig.voiceModel.includes('/') ? aiConfig.voiceModel : `models/${aiConfig.voiceModel}`;
 
             if (this.ai) {
                 this.ai.connect(sttInstruction, personality.voice, false, modelPath);
@@ -204,7 +202,8 @@ class BuddyAgent extends EventEmitter {
 
             // 2. Stream from Python
             const response = await axios.post(`${aiServiceUrl}/chat/realtime/stream`, payload, {
-                responseType: 'stream'
+                responseType: 'stream',
+                headers: { 'X-API-Key': config.BUDDY_API_KEY }
             });
 
             let buffer = '';

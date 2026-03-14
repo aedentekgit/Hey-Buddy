@@ -80,7 +80,7 @@ class _SignupScreenState extends State<SignupScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: branding.primaryColor.withOpacity(0.05),
+                color: branding.primaryColor.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -101,7 +101,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: branding.primaryColor.withOpacity(0.1),
+                            color: branding.primaryColor.withValues(alpha: 0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -245,12 +245,12 @@ class _SignupScreenState extends State<SignupScreen> {
                             backgroundColor: branding.primaryColor,
                             foregroundColor: Colors.white,
                             disabledBackgroundColor: branding.primaryColor
-                                .withOpacity(0.6),
+                                .withValues(alpha: 0.6),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
                             ),
                             elevation: 0,
-                            shadowColor: branding.primaryColor.withOpacity(0.5),
+                            shadowColor: branding.primaryColor.withValues(alpha: 0.5),
                           ).copyWith(
                             elevation: WidgetStateProperty.resolveWith<double>((
                               states,
@@ -363,7 +363,7 @@ class _SignupScreenState extends State<SignupScreen> {
             border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),

@@ -1,3 +1,5 @@
+import "package:flutter/foundation.dart";
+
 import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:buddy_mobile/core/config/app_config.dart';
@@ -49,7 +51,7 @@ class SocketService {
       final token = await _storage.read(key: 'jwt');
 
       if (socket?.connected == true && _lastToken == token) {
-        print(
+        debugPrint(
           'Socket already connected with same token, skipping initialization',
         );
         _isConnecting = false;
@@ -57,7 +59,7 @@ class SocketService {
       }
 
       if (socket != null) {
-        print(
+        debugPrint(
           'Refreshing socket connection due to token change or reconnection request',
         );
         socket?.disconnect();
@@ -66,7 +68,7 @@ class SocketService {
       }
 
       _lastToken = token;
-      print(
+      debugPrint(
         'Attempting to connect to socket: ${AppConfig.socketUrl} (Token Present: ${token != null})',
       );
 
@@ -97,14 +99,14 @@ class SocketService {
       socket?.off('stop_command');
 
       socket?.onConnect((_) {
-        print('Socket Connected successfully to ${AppConfig.socketUrl}');
+        debugPrint('Socket Connected successfully to ${AppConfig.socketUrl}');
         _safeAdd(_statusStreamController, true);
         // Initialize agent in standby mode so it listens for wake word
         socket?.emit('setup_agent', {'language': 'en-US', 'standby': true});
       });
 
       socket?.onDisconnect((_) {
-        print('Socket Disconnected');
+        debugPrint('Socket Disconnected');
         _safeAdd(_statusStreamController, false);
       });
 
@@ -118,17 +120,17 @@ class SocketService {
       });
 
       socket?.on('connect_error', (data) {
-        print('Socket Connection Error: $data');
+        debugPrint('Socket Connection Error: $data');
         _isConnecting = false;
       });
 
       socket?.on('error', (err) {
-        print('Socket Error: $err');
+        debugPrint('Socket Error: $err');
         _isConnecting = false;
       });
 
       socket?.on('voice_alert', (data) {
-        print('Background Voice Alert: $data');
+        debugPrint('Background Voice Alert: $data');
         if (data is String) {
           _safeAdd(_voiceAlertStreamController, {'text': data});
         } else if (data is Map) {
@@ -140,7 +142,7 @@ class SocketService {
       });
 
       socket?.on('wake_word_detected', (data) {
-        print('Wake Word Detected in Backend: $data');
+        debugPrint('Wake Word Detected in Backend: $data');
         if (data is Map) {
           _safeAdd(_wakeWordStreamController, Map<String, dynamic>.from(data));
         } else {
@@ -149,17 +151,17 @@ class SocketService {
       });
 
       socket?.on('barge_in_detected', (data) {
-        print('Barge-In Detected in Backend: $data');
+        debugPrint('Barge-In Detected in Backend: $data');
         _safeAdd(_bargeInController, data);
       });
 
       socket?.on('stop_command', (data) {
-        print('Stop Command Detected in Backend: $data');
+        debugPrint('Stop Command Detected in Backend: $data');
         _safeAdd(_stopCmdController, data);
       });
 
       socket?.on('new_message', (data) {
-        print('New Chat Message Received: $data');
+        debugPrint('New Chat Message Received: $data');
         if (data is Map) {
           _safeAdd(_chatStreamController, Map<String, dynamic>.from(data));
         }
@@ -168,7 +170,7 @@ class SocketService {
       // Successfully started connection flow
       _isConnecting = false;
     } catch (e) {
-      print('Unhandled exception in socket connect: $e');
+      debugPrint('Unhandled exception in socket connect: $e');
       _isConnecting = false;
     }
   }

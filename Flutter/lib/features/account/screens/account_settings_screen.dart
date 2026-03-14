@@ -548,9 +548,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: color.withOpacity(0.2)),
+                  border: Border.all(color: color.withValues(alpha: 0.2)),
                 ),
                 child: Icon(icon, size: 22, color: color),
               ),
@@ -583,7 +583,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                     borderRadius: BorderRadius.circular(15),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accent.withOpacity(0.4),
+                        color: AppColors.accent.withValues(alpha: 0.4),
                         blurRadius: 18,
                         offset: const Offset(0, 8),
                       ),
@@ -690,9 +690,9 @@ class _SettingsRow extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: iconColor.withOpacity(0.18)),
+                border: Border.all(color: iconColor.withValues(alpha: 0.18)),
               ),
               child: Icon(icon, size: 17, color: iconColor),
             ),
@@ -764,7 +764,7 @@ class _Toggle extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
@@ -908,10 +908,10 @@ class _ConfirmDialog extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isDanger
                             ? AppColors.dangerLight
-                            : confirmColor.withOpacity(0.1),
+                            : confirmColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: confirmColor.withOpacity(0.3),
+                          color: confirmColor.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(

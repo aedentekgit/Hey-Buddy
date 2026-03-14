@@ -1,3 +1,5 @@
+import "package:flutter/foundation.dart";
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -36,10 +38,10 @@ class UserService {
           return data['data'];
         }
       }
-      print("[UserService] Failed to parse success");
+      debugPrint("[UserService] Failed to parse success");
       return {};
     } catch (e) {
-      print("[UserService] Error fetching profile: $e");
+      debugPrint("[UserService] Error fetching profile: $e");
       return {};
     }
   }
@@ -60,7 +62,7 @@ class UserService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("[UserService] Error updating profile: $e");
+      debugPrint("[UserService] Error updating profile: $e");
       return false;
     }
   }
@@ -104,12 +106,12 @@ class UserService {
           return data['data']['profilePicture'];
         }
       }
-      print(
+      debugPrint(
         "[UserService] Upload failed: ${response.statusCode} - ${response.body}",
       );
       return null;
     } catch (e) {
-      print("[UserService] Error uploading avatar: $e");
+      debugPrint("[UserService] Error uploading avatar: $e");
       return null;
     }
   }
@@ -125,7 +127,7 @@ class UserService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("[UserService] Error deleting avatar: $e");
+      debugPrint("[UserService] Error deleting avatar: $e");
       return false;
     }
   }
@@ -141,7 +143,7 @@ class UserService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("[UserService] Error deleting account: $e");
+      debugPrint("[UserService] Error deleting account: $e");
       return false;
     }
   }
@@ -157,7 +159,7 @@ class UserService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("[UserService] Error unlinking calendar: $e");
+      debugPrint("[UserService] Error unlinking calendar: $e");
       return false;
     }
   }
@@ -167,33 +169,33 @@ class UserService {
     try {
       final token = await _getToken();
       final url = '${_baseUrl}voice/google/auth';
-      print('[UserService] Fetching Google Auth URL from: $url');
+      debugPrint('[UserService] Fetching Google Auth URL from: $url');
 
       final response = await http.get(
         Uri.parse(url),
         headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
       );
 
-      print('[UserService] Google Auth URL response: ${response.statusCode}');
+      debugPrint('[UserService] Google Auth URL response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          print('[UserService] Auth URL obtained successfully');
+          debugPrint('[UserService] Auth URL obtained successfully');
           return data['url'];
         } else {
-          print(
+          debugPrint(
             '[UserService] Backend returned success:false — ${data['message']}',
           );
         }
       } else {
-        print(
+        debugPrint(
           '[UserService] HTTP error ${response.statusCode}: ${response.body}',
         );
       }
       return null;
     } catch (e) {
-      print("[UserService] Error fetching google auth URL: $e");
+      debugPrint("[UserService] Error fetching google auth URL: $e");
       return null;
     }
   }
@@ -214,7 +216,7 @@ class UserService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("[UserService] Error updating location: $e");
+      debugPrint("[UserService] Error updating location: $e");
       return false;
     }
   }

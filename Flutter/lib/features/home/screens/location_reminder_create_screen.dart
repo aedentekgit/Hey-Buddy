@@ -313,7 +313,7 @@ class _LocationReminderCreateScreenState
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.accent.withOpacity(0.35),
+                            color: AppColors.accent.withValues(alpha: 0.35),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -504,7 +504,7 @@ class _WarningOption extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? color.withOpacity(0.12) : AppColors.surface,
+            color: selected ? color.withValues(alpha: 0.12) : AppColors.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected ? color : AppColors.border,

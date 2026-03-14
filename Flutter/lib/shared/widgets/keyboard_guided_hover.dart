@@ -116,15 +116,15 @@ class _KeyboardGuidedHoverState extends State<KeyboardGuidedHover>
           child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.75),
+              color: Colors.white.withValues(alpha: 0.75),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 30,
                   offset: const Offset(0, 12),
                 ),
@@ -135,7 +135,7 @@ class _KeyboardGuidedHoverState extends State<KeyboardGuidedHover>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.12),
+                    color: primaryColor.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(

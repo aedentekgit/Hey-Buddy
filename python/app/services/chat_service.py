@@ -70,7 +70,7 @@ import uuid
 
 # MAX_CHAT_HISTORY_TURNS: cap on how many (user, assistant) pairs we send to the LLM
 # to keep the prompt within token limits (e.g. 20 turns).
-from config import MAX_CHAT_HISTORY_TURNS, NODE_BACKEND_URL
+from config import MAX_CHAT_HISTORY_TURNS, NODE_BACKEND_URL, BUDDY_INTERNAL_SECRET
 from app.models import ChatMessage, ChatHistory
 from app.services.groq_service import GroqService
 from app.services.realtime_service import RealtimeGroqService
@@ -208,8 +208,10 @@ class ChatService:
         """
         try:
             session = await self._get_http_session()
+            headers = {"Authorization": f"Bearer {BUDDY_INTERNAL_SECRET}"}
             async with session.get(
                 f"{backend_url}/api/conversations/internal/{session_id}",
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=5)
             ) as resp:
                 if resp.status == 200:
@@ -849,7 +851,8 @@ class ChatService:
                     "messages": messages_to_sync
                 }
 
-                resp = requests.post(f"{backend_url}/api/conversations/sync", json=payload, timeout=5)
+                headers = {"Authorization": f"Bearer {BUDDY_INTERNAL_SECRET}"}
+                resp = requests.post(f"{backend_url}/api/conversations/sync", json=payload, headers=headers, timeout=5)
                 elapsed = time.time() - t0
                 if resp.status_code == 200:
                     logger.info(f"[DB-SYNC] Conversation synced for user {sync_user_id} "

@@ -163,7 +163,7 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: _isSaving
-                              ? AppColors.accent.withOpacity(0.5)
+                              ? AppColors.accent.withValues(alpha: 0.5)
                               : AppColors.accent,
                           borderRadius: BorderRadius.circular(11),
                         ),
@@ -273,7 +273,7 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
-              color: AppColors.accent.withOpacity(0.5),
+              color: AppColors.accent.withValues(alpha: 0.5),
               width: 1.5,
             ),
           ),

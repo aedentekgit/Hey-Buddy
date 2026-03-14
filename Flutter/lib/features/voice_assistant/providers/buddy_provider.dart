@@ -110,7 +110,7 @@ class BuddyProvider with ChangeNotifier {
       }
     } catch (e) {
       // Handle error gracefully if needed
-      print('Error fetching news: $e');
+      debugPrint('Error fetching news: $e');
     } finally {
       _isFetchingNews = false;
       notifyListeners();
@@ -191,7 +191,7 @@ class BuddyProvider with ChangeNotifier {
       await _flutterTts.setPitch(pitch);
       await _flutterTts.setSpeechRate(speechRate);
     } catch (e) {
-      print("Error configuring local TTS: $e");
+      debugPrint("Error configuring local TTS: $e");
     }
   }
 
@@ -278,7 +278,7 @@ class BuddyProvider with ChangeNotifier {
           notifyListeners();
         }
       } catch (e) {
-        print("TTS Error: $e");
+        debugPrint("TTS Error: $e");
         await _configureLocalTts(_currentGender, _currentTone);
         await _flutterTts.speak(sentence);
       }
@@ -373,7 +373,7 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.socket?.on('connect_error', (data) {
-      print('Socket Connect Error: $data');
+      debugPrint('Socket Connect Error: $data');
       _isThinking = false;
       if (data.toString().contains('Authentication failed') ||
           data.toString().contains('session may have expired')) {
@@ -384,7 +384,7 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.socket?.on('error', (err) {
-      print('Socket Error event: $err');
+      debugPrint('Socket Error event: $err');
       _isThinking = false;
       if (err.toString().contains('Authentication failed') ||
           err.toString().contains('session may have expired')) {
@@ -431,7 +431,7 @@ class BuddyProvider with ChangeNotifier {
             notifyListeners();
           });
         } catch (e) {
-          print("Error playing server audio: $e");
+          debugPrint("Error playing server audio: $e");
           _isSpeaking = false;
           notifyListeners();
         }
@@ -452,7 +452,7 @@ class BuddyProvider with ChangeNotifier {
 
     // Handle Wake Word Detection
     socketService.wakeWordStream.listen((data) {
-      print('Wake word detected: ${data['transcript']}');
+      debugPrint('Wake word detected: ${data['transcript']}');
       _isListening = true;
       notifyListeners();
 
@@ -464,7 +464,7 @@ class BuddyProvider with ChangeNotifier {
     // Handle Barge-In (interruption while Buddy is speaking)
     socketService.bargeInStream.listen((_) {
       if (_isSpeaking || _isSpeakingQueue) {
-        print('Barge-in detected: Silencing Buddy');
+        debugPrint('Barge-in detected: Silencing Buddy');
         _audioPlayer.stop();
         _flutterTts.stop();
         _isSpeaking = false;
@@ -477,7 +477,7 @@ class BuddyProvider with ChangeNotifier {
 
     // Handle Stop Command (explicit stop by user)
     socketService.stopCommandStream.listen((_) {
-      print('Stop command detected: Returning to Standby');
+      debugPrint('Stop command detected: Returning to Standby');
       stopAllAudio();
       notifyListeners();
     });
@@ -529,7 +529,7 @@ class BuddyProvider with ChangeNotifier {
           }
         }
       } catch (e) {
-        print('Error in voice alert: $e');
+        debugPrint('Error in voice alert: $e');
       }
     });
   }

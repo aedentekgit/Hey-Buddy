@@ -1,3 +1,5 @@
+import "package:flutter/foundation.dart";
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -36,7 +38,7 @@ class MemoryService {
       }
       return [];
     } catch (e) {
-      print("Error fetching memories: $e");
+      debugPrint("Error fetching memories: $e");
       return [];
     }
   }
@@ -53,7 +55,7 @@ class MemoryService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("Error deleting memory: $e");
+      debugPrint("Error deleting memory: $e");
       return false;
     }
   }
@@ -103,7 +105,7 @@ class MemoryService {
         return response.statusCode == 200;
       }
     } catch (e) {
-      print("Error updating memory: $e");
+      debugPrint("Error updating memory: $e");
       return false;
     }
   }
@@ -120,7 +122,7 @@ class MemoryService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("Error deleting prescription: $e");
+      debugPrint("Error deleting prescription: $e");
       return false;
     }
   }
@@ -145,7 +147,7 @@ class MemoryService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("Error updating prescription: $e");
+      debugPrint("Error updating prescription: $e");
       return false;
     }
   }

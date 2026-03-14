@@ -41,11 +41,15 @@ const Roles = () => {
     const AVAILABLE_PAGES = [
         { id: 'dashboard', label: 'Dashboard' },
         { id: 'buddy', label: 'Buddy AI' },
+        { id: 'vision', label: 'Buddy Vision' },
+        { id: 'knowledge', label: 'Knowledge Base' },
+        { id: 'automations', label: 'Automations' },
         { id: 'reminders', label: 'My Reminders' },
         { id: 'memories', label: 'Buddy Memory' },
         { id: 'settings', label: 'Settings' },
         { id: 'users', label: 'Users Management' },
-        { id: 'roles', label: 'Role Management' }
+        { id: 'roles', label: 'Role Management' },
+        { id: 'management', label: 'Admin Management' }
     ];
 
     const fetchRoles = async (page = 1) => {

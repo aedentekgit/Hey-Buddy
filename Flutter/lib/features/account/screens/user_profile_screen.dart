@@ -164,7 +164,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               border: Border.all(
                                 color: _editMode
                                     ? AppColors.border
-                                    : AppColors.accent.withOpacity(0.3),
+                                    : AppColors.accent.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Text(
@@ -211,7 +211,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       borderRadius: BorderRadius.circular(9),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppColors.accent.withOpacity(
+                                          color: AppColors.accent.withValues(alpha: 
                                             0.4,
                                           ),
                                           blurRadius: 8,
@@ -355,7 +355,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.accent.withOpacity(0.35),
+                                  color: AppColors.accent.withValues(alpha: 0.35),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
@@ -475,9 +475,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: iconColor.withOpacity(0.18)),
+              border: Border.all(color: iconColor.withValues(alpha: 0.18)),
             ),
             child: Icon(icon, size: 17, color: iconColor),
           ),
@@ -506,7 +506,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           color: AppColors.accentLight,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: AppColors.accent.withOpacity(0.35),
+                            color: AppColors.accent.withValues(alpha: 0.35),
                           ),
                         ),
                         child: TextField(
@@ -569,9 +569,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: iconColor.withOpacity(0.18)),
+              border: Border.all(color: iconColor.withValues(alpha: 0.18)),
             ),
             child: Icon(icon, size: 17, color: iconColor),
           ),
@@ -623,9 +623,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: iconColor.withOpacity(0.18)),
+              border: Border.all(color: iconColor.withValues(alpha: 0.18)),
             ),
             child: Icon(icon, size: 17, color: iconColor),
           ),
@@ -657,7 +657,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             color: AppColors.accentLight,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: AppColors.accent.withOpacity(0.35),
+                              color: AppColors.accent.withValues(alpha: 0.35),
                             ),
                           ),
                           child: Row(

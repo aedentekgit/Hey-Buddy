@@ -247,7 +247,7 @@ class UserProvider extends ChangeNotifier {
       }
       return success;
     } catch (e) {
-      print("Error in updateLocation provider: $e");
+      debugPrint("Error in updateLocation provider: $e");
       return false;
     }
   }

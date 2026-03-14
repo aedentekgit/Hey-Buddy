@@ -40,46 +40,56 @@ const getAiConfig = async () => {
         aiConfig.apiKey = aiSettings.deepseekApiKey;
     }
 
+    // Voice Config Integration
+    const activeVoiceStr = aiSettings.activeVoiceModel || 'google/gemini-1.5-flash';
+    const [voiceProvider, voiceModelName] = activeVoiceStr.split('/');
+
+    aiConfig.voiceProvider = voiceProvider || 'google';
+    aiConfig.voiceModel = voiceModelName || 'gemini-1.5-flash';
+
+    // Voice API Key Mapping
+    if (aiConfig.voiceProvider === 'google') {
+        aiConfig.voiceApiKey = aiSettings.geminiApiKey || process.env.GEMINI_API_KEY;
+    }
+
     return aiConfig;
 };
 
 exports.getAiConfig = getAiConfig;
 
 exports.proxyChatToPython = async (req, res) => {
+    let pythonEndpoint = '';
     try {
         const { message, session_id, tts } = req.body;
 
         // Use req.user._id if found in DB, else use decoded JWT userId as fallback
-        // This ensures JWT-verified users are never treated as guests even on cross-DB builds
         const userId = req.user ? req.user._id : (req.decodedUserId || `guest_${Date.now()}`);
 
         const finalSessionId = session_id || userId.toString();
 
-        // Path detection (supporting /chat/stream and /chat/realtime/stream)
-        // Path detection (supporting /chat/stream and /chat/realtime/stream)
         const requestPath = req.path;
         const isStream = requestPath.includes('stream');
         const isRealtime = requestPath.includes('realtime');
         const aiServiceUrl = config.AI_SERVICE_URL;
 
         // Map to the correct Python endpoint
-        let pythonEndpoint = `${aiServiceUrl}/chat`;
+        pythonEndpoint = `${aiServiceUrl}/chat`;
         if (isRealtime && isStream) {
             pythonEndpoint = `${aiServiceUrl}/chat/realtime/stream`;
         } else if (isStream) {
             pythonEndpoint = `${aiServiceUrl}/chat/stream`;
         } else if (isRealtime) {
             pythonEndpoint = `${aiServiceUrl}/chat/realtime`;
-        } else {
-            pythonEndpoint = `${aiServiceUrl}/chat`;
         }
 
         // 1. Get configurations from Database
         const aiConfig = await getAiConfig();
 
         if (!aiConfig.apiKey) {
+            console.warn('[AI Gateway] AI API Key is missing for provider:', aiConfig.provider);
             return res.status(400).json({ success: false, message: 'AI API Key is not configured in settings.' });
         }
+        console.log('[AI Gateway] Forwarding to Python with provider:', aiConfig.provider, 'model:', aiConfig.model);
 
         // 2. Fetch User Context (includes history, memories, and reminders)
         const context = await getContext(userId, session_id);
@@ -116,7 +126,7 @@ exports.proxyChatToPython = async (req, res) => {
         // 3. Forward full payload to Python FastAPI
         const payload = {
             message,
-            session_id: userId.toString(), // Enforce single conversation per user across all platforms
+            session_id: userId.toString(),
             tts: tts || false,
             api_key: aiConfig.apiKey,
             provider: aiConfig.provider,
@@ -127,19 +137,19 @@ exports.proxyChatToPython = async (req, res) => {
 
         if (isStream) {
             const pythonResponse = await axios.post(pythonEndpoint, payload, {
-                responseType: 'stream'
+                responseType: 'stream',
+                headers: { 'X-API-Key': config.BUDDY_API_KEY }
             });
 
-            // Set Headers for streaming
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
 
-            // Pipe the python Server-Sent-Events directly to the client
             pythonResponse.data.pipe(res);
         } else {
-            // Non-streaming response for Mobile App
-            const pythonResponse = await axios.post(pythonEndpoint, payload);
+            const pythonResponse = await axios.post(pythonEndpoint, payload, {
+                headers: { 'X-API-Key': config.BUDDY_API_KEY }
+            });
             res.json(pythonResponse.data);
         }
 
@@ -147,7 +157,7 @@ exports.proxyChatToPython = async (req, res) => {
         const errorMessage = error.response?.data?.detail || error.message;
         console.error('[AI Gateway] Error proxying to Python:', {
             path: req.path,
-            url: pythonEndpoint,
+            url: pythonEndpoint || 'N/A',
             status: error.response?.status || 0,
             message: errorMessage
         });
@@ -192,27 +202,24 @@ exports.proxyActionToPython = async (req, res) => {
                 try { reminderData = JSON.parse(val); } catch (e) { }
             }
 
-            // AUTO-GEOCODE: Try to find coordinates for the location
             if (reminderData.location && (!reminderData.coordinates?.lat || !reminderData.coordinates?.lng)) {
                 try {
                     const { geocodeAddress } = require('../../services/smartReminderService');
                     const coords = await geocodeAddress(reminderData.location);
                     if (coords) {
                         reminderData.coordinates = coords;
-                        console.log('[Action Proxy] Auto-geocoded location for AI:', coords);
                     }
                 } catch (err) {
                     console.warn('[Action Proxy] Geocoding failed:', err.message);
                 }
             }
 
-            // Provide default date/time for location reminders if missing
             if (!reminderData.date) {
                 const now = new Date();
-                reminderData.date = now.toISOString().split('T')[0]; // Default to today
+                reminderData.date = now.toISOString().split('T')[0];
             }
             if (!reminderData.time) {
-                reminderData.time = "whenever I arrive"; // Special string for geofencing or default
+                reminderData.time = "whenever I arrive";
             }
 
             const mockReq = {
@@ -234,7 +241,6 @@ exports.proxyActionToPython = async (req, res) => {
                 try { reminderData = JSON.parse(val); } catch (e) { }
             }
 
-            // Remove null fields from updateData to avoid overwriting with nulls
             Object.keys(reminderData).forEach(key => reminderData[key] === null && delete reminderData[key]);
 
             const mockReq = {
@@ -275,7 +281,6 @@ exports.proxyActionToPython = async (req, res) => {
                 try { memoryData = JSON.parse(val); } catch (e) { }
             }
 
-            // Remove null fields
             Object.keys(memoryData).forEach(key => memoryData[key] === null && delete memoryData[key]);
 
             const mockReq = {
@@ -291,12 +296,13 @@ exports.proxyActionToPython = async (req, res) => {
             return res.status(200).json({ success: true, message: 'Update memory action executed' });
         }
 
-        // --- 2. Python-Proxied Actions (System/Local) ---
         if (['OPEN_URL', 'OPEN_APP', 'SEARCH'].includes(act)) {
             const aiServiceUrl = config.AI_SERVICE_URL;
             const pythonResponse = await axios.post(`${aiServiceUrl}/action`, {
                 type: act,
                 value: typeof val === 'object' ? JSON.stringify(val) : val
+            }, {
+                headers: { 'X-API-Key': config.BUDDY_API_KEY }
             });
             return res.status(200).json(pythonResponse.data);
         }
@@ -322,7 +328,8 @@ exports.proxyTtsToPython = async (req, res) => {
     try {
         const aiServiceUrl = config.AI_SERVICE_URL;
         const pythonResponse = await axios.post(`${aiServiceUrl}/tts`, req.body, {
-            responseType: 'stream'
+            responseType: 'stream',
+            headers: { 'X-API-Key': config.BUDDY_API_KEY }
         });
         res.setHeader('Content-Type', 'audio/mpeg');
         pythonResponse.data.pipe(res);
@@ -335,7 +342,9 @@ exports.proxyHistoryToPython = async (req, res) => {
     try {
         const { session_id } = req.params;
         const aiServiceUrl = config.AI_SERVICE_URL;
-        const pythonResponse = await axios.get(`${aiServiceUrl}/chat/history/${session_id}`);
+        const pythonResponse = await axios.get(`${aiServiceUrl}/chat/history/${session_id}`, {
+            headers: { 'X-API-Key': config.BUDDY_API_KEY }
+        });
         res.status(pythonResponse.status).json(pythonResponse.data);
     } catch (error) {
         console.error('[History Proxy] Error:', error.message);

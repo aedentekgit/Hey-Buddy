@@ -334,10 +334,10 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: AppColors.danger.withOpacity(0.08),
+                            color: AppColors.danger.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: AppColors.danger.withOpacity(0.2),
+                              color: AppColors.danger.withValues(alpha: 0.2),
                             ),
                           ),
                           child: Center(
@@ -943,15 +943,15 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    color.withOpacity(0.18),
-                                    color.withOpacity(0.08),
+                                    color.withValues(alpha: 0.18),
+                                    color.withValues(alpha: 0.08),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: color.withOpacity(0.25),
+                                  color: color.withValues(alpha: 0.25),
                                 ),
                               ),
                               child: Icon(icon, color: color, size: 22),
@@ -1045,12 +1045,12 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppColors.accent
-                                                  .withOpacity(0.12),
+                                                  .withValues(alpha: 0.12),
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                               border: Border.all(
                                                 color: AppColors.accent
-                                                    .withOpacity(0.2),
+                                                    .withValues(alpha: 0.2),
                                               ),
                                             ),
                                             child: Text(
@@ -1213,9 +1213,9 @@ class _GroupLabel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: badgeColor.withOpacity(0.1),
+                color: badgeColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: badgeColor.withOpacity(0.25)),
+                border: Border.all(color: badgeColor.withValues(alpha: 0.25)),
               ),
               child: Text(
                 text == 'Past' ? '$count completed' : '$count pending',
@@ -1329,7 +1329,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1358,7 +1358,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1532,9 +1532,9 @@ class _Chip extends StatelessWidget {
         vertical: small ? 2 : 4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label.toUpperCase(),
@@ -1557,9 +1557,9 @@ class _PriorityChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.danger.withOpacity(0.12),
+        color: AppColors.danger.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+        border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1610,7 +1610,7 @@ class _SlidableAction extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.3),
+                  color: color.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),

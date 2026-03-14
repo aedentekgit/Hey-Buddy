@@ -214,12 +214,12 @@ class MemoryDetailsScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [c.withOpacity(0.12), c.withOpacity(0.04)],
+                        colors: [c.withValues(alpha: 0.12), c.withValues(alpha: 0.04)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: c.withOpacity(0.2), width: 1.5),
+                      border: Border.all(color: c.withValues(alpha: 0.2), width: 1.5),
                     ),
                     child: Row(
                       children: [
@@ -229,13 +229,13 @@ class MemoryDetailsScreen extends StatelessWidget {
                           height: 64,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [c.withOpacity(0.22), c.withOpacity(0.1)],
+                              colors: [c.withValues(alpha: 0.22), c.withValues(alpha: 0.1)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: c.withOpacity(0.25),
+                              color: c.withValues(alpha: 0.25),
                               width: 2,
                             ),
                           ),
@@ -432,9 +432,9 @@ class _Header extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.08),
+                    color: color.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(11),
-                    border: Border.all(color: color.withOpacity(0.2)),
+                    border: Border.all(color: color.withValues(alpha: 0.2)),
                   ),
                   child: Icon(LucideIcons.pencil, size: 16, color: color),
                 ),
@@ -450,7 +450,7 @@ class _Header extends StatelessWidget {
                     color: AppColors.dangerLight,
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(
-                      color: AppColors.danger.withOpacity(0.2),
+                      color: AppColors.danger.withValues(alpha: 0.2),
                     ),
                   ),
                   child: const Icon(
@@ -546,9 +546,9 @@ class _TagChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.28)),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Text(
         label.toUpperCase(),
@@ -620,7 +620,7 @@ class _FileCard extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(LucideIcons.fileText, color: color, size: 20),

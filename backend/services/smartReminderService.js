@@ -1,5 +1,6 @@
 const Reminder = require('../models/Reminder');
 const User = require('../models/User');
+const Guest = require('../models/Guest');
 const { sendPushNotification } = require('./notificationService');
 const Notification = require('../models/Notification');
 const Settings = require('../models/Settings');
@@ -197,8 +198,27 @@ async function checkEarlyWarnings(io) {
         }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences');
 
         for (const reminder of reminders) {
-            const user = reminder.userId;
-            if (!user) continue;
+            let user = reminder.userId;
+
+            if (!user || typeof user === "string") {
+                const userIdStr = typeof user === "string" ? user : (reminder.userId ? reminder.userId.toString() : "");
+                if (userIdStr.startsWith("guest_")) {
+                    const guestData = await Guest.findById(userIdStr);
+                    user = {
+                        _id: userIdStr,
+                        name: "Guest User",
+                        email: "guest@buddy.internal",
+                        timezone: "UTC",
+                        fcmTokens: guestData ? guestData.fcmTokens : [],
+                        currentLocation: guestData ? guestData.currentLocation : null,
+                        previousLocation: guestData ? guestData.previousLocation : null,
+                        notificationPreferences: { voice: { enabled: true }, push: { enabled: true } },
+                        voicePreferences: { gender: "female", tone: "soft" }
+                    };
+                } else {
+                    continue;
+                }
+            }
 
             const userTimezone = user.timezone || 'UTC';
             const now = new Date();
@@ -314,8 +334,27 @@ async function adjustReminderTimesForTraffic(io) {
         }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences');
 
         for (const reminder of reminders) {
-            const user = reminder.userId;
-            if (!user) continue;
+            let user = reminder.userId;
+
+            if (!user || typeof user === "string") {
+                const userIdStr = typeof user === "string" ? user : (reminder.userId ? reminder.userId.toString() : "");
+                if (userIdStr.startsWith("guest_")) {
+                    const guestData = await Guest.findById(userIdStr);
+                    user = {
+                        _id: userIdStr,
+                        name: "Guest User",
+                        email: "guest@buddy.internal",
+                        timezone: "UTC",
+                        fcmTokens: guestData ? guestData.fcmTokens : [],
+                        currentLocation: guestData ? guestData.currentLocation : null,
+                        previousLocation: guestData ? guestData.previousLocation : null,
+                        notificationPreferences: { voice: { enabled: true }, push: { enabled: true } },
+                        voicePreferences: { gender: "female", tone: "soft" }
+                    };
+                } else {
+                    continue;
+                }
+            }
 
             const userTimezone = user.timezone || 'UTC';
             const now = new Date();
@@ -355,7 +394,7 @@ async function adjustReminderTimesForTraffic(io) {
 
             // Get current traffic conditions
             const travelInfo = await getTrafficAwareTravelTime(
-                reminder.userId.currentLocation,
+                user.currentLocation,
                 reminder.coordinates
             );
 
@@ -368,7 +407,7 @@ async function adjustReminderTimesForTraffic(io) {
                 const message = `🚦 Traffic Alert: Heavy traffic detected for "${reminder.title}". Current delay: +${delayMinutes} min. Consider leaving earlier!`;
 
                 await Notification.create({
-                    userId: reminder.userId._id,
+                    userId: user._id,
                     title: '🚦 Traffic Update',
                     message: message,
                     type: 'reminder',
@@ -377,8 +416,8 @@ async function adjustReminderTimesForTraffic(io) {
                     actionUrl: '/admin/reminders'
                 });
 
-                if (reminder.userId.fcmTokens && reminder.userId.fcmTokens.length > 0) {
-                    const pushPromises = reminder.userId.fcmTokens.map(token =>
+                if (user.fcmTokens && user.fcmTokens.length > 0) {
+                    const pushPromises = user.fcmTokens.map(token =>
                         sendPushNotification(token, '🚦 Traffic Update', message, {
                             type: 'traffic_alert',
                             reminderId: reminder._id.toString()
@@ -388,13 +427,13 @@ async function adjustReminderTimesForTraffic(io) {
                 }
 
                 // AI Voice Announcement
-                if (reminder.userId.notificationPreferences?.voice?.enabled !== false) {
+                if (user.notificationPreferences?.voice?.enabled !== false) {
                     const voiceMsg = `Traffic Alert: Heavy traffic detected for "${reminder.title}". Current delay is +${delayMinutes} minutes. Consider leaving earlier!`;
                     if (io) {
-                        io.to(reminder.userId._id.toString()).emit('voice_alert', {
+                        io.to(user._id.toString()).emit('voice_alert', {
                             text: voiceMsg,
-                            gender: reminder.userId.voicePreferences?.gender || 'female',
-                            tone: reminder.userId.voicePreferences?.tone || 'soft'
+                            gender: user.voicePreferences?.gender || 'female',
+                            tone: user.voicePreferences?.tone || 'soft'
                         });
                     }
                 }
@@ -429,8 +468,27 @@ async function checkItemExitGuards(specificUserId = null, io) {
         const reminders = await Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation timezone notificationPreferences voicePreferences');
 
         for (const reminder of reminders) {
-            const user = reminder.userId;
-            if (!user) continue;
+            let user = reminder.userId;
+
+            if (!user || typeof user === "string") {
+                const userIdStr = typeof user === "string" ? user : (reminder.userId ? reminder.userId.toString() : "");
+                if (userIdStr.startsWith("guest_")) {
+                    const guestData = await Guest.findById(userIdStr);
+                    user = {
+                        _id: userIdStr,
+                        name: "Guest User",
+                        email: "guest@buddy.internal",
+                        timezone: "UTC",
+                        fcmTokens: guestData ? guestData.fcmTokens : [],
+                        currentLocation: guestData ? guestData.currentLocation : null,
+                        previousLocation: guestData ? guestData.previousLocation : null,
+                        notificationPreferences: { voice: { enabled: true }, push: { enabled: true } },
+                        voicePreferences: { gender: "female", tone: "soft" }
+                    };
+                } else {
+                    continue;
+                }
+            }
 
             // Check if user has location data
             if (!user.currentLocation?.lat || !user.previousLocation?.lat) {

@@ -19,7 +19,7 @@ class LocationRemindersProvider with ChangeNotifier {
         _reminders = res['data'];
       }
     } catch (e) {
-      print("Error loading location reminders: $e");
+      debugPrint("Error loading location reminders: $e");
     } finally {
       _isLoading = false;
       notifyListeners();

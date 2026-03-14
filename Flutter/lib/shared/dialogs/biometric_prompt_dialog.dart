@@ -24,14 +24,14 @@ class BiometricPromptDialog extends StatelessWidget {
         blur: 16,
         opacity: 0.95,
         color: Colors.white,
-        border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1.5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: branding.primaryColor.withOpacity(0.1),
+                color: branding.primaryColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

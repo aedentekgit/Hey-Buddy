@@ -90,11 +90,11 @@ class _MobileHeaderState extends State<MobileHeader> {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, _isSearchVisible ? 12 : 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -117,13 +117,13 @@ class _MobileHeaderState extends State<MobileHeader> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [primaryColor.withOpacity(0.8), primaryColor],
+                          colors: [primaryColor.withValues(alpha: 0.8), primaryColor],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: primaryColor.withOpacity(0.3),
+                            color: primaryColor.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),

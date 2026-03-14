@@ -90,14 +90,14 @@ class MobileTaskCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                color.withOpacity(0.15),
-                                color.withOpacity(0.05),
+                                color.withValues(alpha: 0.15),
+                                color.withValues(alpha: 0.05),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: color.withOpacity(0.2)),
+                            border: Border.all(color: color.withValues(alpha: 0.2)),
                           ),
                           child: Icon(
                             headerIcon ?? LucideIcons.bell,
@@ -175,7 +175,7 @@ class MobileTaskCard extends StatelessWidget {
                                     Icon(
                                       LucideIcons.mapPin,
                                       size: 12,
-                                      color: AppColors.accent.withOpacity(0.8),
+                                      color: AppColors.accent.withValues(alpha: 0.8),
                                     ),
                                     const SizedBox(width: 6),
                                     Expanded(
@@ -254,9 +254,9 @@ class MobileTaskCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
         text,
@@ -273,9 +273,9 @@ class MobileTaskCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -306,7 +306,7 @@ class MobileTaskCard extends StatelessWidget {
           border: Border.all(color: AppColors.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -384,7 +384,7 @@ class MobileTaskCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: iconColor.withOpacity(0.2)),
+          border: Border.all(color: iconColor.withValues(alpha: 0.2)),
         ),
         child: Icon(icon, size: 14, color: iconColor),
       ),
@@ -406,9 +406,9 @@ class _Chip extends StatelessWidget {
         vertical: small ? 2 : 4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label.replaceAll('_', ' ').toUpperCase(),

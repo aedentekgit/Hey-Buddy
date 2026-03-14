@@ -14,10 +14,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  print("[FCM Background] messageId: ${message.messageId}");
-  print("[FCM Background] title: ${message.notification?.title}");
-  print("[FCM Background] body: ${message.notification?.body}");
-  print("[FCM Background] data: ${message.data}");
+  debugPrint("[FCM Background] messageId: ${message.messageId}");
+  debugPrint("[FCM Background] title: ${message.notification?.title}");
+  debugPrint("[FCM Background] body: ${message.notification?.body}");
+  debugPrint("[FCM Background] data: ${message.data}");
 
   // If the message has a notification payload, Android/iOS OS already shows the banner.
   // We only need to show a local notification for DATA-ONLY messages (no notification payload).
@@ -61,7 +61,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await tts.setPitch(1.0);
       await tts.speak("Pardon the interruption. $text");
     } catch (e) {
-      print("[FCM Background] TTS error: $e");
+      debugPrint("[FCM Background] TTS error: $e");
     }
   }
 }
@@ -112,24 +112,24 @@ class NotificationService {
       provisional: false,
     );
 
-    print('[FCM] Permission status: ${settings.authorizationStatus}');
+    debugPrint('[FCM] Permission status: ${settings.authorizationStatus}');
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized ||
         settings.authorizationStatus == AuthorizationStatus.provisional) {
       // 4. Get & register token
       final String? token = await _fcm.getToken();
       if (token != null) {
-        print('[FCM] Token: $token');
+        debugPrint('[FCM] Token: $token');
         await _saveTokenToServer(token);
       }
 
       // 5. Listen for token refresh
       _fcm.onTokenRefresh.listen((newToken) {
-        print('[FCM] Token refreshed: $newToken');
+        debugPrint('[FCM] Token refreshed: $newToken');
         _saveTokenToServer(newToken);
       });
     } else {
-      print('[FCM] Permission NOT granted: ${settings.authorizationStatus}');
+      debugPrint('[FCM] Permission NOT granted: ${settings.authorizationStatus}');
     }
 
     // 6. Handle foreground messages
@@ -137,9 +137,9 @@ class NotificationService {
     // If the FCM payload has a 'notification' object, the OS (Android/iOS) already
     // shows a system banner. Calling _localNotif.show() on top would create a duplicate.
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      print('[FCM Foreground] Received: ${message.notification?.title}');
-      print('[FCM Foreground] Body: ${message.notification?.body}');
-      print('[FCM Foreground] Data: ${message.data}');
+      debugPrint('[FCM Foreground] Received: ${message.notification?.title}');
+      debugPrint('[FCM Foreground] Body: ${message.notification?.body}');
+      debugPrint('[FCM Foreground] Data: ${message.data}');
 
       final bool isDataOnly = message.notification == null;
       final String? body = isDataOnly
@@ -183,14 +183,14 @@ class NotificationService {
           await tts.setPitch(1.0);
           await tts.speak("Pardon the interruption. $body");
         } catch (e) {
-          print('[FCM Foreground] TTS error: $e');
+          debugPrint('[FCM Foreground] TTS error: $e');
         }
       }
     });
 
     // 7. Handle notification tap when app is in background (but not killed)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print(
+      debugPrint(
         '[FCM] App opened from notification: ${message.notification?.title}',
       );
     });
@@ -198,7 +198,7 @@ class NotificationService {
     // 8. Check if app was opened from a terminated-state notification
     final RemoteMessage? initialMessage = await _fcm.getInitialMessage();
     if (initialMessage != null) {
-      print(
+      debugPrint(
         '[FCM] App launched from notification: ${initialMessage.notification?.title}',
       );
     }
@@ -207,7 +207,7 @@ class NotificationService {
   Future<void> updateToken() async {
     final String? token = await _fcm.getToken();
     if (token != null) {
-      print('[FCM] Updating token: $token');
+      debugPrint('[FCM] Updating token: $token');
       await _saveTokenToServer(token);
     }
   }
@@ -216,7 +216,7 @@ class NotificationService {
     try {
       final authToken = await _storage.read(key: 'jwt');
       if (authToken == null) {
-        print('[FCM] Skipping token registration: not logged in yet');
+        debugPrint('[FCM] Skipping token registration: not logged in yet');
         return;
       }
 
@@ -232,9 +232,9 @@ class NotificationService {
           receiveTimeout: const Duration(seconds: 10),
         ),
       );
-      print('[FCM] ✅ Token saved to server successfully');
+      debugPrint('[FCM] ✅ Token saved to server successfully');
     } catch (e) {
-      print('[FCM] ⚠️ Failed to save FCM token: $e');
+      debugPrint('[FCM] ⚠️ Failed to save FCM token: $e');
     }
   }
 }

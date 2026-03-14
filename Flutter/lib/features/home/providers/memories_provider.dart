@@ -21,7 +21,7 @@ class MemoriesProvider extends ChangeNotifier {
       final fetched = await _memoryService.fetchMemories();
       _memories = fetched;
     } catch (e) {
-      print("Error loading memories: $e");
+      debugPrint("Error loading memories: $e");
     } finally {
       _isLoading = false;
       notifyListeners();

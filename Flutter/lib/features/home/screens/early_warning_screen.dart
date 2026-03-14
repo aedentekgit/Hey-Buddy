@@ -154,7 +154,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           color: AppColors.dangerLight,
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(
-                            color: AppColors.danger.withOpacity(0.25),
+                            color: AppColors.danger.withValues(alpha: 0.25),
                           ),
                         ),
                         child: const Icon(
@@ -177,7 +177,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           color: AppColors.accentLight,
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(
-                            color: AppColors.accent.withOpacity(0.3),
+                            color: AppColors.accent.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
@@ -475,7 +475,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                               color: AppColors.accentLight,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: AppColors.accent.withOpacity(0.3),
+                                color: AppColors.accent.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Text(
@@ -495,7 +495,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           activeTrackColor: AppColors.accent,
                           inactiveTrackColor: AppColors.border,
                           thumbColor: AppColors.accent,
-                          overlayColor: AppColors.accent.withOpacity(0.12),
+                          overlayColor: AppColors.accent.withValues(alpha: 0.12),
                           trackHeight: 4,
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: 8,
@@ -528,7 +528,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           color: AppColors.accentLight,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: AppColors.accent.withOpacity(0.25),
+                            color: AppColors.accent.withValues(alpha: 0.25),
                           ),
                         ),
                         child: Row(
@@ -537,7 +537,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                               width: 42,
                               height: 42,
                               decoration: BoxDecoration(
-                                color: AppColors.accent.withOpacity(0.15),
+                                color: AppColors.accent.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(13),
                               ),
                               child: Icon(
@@ -812,7 +812,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           color: AppColors.dangerLight,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppColors.danger.withOpacity(0.3),
+                            color: AppColors.danger.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Text(
@@ -884,9 +884,9 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label.toUpperCase(),
@@ -944,9 +944,9 @@ class _InfoRow extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: iconColor.withOpacity(0.18)),
+              border: Border.all(color: iconColor.withValues(alpha: 0.18)),
             ),
             child: Icon(icon, size: 17, color: iconColor),
           ),
@@ -982,7 +982,7 @@ class _InfoRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.accentLight,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.accent.withOpacity(0.25)),
+                border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1103,9 +1103,9 @@ class _FeatureRow extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: iconColor.withOpacity(0.2)),
+                  border: Border.all(color: iconColor.withValues(alpha: 0.2)),
                 ),
                 child: Icon(icon, size: 17, color: iconColor),
               ),
@@ -1197,9 +1197,9 @@ class _AlertRow extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: iconColor.withOpacity(0.2)),
+                  border: Border.all(color: iconColor.withValues(alpha: 0.2)),
                 ),
                 child: Icon(icon, size: 17, color: iconColor),
               ),
@@ -1265,7 +1265,7 @@ class _Toggle extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),

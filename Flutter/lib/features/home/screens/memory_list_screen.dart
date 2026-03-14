@@ -463,14 +463,14 @@ class _MemoryCard extends StatelessWidget {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    color.withOpacity(0.18),
-                                    color.withOpacity(0.08),
+                                    color.withValues(alpha: 0.18),
+                                    color.withValues(alpha: 0.08),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: color.withOpacity(0.25)),
+                                border: Border.all(color: color.withValues(alpha: 0.25)),
                               ),
                               child: Icon(_icon, color: color, size: 22),
                             ),
@@ -586,9 +586,9 @@ class _Chip extends StatelessWidget {
         vertical: small ? 2 : 4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label.toUpperCase(),
@@ -632,7 +632,7 @@ class _SlidableAction extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.3),
+                  color: color.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
