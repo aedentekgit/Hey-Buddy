@@ -30,8 +30,8 @@ class _MobileMapPickerState extends State<MobileMapPicker> {
         widget.initialCoordinates!['lat'] != null &&
         widget.initialCoordinates!['lng'] != null) {
       _selectedLocation = LatLng(
-        widget.initialCoordinates!['lat'],
-        widget.initialCoordinates!['lng'],
+        (widget.initialCoordinates!['lat'] as num).toDouble(),
+        (widget.initialCoordinates!['lng'] as num).toDouble(),
       );
       _updateMarkers(_selectedLocation!);
     }

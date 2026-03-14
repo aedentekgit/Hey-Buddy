@@ -18,7 +18,41 @@ const chatMessageSchema = new mongoose.Schema({
     },
     content: {
         type: String,
-        required: true
+        required: false // Content is now optional if it's a file-only message
+    },
+    replyTo: {
+        type: String,
+        ref: 'ChatMessage',
+        default: null
+    },
+    fileUrl: {
+        type: String,
+        default: null
+    },
+    fileName: {
+        type: String,
+        default: null
+    },
+    fileType: {
+        type: String,
+        default: null // 'image', 'document', etc.
+    },
+    reactions: [{
+        userId: { type: String, ref: 'User' },
+        emoji: { type: String }
+    }],
+    isStarredBy: [{ // per-user starring
+        type: String,
+        ref: 'User'
+    }],
+    isPinned: {
+        type: Boolean,
+        default: false
+    },
+    forwardedFrom: { // for forwarding
+        type: String,
+        ref: 'ChatMessage',
+        default: null
     },
     readBy: [{ // For group chat reading status
         type: String,

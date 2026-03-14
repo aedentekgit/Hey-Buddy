@@ -11,6 +11,7 @@ class FamilyProvider extends ChangeNotifier {
   List<dynamic> members = [];
   List<dynamic> requests = [];
   List<dynamic> messages = [];
+  int unreadMessagesCount = 0;
   bool isLoading = false;
   String? currentChatId;
   String? currentUserId;
@@ -19,10 +20,51 @@ class FamilyProvider extends ChangeNotifier {
     _initUser();
     _socketService.chatStream.listen((data) {
       if (data['roomId'] == currentChatId) {
-        messages.add(data);
+        messages.insert(0, data);
         notifyListeners();
       }
     });
+
+    _socketService.messageUpdatedStream.listen((data) {
+      if (data['roomId'] == currentChatId) {
+        final mid = data['messageId'];
+        final idx = messages.indexWhere((m) => m is Map && (m['id'] ?? m['_id']) == mid);
+        if (idx != -1) {
+          // Merge updated fields
+          messages[idx] = {...messages[idx], ...data};
+          notifyListeners();
+        }
+      }
+    });
+  }
+
+  void reactToMessage(String messageId, String emoji) {
+    if (currentChatId != null && currentUserId != null) {
+      _socketService.reactToMessage(currentChatId!, currentUserId!, messageId, emoji);
+    }
+  }
+
+  void starMessage(String messageId, bool isStarred) {
+    if (currentChatId != null && currentUserId != null) {
+      _socketService.starMessage(currentChatId!, currentUserId!, messageId, isStarred);
+    }
+  }
+
+  void pinMessage(String messageId, bool isPinned) {
+    if (currentChatId != null) {
+      _socketService.pinMessage(currentChatId!, messageId, isPinned);
+    }
+  }
+
+  void forwardMessage(String targetRoomId, String messageId) {
+    if (currentUserId != null) {
+      _socketService.forwardMessage(targetRoomId, currentUserId!, messageId);
+    }
+  }
+
+  void clearUnreadCount() {
+    unreadMessagesCount = 0;
+    notifyListeners();
   }
 
   Future<void> _initUser() async {
@@ -81,6 +123,8 @@ class FamilyProvider extends ChangeNotifier {
   }
 
   Future<void> openPrivateChat(String memberId) async {
+    messages = []; // Clear immediately to prevent flicker
+    notifyListeners();
     final res = await _service.startPrivateChat(memberId);
     if (res['success'] == true) {
       currentChatId = res['data']['chat_id'];
@@ -91,6 +135,8 @@ class FamilyProvider extends ChangeNotifier {
   }
 
   Future<void> openGroupChat() async {
+    messages = []; // Clear immediately to prevent flicker
+    notifyListeners();
     final res = await _service.getGroupChat();
     if (res['success'] == true) {
       currentChatId = res['data']['chat_id'];
@@ -100,10 +146,31 @@ class FamilyProvider extends ChangeNotifier {
     }
   }
 
-  void sendMessage(String content) {
+  dynamic replyingTo;
+
+  void setReplyingTo(dynamic msg) {
+    replyingTo = msg;
+    notifyListeners();
+  }
+
+  void sendMessage(String content, {Map<String, dynamic>? fileData}) {
     if (currentChatId != null && currentUserId != null) {
-      _socketService.sendChatMessage(currentChatId!, currentUserId!, content);
-      // Backend broadcasts 'new_message', listener handles UI update
+      _socketService.sendChatMessage(
+        currentChatId!,
+        currentUserId!,
+        content,
+        replyTo: replyingTo?['id'],
+        fileUrl: fileData?['fileUrl'],
+        fileName: fileData?['fileName'],
+        fileType: fileData?['fileType'],
+      );
+      replyingTo = null;
+      notifyListeners();
     }
+  }
+
+  Future<Map<String, dynamic>> uploadChatFile(List<int> bytes, String fileName) async {
+    final res = await _service.uploadFile(bytes, fileName);
+    return res;
   }
 }

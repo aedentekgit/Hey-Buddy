@@ -37,6 +37,8 @@ class BuddyProvider with ChangeNotifier {
   bool _isListening = false;
   bool _needsLogin = false;
   bool get needsLogin => _needsLogin;
+  bool _isConnected = true;
+  bool get isConnected => _isConnected;
   bool get isSpeaking => _isSpeaking;
   bool get isListening => _isListening;
   bool get isStreaming => _audioStreamService.isStreaming;
@@ -440,6 +442,7 @@ class BuddyProvider with ChangeNotifier {
 
     socketService.statusStream.listen((isConnected) {
       _isRealtimeEnabled = isConnected;
+      _isConnected = isConnected;
       if (!isConnected) {
         _isThinking = false;
         _audioStreamService.stopStreaming();

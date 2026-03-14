@@ -155,6 +155,11 @@ exports.getReminders = async (req, res) => {
             ]
         };
 
+        const { start, end } = req.query;
+        if (start && end) {
+            query.date = { $gte: start, $lte: end };
+        }
+
         // Paginate with populated fields to avoid N+1 queries
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -823,6 +828,55 @@ exports.getTravelStats = async (req, res) => {
             resolvedCoordinates: destCoords
         });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * @desc    Get reminder counts per day for calendar view
+ * @route   GET /api/reminders/calendar-stats
+ * @access  Private
+ */
+exports.getCalendarStats = async (req, res) => {
+    try {
+        const userId = req.user._id.toString(); // Ensure string for aggregation match
+        const { start, end } = req.query; // Expecting YYYY-MM-DD
+
+        const query = {
+            $or: [
+                { userId },
+                { 'sharedWith.user': userId },
+                { assignedTo: userId }
+            ]
+        };
+
+        if (start && end) {
+            query.date = { $gte: start, $lte: end };
+        }
+
+        const stats = await Reminder.aggregate([
+            { $match: query },
+            {
+                $group: {
+                    _id: "$date",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const formattedData = {};
+        stats.forEach(item => {
+            if (item._id) {
+                formattedData[item._id] = item.count;
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            data: formattedData
+        });
+    } catch (error) {
+        console.error("Calendar Stats Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

@@ -118,18 +118,6 @@ class _SplashScreenState extends State<SplashScreen> {
                     Hero(
                       tag: 'app_logo',
                       child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: branding.primaryColor.withValues(alpha: 0.15),
-                              blurRadius: 30,
-                              offset: const Offset(0, 15),
-                            ),
-                          ],
-                        ),
                         child: branding.splashUrl != null
                             ? CachedNetworkImage(
                                 imageUrl: branding.splashUrl!,

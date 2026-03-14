@@ -176,7 +176,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       if (currentPosition == null && mounted) {
         final user = Provider.of<UserProvider>(context, listen: false).user;
         final stored = user['currentLocation'];
-        if (stored != null && stored['lat'] != null && stored['lng'] != null) {
+        if (stored is Map && stored['lat'] != null && stored['lng'] != null) {
           currentPosition = Position(
             latitude: (stored['lat'] as num).toDouble(),
             longitude: (stored['lng'] as num).toDouble(),
@@ -309,7 +309,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       if ((lat == null || lng == null) && mounted) {
         final user = Provider.of<UserProvider>(context, listen: false).user;
         final stored = user['currentLocation'];
-        if (stored != null) {
+        if (stored is Map) {
           lat = (stored['lat'] as num?)?.toDouble();
           lng = (stored['lng'] as num?)?.toDouble();
         }
@@ -328,8 +328,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
           travelStats = stats;
 
           // AUTO-CALCULATE RADIUS: HALF of Distance (min 200m, max 5km)
-          if (stats != null && stats['distance'] != null) {
-            double distanceKm = stats['distance'] / 1000.0;
+          if (stats is Map && stats?['distance'] != null) {
+            double distanceKm = (stats?['distance'] as num) / 1000.0;
             double autoRadiusKm = (distanceKm / 2.0).clamp(0.2, 5.0);
             geofenceRadius = autoRadiusKm * 1000.0;
             debugPrint(
@@ -350,8 +350,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     if (pickupTime.isEmpty) return;
 
     // durationInTraffic is in seconds — convert to minutes
-    final travelMin = travelStats?['durationInTraffic'] != null
-        ? (((travelStats!['durationInTraffic'] as num) / 60).ceil())
+    final travelMin = (travelStats is Map && travelStats?['durationInTraffic'] != null)
+        ? (((travelStats?['durationInTraffic'] as num) / 60).ceil())
         : 0;
     final bufferMin = bufferTime.toInt();
 
@@ -420,8 +420,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       if (mounted) {
         setState(() {
           sharedWith.removeWhere((s) {
-            final uid = (s['user'] is Map) ? s['user']['_id'] : s['user'];
-            return uid == userId || s['_id'] == userId;
+            final uid = (s is Map && s['user'] is Map) ? s['user']['_id'] : (s is Map ? (s['user'] ?? s['_id']) : s);
+            return uid == userId || (s is Map && s['_id'] == userId);
           });
         });
       }
@@ -1165,10 +1165,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       'coordinates': coordinates,
       'notifyCreator': notifyCreator,
       'sharedWith': sharedWith
-          .where((s) => s['user'] != null)
+          .where((s) => s is Map && (s['user'] != null || s['_id'] != null))
           .map((s) => {
-                'user': (s['user'] is Map) ? s['user']['_id'] : s['user'],
-                'permissions': s['permissions'] ?? 'view',
+                'user': (s['user'] is Map) ? s['user']['_id'] : (s['user'] ?? s['_id']),
+                'permissions': (s is Map) ? (s['permissions'] ?? 'view') : 'view',
               })
           .toList(),
     };
@@ -1888,8 +1888,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                           (coordinates != null &&
                                               coordinates!['lat'] != null)
                                           ? LatLng(
-                                              coordinates!['lat'],
-                                              coordinates!['lng'],
+                                              (coordinates!['lat'] as num).toDouble(),
+                                              (coordinates!['lng'] as num).toDouble(),
                                             )
                                           : (currentPosition != null
                                                 ? LatLng(
@@ -1902,7 +1902,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                                           context,
                                                           listen: false,
                                                         ).user['currentLocation'];
-                                                    return (stored != null &&
+                                                    return (stored is Map &&
                                                             stored['lat'] !=
                                                                 null)
                                                         ? LatLng(
@@ -1997,8 +1997,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                         Marker(
                                           markerId: const MarkerId('selected'),
                                           position: LatLng(
-                                            coordinates!['lat'],
-                                            coordinates!['lng'],
+                                            (coordinates!['lat'] as num).toDouble(),
+                                            (coordinates!['lng'] as num).toDouble(),
                                           ),
                                           icon:
                                               BitmapDescriptor.defaultMarkerWithHue(
@@ -2024,8 +2024,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                         Circle(
                                           circleId: const CircleId('geofence'),
                                           center: LatLng(
-                                            coordinates!['lat'],
-                                            coordinates!['lng'],
+                                            (coordinates!['lat'] as num).toDouble(),
+                                            (coordinates!['lng'] as num).toDouble(),
                                           ),
                                           radius: geofenceRadius,
                                           fillColor: Theme.of(
@@ -2378,6 +2378,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                             
                             setState(() {
                               _familySearchResults = famProv.members.where((m) {
+                                if (m is! Map) return false;
                                 final name = (m['name'] ?? '').toString().toLowerCase();
                                 final email = (m['email'] ?? '').toString().toLowerCase();
                                 final q = val.toLowerCase();
@@ -2409,7 +2410,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                 icon: const Icon(LucideIcons.plusCircle, color: AppColors.accent),
                                 onPressed: () {
                                    setState(() {
-                                      if (!sharedWith.any((s) => s['user']['_id'] == user['_id'])) {
+                                      if (!sharedWith.any((s) => s is Map && s['user'] is Map && s['user']['_id'] == user['_id'])) {
                                         sharedWith.add({'user': user, 'permissions': 'view'});
                                       }
                                       _familySearchController.clear();
@@ -2433,107 +2434,112 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       )
                     else
                       ...sharedWith.map(
-                        (s) => Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.bg,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Theme.of(
-                                    context,
-                                  ).primaryColor.withValues(alpha: 0.1),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1.5,
+                        (item) {
+                          final s = item is Map ? item : {'user': {'name': 'User', '_id': item.toString()}};
+                          final user = (s['user'] is Map) ? (s['user'] as Map) : {};
+                          
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Theme.of(
+                                      context,
+                                    ).primaryColor.withValues(alpha: 0.1),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1.5,
+                                    ),
                                   ),
-                                ),
-                                child: ClipOval(
-                                  child: s['user']?['profilePicture'] != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: AppConfig.formatImageUrl(
-                                            s['user']?['profilePicture'],
-                                          )!,
-                                          fit: BoxFit.cover,
-                                          errorWidget: (context, url, error) =>
-                                              Center(
-                                                child: Text(
-                                                  s['user']?['name']?[0]
-                                                          ?.toUpperCase() ??
-                                                      'U',
-                                                  style: TextStyle(
-                                                    color: Theme.of(
-                                                      context,
-                                                    ).primaryColor,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
+                                  child: ClipOval(
+                                    child: user['profilePicture'] != null
+                                        ? CachedNetworkImage(
+                                            imageUrl: AppConfig.formatImageUrl(
+                                              user['profilePicture'],
+                                            )!,
+                                            fit: BoxFit.cover,
+                                            errorWidget: (context, url, error) =>
+                                                Center(
+                                                  child: Text(
+                                                    user['name']?[0]
+                                                            ?.toUpperCase() ??
+                                                        'U',
+                                                    style: TextStyle(
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).primaryColor,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
+                                          )
+                                        : Center(
+                                            child: Text(
+                                              user['name']?[0]
+                                                      ?.toUpperCase() ??
+                                                  'U',
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).primaryColor,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                        )
-                                      : Center(
-                                          child: Text(
-                                            s['user']?['name']?[0]
-                                                    ?.toUpperCase() ??
-                                                'U',
-                                            style: TextStyle(
-                                              color: Theme.of(
-                                                context,
-                                              ).primaryColor,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                        ),
-                                ),
-                              ),
-
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      s['user']?['name'] ?? 'Unknown',
-                                      style: GoogleFonts.outfit(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      s['user']?['email'] ?? '',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 11,
-                                        color: Colors.grey[500],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (isEditing)
-                                IconButton(
-                                  icon: const Icon(
-                                    LucideIcons.trash2,
-                                    size: 16,
-                                    color: Colors.red,
                                   ),
-                                  onPressed: () {
-                                    final uid = (s['user'] is Map)
-                                        ? s['user']['_id']
-                                        : (s['user'] ?? s['_id']);
-                                    _unshareUser(uid.toString());
-                                  },
                                 ),
-                            ],
-                          ),
-                        ),
+
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        user['name'] ?? 'Unknown',
+                                        style: GoogleFonts.outfit(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        user['email'] ?? '',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isEditing)
+                                  IconButton(
+                                    icon: const Icon(
+                                      LucideIcons.trash2,
+                                      size: 16,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () {
+                                      final uid = (user['_id'] != null)
+                                          ? user['_id']
+                                          : (s['_id'] ?? item.toString());
+                                      _unshareUser(uid.toString());
+                                    },
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -2647,11 +2653,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         )
                       else
                         ...timeline.asMap().entries.map((e) {
-                          final action = e.value['action'] ?? '';
+                          final item = e.value is Map ? e.value : {'action': e.value.toString()};
+                          final action = item['action'] ?? '';
                           return _TimelineItem(
                             title: action,
-                            time: e.value['timestamp'] != null
-                                ? _formatFullDateTime(e.value['timestamp'])
+                            time: item['timestamp'] != null
+                                ? _formatFullDateTime(item['timestamp'])
                                 : "",
                             icon: _getTimelineIcon(action),
                             color: _getTimelineColor(action),

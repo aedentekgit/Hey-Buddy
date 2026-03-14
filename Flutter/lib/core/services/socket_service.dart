@@ -19,6 +19,8 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   final _chatStreamController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final _messageUpdatedStreamController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _bargeInController = StreamController<dynamic>.broadcast();
   final _stopCmdController = StreamController<dynamic>.broadcast();
 
@@ -30,6 +32,8 @@ class SocketService {
   Stream<Map<String, dynamic>> get wakeWordStream =>
       _wakeWordStreamController.stream;
   Stream<Map<String, dynamic>> get chatStream => _chatStreamController.stream;
+  Stream<Map<String, dynamic>> get messageUpdatedStream =>
+      _messageUpdatedStreamController.stream;
   Stream<dynamic> get bargeInStream => _bargeInController.stream;
   Stream<dynamic> get stopCommandStream => _stopCmdController.stream;
 
@@ -121,11 +125,13 @@ class SocketService {
 
       socket?.on('connect_error', (data) {
         debugPrint('Socket Connection Error: $data');
+        _safeAdd(_statusStreamController, false);
         _isConnecting = false;
       });
 
       socket?.on('error', (err) {
         debugPrint('Socket Error: $err');
+        _safeAdd(_statusStreamController, false);
         _isConnecting = false;
       });
 
@@ -167,6 +173,13 @@ class SocketService {
         }
       });
 
+      socket?.on('message_updated', (data) {
+        debugPrint('Message Updated: $data');
+        if (data is Map) {
+          _safeAdd(_messageUpdatedStreamController, Map<String, dynamic>.from(data));
+        }
+      });
+
       // Successfully started connection flow
       _isConnecting = false;
     } catch (e) {
@@ -191,11 +204,57 @@ class SocketService {
     socket?.emit('join_room', roomId);
   }
 
-  void sendChatMessage(String roomId, String senderId, String content) {
+  void sendChatMessage(
+    String roomId,
+    String senderId,
+    String content, {
+    String? replyTo,
+    String? fileUrl,
+    String? fileName,
+    String? fileType,
+  }) {
     socket?.emit('send_message', {
       'roomId': roomId,
       'senderId': senderId,
       'content': content,
+      'replyTo': replyTo,
+      'fileUrl': fileUrl,
+      'fileName': fileName,
+      'fileType': fileType,
+    });
+  }
+
+  void reactToMessage(String roomId, String senderId, String messageId, String emoji) {
+    socket?.emit('react_message', {
+      'roomId': roomId,
+      'senderId': senderId,
+      'messageId': messageId,
+      'emoji': emoji,
+    });
+  }
+
+  void starMessage(String roomId, String userId, String messageId, bool isStarred) {
+    socket?.emit('star_message', {
+      'roomId': roomId,
+      'userId': userId,
+      'messageId': messageId,
+      'isStarred': isStarred,
+    });
+  }
+
+  void pinMessage(String roomId, String messageId, bool isPinned) {
+    socket?.emit('pin_message', {
+      'roomId': roomId,
+      'messageId': messageId,
+      'isPinned': isPinned,
+    });
+  }
+
+  void forwardMessage(String targetRoomId, String senderId, String originalMessageId) {
+    socket?.emit('forward_message', {
+      'targetRoomId': targetRoomId,
+      'senderId': senderId,
+      'originalMessageId': originalMessageId,
     });
   }
 
@@ -213,6 +272,7 @@ class SocketService {
     _voiceAlertStreamController.close();
     _wakeWordStreamController.close();
     _chatStreamController.close();
+    _messageUpdatedStreamController.close();
     _bargeInController.close();
     _stopCmdController.close();
   }

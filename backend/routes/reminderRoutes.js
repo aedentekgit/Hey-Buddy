@@ -10,12 +10,14 @@ const {
     shareReminder,
     unshareReminder,
     getTravelStats,
-    getAdjustedNotification
+    getAdjustedNotification,
+    getCalendarStats
 } = require('../controllers/reminderController');
 
 router.use(protect);
 
 router.get('/', getReminders);
+router.get('/calendar-stats', getCalendarStats);
 router.get('/:id/travel-stats', getTravelStats);
 router.post('/adjusted-notification', getAdjustedNotification);
 router.post('/', createReminder);

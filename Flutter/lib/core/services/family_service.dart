@@ -104,4 +104,24 @@ class FamilyService {
     }
     return [];
   }
+
+  Future<Map<String, dynamic>> uploadFile(List<int> bytes, String fileName) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${AppConfig.baseUrl}chat/upload'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+      request.files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

@@ -28,7 +28,10 @@ class _MainMapScreenState extends State<MainMapScreen> {
       final coords = t['coordinates'];
       return Marker(
         markerId: MarkerId(t['_id']),
-        position: LatLng(coords['lat'], coords['lng']),
+        position: LatLng(
+          (coords['lat'] as num).toDouble(),
+          (coords['lng'] as num).toDouble(),
+        ),
         infoWindow: InfoWindow(
           title: t['title'],
           snippet: "${t['time'] ?? 'All day'} - ${t['location'] ?? ''}",
@@ -60,12 +63,12 @@ class _MainMapScreenState extends State<MainMapScreen> {
                       target:
                           provider.tasks.any((t) => t['coordinates'] != null)
                           ? LatLng(
-                              provider.tasks.firstWhere(
+                              (provider.tasks.firstWhere(
                                 (t) => t['coordinates'] != null,
-                              )['coordinates']['lat'],
-                              provider.tasks.firstWhere(
+                              )['coordinates']['lat'] as num).toDouble(),
+                              (provider.tasks.firstWhere(
                                 (t) => t['coordinates'] != null,
-                              )['coordinates']['lng'],
+                              )['coordinates']['lng'] as num).toDouble(),
                             )
                           : const LatLng(20.5937, 78.9629), // Center of India
                       zoom: 12,
@@ -94,8 +97,8 @@ class _MainMapScreenState extends State<MainMapScreen> {
                           _mapController?.animateCamera(
                             CameraUpdate.newLatLngZoom(
                               LatLng(
-                                first['coordinates']['lat'],
-                                first['coordinates']['lng'],
+                                (first['coordinates']['lat'] as num).toDouble(),
+                                (first['coordinates']['lng'] as num).toDouble(),
                               ),
                               14,
                             ),

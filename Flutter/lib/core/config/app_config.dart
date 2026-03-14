@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'dart:io';
 
 class AppConfig {
   // FINAL PRODUCTION HOST
@@ -7,29 +6,27 @@ class AppConfig {
   // STAGING HOST (For Testing)
   static const String stagingHost = 'staging.ayuskart.com';
   // LOCAL HOST (For Device Debugging - using discovered local IP)
-  static const String localhostHost =
-      '10.0.2.2:5001'; // 10.0.2.2 is local loopback for Android Emulator
+  static const String localhostHost = '10.0.2.2:5001'; 
+  static const String webLocalhostHost = 'localhost:5001';
 
   static String get host {
-    // Priority 1: Manual override via --dart-define=API_URL=... (e.g. for CI or local IP)
+    // Priority 1: Manual override via --dart-define=API_URL=...
     const String envUrl = String.fromEnvironment('API_URL');
     if (envUrl.isNotEmpty) return envUrl;
 
     // Priority 2: Use Localhost in Debug mode
     if (kDebugMode) {
-      // If we are on a real device, 10.0.2.2 won't work. 
-      // This is a common issue. We should ideally use the local IP of the dev machine.
-      // For now, we keep 10.0.2.2 as default for Android Emulator, but this can be overridden via --dart-define
+      if (kIsWeb) return webLocalhostHost;
       return localhostHost;
     }
     
-    // Priority 3: Default to Staging for releases (unless intentionally built for Production via API_URL)
+    // Priority 3: Default to Staging
     return stagingHost;
   }
 
   static String get protocol {
     // We use HTTP for Localhost, HTTPS for Staging/Production
-    return host == localhostHost ? 'http' : 'https';
+    return (host == localhostHost || host == webLocalhostHost) ? 'http' : 'https';
   }
 
   static String get baseUrl {

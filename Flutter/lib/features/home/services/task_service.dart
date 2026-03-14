@@ -13,14 +13,21 @@ class TaskService {
 
   Future<Map<String, dynamic>> fetchReminders({
     int page = 1,
-    int limit = 10,
+    int limit = 100, // Increased default for mobile calendar views
     String search = '',
+    String? start,
+    String? end,
   }) async {
     try {
       final token = await _storage.read(key: 'jwt');
 
+      String url = '${_baseUrl}voice?page=$page&limit=$limit&search=$search';
+      if (start != null && end != null) {
+        url += '&start=$start&end=$end';
+      }
+
       final response = await http.get(
-        Uri.parse('${_baseUrl}voice?page=$page&limit=$limit&search=$search'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -179,6 +186,33 @@ class TaskService {
     } catch (e) {
       debugPrint("Error fetching adjusted notification: $e");
       return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchCalendarStats({String? start, String? end}) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+      String url = '${_baseUrl}reminders/calendar-stats';
+      if (start != null && end != null) {
+        url += '?start=$start&end=$end';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'x-platform': 'mobile',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'data': {}};
+    } catch (e) {
+      debugPrint("Error fetching calendar stats: $e");
+      return {'success': false, 'data': {}};
     }
   }
 }

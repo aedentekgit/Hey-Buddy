@@ -1,6 +1,7 @@
 const ChatRoom = require('../models/ChatRoom');
 const ChatMessage = require('../models/ChatMessage');
 const User = require('../models/User');
+const path = require('path');
 
 // GET /chat/private/start?member_id=202
 exports.startPrivateChat = async (req, res) => {
@@ -27,6 +28,35 @@ exports.startPrivateChat = async (req, res) => {
         res.status(200).json({ success: true, data: { chat_id: chatRoom._id, type: 'private', members: chatRoom.members } });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to start private chat" });
+    }
+};
+
+// POST /chat/upload
+exports.uploadFile = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No file uploaded" });
+        }
+
+        const fileUrl = `/uploads/${req.file.filename}`;
+        const fileName = req.file.originalname;
+        const extension = path.extname(fileName).toLowerCase();
+
+        let fileType = 'document';
+        if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(extension)) {
+            fileType = 'image';
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                fileUrl,
+                fileName,
+                fileType
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Upload failed" });
     }
 };
 
@@ -61,6 +91,14 @@ exports.getChatMessages = async (req, res) => {
             sender_id: m.senderId._id,
             sender_name: m.senderId.name,
             sender_avatar: m.senderId.profilePicture,
+            replyTo: m.replyTo,
+            fileUrl: m.fileUrl,
+            fileName: m.fileName,
+            fileType: m.fileType,
+            reactions: m.reactions || [],
+            isStarred: m.isStarredBy.includes(req.user._id),
+            isPinned: m.isPinned || false,
+            forwardedFrom: m.forwardedFrom,
             timestamp: m.createdAt
         }));
 

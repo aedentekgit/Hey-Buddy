@@ -172,18 +172,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         Hero(
                           tag: 'app_logo',
                           child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: branding.primaryColor.withValues(alpha: 0.1),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
                             child: branding.logoUrl != null
                                 ? CachedNetworkImage(
                                     imageUrl: branding.logoUrl!,

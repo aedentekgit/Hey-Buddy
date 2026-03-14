@@ -11,6 +11,7 @@ const User = require('../models/User');
 const { getPersonality } = require('../utils/personality');
 const geminiService = require('../services/geminiService');
 const config = require('../config/env');
+const mongoose = require('mongoose'); // Added for ObjectId operations
 
 /**
  * Buddy 2.0 Voice Controller
@@ -58,8 +59,18 @@ exports.processVoice = async (req, res) => {
         const gender = userPrefs.gender || 'male';
         const tone = userPrefs.tone || 'soft';
 
+        // 1.5. Build Reminders Context for AI
+        let reminderString = "Upcoming Reminders: \n";
+        if (context.reminders && context.reminders.length > 0) {
+            context.reminders.forEach(r => {
+                reminderString += `- [${r.date}] ${r.time}: ${r.title} ${r.location ? `at ${r.location}` : ''}\n`;
+            });
+        } else {
+            reminderString += "No upcoming reminders found.\n";
+        }
+
         // 2. Generate AI Response via Python Gateway
-        let replyText = "I'm sorry, I'm having trouble thinking right now. Please try again soon.";
+        let aiResponse = { reply: "I'm sorry, I'm having trouble thinking right now.", type: 'chat' };
         let sessionIdRes = conversationId;
         let audio = null; // To be populated from Python
 
@@ -74,24 +85,32 @@ exports.processVoice = async (req, res) => {
                 provider: aiConfig.provider,
                 model: aiConfig.model,
                 userId: userId ? userId.toString() : null,
-                memory_context: memoryString,
+                memory_context: memoryString + '\n' + reminderString, // Include reminders in context!
                 gender: gender,
                 tone: tone
-            }, { timeout: 30000 }); // 30s timeout for deep search
+            }, {
+                headers: { 'X-API-Key': config.BUDDY_API_KEY },
+                timeout: 30000
+            }); // 30s timeout for deep search
 
             if (pythonResponse.data && pythonResponse.data.response) {
-                replyText = pythonResponse.data.response;
+                aiResponse = {
+                    reply: pythonResponse.data.response,
+                    type: pythonResponse.data.type || 'chat',
+                    screen: pythonResponse.data.screen || null
+                };
                 sessionIdRes = pythonResponse.data.session_id;
                 audio = pythonResponse.data.audio; // CAPTURE THE RYAN VOICE
-                console.log(`[VoiceV2] Python Brain Replied with Audio: ${replyText.substring(0, 50)}...`);
+                console.log(`[VoiceV2] Python Brain Replied with Audio: ${aiResponse.reply.substring(0, 50)}...`);
             }
         } catch (e) {
             console.error('[VoiceV2] Error connecting to Python AI Service:', e.message);
             // Fallback: If Python fails, use a gentle message
-            replyText = "I'm having a little trouble connecting to my deep search brain. I can still help with your basics though!";
+            aiResponse = {
+                reply: "I'm having a little trouble connecting to my deep search brain. I can still help with your basics though!",
+                type: 'chat'
+            };
         }
-
-        const aiResponse = { reply: replyText, type: 'chat' };
 
         // 3. Save Interaction 
         const updatedConversationId = await (userId ? contextService.saveInteraction(userId, sessionIdRes, text, aiResponse.reply) : Promise.resolve(sessionIdRes));
@@ -272,7 +291,7 @@ exports.getLocalNews = async (req, res) => {
         - Point 1 & 2: Local news relevant to ${cityStr} or its region.
         - Point 3: A major global/international news headline from today.
         
-        You must return EXACTLY 3 lines of text, one point per line, with no bullet points, no markdown, and absolutely no conversational filler. Do not apologize. Include emojis. Use your Google Search tool to ensure these are real, current headlines.`;
+        You must return EXACTLY 3 lines of text, one point per line, with no bullet points, no markdown, and absolutely no conversational filler. Do not apologize. Include emojis. Use your web_search tool to ensure these are real, current headlines for today.`;
 
         const aiResponse = await geminiService.generateResponse(prompt, userId, { userContext: { timeZone: 'Asia/Kolkata' } });
 

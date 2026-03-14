@@ -166,7 +166,9 @@ const toolHandlers = {
             fs.appendFileSync(userFile, `\n${content}`);
 
             // Trigger Python to reload the vector store
-            await axios.post(`${aiServiceUrl}/system/reload`).catch(e => console.error('[MemorySync] Reload trigger failed:', e.message));
+            await axios.post(`${aiServiceUrl}/system/reload`, {}, {
+                headers: { 'X-API-Key': config.BUDDY_API_KEY }
+            }).catch(e => console.error('[MemorySync] Reload trigger failed:', e.message));
 
             console.log(`[MemorySync] Memory synced to Python vector store for user ${userId}`);
         } catch (syncErr) {
@@ -296,7 +298,8 @@ const toolHandlers = {
             console.log(`[GeminiTools] Performing semantic memory search for: ${searchStr}`);
             const aiServiceUrl = config.AI_SERVICE_URL;
             const resp = await axios.get(`${aiServiceUrl}/tools/memory`, {
-                params: { query: searchStr, k: 7 }
+                params: { query: searchStr, k: 7 },
+                headers: { 'X-API-Key': config.BUDDY_API_KEY }
             });
 
             if (resp.data && resp.data.results && resp.data.results.length > 0) {
@@ -345,7 +348,8 @@ const toolHandlers = {
             console.log(`[GeminiTools] Performing premium web search for: ${query}`);
             const aiServiceUrl = config.AI_SERVICE_URL;
             const resp = await axios.get(`${aiServiceUrl}/tools/search`, {
-                params: { query }
+                params: { query },
+                headers: { 'X-API-Key': config.BUDDY_API_KEY }
             });
 
             if (resp.data && resp.data.formatted) {
@@ -554,7 +558,7 @@ const geminiService = {
                    - **RESTRICTED**: If the user asks for *their own* personal data (e.g., "What are *my* reminders?", "Check *my* memory", "Save this as *my* note"), you MUST refuse and reply with: "Please login to check or save your personal reminders and memories."
                    - Do NOT call any tools relating to memories or reminders for a guest user.` : ``;
 
-            const modelTools = userId ? [...buddyTools] : [];
+            const modelTools = [...buddyTools]; // Always allow tools; individual handlers (like create_reminder) already check for userId internally for security.
             // Remove { googleSearch: {} } as it cannot be combined with custom tools in this API version
             // Search is already provided as a custom tool via the search_memories/web_search logic.
 

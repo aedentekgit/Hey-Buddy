@@ -19,7 +19,10 @@ class FamilyHubScreen extends StatefulWidget {
 class _FamilyHubScreenState extends State<FamilyHubScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _searchCtrl = TextEditingController();
   bool _isInviting = false;
+  String _searchQuery = '';
+  String _selectedFilter = 'All'; // All, Active, Pending
 
   // Pulse animation for emergency icon
   late final AnimationController _pulse;
@@ -38,7 +41,9 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
     ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FamilyProvider>().loadData();
+      final provider = context.read<FamilyProvider>();
+      provider.loadData();
+      provider.clearUnreadCount();
     });
   }
 
@@ -46,6 +51,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
   void dispose() {
     _pulse.dispose();
     _emailCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -94,27 +100,37 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
             color: AppColors.accent,
             child: ListView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 48),
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 48),
               children: [
-                // ── Emergency card ─────────────────────────────────
-                _EmergencyCard(
-                  pulseAnim: _pulseAnim,
-                  onSend: () => _confirmEmergency(provider),
-                ),
+                const SizedBox(height: 16),
+                _buildSearchBar(),
+                const SizedBox(height: 14),
+                _buildFilterChips(),
                 const SizedBox(height: 24),
 
+                // ── Emergency card ─────────────────────────────────
+                if (_selectedFilter == 'All') ...[
+                  _EmergencyCard(
+                    pulseAnim: _pulseAnim,
+                    onSend: () => _confirmEmergency(provider),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
                 // ── Connectivity & Invites ─────────────────────────
-                _SecLabel('Connectivity & Invites'),
-                const SizedBox(height: 10),
-                _InviteCard(
-                  ctrl: _emailCtrl,
-                  isLoading: _isInviting,
-                  onSend: () => _sendInvite(provider),
-                ),
-                const SizedBox(height: 16),
+                if (_selectedFilter == 'All' || _selectedFilter == 'Pending') ...[
+                  _SecLabel('Connectivity & Invites'),
+                  const SizedBox(height: 10),
+                  _InviteCard(
+                    ctrl: _emailCtrl,
+                    isLoading: _isInviting,
+                    onSend: () => _sendInvite(provider),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // ── Pending requests ───────────────────────────────
-                if (provider.requests.isNotEmpty) ...[
+                if (provider.requests.isNotEmpty && (_selectedFilter == 'All' || _selectedFilter == 'Pending')) ...[
                   ...provider.requests.map(
                     (req) => _PendingCard(
                       req: req,
@@ -132,68 +148,158 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                 ],
 
                 // ── Active connections header ───────────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _SecLabel('Active Connections'),
-                    GestureDetector(
-                      onTap: () {
-                        provider.openGroupChat();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const FamilyChatScreen(isGroup: true),
-                          ),
-                        );
-                      },
-                      child: Row(
-                        children: [
-                          Icon(
-                            LucideIcons.messageCircle,
-                            size: 16,
-                            color: AppColors.accent,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Group Chat',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                if (_selectedFilter == 'All' || _selectedFilter == 'Active') ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _SecLabel('Active Connections'),
+                      GestureDetector(
+                        onTap: () {
+                          provider.openGroupChat();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const FamilyChatScreen(isGroup: true),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.messageCircle,
+                              size: 16,
                               color: AppColors.accent,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            Text(
+                              'Group Chat',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // ── Member cards ───────────────────────────────────
-                if (provider.members.isEmpty)
-                  _buildEmpty()
-                else
-                  ...provider.members.map(
-                    (m) => _MemberCard(
-                      member: m,
-                      isYou: m['user_id'] == provider.currentUserId,
-                      onChat: () {
-                        provider.openPrivateChat(m['user_id']);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FamilyChatScreen(title: m['name']),
-                          ),
-                        );
-                      },
-                      onRemove: () => _confirmRemove(provider, m),
+                if (_selectedFilter == 'All' || _selectedFilter == 'Active') ...[
+                  if (provider.members
+                      .where((m) => m['user_id'] != provider.currentUserId)
+                      .where((m) => (m['name'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase()))
+                      .isEmpty)
+                    _buildEmpty()
+                  else
+                    ...provider.members
+                        .where((m) => m['user_id'] != provider.currentUserId)
+                        .where((m) => (m['name'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase()))
+                        .map(
+                      (m) => _MemberCard(
+                        member: m,
+                        isYou: false,
+                        onChat: () {
+                          provider.openPrivateChat(m['user_id']);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FamilyChatScreen(title: m['name']),
+                            ),
+                          );
+                        },
+                        onRemove: () => _confirmRemove(provider, m),
+                      ),
                     ),
-                  ),
+                ],
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.search, size: 18, color: AppColors.textDim),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: AppColors.text,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search family members...',
+                hintStyle: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppColors.textDim,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                isCollapsed: true,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    final filters = ['All', 'Active', 'Pending'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters.map((filter) {
+          final isSelected = _selectedFilter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedFilter = filter),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.accent : AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? AppColors.accent : AppColors.border,
+                  ),
+                ),
+                child: Text(
+                  filter,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? Colors.white : AppColors.textMid,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -888,11 +994,12 @@ class _MemberCard extends StatelessWidget {
               // Action buttons
               Row(
                 children: [
-                  _ActionBtn(
-                    icon: LucideIcons.messageCircle,
-                    color: AppColors.textMid,
-                    onTap: onChat,
-                  ),
+                  if (!isYou)
+                    _ActionBtn(
+                      icon: LucideIcons.messageCircle,
+                      color: AppColors.textMid,
+                      onTap: onChat,
+                    ),
                   if (!isYou) ...[
                     const SizedBox(width: 10),
                     _ActionBtn(

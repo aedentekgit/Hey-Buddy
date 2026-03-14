@@ -23,6 +23,8 @@ import 'package:buddy_mobile/shared/widgets/keyboard_guided_hover.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:buddy_mobile/shared/widgets/glass_container.dart';
+import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 
 class BuddyAssistantPage extends StatefulWidget {
   final bool isIntegrated;
@@ -401,21 +403,141 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         left: false,
         right: false,
         child: KeyboardGuidedHover(
-          child: Column(
+          child: Stack(
             children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    provider.messages.isEmpty
-                        ? _buildEmptyState(provider, branding)
-                        : _buildChatList(provider, branding),
-                  ],
-                ),
-              ),
+              Column(
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        provider.messages.isEmpty
+                            ? _buildEmptyState(provider, branding)
+                            : _buildChatList(provider, branding),
+                      ],
+                    ),
+                  ),
 
-              // if (provider.isThinking) _buildThinkingIndicator(branding),
-              _buildInputArea(provider, branding, auth),
+                  // if (provider.isThinking) _buildThinkingIndicator(branding),
+                  _buildInputArea(provider, branding, auth),
+                ],
+              ),
+              if (!provider.isConnected) _buildOfflineState(provider, branding),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOfflineState(BuddyProvider provider, BrandingProvider branding) {
+    return Positioned.fill(
+      child: GlassContainer(
+        blur: 15,
+        opacity: 0.8,
+        color: const Color(0xFF0F172A), // Dark slate like React version
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon Container
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.2),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Icon(
+                    LucideIcons.wifiOff,
+                    size: 40,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  "Buddy is Offline",
+                  style: GoogleFonts.outfit(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Buddy was Not connected.\nWe couldn't reach the AI service. Please ensure the backend server is running and try again.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: Colors.white.withValues(alpha: 0.6),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                // Buttons
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: () => provider.toggleRealtime(true),
+                    icon: const Icon(LucideIcons.refreshCw, size: 20),
+                    label: Text(
+                      "Reconnect Buddy",
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: branding.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      if (widget.onExplore != null) {
+                        widget.onExplore!();
+                      } else {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const MainScreen()),
+                        );
+                      }
+                    },
+                    icon: const Icon(LucideIcons.home, size: 20),
+                    label: Text(
+                      "Back to Home",
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -453,20 +575,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 Container(
                   width: 64,
                   height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                      ),
-                    ],
-                  ),
                   child: ClipOval(
                     child: Image.asset(
                       'assets/app_icon.png',
@@ -552,29 +660,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ),
           const SizedBox(height: 16),
 
-          if (provider.isFetchingNews)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: branding.primaryColor,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Analyzing surroundings...",
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppColors.textMid,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else if (provider.localNews.isEmpty) ...[
+          // Show suggestions or news instantly!
+          if (provider.localNews.isEmpty) ...[
             _buildSuggestionItem(
               "What is the format of T20 WC 2026? 📜",
               branding,

@@ -12,14 +12,14 @@ class TasksProvider with ChangeNotifier {
   List<Map<String, dynamic>> get processedTasks => _processedTasks;
   bool get isLoading => _isLoading;
 
-  Future<void> loadTasks({bool silent = false}) async {
+  Future<void> loadTasks({bool silent = false, String? start, String? end}) async {
     if (!silent) {
       _isLoading = true;
       notifyListeners();
     }
 
     try {
-      final res = await _taskService.fetchReminders();
+      final res = await _taskService.fetchReminders(start: start, end: end);
       if (res['success'] == true) {
         _tasks = res['data'];
         // Basic processing first so UI can appear immediately
@@ -289,5 +289,13 @@ class TasksProvider with ChangeNotifier {
     } catch (e) {
       return false;
     }
+  }
+
+  Future<Map<String, dynamic>> getCalendarStats({String? start, String? end}) async {
+    final res = await _taskService.fetchCalendarStats(start: start, end: end);
+    if (res['success'] == true) {
+      return res['data'];
+    }
+    return {};
   }
 }

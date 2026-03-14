@@ -82,7 +82,7 @@ class TTSService {
             const axios = require('axios');
             const config = require('../config/env');
             const aiServiceUrl = config.AI_SERVICE_URL || 'http://localhost:8000';
-            const apiKey = process.env.BUDDY_API_KEY || '';
+            const apiKey = config.BUDDY_API_KEY || '';
 
             console.log(`[TTS] Proxying to Python edge-tts for text: "${text.substring(0, 30)}..." | Gender: ${gender} | Tone: ${tone}`);
             const response = await axios.post(`${aiServiceUrl}/tts`,

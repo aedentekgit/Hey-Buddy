@@ -50,7 +50,13 @@ const Calendar = () => {
     const fetchReminders = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/reminders');
+            const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+            const startStr = startOfMonth.toISOString().split('T')[0];
+            const endStr = endOfMonth.toISOString().split('T')[0];
+
+            const response = await api.get(`/reminders?start=${startStr}&end=${endStr}&limit=500`);
             if (response.data.success) {
                 setReminders(response.data.data || []);
             }

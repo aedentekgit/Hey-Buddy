@@ -158,12 +158,19 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                                     fontSize: 13.5,
                                     color: AppColors.text,
                                   ),
-                                  decoration: InputDecoration.collapsed(
+                                  decoration: InputDecoration(
                                     hintText: 'Search location reminders…',
                                     hintStyle: GoogleFonts.inter(
                                       fontSize: 13.5,
                                       color: AppColors.textDim,
                                     ),
+                                    border: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                    isCollapsed: true,
+                                    filled: true,
+                                    fillColor: Colors.transparent,
                                   ),
                                 ),
                               ),
@@ -356,7 +363,6 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
           : 'Whenever I arrive',
       location: reminder['location'] ?? 'No Location',
       onView: () => _onViewReminder(reminder),
-      onShare: () => _onFamilyBackup(reminder),
       earlyWarningActive: reminder['earlyWarningSet'] ?? false,
       isHighPriority: reminder['priority'] == 'high',
     );
@@ -779,33 +785,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
     );
   }
 
-  Future<void> _onFamilyBackup(Map<String, dynamic> reminder) async {
-    final success = await context
-        .read<LocationRemindersProvider>()
-        .setFamilyBackup(reminder['_id']);
-    if (mounted) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Family Backup activated for "${reminder['title']}"'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF2563EB),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to activate Family Backup'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Color(0xFFEF4444),
-          ),
-        );
-      }
-    }
-  }
+
 }
 
 class _SlidableAction extends StatelessWidget {

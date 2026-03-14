@@ -12,7 +12,10 @@ import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 import 'package:buddy_mobile/features/home/screens/location_reminders_screen.dart';
 import 'package:buddy_mobile/features/explore/screens/family_hub_screen.dart';
+import 'package:buddy_mobile/features/explore/screens/calendar_view_screen.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
+import 'package:buddy_mobile/features/home/providers/location_reminders_provider.dart';
+import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 import 'package:buddy_mobile/shared/widgets/pressable.dart';
@@ -44,6 +47,14 @@ class _ExploreScreenState extends State<ExploreScreen>
         context,
         listen: false,
       ).loadTasks(silent: true);
+      Provider.of<FamilyProvider>(
+        context,
+        listen: false,
+      ).loadData();
+      Provider.of<LocationRemindersProvider>(
+        context,
+        listen: false,
+      ).loadReminders();
     });
   }
 
@@ -89,6 +100,16 @@ class _ExploreScreenState extends State<ExploreScreen>
                 onFamilyTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const FamilyHubScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: _CalendarWideCard(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CalendarViewScreen()),
                 ),
               ),
             ),
@@ -326,33 +347,60 @@ class _QuickActionsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Family Status
+    final familyProvider = Provider.of<FamilyProvider>(context);
+    final pendingCount = familyProvider.requests.length;
+    final unreadCount = familyProvider.unreadMessagesCount;
+    final membersCount = familyProvider.members.where((m) => m['status'] == 'connected' && m['user_id'] != familyProvider.currentUserId).length;
+
+    String familyStatus = membersCount == 1 ? '1 member' : '$membersCount members';
+    if (membersCount == 0 && pendingCount == 0 && unreadCount == 0) familyStatus = 'Family Hub';
+    
+    if (unreadCount > 0) {
+      familyStatus = '$unreadCount new message${unreadCount > 1 ? 's' : ''}';
+    } else if (pendingCount > 0) {
+      familyStatus = '$pendingCount new request${pendingCount > 1 ? 's' : ''}';
+    }
+
+    // 2. Memory Status
+    final memCount = Provider.of<MemoriesProvider>(context).memories.length;
+    final String memStatus = memCount == 0 ? 'Store anything' : '$memCount item${memCount > 1 ? 's' : ''}';
+
+    // 3. Reminder Status
+    final taskCount = Provider.of<TasksProvider>(context).processedTasks.length;
+    final String taskStatus = taskCount == 0 ? 'Set a task' : '$taskCount active task${taskCount > 1 ? 's' : ''}';
+
+    // 4. Location Status
+    final locCount = Provider.of<LocationRemindersProvider>(context).reminders.length;
+    final String locStatus = locCount == 0 ? 'Geo-trigger' : '$locCount location rule${locCount > 1 ? 's' : ''}';
+
     final actions = [
       _Action(
         'Memory',
         LucideIcons.database,
         AppColors.accent,
-        'Store anything',
+        memStatus,
         onMemoryTap,
       ),
       _Action(
         'Reminder',
         LucideIcons.bell,
         AppColors.teal,
-        'Set a task',
+        taskStatus,
         onReminderTap,
       ),
       _Action(
-        'Location Reminder',
+        'Location',
         LucideIcons.mapPin,
         AppColors.orange,
-        'Geo-trigger',
+        locStatus,
         onLocationTap,
       ),
       _Action(
         'Family',
         LucideIcons.users,
         AppColors.pink,
-        '3 members online',
+        familyStatus,
         onFamilyTap,
       ),
     ];
@@ -397,15 +445,31 @@ class _ActionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: action.color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: action.color.withValues(alpha: 0.2)),
-              ),
-              child: Icon(action.icon, size: 19, color: action.color),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: action.color.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: action.color.withOpacity(0.2)),
+                  ),
+                  child: Icon(action.icon, size: 19, color: action.color),
+                ),
+                if (action.sub.contains('new'))
+                  Container(
+                    width: 7,
+                    height: 7,
+                    margin: const EdgeInsets.only(top: 2, right: 2),
+                    decoration: const BoxDecoration(
+                      color: AppColors.danger,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
             ),
             const Spacer(),
             Text(
@@ -421,6 +485,74 @@ class _ActionCard extends StatelessWidget {
               action.sub,
               style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMid),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarWideCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _CalendarWideCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6366F1), AppColors.accent],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Icon(LucideIcons.calendar, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Calendar View',
+                    style: GoogleFonts.nunito(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    'Track all your scheduled reminders',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(LucideIcons.chevronRight, color: Colors.white70, size: 20),
           ],
         ),
       ),

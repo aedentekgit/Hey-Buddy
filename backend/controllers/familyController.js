@@ -171,6 +171,25 @@ exports.respondToRequest = async (req, res) => {
             await sender.save();
             await recipient.save();
 
+            // Notify sender that their request was accepted
+            if (sender.fcmTokens && sender.fcmTokens.length > 0) {
+                await sendPushNotificationBatch(
+                    sender.fcmTokens,
+                    "Family Request Accepted",
+                    `${recipient.name} accepted your family connection request.`,
+                    { type: 'family_accept', familyId: family._id }
+                );
+            }
+
+            const notification = new Notification({
+                userId: sender._id,
+                title: "Family Request Accepted",
+                message: `${recipient.name} is now part of your family hub.`,
+                type: 'system',
+                actionUrl: '/family-hub'
+            });
+            await notification.save();
+
             return res.status(200).json({ success: true, message: "Family connection established", data: family });
         }
 
