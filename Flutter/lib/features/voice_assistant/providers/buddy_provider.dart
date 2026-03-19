@@ -96,14 +96,14 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Madurai Fallback for Emulator (Mountain View default GPS)
-      // Ensures the AI assistant shows "Buddy in Madurai" and fetches relevant Indian news
       double? useLat = lat;
       double? useLon = lon;
+
+      // EMULATOR FALLBACK: Simulate Madurai GPS for fetching local news
       if (useLat != null &&
-          useLon != null &&
           useLat > 37.0 &&
           useLat < 38.0 &&
+          useLon != null &&
           useLon > -123.0 &&
           useLon < -121.0) {
         useLat = 9.9252;
@@ -416,7 +416,9 @@ class BuddyProvider with ChangeNotifier {
         _processTtsQueue();
       }
 
-      _isThinking = false; // Ensure cleared
+      // Always clear the thinking state when the response is definitively done,
+      // preventing infinite loading if the stream was totally empty due to an AI crash.
+      _isThinking = false;
       notifyListeners();
     });
 

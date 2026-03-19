@@ -192,154 +192,205 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   child: Column(
                     children: [
                       // ── Avatar section ────────────────────────────
-                      Center(
-                        child: Stack(
-                          clipBehavior: Clip.none,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.cardBorder),
+                          boxShadow: AppColors.cardShadow,
+                        ),
+                        child: Column(
                           children: [
-                            _buildAvatar(avatarUrl, name, 86),
-                            if (_editMode)
-                              Positioned(
-                                bottom: -2,
-                                right: -2,
-                                child: GestureDetector(
-                                  onTap: widget.onPickImage,
-                                  child: Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      gradient: AppColors.headerGradient,
-                                      borderRadius: BorderRadius.circular(9),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.accent.withValues(alpha: 
-                                            0.4,
+                            Center(
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  _buildAvatar(avatarUrl, name, 96),
+                                  if (_editMode)
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: GestureDetector(
+                                        onTap: widget.onPickImage,
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            gradient: AppColors.headerGradient,
+                                            borderRadius: BorderRadius.circular(10),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppColors.accent.withValues(alpha: 0.4),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
                                           ),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
+                                          child: const Icon(
+                                            LucideIcons.camera,
+                                            size: 15,
+                                            color: Colors.white,
+                                          ),
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                    child: const Icon(
-                                      LucideIcons.camera,
-                                      size: 13,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
+                                ],
                               ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              name,
+                              style: GoogleFonts.nunito(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.text,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              user['email'] ?? '',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: AppColors.textMid,
+                              ),
+                            ),
                           ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        name,
-                        style: GoogleFonts.nunito(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.text,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        user['email'] ?? '',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AppColors.textMid,
                         ),
                       ),
                       const SizedBox(height: 28),
 
                       // ── Info fields ───────────────────────────────
                       _buildSectionLabel('Personal Info'),
-                      const SizedBox(height: 10),
-                      _buildField(
-                        icon: LucideIcons.user,
-                        iconColor: AppColors.accent,
-                        label: 'Full Name',
-                        controller: _nameCtrl,
-                        editable: _editMode,
-                      ),
-                      _buildDivider(),
-                      _buildField(
-                        icon: LucideIcons.mail,
-                        iconColor: AppColors.teal,
-                        label: 'Email Address',
-                        controller: _emailCtrl,
-                        editable: false,
-                        hint: 'Not set',
-                      ),
-                      _buildDivider(),
-                      _buildField(
-                        icon: LucideIcons.phone,
-                        iconColor: AppColors.green,
-                        label: 'Phone Number',
-                        controller: _phoneCtrl,
-                        editable: _editMode,
-                        hint: 'Add phone number',
-                        keyboardType: TextInputType.phone,
+                      const SizedBox(height: 8),
+                      Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.cardBorder),
+                          boxShadow: AppColors.cardShadow,
+                        ),
+                        child: Column(
+                          children: [
+                            _buildField(
+                              icon: LucideIcons.user,
+                              iconColor: AppColors.accent,
+                              label: 'Full Name',
+                              controller: _nameCtrl,
+                              editable: _editMode,
+                            ),
+                            _buildDivider(),
+                            _buildField(
+                              icon: LucideIcons.mail,
+                              iconColor: AppColors.teal,
+                              label: 'Email Address',
+                              controller: _emailCtrl,
+                              editable: false,
+                              hint: 'Not set',
+                            ),
+                            _buildDivider(),
+                            _buildField(
+                              icon: LucideIcons.phone,
+                              iconColor: AppColors.green,
+                              label: 'Phone Number',
+                              controller: _phoneCtrl,
+                              editable: _editMode,
+                              hint: 'Add phone number',
+                              keyboardType: TextInputType.phone,
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 24),
                       _buildSectionLabel('Account Info'),
-                      const SizedBox(height: 10),
-                      _buildReadOnly(
-                        icon: LucideIcons.shieldCheck,
-                        iconColor: AppColors.purple,
-                        label: 'Account Status',
-                        value: 'Active',
-                        valueColor: AppColors.green,
-                      ),
-                      _buildDivider(),
-                      _buildReadOnly(
-                        icon: LucideIcons.calendarDays,
-                        iconColor: AppColors.orange,
-                        label: 'Member Since',
-                        value: _formatJoinDate(user['createdAt']),
+                      const SizedBox(height: 8),
+                      Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.cardBorder),
+                          boxShadow: AppColors.cardShadow,
+                        ),
+                        child: Column(
+                          children: [
+                            _buildReadOnly(
+                              icon: LucideIcons.shieldCheck,
+                              iconColor: AppColors.purple,
+                              label: 'Account Status',
+                              value: 'Active',
+                              valueColor: AppColors.green,
+                            ),
+                            _buildDivider(),
+                            _buildReadOnly(
+                              icon: LucideIcons.calendarDays,
+                              iconColor: AppColors.orange,
+                              label: 'Member Since',
+                              value: _formatJoinDate(user['createdAt']),
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 24),
                       _buildSectionLabel('Preferences'),
-                      const SizedBox(height: 10),
-                      _buildPickerField(
-                        icon: LucideIcons.calendar,
-                        iconColor: AppColors.accent,
-                        label: 'Date Format',
-                        value: _dateFormat,
-                        editable: _editMode,
-                        options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
-                        onChanged: (v) => setState(() => _dateFormat = v),
-                      ),
-                      _buildDivider(),
-                      _buildPickerField(
-                        icon: LucideIcons.clock,
-                        iconColor: AppColors.orange,
-                        label: 'Time Format',
-                        value: _timeFormat == '24' ? '24-hour' : '12-hour',
-                        editable: _editMode,
-                        options: ['12-hour', '24-hour'],
-                        onChanged: (v) => setState(
-                          () => _timeFormat = v.contains('24') ? '24' : '12',
+                      const SizedBox(height: 8),
+                      Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.cardBorder),
+                          boxShadow: AppColors.cardShadow,
                         ),
-                      ),
-                      _buildDivider(),
-                      _buildPickerField(
-                        icon: LucideIcons.globe,
-                        iconColor: AppColors.teal,
-                        label: 'Timezone',
-                        value: _timezone,
-                        editable: _editMode,
-                        options: [
-                          'UTC',
-                          'Asia/Kolkata',
-                          'Asia/Calcutta',
-                          'IST',
-                          'EST',
-                          'CST',
-                          'PST',
-                          'GMT',
-                          'CET',
-                        ],
-                        onChanged: (v) => setState(() => _timezone = v),
+                        child: Column(
+                          children: [
+                            _buildPickerField(
+                              icon: LucideIcons.calendar,
+                              iconColor: AppColors.accent,
+                              label: 'Date Format',
+                              value: _dateFormat,
+                              editable: _editMode,
+                              options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
+                              onChanged: (v) => setState(() => _dateFormat = v),
+                            ),
+                            _buildDivider(),
+                            _buildPickerField(
+                              icon: LucideIcons.clock,
+                              iconColor: AppColors.orange,
+                              label: 'Time Format',
+                              value: _timeFormat == '24' ? '24-hour' : '12-hour',
+                              editable: _editMode,
+                              options: ['12-hour', '24-hour'],
+                              onChanged: (v) => setState(
+                                () => _timeFormat = v.contains('24') ? '24' : '12',
+                              ),
+                            ),
+                            _buildDivider(),
+                            _buildPickerField(
+                              icon: LucideIcons.globe,
+                              iconColor: AppColors.teal,
+                              label: 'Timezone',
+                              value: _timezone,
+                              editable: _editMode,
+                              options: [
+                                'UTC',
+                                'Asia/Kolkata',
+                                'Asia/Calcutta',
+                                'IST',
+                                'EST',
+                                'CST',
+                                'PST',
+                                'GMT',
+                                'CET',
+                              ],
+                              onChanged: (v) => setState(() => _timezone = v),
+                            ),
+                          ],
+                        ),
                       ),
 
                       // ── Save button ───────────────────────────────

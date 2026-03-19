@@ -16,6 +16,8 @@ import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/features/account/screens/user_profile_screen.dart';
 import 'package:buddy_mobile/features/account/screens/change_password_screen.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
+import 'package:buddy_mobile/features/account/screens/terms_conditions_screen.dart';
+import 'package:buddy_mobile/features/account/screens/privacy_policy_screen.dart';
 
 class AccountSettingsScreen extends StatefulWidget {
   final ValueChanged<bool>? onSubViewChanged;
@@ -432,6 +434,52 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ChangePasswordScreen(),
+                        ),
+                      ),
+                      isLast: true,
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Legal ───────────────────────────────────────────────
+              _SecLabel(label: 'Legal'),
+              _Card(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    _SettingsRow(
+                      icon: LucideIcons.fileText,
+                      iconColor: AppColors.accent,
+                      label: 'Terms & Conditions',
+                      sub: 'Read our usage rules',
+                      trailing: const Icon(
+                        LucideIcons.chevronRight,
+                        size: 15,
+                        color: AppColors.textDim,
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TermsConditionsScreen(),
+                        ),
+                      ),
+                    ),
+                    _Divider(),
+                    _SettingsRow(
+                      icon: LucideIcons.shieldCheck,
+                      iconColor: AppColors.green,
+                      label: 'Privacy Policy',
+                      sub: 'How we protect your data',
+                      trailing: const Icon(
+                        LucideIcons.chevronRight,
+                        size: 15,
+                        color: AppColors.textDim,
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PrivacyPolicyScreen(),
                         ),
                       ),
                       isLast: true,

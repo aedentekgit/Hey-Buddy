@@ -308,7 +308,12 @@ exports.getLocalNews = async (req, res) => {
                 throw new Error("AI returned apology or failure message");
             }
         } catch (e) {
-            news = ["Local weather updates for your area today 🌤️", "Upcoming cultural events in your city center 🎭", "New infrastructure developments ongoing nearby 🚧"];
+            const displayPlace = (cityStr === 'your location' || cityStr === 'your area') ? 'your area' : cityStr;
+            news = [
+                `Local weather updates for ${displayPlace} today 🌤️`, 
+                `Upcoming cultural events in ${displayPlace} 🎭`, 
+                `New infrastructure developments ongoing near ${displayPlace} 🚧`
+            ];
         }
 
         res.status(200).json({ success: true, city: cityStr, news });

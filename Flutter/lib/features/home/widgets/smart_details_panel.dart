@@ -1677,7 +1677,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                           ],
                         )
                       : Text(
-                          "Time: ${timeController.text} • ${dateController.text}",
+                          DateFormatter.displayDateTime(context, dateController.text, timeController.text),
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            color: AppColors.text,
+                          ),
                         ),
                 ),
                 const SizedBox(height: 32),

@@ -138,7 +138,8 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<LocationRemindersProvider>(context);
     final filters = _buildFilters(provider.reminders);
-    if (!filters.contains(_activeFilter)) {
+    final validFilters = ['Today', 'Generic', ...filters];
+    if (!validFilters.contains(_activeFilter)) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => setState(() => _activeFilter = 'All'),
       );
@@ -238,7 +239,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 18),
-                    itemCount: 9, // 1 Date Chip + 8 Filters (All, Today, Active, Completed, Risk Alert, Generic, Manual, Voice)
+                    itemCount: 7, // 1 Date Chip + 6 Filters
                     separatorBuilder: (_, __) => const SizedBox(width: 7),
                     itemBuilder: (_, i) {
                       // 0: Date Picker
@@ -293,8 +294,6 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                         'Completed',
                         'Risk Alert',
                         'Generic',
-                        'Manual Creation',
-                        'Voice Creation',
                       ];
                       
                       // Ensure index is within bounds
@@ -513,6 +512,8 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
       statusText = 'Risk Alert';
     } else if (status == 'completed') {
       statusText = 'COMPLETED';
+    } else if (status == 'snoozed') {
+      statusText = 'SNOOZED';
     }
 
     return MobileTaskCard(
@@ -625,30 +626,39 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
 
   String _snoozeTime(String timeStr, int minutes) {
     try {
-      final parts = timeStr.split(':');
-      int hour = int.parse(parts[0]);
-      final rest = parts[1].trim();
-      final minuteStr = rest.substring(0, 2);
-      int minute = int.parse(minuteStr);
-      bool isPM = timeStr.toUpperCase().contains('PM');
-      bool isAM = timeStr.toUpperCase().contains('AM');
+      DateTime baseTime;
+      if (timeStr.isEmpty || timeStr == 'Whenever I arrive') {
+        baseTime = DateTime.now();
+      } else {
+        final parts = timeStr.split(':');
+        int hour = int.parse(parts[0]);
+        final rest = parts[1].trim();
+        final minuteStr = rest.substring(0, 2);
+        int minute = int.parse(minuteStr);
+        bool isPM = timeStr.toUpperCase().contains('PM');
+        bool isAM = timeStr.toUpperCase().contains('AM');
 
-      if (isPM && hour < 12) hour += 12;
-      if (isAM && hour == 12) hour = 0;
+        if (isPM && hour < 12) hour += 12;
+        if (isAM && hour == 12) hour = 0;
+        baseTime = DateTime(2024, 1, 1, hour, minute);
+      }
 
-      DateTime dt = DateTime(2024, 1, 1, hour, minute).add(
-        Duration(minutes: minutes),
-      );
+      DateTime dt = baseTime.add(Duration(minutes: minutes));
 
       int newHour = dt.hour;
       int newMinute = dt.minute;
       String suffix = newHour >= 12 ? 'PM' : 'AM';
-      int displayHour =
-          newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
+      int displayHour = newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
 
       return "${displayHour.toString().padLeft(2, '0')}:${newMinute.toString().padLeft(2, '0')} $suffix";
     } catch (_) {
-      return timeStr;
+      // Fallback if parsing completely fails for any other reason, just start from now
+      final dt = DateTime.now().add(Duration(minutes: minutes));
+      int newHour = dt.hour;
+      int newMinute = dt.minute;
+      String suffix = newHour >= 12 ? 'PM' : 'AM';
+      int displayHour = newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
+      return "${displayHour.toString().padLeft(2, '0')}:${newMinute.toString().padLeft(2, '0')} $suffix";
     }
   }
 
@@ -831,7 +841,10 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                               ),
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: () => Navigator.pop(context, -3),
+                                  onTap: () {
+                                    _tempSnoozeTime = tempTime;
+                                    Navigator.pop(context, -3);
+                                  },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 16,

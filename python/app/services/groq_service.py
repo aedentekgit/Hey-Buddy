@@ -847,7 +847,7 @@ class GroqService:
 
         if context:
             # Layer 3: RAG context (vector store retrieval results).
-            system_message += f"\n\nRelevant context from your learning data and past conversations:\n{escape_curly_braces(context)}"
+            system_message += f"\n\nUser Notes, Facts & Past History:\n{escape_curly_braces(context)}"
 
         if extra_system_parts:
             # Layer 4: additional content (e.g. web search results from realtime mode).

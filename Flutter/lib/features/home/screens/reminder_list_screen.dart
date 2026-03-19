@@ -104,30 +104,39 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
 
   String _snoozeTime(String timeStr, int minutes) {
     try {
-      final parts = timeStr.split(':');
-      int hour = int.parse(parts[0]);
-      final rest = parts[1].trim();
-      final minuteStr = rest.substring(0, 2);
-      int minute = int.parse(minuteStr);
-      bool isPM = timeStr.toUpperCase().contains('PM');
-      bool isAM = timeStr.toUpperCase().contains('AM');
+      DateTime baseTime;
+      if (timeStr.isEmpty || timeStr == 'Whenever I arrive') {
+        baseTime = DateTime.now();
+      } else {
+        final parts = timeStr.split(':');
+        int hour = int.parse(parts[0]);
+        final rest = parts[1].trim();
+        final minuteStr = rest.substring(0, 2);
+        int minute = int.parse(minuteStr);
+        bool isPM = timeStr.toUpperCase().contains('PM');
+        bool isAM = timeStr.toUpperCase().contains('AM');
 
-      if (isPM && hour < 12) hour += 12;
-      if (isAM && hour == 12) hour = 0;
+        if (isPM && hour < 12) hour += 12;
+        if (isAM && hour == 12) hour = 0;
+        baseTime = DateTime(2024, 1, 1, hour, minute);
+      }
 
-      DateTime dt = DateTime(2024, 1, 1, hour, minute).add(
-        Duration(minutes: minutes),
-      );
+      DateTime dt = baseTime.add(Duration(minutes: minutes));
 
       int newHour = dt.hour;
       int newMinute = dt.minute;
       String suffix = newHour >= 12 ? 'PM' : 'AM';
-      int displayHour =
-          newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
+      int displayHour = newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
 
       return "${displayHour.toString().padLeft(2, '0')}:${newMinute.toString().padLeft(2, '0')} $suffix";
     } catch (_) {
-      return timeStr;
+      // Fallback if parsing completely fails for any other reason, just start from now
+      final dt = DateTime.now().add(Duration(minutes: minutes));
+      int newHour = dt.hour;
+      int newMinute = dt.minute;
+      String suffix = newHour >= 12 ? 'PM' : 'AM';
+      int displayHour = newHour > 12 ? newHour - 12 : (newHour == 0 ? 12 : newHour);
+      return "${displayHour.toString().padLeft(2, '0')}:${newMinute.toString().padLeft(2, '0')} $suffix";
     }
   }
 
@@ -302,7 +311,10 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                           ),
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => Navigator.pop(context, -3),
+                              onTap: () {
+                                _tempSnoozeTime = tempTime;
+                                Navigator.pop(context, -3);
+                              },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,

@@ -73,31 +73,16 @@ class TasksProvider with ChangeNotifier {
         if (!hasLocation) continue;
 
         try {
-          // If task has coordinates, verify the GPS position is not absurdly far
-          // (e.g. Android emulator default = San Francisco, ~14000km from India).
-          // If >1000km away, fall back to Madurai coords (same as smart_details_panel).
           double? useLat = position?.latitude;
           double? useLng = position?.longitude;
 
-          final coords = task['coordinates'];
+          // EMULATOR FALLBACK: Simulate Madurai GPS for travel stats in emulator
           if (useLat != null &&
+              useLat > 37.0 &&
+              useLat < 38.0 &&
               useLng != null &&
-              coords != null &&
-              coords['lat'] != null &&
-              coords['lng'] != null) {
-            final destLat = (coords['lat'] as num).toDouble();
-            final destLng = (coords['lng'] as num).toDouble();
-            final distKm = _haversineKm(useLat, useLng, destLat, destLng);
-            if (distKm > 1000) {
-              debugPrint(
-                "[TasksProvider] GPS is ${distKm.toStringAsFixed(0)}km from destination — using Madurai fallback.",
-              );
-              // Use Madurai as fallback (same as SmartDetailsPanel._initRoute)
-              useLat = 9.9252;
-              useLng = 78.1198;
-            }
-          } else if (useLat == null || useLng == null) {
-            // No GPS at all — use Madurai fallback so backend always has an origin
+              useLng > -123.0 &&
+              useLng < -121.0) {
             useLat = 9.9252;
             useLng = 78.1198;
           }

@@ -644,15 +644,36 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 color: branding.primaryColor,
                 onTap: provider.isFetchingNews
                     ? null
-                    : () {
+                    : () async {
                         final userProvider = Provider.of<UserProvider>(
                           context,
                           listen: false,
                         );
-                        final lat =
+                        double? lat =
                             userProvider.user['currentLocation']?['lat'];
-                        final lon =
+                        double? lon =
                             userProvider.user['currentLocation']?['lng'];
+
+                        try {
+                          LocationPermission permission = await Geolocator.checkPermission();
+                          if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+                            permission = await Geolocator.requestPermission();
+                          }
+                          
+                          if (permission == LocationPermission.always ||
+                              permission == LocationPermission.whileInUse) {
+                            final pos = await Geolocator.getCurrentPosition(
+                              desiredAccuracy: LocationAccuracy.high,
+                              timeLimit: const Duration(seconds: 15),
+                            );
+                            lat = pos.latitude;
+                            lon = pos.longitude;
+                            userProvider.setGuestLocation(lat, lon);
+                          }
+                        } catch (_) {
+                          // Keep existing lat, lon as fallback
+                        }
+                        
                         provider.fetchLocalNews(lat, lon);
                       },
               ),
@@ -1043,30 +1064,32 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     required Color color,
     VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.1)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
+    return Material(
+      color: color.withValues(alpha: 0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: color.withValues(alpha: 0.1)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1443,70 +1466,89 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   void _showClearHistoryDialog(BuildContext context, BuddyProvider provider) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          "Clear Chat History",
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF1E293B),
-          ),
-        ),
-        content: Text(
-          "Are you sure you want to delete all chat history? This action cannot be undone.",
-          style: GoogleFonts.outfit(color: const Color(0xFF64748B)),
-        ),
-        actions: [
-          Row(
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text(
-                    "Cancel",
-                    style: GoogleFonts.outfit(
-                      color: const Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+              Text(
+                "Clear History",
+                style: GoogleFonts.nunito(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await provider.deleteAllHistory();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text(
-                    "Delete All",
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+              const SizedBox(height: 10),
+              Text(
+                "Are you sure you want to delete all chat history? This cannot be undone.",
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  color: AppColors.textMid,
+                  height: 1.5,
                 ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textMid,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await provider.deleteAllHistory();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.dangerLight,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.danger.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          'Delete All',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.danger,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

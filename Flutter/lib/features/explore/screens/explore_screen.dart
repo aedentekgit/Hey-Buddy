@@ -212,22 +212,19 @@ class _HeroCardState extends State<_HeroCard> {
       double lng = loc['lng'] as double;
       String address = loc['address'] as String;
 
-      // Handle emulator defaults (Mountain View) by falling back to Madurai
-      // matches logic in TasksProvider to show "user based" (intent-based) location
-      if (lat > 37.0 && lat < 38.0 && lng > -123.0 && lng < -121.0) {
-        lat = 9.9252;
-        lng = 78.1198;
-        address = 'Madurai, Tamil Nadu';
+      String locationText = address;
+      final parts = address.split(',');
+      if (parts.length >= 3) {
+        // Shows "Area, City"
+        locationText = '${parts[0].trim()}, ${parts[1].trim()}';
+      } else if (parts.length == 2) {
+        // Shows "City, State"
+        locationText = '${parts[0].trim()}, ${parts[1].trim()}';
       }
-
-      final city = address.split(',').first.trim();
-      final region = address.contains(',')
-          ? address.split(',').last.trim()
-          : '';
 
       setState(() {
         _locationIcon = LucideIcons.mapPin;
-        _locationText = region.isNotEmpty ? '$city, $region' : city;
+        _locationText = locationText;
       });
     } catch (_) {
       if (mounted) setState(() => _locationText = 'Location unavailable');

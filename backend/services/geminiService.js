@@ -13,26 +13,19 @@ let genAI = null;
 async function getGenAI() {
     if (genAI) return genAI;
 
-    // Try env first
-    let apiKey = process.env.GEMINI_API_KEY;
+    let apiKey = null;
 
-    // Check if env key is just a placeholder
-    if (apiKey && (apiKey === 'your_gemini_api_key_here' || apiKey.trim() === '')) {
-        apiKey = null;
+    // 1. Try DB Settings First (Highest Priority for Dynamic Updates)
+    try {
+        const settings = await Settings.findOne().select('+ai.geminiApiKey');
+        apiKey = settings?.ai?.geminiApiKey;
+    } catch (err) {
+        console.error('[GeminiService] Database error while fetching key:', err.message);
     }
 
-    // Fallback to DB Settings if missing or invalid in env
-    if (!apiKey) {
-        console.log('[GeminiService] No valid key in .env, checking Database Settings...');
-        try {
-            const settings = await Settings.findOne().select('+ai.geminiApiKey');
-            apiKey = settings?.ai?.geminiApiKey;
-            if (apiKey) {
-                console.log('[GeminiService] Successfully loaded API Key from Database.');
-            }
-        } catch (err) {
-            console.error('[GeminiService] Database error while fetching key:', err.message);
-        }
+    // 2. Fallback to .env (Lowest Priority)
+    if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey.trim() === '') {
+        apiKey = process.env.GEMINI_API_KEY;
     }
 
     if (!apiKey || apiKey.trim() === '') {
@@ -563,7 +556,7 @@ const geminiService = {
             // Search is already provided as a custom tool via the search_memories/web_search logic.
 
             const model = activeGenAI.getGenerativeModel({
-                model: "gemini-2.0-flash",
+                model: "gemini-1.5-flash",
                 systemInstruction: `SYSTEM IDENTITY:
 - Your name is Buddy.
 - PERSONALITY: ${personality.description}
