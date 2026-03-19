@@ -1,0 +1,232 @@
+Analyzing Flutter...                                            
+
+   info • Statements in an if should be enclosed in a block • lib/core/config/app_config.dart:56:7 • curly_braces_in_flow_control_structures
+   info • 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion • lib/core/providers/branding_provider.dart:122:33 • deprecated_member_use
+   info • Statements in an if should be enclosed in a block • lib/core/providers/branding_provider.dart:125:15 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/core/providers/branding_provider.dart:127:15 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/core/providers/branding_provider.dart:129:15 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/core/providers/branding_provider.dart:134:15 • curly_braces_in_flow_control_structures
+   info • 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion • lib/core/providers/branding_provider.dart:142:35 • deprecated_member_use
+   info • The import of 'package:local_auth_android/local_auth_android.dart' is unnecessary because all of the used elements are also provided by the import of 'package:local_auth/local_auth.dart' • lib/core/services/biometric_service.dart:4:8 • unnecessary_import
+   info • The imported package 'local_auth_android' isn't a dependency of the importing package • lib/core/services/biometric_service.dart:4:8 • depend_on_referenced_packages
+   info • The import of 'package:local_auth_darwin/local_auth_darwin.dart' is unnecessary because all of the used elements are also provided by the import of 'package:local_auth/local_auth.dart' • lib/core/services/biometric_service.dart:5:8 • unnecessary_import
+   info • The imported package 'local_auth_darwin' isn't a dependency of the importing package • lib/core/services/biometric_service.dart:5:8 • depend_on_referenced_packages
+   info • 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/core/services/location_service.dart:104:9 • deprecated_member_use
+   info • 'timeLimit' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/core/services/location_service.dart:105:9 • deprecated_member_use
+   info • Type could be non-nullable • lib/core/services/notification_service.dart:25:17 • unnecessary_nullable_for_final_variable_declarations
+   info • The prefix 'IO' isn't a lower_case_with_underscores identifier • lib/core/services/socket_service.dart:5:60 • library_prefixes
+   info • The private field _voiceAlerts could be 'final' • lib/features/account/screens/account_settings_screen.dart:31:8 • prefer_final_fields
+warning • The value of the field '_voiceAlerts' isn't used • lib/features/account/screens/account_settings_screen.dart:31:8 • unused_field
+   info • The private field _pushNotifications could be 'final' • lib/features/account/screens/account_settings_screen.dart:32:8 • prefer_final_fields
+warning • The value of the field '_pushNotifications' isn't used • lib/features/account/screens/account_settings_screen.dart:32:8 • unused_field
+   info • The private field _emailDigest could be 'final' • lib/features/account/screens/account_settings_screen.dart:33:8 • prefer_final_fields
+warning • The value of the field '_emailDigest' isn't used • lib/features/account/screens/account_settings_screen.dart:33:8 • unused_field
+   info • The private field _inAppAlerts could be 'final' • lib/features/account/screens/account_settings_screen.dart:34:8 • prefer_final_fields
+warning • The value of the field '_inAppAlerts' isn't used • lib/features/account/screens/account_settings_screen.dart:34:8 • unused_field
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:270:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:272:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:294:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:296:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:318:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:320:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:342:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:344:31 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:376:25 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:378:25 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:408:33 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/account_settings_screen.dart:410:33 • curly_braces_in_flow_control_structures
+warning • The declaration '_showInfoModal' isn't referenced • lib/features/account/screens/account_settings_screen.dart:531:8 • unused_element
+warning • A value for optional parameter 'activeColor' isn't ever given • lib/features/account/screens/account_settings_screen.dart:738:10 • unused_element_parameter
+   info • Unnecessary use of multiple underscores • lib/features/account/screens/account_settings_screen.dart:804:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/account/screens/account_settings_screen.dart:805:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/account/screens/account_settings_screen.dart:805:32 • unnecessary_underscores
+warning • Unused import: 'package:buddy_mobile/shared/utils/toast_utils.dart' • lib/features/account/screens/change_password_screen.dart:7:8 • unused_import
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/change_password_screen.dart:185:27 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/account/screens/change_password_screen.dart:212:27 • curly_braces_in_flow_control_structures
+   info • Unnecessary use of multiple underscores • lib/features/account/screens/user_profile_screen.dart:409:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/account/screens/user_profile_screen.dart:410:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/account/screens/user_profile_screen.dart:410:32 • unnecessary_underscores
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/features/auth/screens/login_screen.dart:278:52 • use_build_context_synchronously
+   info • Statements in an if should be enclosed in a block • lib/features/auth/screens/login_screen.dart:331:43 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/auth/screens/signup_screen.dart:259:33 • curly_braces_in_flow_control_structures
+warning • The declaration '_buildPlaceholderLogo' isn't referenced • lib/features/auth/screens/splash_screen.dart:267:10 • unused_element
+warning • Unused import: 'package:buddy_mobile/shared/utils/task_utils.dart' • lib/features/explore/screens/calendar_view_screen.dart:8:8 • unused_import
+warning • The value of the field '_isLoadingCounts' isn't used • lib/features/explore/screens/calendar_view_screen.dart:22:8 • unused_field
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/explore/screens/calendar_view_screen.dart:253:80 • deprecated_member_use
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/calendar_view_screen.dart:270:33 • unnecessary_underscores
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/explore/screens/calendar_view_screen.dart:335:30 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/explore/screens/calendar_view_screen.dart:366:79 • deprecated_member_use
+warning • Unused import: 'dart:convert' • lib/features/explore/screens/explore_screen.dart:2:8 • unused_import
+   info • Don't use 'BuildContext's across async gaps • lib/features/explore/screens/explore_screen.dart:43:9 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps • lib/features/explore/screens/explore_screen.dart:47:9 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps • lib/features/explore/screens/explore_screen.dart:51:9 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps • lib/features/explore/screens/explore_screen.dart:55:9 • use_build_context_synchronously
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/explore/screens/explore_screen.dart:456:41 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/explore/screens/explore_screen.dart:458:60 • deprecated_member_use
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_chat_screen.dart:523:34 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_chat_screen.dart:524:34 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_chat_screen.dart:524:38 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_chat_screen.dart:602:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_chat_screen.dart:608:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_chat_screen.dart:608:32 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_hub_screen.dart:366:24 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_hub_screen.dart:366:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_hub_screen.dart:367:39 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_hub_screen.dart:551:34 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_hub_screen.dart:933:48 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_hub_screen.dart:934:48 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/explore/screens/family_hub_screen.dart:934:52 • unnecessary_underscores
+   info • 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/features/home/providers/tasks_provider.dart:54:13 • deprecated_member_use
+   info • Statements in a for should be enclosed in a block • lib/features/home/providers/tasks_provider.dart:175:34 • curly_braces_in_flow_control_structures
+warning • The value of the local variable 'isCompleted' isn't used • lib/features/home/screens/early_warning_screen.dart:87:11 • unused_local_variable
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:328:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:330:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:347:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:349:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:366:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:368:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:393:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:395:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:409:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:411:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:426:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:428:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:443:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:445:29 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:712:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:714:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/early_warning_screen.dart:716:7 • curly_braces_in_flow_control_structures
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/screens/location_reminder_create_screen.dart:113:17 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/screens/location_reminder_create_screen.dart:117:17 • use_build_context_synchronously
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/location_reminders_screen.dart:52:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/location_reminders_screen.dart:54:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/screens/location_reminders_screen.dart:56:9 • curly_braces_in_flow_control_structures
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/location_reminders_screen.dart:242:43 • unnecessary_underscores
+warning • The value of the local variable 'dayAfterTomorrowThreshold' isn't used • lib/features/home/screens/location_reminders_screen.dart:366:25 • unused_local_variable
+   info • The local variable '_parseDate' starts with an underscore • lib/features/home/screens/location_reminders_screen.dart:368:29 • no_leading_underscores_for_local_identifiers
+   info • 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre • lib/features/home/screens/main_screen.dart:171:7 • deprecated_member_use
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/memory_details_screen.dart:597:32 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/memory_details_screen.dart:602:32 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/memory_details_screen.dart:602:36 • unnecessary_underscores
+   info • The variable name '_SectionLabel' isn't a lowerCamelCase identifier • lib/features/home/screens/memory_edit_screen.dart:237:10 • non_constant_identifier_names
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/memory_edit_screen.dart:335:34 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/memory_edit_screen.dart:340:34 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/memory_edit_screen.dart:340:38 • unnecessary_underscores
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/screens/memory_list_screen.dart:57:41 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/screens/memory_list_screen.dart:97:54 • use_build_context_synchronously
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/memory_list_screen.dart:239:43 • unnecessary_underscores
+   info • 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre • lib/features/home/screens/reminder_create_screen.dart:344:9 • deprecated_member_use
+   info • 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre • lib/features/home/screens/reminder_create_screen.dart:371:9 • deprecated_member_use
+warning • Unused import: 'package:buddy_mobile/features/home/screens/reminder_create_screen.dart' • lib/features/home/screens/reminder_list_screen.dart:8:8 • unused_import
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/screens/reminder_list_screen.dart:62:51 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/screens/reminder_list_screen.dart:87:7 • use_build_context_synchronously
+   info • Unnecessary 'const' keyword • lib/features/home/screens/reminder_list_screen.dart:238:58 • unnecessary_const
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/screens/reminder_list_screen.dart:437:40 • use_build_context_synchronously
+   info • Unnecessary use of multiple underscores • lib/features/home/screens/reminder_list_screen.dart:632:43 • unnecessary_underscores
+   info • The local variable '_parseDate' starts with an underscore • lib/features/home/screens/reminder_list_screen.dart:746:21 • no_leading_underscores_for_local_identifiers
+warning • The '!' will have no effect because the receiver can't be null • lib/features/home/screens/reminder_list_screen.dart:1030:53 • unnecessary_non_null_assertion
+warning • The name Platform is shown, but isn't used • lib/features/home/services/memory_service.dart:7:23 • unused_shown_name
+warning • Unused import: 'package:lucide_icons/lucide_icons.dart' • lib/features/home/widgets/quick_actions_grid.dart:3:8 • unused_import
+warning • The value of the field '_isSearchingPlaces' isn't used • lib/features/home/widgets/smart_details_panel.dart:68:8 • unused_field
+   info • The private field _isSearchingFamily could be 'final' • lib/features/home/widgets/smart_details_panel.dart:77:8 • prefer_final_fields
+warning • The value of the field '_isSearchingFamily' isn't used • lib/features/home/widgets/smart_details_panel.dart:77:8 • unused_field
+   info • 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/features/home/widgets/smart_details_panel.dart:165:13 • deprecated_member_use
+   info • 'timeLimit' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/features/home/widgets/smart_details_panel.dart:166:13 • deprecated_member_use
+   info • 'PolylineRequest' is deprecated and shouldn't be used. Use RoutesApiRequest instead • lib/features/home/widgets/smart_details_panel.dart:244:16 • deprecated_member_use
+warning • The operand can't be 'null', so the condition is always 'false' • lib/features/home/widgets/smart_details_panel.dart:412:35 • unnecessary_null_comparison
+   info • 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/features/home/widgets/smart_details_panel.dart:451:9 • deprecated_member_use
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:485:9 • curly_braces_in_flow_control_structures
+warning • The declaration '_buildCustomTimeCard' isn't referenced • lib/features/home/widgets/smart_details_panel.dart:911:10 • unused_element
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/widgets/smart_details_panel.dart:956:7 • use_build_context_synchronously
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:1012:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:1014:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:1016:7 • curly_braces_in_flow_control_structures
+   info • Don't use 'BuildContext's across async gaps • lib/features/home/widgets/smart_details_panel.dart:1137:9 • use_build_context_synchronously
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:2719:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:2732:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:2754:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/home/widgets/smart_details_panel.dart:2765:7 • curly_braces_in_flow_control_structures
+warning • The declaration '_addContact' isn't referenced • lib/features/home/widgets/smart_details_panel.dart:2769:8 • unused_element
+   info • Don't use 'BuildContext's across async gaps • lib/features/maps/screens/main_map_screen.dart:22:40 • use_build_context_synchronously
+warning • Unused import: 'package:record/record.dart' • lib/features/voice_assistant/providers/buddy_provider.dart:13:8 • unused_import
+warning • The value of the field '_hasAttemptedConnection' isn't used • lib/features/voice_assistant/providers/buddy_provider.dart:41:8 • unused_field
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/providers/buddy_provider.dart:264:17 • curly_braces_in_flow_control_structures
+warning • The method doesn't override an inherited method • lib/features/voice_assistant/providers/buddy_provider.dart:564:8 • override_on_non_overriding_member
+   info • The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/features/voice_assistant/screens/buddy_assistant_page.dart:2:8 • unnecessary_import
+warning • Unused import: 'package:intl/intl.dart' • lib/features/voice_assistant/screens/buddy_assistant_page.dart:15:8 • unused_import
+   info • 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/features/voice_assistant/screens/buddy_assistant_page.dart:89:19 • deprecated_member_use
+   info • 'timeLimit' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings • lib/features/voice_assistant/screens/buddy_assistant_page.dart:90:19 • deprecated_member_use
+   info • Don't use 'BuildContext's across async gaps • lib/features/voice_assistant/screens/buddy_assistant_page.dart:167:54 • use_build_context_synchronously
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:290:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:294:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:300:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:304:7 • curly_braces_in_flow_control_structures
+   info • Don't use 'BuildContext's across async gaps • lib/features/voice_assistant/screens/buddy_assistant_page.dart:337:51 • use_build_context_synchronously
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:348:13 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:356:15 • curly_braces_in_flow_control_structures
+   info • 'listenMode' is deprecated and shouldn't be used. Use SpeechListenOptions.listenMode instead • lib/features/voice_assistant/screens/buddy_assistant_page.dart:363:9 • deprecated_member_use
+   info • 'cancelOnError' is deprecated and shouldn't be used. Use SpeechListenOptions.cancelOnError instead • lib/features/voice_assistant/screens/buddy_assistant_page.dart:364:9 • deprecated_member_use
+warning • The value of the local variable 'userProvider' isn't used • lib/features/voice_assistant/screens/buddy_assistant_page.dart:385:11 • unused_local_variable
+   info • Use a 'SizedBox' to add whitespace to a layout • lib/features/voice_assistant/screens/buddy_assistant_page.dart:575:17 • sized_box_for_whitespace
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:686:17 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:689:17 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:692:17 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/voice_assistant/screens/buddy_assistant_page.dart:694:17 • curly_braces_in_flow_control_structures
+warning • The declaration '_buildPixelAnimation' isn't referenced • lib/features/voice_assistant/screens/buddy_assistant_page.dart:774:10 • unused_element
+warning • The declaration '_buildThinkingIndicator' isn't referenced • lib/features/voice_assistant/screens/buddy_assistant_page.dart:1142:10 • unused_element
+warning • The declaration '_buildQuickAction' isn't referenced • lib/features/voice_assistant/screens/buddy_assistant_page.dart:1283:10 • unused_element
+warning • The value of the field '_isHovered' isn't used • lib/features/voice_assistant/widgets/animated_ai_input_field.dart:39:8 • unused_field
+   info • Use a 'SizedBox' to add whitespace to a layout • lib/features/voice_assistant/widgets/animated_ai_input_field.dart:397:12 • sized_box_for_whitespace
+warning • Unused import: 'package:buddy_mobile/features/home/screens/main_screen.dart' • lib/main.dart:14:8 • unused_import
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:63:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:98:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:129:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:153:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:185:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:221:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:247:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:269:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:301:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:328:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:353:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:377:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:396:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:411:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:427:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:444:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:460:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/memory_icon_utils.dart:478:5 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:133:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:161:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:186:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:208:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:234:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:268:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:294:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:325:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:353:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:379:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:402:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:420:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:433:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:449:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:467:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:480:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:541:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:552:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:562:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:571:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:581:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:593:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:603:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:614:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:624:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:635:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:637:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:639:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:641:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:643:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/shared/utils/task_utils.dart:645:9 • curly_braces_in_flow_control_structures
+warning • Unused import: 'package:geolocator/geolocator.dart' • lib/shared/widgets/mobile_header.dart:9:8 • unused_import
+warning • The declaration '_statItem' isn't referenced • lib/shared/widgets/mobile_task_card.dart:344:10 • unused_element
+

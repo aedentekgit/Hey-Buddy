@@ -12,8 +12,9 @@ const GeminiVoiceAssistant = ({ onBack, user }) => {
     const [retryKey, setRetryKey] = useState(0);
 
     // Use dynamic URL from settings or fallback to local port 8000 if localhost
+    const isLocal = ['localhost', '127.0.0.1', '10.0.2.2'].includes(window.location.hostname);
     const baseAssistantUrl = settings?.ai?.aiAssistantApiUrl ||
-        (window.location.hostname === 'localhost' ? 'http://localhost:8000/app/' : `${window.location.origin}/assistant/app/`);
+        (isLocal ? `http://${window.location.hostname}:8000/app/` : `${window.location.origin}/assistant/app/`);
 
     useEffect(() => {
         let isMounted = true;

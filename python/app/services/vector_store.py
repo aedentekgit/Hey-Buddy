@@ -224,7 +224,7 @@ class VectorStoreService:
             logger.warning("[VECTOR] HTTP GET error: %s", e)
             return None
 
-    def load_user_knowledge(self) -> List[Document]:
+    async def load_user_knowledge(self) -> List[Document]:
         """
         Consolidated loader for User Knowledge (Reminders, Memories, Docs, Prescriptions).
         Fetches everything from the Node.js backend's all-knowledge endpoint.
@@ -235,16 +235,7 @@ class VectorStoreService:
 
         try:
             logger.info("[VECTOR] Fetching consolidated knowledge from MongoDB...")
-            # Run async fetch in the event loop; if no loop exists, create a new one.
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            data = loop.run_until_complete(
-                self._fetch_async(f"{NODE_BACKEND_URL}/api/knowledge/internal/all-knowledge", timeout=15)
-            )
+            data = await self._fetch_async(f"{NODE_BACKEND_URL}/api/knowledge/internal/all-knowledge", timeout=15)
 
             if data is None:
                 return documents
@@ -303,7 +294,7 @@ class VectorStoreService:
 
         return documents
 
-    def load_chat_history(self) -> List[Document]:
+    async def load_chat_history(self) -> List[Document]:
         """
         Load chat history for the vector store.
 
@@ -317,16 +308,7 @@ class VectorStoreService:
         from config import NODE_BACKEND_URL
         try:
             logger.info("[VECTOR] Fetching all conversations from MongoDB for indexing...")
-            # Run async fetch with proper event loop handling
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            data = loop.run_until_complete(
-                self._fetch_async(f"{NODE_BACKEND_URL}/api/conversations/internal/all", timeout=10)
-            )
+            data = await self._fetch_async(f"{NODE_BACKEND_URL}/api/conversations/internal/all", timeout=10)
 
             if data and data.get("success") and data.get("data"):
                 conversations = data["data"]
@@ -360,13 +342,13 @@ class VectorStoreService:
     # BUILD AND SAVE FAISS INDEX
     # -------------------------------------------------------------------------
 
-    def create_vector_store(self) -> FAISS:
+    async def create_vector_store(self) -> FAISS:
         """
         Full pipeline: Load → Chunk → Embed → Index → Save.
         """
         learning_docs = self.load_learning_data()
-        chat_docs = self.load_chat_history()
-        knowledge_docs = self.load_user_knowledge()
+        chat_docs = await self.load_chat_history()
+        knowledge_docs = await self.load_user_knowledge()
         
         all_documents = learning_docs + chat_docs + knowledge_docs
         

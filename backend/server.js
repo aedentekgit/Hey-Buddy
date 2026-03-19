@@ -124,7 +124,7 @@ app.use('/uploads', (req, res) => {
     // If we hit this, express.static failed to find a local file
     const subPath = req.url; // This will be the path after /uploads
     const vpsUrl = `https://staging.ayuskart.com/uploads${subPath}`;
-    console.log(`[File Proxy] Local 404 for /uploads${subPath} -> Redirecting to VPS: ${vpsUrl}`);
+    console.log(`[Upload-Fallback] File not found locally: /uploads${subPath} -> Redirecting to staging VPS`);
     res.redirect(vpsUrl);
 });
 
@@ -171,6 +171,16 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/location-reminders', locationReminderRoutes);
 app.use('/api/family', familyRoutes);
 app.use('/api/chat', chatRoutes);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        service: 'Buddy API'
+    });
+});
 
 // Routes placeholders
 app.get('/', (req, res) => {

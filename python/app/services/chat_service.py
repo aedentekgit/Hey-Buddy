@@ -553,7 +553,7 @@ class ChatService:
     #   which feels much faster even though total response time is similar.
     # -------------------------------------------------------------------------
 
-    def process_message(self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = "") -> str:
+    def process_message(self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = "", fallback_groq_key: str = None) -> str:
         """
         Handle one general-chat message (no web search).
 
@@ -574,7 +574,7 @@ class ChatService:
         logger.info("[GENERAL] History pairs sent to LLM: %d", len(chat_history))
         # Step 3: Call the LLM. GroqService handles retrieval + prompt building + API call.
         if api_key and provider:
-             dynamic_groq = GroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model)
+             dynamic_groq = GroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model, fallback_groq_key=fallback_groq_key)
              response = dynamic_groq.get_response(question=user_message, chat_history=chat_history, user_id=user_id, memory_context=memory_context)
         else:
             response = self.groq_service.get_response(question=user_message, chat_history=chat_history, user_id=user_id, memory_context=memory_context)
@@ -583,7 +583,7 @@ class ChatService:
         logger.info("[GENERAL] Response length: %d chars | Preview: %.120s", len(response), response)
         return response
 
-    def process_realtime_message(self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = "") -> str:
+    def process_realtime_message(self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = "", fallback_groq_key: str = None) -> str:
         """
         Handle one realtime message (with web search via Tavily + Groq).
 
@@ -616,7 +616,7 @@ class ChatService:
         #   3. Injects those results into the system prompt.
         #   4. Calls Groq with the enriched prompt.
         if api_key and provider:
-            dynamic_realtime = RealtimeGroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model)
+            dynamic_realtime = RealtimeGroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model, fallback_groq_key=fallback_groq_key)
             response = dynamic_realtime.get_response(question=user_message, chat_history=chat_history, user_id=user_id, memory_context=memory_context)
         else:
              response = self.realtime_service.get_response(question=user_message, chat_history=chat_history, user_id=user_id, memory_context=memory_context)
@@ -625,7 +625,7 @@ class ChatService:
         return response
 
     def process_message_stream(
-        self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = ""
+        self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = "", fallback_groq_key: str = None
     ) -> Iterator[str]:
         """
         Stream general-chat response chunk-by-chunk (Server-Sent Events pattern).
@@ -682,7 +682,7 @@ class ChatService:
         try:
             active_groq_service = self.groq_service
             if api_key and provider:
-                active_groq_service = GroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model)
+                active_groq_service = GroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model, fallback_groq_key=fallback_groq_key)
                 
             for chunk in active_groq_service.stream_response(
                 question=user_message, chat_history=chat_history, user_id=user_id, memory_context=memory_context
@@ -708,7 +708,7 @@ class ChatService:
             self.save_chat_session(session_id)
 
     def process_realtime_message_stream(
-        self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = ""
+        self, session_id: str, user_message: str, api_key: str = None, provider: str = None, model: str = None, user_id: Optional[str] = None, memory_context: str = "", fallback_groq_key: str = None
     ) -> Iterator[str]:
         """
         Stream realtime-chat response chunk-by-chunk (Tavily search + Groq).
@@ -743,7 +743,7 @@ class ChatService:
         try:
             active_realtime_service = self.realtime_service
             if api_key and provider:
-                active_realtime_service = RealtimeGroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model)
+                active_realtime_service = RealtimeGroqService(vector_store_service=self.vector_store_service, api_key=api_key, provider=provider, model=model, fallback_groq_key=fallback_groq_key)
                 
             for chunk in active_realtime_service.stream_response(
                 question=user_message, chat_history=chat_history, user_id=user_id, memory_context=memory_context

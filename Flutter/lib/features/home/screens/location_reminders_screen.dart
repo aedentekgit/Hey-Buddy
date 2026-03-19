@@ -24,6 +24,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
   String _activeFilter = 'All';
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  DateTime? _selectedDate;
   DateTime? _tempSnoozeTime;
 
   @override
@@ -60,28 +61,77 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
 
   List _applyFilters(List reminders) {
     var list = reminders;
-    if (_activeFilter != 'All') {
+    
+    // Date picker filter takes priority
+    if (_selectedDate != null) {
+      final d = _selectedDate!;
+      list = list.where((r) {
+        final raw = r['date'] as String?;
+        if (raw == null) return false;
+        try {
+          final td = DateTime.parse(raw);
+          return td.year == d.year && td.month == d.month && td.day == d.day;
+        } catch (_) {
+          return false;
+        }
+      }).toList();
+    } else if (_activeFilter == 'Today') {
+      list = list
+          .where((r) => DateFormatter.displayDateString(context, r['date']) == 'Today')
+          .toList();
+    } else if (_activeFilter != 'All') {
       list = list.where((r) {
         final s = (r['status'] ?? '').toString().toLowerCase();
         if (_activeFilter == 'Completed') return s == 'completed';
         if (_activeFilter == 'Risk Alert') return s == 'risk_alert';
-        return s != 'completed' && s != 'risk_alert'; // Active
+        if (_activeFilter == 'Active') return s != 'completed' && s != 'risk_alert';
+        return true;
       }).toList();
     }
+
     if (_searchQuery.isNotEmpty) {
       list = list
           .where(
             (r) =>
-                (r['title'] ?? '').toString().toLowerCase().contains(
-                  _searchQuery,
-                ) ||
-                (r['location'] ?? '').toString().toLowerCase().contains(
-                  _searchQuery,
-                ),
+                (r['title'] ?? '').toString().toLowerCase().contains(_searchQuery) ||
+                (r['location'] ?? '').toString().toLowerCase().contains(_searchQuery),
           )
           .toList();
     }
     return list;
+  }
+
+  void _openDatePicker(List allReminders) {
+    final dotDates = <String>{};
+    for (final r in allReminders) {
+      final raw = r['date'] as String?;
+      if (raw != null) {
+        try {
+          final d = DateTime.parse(raw);
+          dotDates.add('${d.year}-${d.month}-${d.day}');
+        } catch (_) {}
+      }
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _CalendarSheet(
+        selected: _selectedDate,
+        dotDates: dotDates,
+        onSelect: (date) {
+          setState(() {
+            _selectedDate = date;
+            _activeFilter = 'All';
+          });
+          Navigator.pop(context);
+        },
+        onClear: () {
+          setState(() => _selectedDate = null);
+          Navigator.pop(context);
+        },
+      ),
+    );
   }
 
   @override
@@ -188,13 +238,77 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 18),
-                    itemCount: filters.length,
+                    itemCount: 9, // 1 Date Chip + 8 Filters (All, Today, Active, Completed, Risk Alert, Generic, Manual, Voice)
                     separatorBuilder: (_, __) => const SizedBox(width: 7),
                     itemBuilder: (_, i) {
-                      final f = filters[i];
-                      final active = f == _activeFilter;
+                      // 0: Date Picker
+                      if (i == 0) {
+                        final dateActive = _selectedDate != null;
+                        return GestureDetector(
+                          onTap: () => _openDatePicker(provider.reminders),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: dateActive ? AppColors.accent : AppColors.bg,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: dateActive ? AppColors.accent : AppColors.border,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  LucideIcons.calendarDays,
+                                  size: 13,
+                                  color: dateActive ? Colors.white : AppColors.textMid,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  dateActive
+                                      ? '${_selectedDate!.day}/${_selectedDate!.month}'
+                                      : 'Date',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: dateActive ? Colors.white : AppColors.textMid,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Dynamic filters
+                      final List<String> allFilters = [
+                        'All',
+                        'Today',
+                        'Active',
+                        'Completed',
+                        'Risk Alert',
+                        'Generic',
+                        'Manual Creation',
+                        'Voice Creation',
+                      ];
+                      
+                      // Ensure index is within bounds
+                      final index = i - 1;
+                      if (index < 0 || index >= allFilters.length) return const SizedBox();
+                      
+                      final f = allFilters[index];
+                      final active = f == _activeFilter && _selectedDate == null;
+                      
                       return GestureDetector(
-                        onTap: () => setState(() => _activeFilter = f),
+                        onTap: () => setState(() {
+                          _activeFilter = f;
+                          _selectedDate = null;
+                        }),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           padding: const EdgeInsets.symmetric(
@@ -205,9 +319,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                             color: active ? AppColors.accent : AppColors.bg,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: active
-                                  ? AppColors.accent
-                                  : AppColors.border,
+                              color: active ? AppColors.accent : AppColors.border,
                               width: 1.5,
                             ),
                           ),
@@ -245,55 +357,60 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
             )
           : RefreshIndicator(
               onRefresh: provider.loadReminders,
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
-                itemCount: filtered.length,
-                itemBuilder: (context, index) {
-                  final reminder = Map<String, dynamic>.from(filtered[index]);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: Slidable(
-                      key: ValueKey(reminder['_id']),
-                      startActionPane: ActionPane(
-                        motion: const BehindMotion(),
-                        extentRatio: 0.6,
-                        children: [
-                          _SlidableAction(
-                            label: 'Edit',
-                            icon: LucideIcons.pencil,
-                            color: AppColors.accent,
-                            onTap: () => _handleEdit(reminder),
-                          ),
-                          _SlidableAction(
-                            label: 'Snooze',
-                            icon: LucideIcons.alarmClock,
-                            color: AppColors.orange,
-                            onTap: () => _handleSnooze(reminder),
-                          ),
-                          _SlidableAction(
-                            label: 'Done',
-                            icon: LucideIcons.checkCircle2,
-                            color: AppColors.green,
-                            onTap: () => _handleComplete(reminder),
-                          ),
-                        ],
-                      ),
-                      endActionPane: ActionPane(
-                        motion: const BehindMotion(),
-                        extentRatio: 0.25,
-                        children: [
-                          _SlidableAction(
-                            label: 'Delete',
-                            icon: LucideIcons.trash2,
-                            color: AppColors.danger,
-                            onTap: () => _handleDelete(reminder),
-                          ),
-                        ],
-                      ),
-                      child: _buildLocationReminderCard(reminder, index),
-                    ),
+              child: Builder(
+                builder: (context) {
+                  // Grouping logic
+                  final now = DateTime.now();
+                  final todayThreshold = DateTime(now.year, now.month, now.day);
+                  final tomorrowThreshold = todayThreshold.add(const Duration(days: 1));
+                  final dayAfterTomorrowThreshold = tomorrowThreshold.add(const Duration(days: 1));
+
+                  DateTime? _parseDate(Map<String, dynamic> r) {
+                    final raw = r['date'] as String?;
+                    if (raw == null) return null;
+                    try {
+                      final d = DateTime.parse(raw);
+                      return DateTime(d.year, d.month, d.day);
+                    } catch (_) {
+                      return null;
+                    }
+                  }
+
+                  final todayList = filtered.where((r) {
+                    final d = _parseDate(r);
+                    return d != null && d.isAtSameMomentAs(todayThreshold);
+                  }).toList();
+
+                  final upcomingList = filtered.where((r) {
+                    final d = _parseDate(r);
+                    return d != null && d.isAfter(todayThreshold);
+                  }).toList();
+
+                  final pastList = filtered.where((r) {
+                    final d = _parseDate(r);
+                    return d != null && d.isBefore(todayThreshold);
+                  }).toList();
+
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
+                    children: [
+                      if (todayList.isNotEmpty) ...[
+                        _GroupLabel('Today', count: todayList.length),
+                        ...todayList.map((r) => _buildReminderItem(r)),
+                        const SizedBox(height: 12),
+                      ],
+                      if (upcomingList.isNotEmpty) ...[
+                        _GroupLabel('Upcoming', count: upcomingList.length),
+                        ...upcomingList.map((r) => _buildReminderItem(r)),
+                        const SizedBox(height: 12),
+                      ],
+                      if (pastList.isNotEmpty) ...[
+                        _GroupLabel('Past', count: pastList.length),
+                        ...pastList.map((r) => _buildReminderItem(r)),
+                      ],
+                    ],
                   );
-                },
+                }
               ),
             ),
     );
@@ -339,7 +456,54 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
     );
   }
 
-  Widget _buildLocationReminderCard(Map<String, dynamic> reminder, int index) {
+  Widget _buildReminderItem(dynamic r) {
+    final reminder = Map<String, dynamic>.from(r);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Slidable(
+        key: ValueKey(reminder['_id']),
+        startActionPane: ActionPane(
+          motion: const BehindMotion(),
+          extentRatio: 0.6,
+          children: [
+            _SlidableAction(
+              label: 'Edit',
+              icon: LucideIcons.pencil,
+              color: AppColors.accent,
+              onTap: () => _handleEdit(reminder),
+            ),
+            _SlidableAction(
+              label: 'Snooze',
+              icon: LucideIcons.alarmClock,
+              color: AppColors.orange,
+              onTap: () => _handleSnooze(reminder),
+            ),
+            _SlidableAction(
+              label: 'Done',
+              icon: LucideIcons.checkCircle2,
+              color: AppColors.green,
+              onTap: () => _handleComplete(reminder),
+            ),
+          ],
+        ),
+        endActionPane: ActionPane(
+          motion: const BehindMotion(),
+          extentRatio: 0.25,
+          children: [
+            _SlidableAction(
+              label: 'Delete',
+              icon: LucideIcons.trash2,
+              color: AppColors.danger,
+              onTap: () => _handleDelete(reminder),
+            ),
+          ],
+        ),
+        child: _buildLocationReminderCard(reminder),
+      ),
+    );
+  }
+
+  Widget _buildLocationReminderCard(Map<String, dynamic> reminder) {
     final String status = (reminder['status'] ?? '').toString().toLowerCase();
     final bool isDanger = status == 'risk_alert';
 
@@ -365,6 +529,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
       onView: () => _onViewReminder(reminder),
       earlyWarningActive: reminder['earlyWarningSet'] ?? false,
       isHighPriority: reminder['priority'] == 'high',
+      headerIcon: LucideIcons.bell, // Or dynamic if available
     );
   }
 
@@ -784,8 +949,344 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
       ),
     );
   }
+}
 
+class _GroupLabel extends StatelessWidget {
+  final String text;
+  final int count;
+  const _GroupLabel(this.text, {this.count = 0});
 
+  Color get _dotColor {
+    if (text == 'Today') return AppColors.accent;
+    if (text == 'Upcoming') return AppColors.green;
+    return const Color(0xFFB0B7C3);
+  }
+
+  Color get _badgeColor {
+    if (text == 'Today') return AppColors.accent;
+    if (text == 'Upcoming') return AppColors.green;
+    return const Color(0xFFB0B7C3);
+  }
+
+  String get _label {
+    final now = DateTime.now();
+    if (text == 'Today') {
+      return 'Today, ${_monthName(now.month)} ${now.day}';
+    }
+    if (text == 'Upcoming') return 'Upcoming';
+    if (text == 'Past') return 'Past & Completed';
+    return text;
+  }
+
+  String _monthName(int m) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return months[m - 1];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = _dotColor;
+    final badgeColor = _badgeColor;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            _label,
+            style: GoogleFonts.nunito(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: AppColors.text,
+            ),
+          ),
+          const Spacer(),
+          if (count > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: badgeColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: badgeColor.withValues(alpha: 0.25)),
+              ),
+              child: Text(
+                text == 'Past' ? '$count completed' : '$count pending',
+                style: GoogleFonts.nunito(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: badgeColor,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarSheet extends StatefulWidget {
+  final DateTime? selected;
+  final Set<String> dotDates;
+  final ValueChanged<DateTime> onSelect;
+  final VoidCallback onClear;
+
+  const _CalendarSheet({
+    required this.selected,
+    required this.dotDates,
+    required this.onSelect,
+    required this.onClear,
+  });
+
+  @override
+  State<_CalendarSheet> createState() => _CalendarSheetState();
+}
+
+class _CalendarSheetState extends State<_CalendarSheet> {
+  late DateTime _month;
+
+  @override
+  void initState() {
+    super.initState();
+    _month = DateTime(
+      (widget.selected ?? DateTime.now()).year,
+      (widget.selected ?? DateTime.now()).month,
+    );
+  }
+
+  static const _weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  bool _hasDot(int day) {
+    final key = '${_month.year}-${_month.month}-$day';
+    return widget.dotDates.contains(key);
+  }
+
+  bool _isSelected(int day) {
+    final s = widget.selected;
+    if (s == null) return false;
+    return s.year == _month.year && s.month == _month.month && s.day == day;
+  }
+
+  bool _isToday(int day) {
+    final now = DateTime.now();
+    return now.year == _month.year &&
+        now.month == _month.month &&
+        now.day == day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firstDay = DateTime(_month.year, _month.month, 1);
+    final daysInMonth = DateUtils.getDaysInMonth(_month.year, _month.month);
+    final startOffset = firstDay.weekday % 7;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: const BoxDecoration(
+              gradient: AppColors.headerGradient,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(
+                    () => _month = DateTime(_month.year, _month.month - 1),
+                  ),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      LucideIcons.chevronLeft,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    '${_months[_month.month - 1]} ${_month.year}',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.nunito(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => setState(
+                    () => _month = DateTime(_month.year, _month.month + 1),
+                  ),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      LucideIcons.chevronRight,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Column(
+              children: [
+                Row(
+                  children: _weekdays
+                      .map(
+                        (d) => Expanded(
+                          child: Text(
+                            d,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDim,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 8),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    mainAxisSpacing: 4,
+                    crossAxisSpacing: 0,
+                  ),
+                  itemCount: startOffset + daysInMonth,
+                  itemBuilder: (_, idx) {
+                    if (idx < startOffset) return const SizedBox();
+                    final day = idx - startOffset + 1;
+                    final isToday = _isToday(day);
+                    final isSel = _isSelected(day);
+                    final hasDot = _hasDot(day);
+
+                    return GestureDetector(
+                      onTap: () => widget.onSelect(
+                        DateTime(_month.year, _month.month, day),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: isSel ? AppColors.accent : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: isToday && !isSel
+                                  ? Border.all(color: AppColors.accent, width: 1.5)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '$day',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: isSel
+                                      ? Colors.white
+                                      : isToday
+                                      ? AppColors.accent
+                                      : AppColors.text,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (hasDot)
+                            Container(
+                              width: 4,
+                              height: 4,
+                              margin: const EdgeInsets.only(top: 2),
+                              decoration: BoxDecoration(
+                                color: isSel ? Colors.white : AppColors.accent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.selected == null
+                      ? 'Showing all dates'
+                      : 'Selected: ${widget.selected!.day} ${_months[widget.selected!.month - 1]} ${widget.selected!.year}',
+                  style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMid),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: widget.onClear,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      'Clear',
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textMid,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SlidableAction extends StatelessWidget {

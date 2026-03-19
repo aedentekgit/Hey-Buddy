@@ -1,9 +1,11 @@
 import "package:flutter/foundation.dart";
 
 import 'dart:async';
+import 'dart:io';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 
 class SocketService {
   IO.Socket? socket;
@@ -44,6 +46,34 @@ class SocketService {
   void _safeAdd<T>(StreamController<T> controller, T event) {
     if (!controller.isClosed && !_isDisposed) {
       controller.add(event);
+    }
+  }
+
+  /// Health check - pings the backend to see if it's reachable
+  /// Returns true if backend is responding, false otherwise
+  Future<bool> checkServerHealth() async {
+    try {
+      final baseUrl = AppConfig.baseUrl.replaceAll('/api/', '');
+      final healthUrl = '${baseUrl}health';
+      debugPrint('🔍 Checking server health at: $healthUrl');
+
+      final response = await http.get(Uri.parse(healthUrl)).timeout(
+        const Duration(seconds: 5),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ Server health check passed');
+        return true;
+      } else {
+        debugPrint('⚠️ Server health check failed with status: ${response.statusCode}');
+        return false;
+      }
+    } on SocketException catch (e) {
+      debugPrint('❌ Server health check failed - Socket exception: ${e.message}');
+      return false;
+    } catch (e) {
+      debugPrint('❌ Server health check failed: $e');
+      return false;
     }
   }
 

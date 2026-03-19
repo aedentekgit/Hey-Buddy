@@ -107,6 +107,7 @@ class ChatRequest(BaseModel):
     memory_context: Optional[str] = ""
     gender: Optional[str] = 'male'
     tone: Optional[str] = 'soft'
+    fallback_groq_key: Optional[str] = None
 
 
 class ChatResponse(BaseModel):

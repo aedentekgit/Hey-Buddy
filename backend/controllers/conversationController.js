@@ -85,8 +85,8 @@ exports.syncConversation = async (req, res) => {
             return res.status(400).json({ success: false, message: 'userId is required' });
         }
 
-        // Find the most recent conversation or create a new one (with .lean())
-        let conversation = await Conversation.findOne({ userId }).lean().sort({ updatedAt: -1 });
+        // Find the most recent conversation or create a new one
+        let conversation = await Conversation.findOne({ userId }).sort({ updatedAt: -1 });
 
         if (conversation) {
             // Update messages (replace entirely or sync)

@@ -99,20 +99,8 @@ class BuddyAgent extends EventEmitter {
 
             // ── STANDBY MODE: scan for wake word only ──────────────────────
             if (this.isStandby) {
-                if (transcript.includes('hey buddy')) {
-                    console.log('[BuddyAgent] ⚡ Wake Word Detected!');
-                    this.isStandby = false;
-                    this.socket.emit('wake_word_detected');
-
-                    // If the user said "Hey Buddy, [command]", strip the wake word and continue
-                    const refinedText = transcript.replace(/^hey buddy[,!.\s]*/gi, '').trim();
-                    if (!refinedText) return; // Only "hey buddy" was said
-
-                    // Proceed to process the refined command
-                    this.processMessage(refinedText);
-                    return;
-                }
-                return; // Ignore everything else in standby
+                // AUTO WAKEUP DISABLED: Ignore everything in standby to wait for manual activation
+                return;
             }
 
             // ── STOP COMMANDS: user wants Buddy to shut up ─────────────────

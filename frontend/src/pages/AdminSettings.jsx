@@ -1109,10 +1109,10 @@ const AdminSettings = () => {
                                                         { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet (Recommended)' },
                                                         { value: 'openai/gpt-4o-mini', label: 'GPT-4o-mini (Fast & Efficient)' },
                                                         { value: 'deepseek/deepseek-chat', label: 'DeepSeek V3 (Economic)' },
-                                                        { value: 'google/gemini-2.0-flash-exp:free', label: 'Gemini 2.0 Flash (Free Tier)' },
+                                                        { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash (Free Tier)' },
                                                         { value: 'groq/llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Groq - Ultra Fast)' },
                                                         { value: 'openrouter/free', label: 'Smart Router (Auto-Free)' },
-                                                        { value: 'google/gemini-flash-1.5-8b', label: 'Gemini Flash 1.5 (Lite)' }
+                                                        { value: 'google/gemini-1.5-flash-8b', label: 'Gemini Flash 1.5 (Lite)' }
                                                     ]}
                                                 />
                                             </div>

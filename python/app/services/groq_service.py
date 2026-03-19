@@ -255,14 +255,30 @@ class GroqService:
       message formatting, and stream parsing.
     """
 
-    def __init__(self, vector_store_service: VectorStoreService, api_key: str = None, model: str = None, provider: str = None):
+    # Map deprecated/experimental/non-available model names to their stable replacements
+    _MODEL_ALIASES = {
+        'gemini-2.0-flash-exp': 'gemini-1.5-flash',  # Fallback to stable if experimental is tricky
+        'gemini-2.0-flash': 'gemini-1.5-flash',      # Redirect unavailable 2.0 to stable 1.5
+        'gemini-flash-1.5-8b': 'gemini-1.5-flash-8b',
+        'gemini-pro-latest': 'gemini-1.5-pro',
+        'gemini-flash': 'gemini-1.5-flash',
+    }
+
+    def __init__(self, vector_store_service: VectorStoreService, api_key: str = None, model: str = None, provider: str = None, fallback_groq_key: str = None):
         self.llms = []
-        
+
         # If passed dynamically, initialize that provider specifically
         if api_key and provider:
-            if provider.lower() == 'gemini':
+            # Sanitize model name: strip ":free"/":latest" suffixes and map deprecated names
+            if model and ":" in model:
+                model = model.split(":")[0]
+            if model and model in self._MODEL_ALIASES:
+                logger.info(f"[GroqService] Mapping deprecated model '{model}' -> '{self._MODEL_ALIASES[model]}'")
+                model = self._MODEL_ALIASES[model]
+                
+            if provider.lower() in ('gemini', 'google'):
                 self.llms.append(ChatGoogleGenerativeAI(
-                    model=model or "gemini-flash-latest",
+                    model=model or "gemini-1.5-flash-latest",
                     google_api_key=api_key,
                     temperature=0.6,
                     timeout=GROQ_REQUEST_TIMEOUT,
@@ -300,6 +316,17 @@ class GroqService:
                     request_timeout=GROQ_REQUEST_TIMEOUT,
                 ))
 
+        # Add fallback Groq key passed from Node.js backend (from DB settings)
+        if fallback_groq_key and fallback_groq_key.startswith('gsk_'):
+            if not any(getattr(llm, 'groq_api_key', None) == fallback_groq_key for llm in self.llms):
+                self.llms.append(ChatGroq(
+                    groq_api_key=fallback_groq_key,
+                    model_name=GROQ_MODEL,
+                    temperature=0.6,
+                    request_timeout=GROQ_REQUEST_TIMEOUT,
+                ))
+                logger.info("[GroqService] Added fallback Groq LLM from Node.js backend config")
+
         # Always add system fallbacks (from .env) as secondary options to ensure reliability
         if GROQ_API_KEYS:
             for key in GROQ_API_KEYS:
@@ -317,7 +344,7 @@ class GroqService:
             # Avoid duplicate Gemini entries
             if not any(isinstance(llm, ChatGoogleGenerativeAI) and getattr(llm, 'google_api_key', None) == GEMINI_API_KEY for llm in self.llms):
                 self.llms.append(ChatGoogleGenerativeAI(
-                    model="gemini-flash-latest",
+                    model="gemini-1.5-flash-latest",
                     google_api_key=GEMINI_API_KEY,
                     temperature=0.6,
                     timeout=GROQ_REQUEST_TIMEOUT,
@@ -551,6 +578,7 @@ class GroqService:
         tools = get_action_tools(user_id) if user_id else []
         tools_map = {t.name: t for t in tools}
 
+        last_exc = None
         for i in range(n):
             llm = self.llms[i]
             provider = type(llm).__name__
@@ -654,7 +682,11 @@ class GroqService:
                 break
 
         logger.error(f"All {n} provider(s) failed during stream.")
-        raise AllGroqApisFailedError(ALL_APIS_FAILED_MESSAGE) from last_exc
+        if last_exc:
+            raise AllGroqApisFailedError(ALL_APIS_FAILED_MESSAGE) from last_exc
+        else:
+            raise AllGroqApisFailedError(ALL_APIS_FAILED_MESSAGE)
+
 
     # ─── PROMPT ASSEMBLY ─────────────────────────────────────────────────────
     # This method builds everything the LLM needs: system message, history, and

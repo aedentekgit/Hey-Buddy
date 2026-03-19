@@ -130,18 +130,11 @@ class MobileTaskCard extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  if (isHighPriority) ...[
-                                    _badgeIcon(
-                                      LucideIcons.flag,
-                                      AppColors.danger,
-                                    ),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  _Chip(
-                                    label: status,
-                                    color: color,
-                                    small: true,
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    LucideIcons.chevronRight,
+                                    size: 14,
+                                    color: color.withValues(alpha: 0.6),
                                   ),
                                 ],
                               ),
@@ -204,8 +197,24 @@ class MobileTaskCard extends StatelessWidget {
                                   ],
                                 ),
                               ],
-
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    _Chip(
+                                      label: status,
+                                      color: color,
+                                      small: true,
+                                    ),
+                                    if (isHighPriority) ...[
+                                      const SizedBox(width: 8),
+                                      _badgeIcon(
+                                        LucideIcons.flag,
+                                        AppColors.danger,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
 
                               // Action row
                               Row(

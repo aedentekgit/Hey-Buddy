@@ -38,10 +38,17 @@ class BuddyProvider with ChangeNotifier {
   bool _needsLogin = false;
   bool get needsLogin => _needsLogin;
   bool _isConnected = true;
+  bool _hasAttemptedConnection = false;
   bool get isConnected => _isConnected;
   bool get isSpeaking => _isSpeaking;
   bool get isListening => _isListening;
   bool get isStreaming => _audioStreamService.isStreaming;
+
+  // Server health status for better error messages
+  bool _isServerReachable = true;
+  bool get isServerReachable => _isServerReachable;
+  String _connectionError = '';
+  String get connectionError => _connectionError;
 
   // TTS Buffering Variables
   String _ttsBuffer = '';
@@ -441,21 +448,27 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.statusStream.listen((isConnected) {
+      debugPrint('📡 Socket status changed: $isConnected');
+      _hasAttemptedConnection = true;
       _isRealtimeEnabled = isConnected;
       _isConnected = isConnected;
+      _isServerReachable = true; // Socket connected means server is reachable
+      _connectionError = ''; // Clear any connection errors
       if (!isConnected) {
         _isThinking = false;
         _audioStreamService.stopStreaming();
+        debugPrint('🛑 Audio streaming stopped (socket disconnected)');
       } else {
         // Automatically start streaming when socket connects for wake-word detection
-        _audioStreamService.startStreaming();
+        // DISABLED per user request: _audioStreamService.startStreaming();
+        debugPrint('🎙️ Audio streaming auto-start DISABLED (socket connected)');
       }
       notifyListeners();
     });
 
     // Handle Wake Word Detection
     socketService.wakeWordStream.listen((data) {
-      debugPrint('Wake word detected: ${data['transcript']}');
+      debugPrint('🔥🔥🔥 WAKE WORD DETECTED! Data: $data');
       _isListening = true;
       notifyListeners();
 
@@ -550,14 +563,28 @@ class BuddyProvider with ChangeNotifier {
   @override
   void toggleRealtime(bool enable) {
     if (enable) {
+      // Try to connect - socket has built-in reconnection (20 attempts, 3s delay)
+      _connectionError = '';
+      _isConnected = true; // Start as connected, socket will update status
       socketService.connect();
-      startWakeWordDetection(); // Start hearing by default
     } else {
       stopWakeWordDetection();
       socketService.disconnect();
       _isRealtimeEnabled = false;
     }
     notifyListeners();
+  }
+
+  /// Manual retry - user can tap to retry connection
+  Future<void> retryConnection() async {
+    _connectionError = '';
+    _isConnected = true;
+    notifyListeners();
+
+    // Disconnect first to force a fresh connection attempt
+    socketService.disconnect();
+    await Future.delayed(const Duration(milliseconds: 500));
+    socketService.connect();
   }
 
   List<Map<String, dynamic>> get messages => _messages;

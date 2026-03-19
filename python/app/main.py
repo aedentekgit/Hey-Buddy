@@ -353,7 +353,7 @@ async def lifespan(app: FastAPI):
         logger.info("Initializing vector store service...")
         t0 = time.perf_counter()
         vector_store_service = VectorStoreService()
-        vector_store_service.create_vector_store()  # reads files, chunks, embeds, builds FAISS index
+        await vector_store_service.create_vector_store()  # reads files, chunks, embeds, builds FAISS index
         logger.info("[TIMING] startup_vector_store: %.3fs", time.perf_counter() - t0)
         
         # --- Step 2: Groq Service (general chat) ---
@@ -455,7 +455,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Example .env entry:
 #   ALLOWED_ORIGINS=https://ayuskart.com,https://www.ayuskart.com
 #
-_raw_origins = _os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000")
+_raw_origins = _os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost:8000,http://10.0.2.2:5173,http://10.0.2.2:8000")
 _ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
@@ -660,7 +660,7 @@ async def chat(request: ChatRequest):
 
         # Send the message through the non-streaming pipeline:
         #   chat_service → groq_service → vector_store (RAG) → Groq LLM → response text
-        response_text = chat_service.process_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "")
+        response_text = chat_service.process_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
 
         # Persist the updated session (including the new user + assistant messages)
         # to a JSON file on disk so it survives server restarts.
@@ -1080,7 +1080,7 @@ async def chat_stream(request: ChatRequest):
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
         # process_message_stream returns a generator that yields text chunks.
-        chunk_iter = chat_service.process_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "")
+        chunk_iter = chat_service.process_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
         # Detect language of user message to set the context
         user_lang = language_service.detect_language(request.message)
 
@@ -1158,7 +1158,7 @@ async def chat_realtime(request: ChatRequest):
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
         # process_realtime_message: Tavily search -> RAG context -> Groq LLM -> text
-        response_text = chat_service.process_realtime_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "")
+        response_text = chat_service.process_realtime_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
         chat_service.save_chat_session(session_id)
 
         # GENERATE RYAN AUDIO IF REQUESTED
@@ -1176,7 +1176,7 @@ async def chat_realtime(request: ChatRequest):
                 elif request.tone == "soft":
                     rate = "-10%"
                     
-                audio_bytes = _generate_tts_sync(response_text, voice, rate)
+                audio_bytes = await asyncio.to_thread(_generate_tts_sync, response_text, voice, rate)
                 audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
             except Exception as e:
                 logger.error(f"[API /chat/realtime] TTS generation error: {e}")
@@ -1221,7 +1221,7 @@ async def chat_realtime_stream(request: ChatRequest):
                 request.session_id or "new", len(request.message), request.message)
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
-        chunk_iter = chat_service.process_realtime_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "")
+        chunk_iter = chat_service.process_realtime_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
         # Detect language of user message to set the context
         user_lang = language_service.detect_language(request.message)
 

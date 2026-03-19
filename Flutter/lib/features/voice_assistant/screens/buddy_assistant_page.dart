@@ -277,9 +277,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
 
     // Restart wake word detection after manual response processed
-    if (!provider.isStreaming) {
-      provider.startWakeWordDetection();
-    }
+    // DISABLED: if (!provider.isStreaming) {
+    //   provider.startWakeWordDetection();
+    // }
 
     _scrollToBottom();
   }
@@ -470,7 +470,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "Buddy was Not connected.\nWe couldn't reach the AI service. Please ensure the backend server is running and try again.",
+                  "Unable to connect to the AI service.\nPlease ensure the backend server is running and try again.",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 15,
@@ -484,7 +484,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton.icon(
-                    onPressed: () => provider.toggleRealtime(true),
+                    onPressed: () => provider.retryConnection(),
                     icon: const Icon(LucideIcons.refreshCw, size: 20),
                     label: Text(
                       "Reconnect Buddy",

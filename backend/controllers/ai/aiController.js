@@ -25,16 +25,26 @@ const getAiConfig = async () => {
     const [provider, modelName] = activeModelStr.split('/');
 
     aiConfig.provider = provider || 'openai';
-    aiConfig.model = modelName || 'gpt-4o-mini';
+    // Strip OpenRouter-style ":free"/":latest" suffixes and fix deprecated model names
+    let resolvedModel = (modelName || 'gpt-4o-mini').split(':')[0];
+    const MODEL_ALIASES = {
+        'gemini-2.0-flash-exp': 'gemini-1.5-flash',
+        'gemini-2.0-flash': 'gemini-1.5-flash',
+        'gemini-flash-1.5-8b': 'gemini-1.5-flash-8b',
+        'gemini-pro-latest': 'gemini-1.5-pro',
+        'gemini-flash': 'gemini-1.5-flash',
+    };
+    if (MODEL_ALIASES[resolvedModel]) resolvedModel = MODEL_ALIASES[resolvedModel];
+    aiConfig.model = resolvedModel;
 
     // Map to the correct key from Database
-    if (aiConfig.provider === 'openai' && aiSettings.openaiApiKey) {
+    if ((aiConfig.provider === 'openai' || aiConfig.provider === 'openai') && aiSettings.openaiApiKey) {
         aiConfig.apiKey = aiSettings.openaiApiKey;
-    } else if (aiConfig.provider === 'gemini' && aiSettings.geminiApiKey) {
+    } else if ((aiConfig.provider === 'gemini' || aiConfig.provider === 'google') && aiSettings.geminiApiKey) {
         aiConfig.apiKey = aiSettings.geminiApiKey;
     } else if (aiConfig.provider === 'groq' && aiSettings.groqApiKey) {
         aiConfig.apiKey = aiSettings.groqApiKey;
-    } else if (aiConfig.provider === 'anthropic' && aiSettings.claudeApiKey) {
+    } else if ((aiConfig.provider === 'anthropic' || aiConfig.provider === 'claude') && aiSettings.claudeApiKey) {
         aiConfig.apiKey = aiSettings.claudeApiKey;
     } else if (aiConfig.provider === 'deepseek' && aiSettings.deepseekApiKey) {
         aiConfig.apiKey = aiSettings.deepseekApiKey;
@@ -51,6 +61,9 @@ const getAiConfig = async () => {
     if (aiConfig.voiceProvider === 'google') {
         aiConfig.voiceApiKey = aiSettings.geminiApiKey || process.env.GEMINI_API_KEY;
     }
+
+    // Always include Groq key as fallback (used by Python when primary provider fails)
+    aiConfig.groqApiKey = aiSettings.groqApiKey || process.env.GROQ_API_KEY || null;
 
     return aiConfig;
 };
@@ -72,6 +85,8 @@ exports.proxyChatToPython = async (req, res) => {
         const isRealtime = requestPath.includes('realtime');
         const aiServiceUrl = config.AI_SERVICE_URL;
 
+        console.log(`[AI Gateway] Incoming Request: ${requestPath} | Stream: ${isStream} | Realtime: ${isRealtime}`);
+
         // Map to the correct Python endpoint
         pythonEndpoint = `${aiServiceUrl}/chat`;
         if (isRealtime && isStream) {
@@ -82,11 +97,14 @@ exports.proxyChatToPython = async (req, res) => {
             pythonEndpoint = `${aiServiceUrl}/chat/realtime`;
         }
 
+        console.log(`[AI Gateway] Target Python Endpoint: ${pythonEndpoint}`);
+
         // 1. Get configurations from Database
         const aiConfig = await getAiConfig();
 
         if (!aiConfig.apiKey) {
             console.warn('[AI Gateway] AI API Key is missing for provider:', aiConfig.provider);
+            console.log('[AI Gateway] Full aiConfig:', JSON.stringify(aiConfig, null, 2));
             return res.status(400).json({ success: false, message: 'AI API Key is not configured in settings.' });
         }
         console.log('[AI Gateway] Forwarding to Python with provider:', aiConfig.provider, 'model:', aiConfig.model);
@@ -126,13 +144,15 @@ exports.proxyChatToPython = async (req, res) => {
         // 3. Forward full payload to Python FastAPI
         const payload = {
             message,
-            session_id: userId.toString(),
+            session_id: finalSessionId,
             tts: tts || false,
             api_key: aiConfig.apiKey,
             provider: aiConfig.provider,
             model: aiConfig.model,
             userId: userId.toString(),
-            memory_context: memoryString
+            memory_context: memoryString,
+            // Pass Groq key as fallback so Python can use it if primary provider fails
+            fallback_groq_key: aiConfig.provider !== 'groq' ? (aiConfig.groqApiKey || null) : null
         };
 
         if (isStream) {

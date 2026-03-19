@@ -28,6 +28,7 @@ class AudioStreamService {
         final stream = await _recorder.startStream(config);
 
         _audioSubscription = stream.listen((data) {
+          debugPrint('🎵 Audio chunk sent: ${data.length} bytes');
           _socketService.sendAudioChunk(data);
         });
 
