@@ -678,72 +678,155 @@ class BuddyProvider with ChangeNotifier {
     _isThinking = true;
     notifyListeners();
 
-    Map<String, dynamic>? imageData;
     if (imagePath != null) {
-      final bytes = await File(imagePath).readAsBytes();
-      final base64String = base64Encode(bytes);
-      final mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
-      imageData = {'data': base64String, 'mimeType': mimeType};
+      // Images currently not supported in stream mode easily via standard json body. 
+      // For now, text is prioritized over voice parsing.
     }
 
-    if (_isRealtimeEnabled && imagePath == null) {
-      await stopAllAudio(); // STOP PREVIOUS VOICE IMMEDIATELY
-      socketService.sendText(text.isEmpty && isWakeWord ? 'Hey Buddy' : text);
-      notifyListeners();
-      return;
-    }
+    await stopAllAudio(); // STOP PREVIOUS VOICE IMMEDIATELY
 
-    final response = await _buddyService.parseVoice(
-      text: text,
-      image: imageData,
-      language: language,
-      conversationId: _currentConversationId,
-    );
+    try {
+      final token = await _storage.read(key: 'jwt');
+      String endpoint = _isRealtimeEnabled ? 'realtime/stream' : 'stream';
+      final url = Uri.parse('${AppConfig.baseUrl}ai/chat/$endpoint');
 
-    if (response['success'] == true) {
-      final reply = response['data']['reply'];
-      final audioBase64 = response['data']['audio'];
+      final request = http.Request('POST', url)
+        ..headers['Content-Type'] = 'application/json'
+        ..headers['x-platform'] = 'mobile';
 
-      addMessage('ai', reply);
-
-      // Clear any busy audio before speaking new reply
-      await stopAllAudio();
-
-      if (audioBase64 != null && audioBase64.isNotEmpty) {
-        final audioBytes = base64Decode(audioBase64);
-        await _audioPlayer.play(BytesSource(audioBytes));
-      } else {
-        // SYNC TONE: Apply server-resolved configuration to local TTS fallback
-        if (response['data']['resolvedVoiceConfig'] != null) {
-          final config = response['data']['resolvedVoiceConfig'];
-          await _flutterTts.setPitch(
-            (config['pitch'] as num?)?.toDouble() ?? 1.0,
-          );
-          await _flutterTts.setSpeechRate(
-            (config['speechRate'] as num?)?.toDouble() ?? 0.5,
-          );
-        }
-        await _flutterTts.speak(reply);
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
       }
 
-      if (response['meta'] != null &&
-          response['meta']['conversationId'] != null) {
-        _currentConversationId = response['meta']['conversationId'];
-      }
+      request.body = jsonEncode({
+        'message': text.isEmpty && isWakeWord ? 'Hey Buddy' : text,
+        'session_id': _currentConversationId,
+        'tts': false, // Enforce local TTS fallback completely to bypass expensive websocket audio
+      });
 
-      // If backend audio is provided and high quality is preferred, we could play it.
-      // Now playing backend audio directly.
-    } else {
-      if (response['statusCode'] == 401) {
+      final client = http.Client();
+      final response = await client.send(request).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 401) {
         _needsLogin = true;
+        _isThinking = false;
+        notifyListeners();
+        return;
       }
-      final errorMsg = "Error: ${response['message']}";
-      addMessage('ai', errorMsg);
-      _flutterTts.speak("I'm sorry, I encountered an error.");
-    }
 
-    _isThinking = false;
-    notifyListeners();
+      _isThinking = false;
+      
+      // Clear previous partial indicator
+      for (var m in _messages) {
+        m['isPartial'] = false;
+        m['shouldType'] = false;
+      }
+
+      // Pre-add the empty Assistant message
+      _messages.add({
+         'id': 'api_${DateTime.now().millisecondsSinceEpoch}',
+         'type': 'ai',
+         'text': '',
+         'isPartial': true,
+         'shouldType': false,
+         'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      notifyListeners();
+
+      // Buffer for incomplete SSE network packets
+      String _streamBuffer = '';
+
+      // Start reading the HTTP Stream chunk by chunk!
+      response.stream.transform(utf8.decoder).listen(
+        (chunkData) {
+          _streamBuffer += chunkData;
+
+          // SSE chunks are separated by double newlines (\n\n)
+          while (_streamBuffer.contains('\n\n')) {
+            int index = _streamBuffer.indexOf('\n\n');
+            String eventChunk = _streamBuffer.substring(0, index).trim();
+            _streamBuffer = _streamBuffer.substring(index + 2);
+
+            if (eventChunk.startsWith('data: ')) {
+              String jsonStr = eventChunk.substring(6);
+              try {
+                final parsed = jsonDecode(jsonStr);
+                
+                // If there's an error from Python, display it securely.
+                if (parsed['error'] != null) {
+                   if (_messages.isNotEmpty && _messages.last['type'] == 'ai') {
+                      _messages.last['text'] += "\n\nError: " + parsed['error'].toString();
+                   }
+                   continue;
+                }
+
+                if (parsed['chunk'] != null && _messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
+                  String actualText = parsed['chunk'];
+                  _messages.last['text'] += actualText;
+                  
+                  // Re-use logic for local TTS Sentence Segmentation exactly as before!
+                  String sanitizedText = actualText
+                      .replaceAll('*', '')
+                      .replaceAll('`', '')
+                      .replaceAll('#', '')
+                      .replaceAll(RegExp(r'json|markdown|\\[|\\]|\\(|\\)', caseSensitive: false), '')
+                      .replaceAll(RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]', unicode: true), '');
+
+                  _ttsBuffer += sanitizedText;
+                  String tempBuffer = _ttsBuffer;
+                  List<String> sentences = [];
+                  final sentenceRegEx = RegExp(r'[^.!?]+[.!?]+');
+                  Iterable<Match> matches = sentenceRegEx.allMatches(tempBuffer);
+
+                  int lastMatchEnd = 0;
+                  for (final match in matches) {
+                    sentences.add(match.group(0)!);
+                    lastMatchEnd = match.end;
+                  }
+
+                  if (sentences.isNotEmpty) {
+                    _ttsBuffer = tempBuffer.substring(lastMatchEnd);
+                    _ttsQueue.addAll(sentences);
+                    _processTtsQueue();
+                  }
+                }
+              } catch (e) {
+                // Ignore incomplete json fragments or malformed lines
+              }
+            }
+          }
+          notifyListeners();
+        },
+        onDone: () {
+          if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
+            _messages.last['isPartial'] = false;
+          }
+          // Flush TTS
+          if (_ttsBuffer.trim().isNotEmpty) {
+            _ttsQueue.add(_ttsBuffer.trim());
+            _ttsBuffer = '';
+            _processTtsQueue();
+          }
+          _isThinking = false;
+          notifyListeners();
+          client.close();
+        },
+        onError: (err) {
+          debugPrint('API Stream Error: $err');
+          _isThinking = false;
+          _flutterTts.speak("I'm sorry, my stream was interrupted.");
+          notifyListeners();
+          client.close();
+        },
+      );
+
+    } catch (e) {
+      debugPrint("HTTP Stream Request Error: $e");
+      addMessage('ai', "Error connecting to AI: $e");
+      _isThinking = false;
+      _flutterTts.speak("I'm sorry, I could not connect to the server.");
+      notifyListeners();
+    }
   }
 
   Future<void> startNewChat() async {

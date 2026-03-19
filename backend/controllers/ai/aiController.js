@@ -8,7 +8,16 @@ const reminderController = require('../reminderController');
 const locationReminderController = require('../locationReminderController');
 const recordController = require('../recordController');
 
+let cachedAiConfig = null;
+let lastCacheTime = 0;
+const CACHE_DURATION_MS = 60 * 1000; // 60 seconds
+
 const getAiConfig = async () => {
+    const now = Date.now();
+    if (cachedAiConfig && (now - lastCacheTime < CACHE_DURATION_MS)) {
+        return cachedAiConfig;
+    }
+
     const settings = await Settings.findOne().select('+ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey');
 
     // Defaults
@@ -49,6 +58,15 @@ const getAiConfig = async () => {
     } else if (aiConfig.provider === 'deepseek' && aiSettings.deepseekApiKey) {
         aiConfig.apiKey = aiSettings.deepseekApiKey;
     }
+    
+    // Attach all available keys for Omni-Fallback
+    aiConfig.allKeys = {
+        groq: aiSettings.groqApiKey || null,
+        gemini: aiSettings.geminiApiKey || null,
+        openai: aiSettings.openaiApiKey || null,
+        claude: aiSettings.claudeApiKey || null,
+        deepseek: aiSettings.deepseekApiKey || null
+    };
 
     // Voice Config Integration
     const activeVoiceStr = aiSettings.activeVoiceModel || 'google/gemini-1.5-flash';
@@ -64,6 +82,9 @@ const getAiConfig = async () => {
 
     // Always include Groq key as fallback (used by Python when primary provider fails)
     aiConfig.groqApiKey = aiSettings.groqApiKey || process.env.GROQ_API_KEY || null;
+
+    cachedAiConfig = aiConfig;
+    lastCacheTime = now;
 
     return aiConfig;
 };
@@ -152,7 +173,8 @@ exports.proxyChatToPython = async (req, res) => {
             userId: userId.toString(),
             memory_context: memoryString,
             // Pass Groq key as fallback so Python can use it if primary provider fails
-            fallback_groq_key: aiConfig.provider !== 'groq' ? (aiConfig.groqApiKey || null) : null
+            fallback_groq_key: aiConfig.provider !== 'groq' ? (aiConfig.groqApiKey || null) : null,
+            api_keys: aiConfig.allKeys // Pass all keys for Omni-Fallback
         };
 
         if (isStream) {

@@ -80,13 +80,14 @@ from typing import List, Optional, Iterator, Any
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 
 import logging
 import time
 
-from config import GROQ_API_KEYS, GROQ_MODEL, BUDDY_SYSTEM_PROMPT, GENERAL_CHAT_ADDENDUM, GEMINI_API_KEY, OPENAI_API_KEY
+from config import GROQ_API_KEYS, GROQ_API_KEY, GROQ_MODEL, BUDDY_SYSTEM_PROMPT, GENERAL_CHAT_ADDENDUM, GEMINI_API_KEY, OPENAI_API_KEY
 from app.services.vector_store import VectorStoreService
 from app.utils.time_info import get_time_information
 from app.utils.retry import with_retry
@@ -264,7 +265,7 @@ class GroqService:
         'gemini-flash': 'gemini-1.5-flash',
     }
 
-    def __init__(self, vector_store_service: VectorStoreService, api_key: str = None, model: str = None, provider: str = None, fallback_groq_key: str = None):
+    def __init__(self, vector_store_service: VectorStoreService, api_key: str = None, model: str = None, provider: str = None, fallback_groq_key: str = None, api_keys_dict: dict = None):
         self.llms = []
 
         # If passed dynamically, initialize that provider specifically
@@ -299,22 +300,24 @@ class GroqService:
                     request_timeout=GROQ_REQUEST_TIMEOUT,
                 ))
             elif provider.lower() == 'anthropic':
-                # Note: requires langchain-anthropic package
-                logger.warning("Anthropic/Claude requested but langchain-anthropic is not installed. Falling back to Groq.")
-                self.llms.append(ChatGroq(
-                    groq_api_key=api_key if 'gsk' in str(api_key) else GROQ_API_KEY,
-                    model_name=GROQ_MODEL,
-                    temperature=0.6,
-                    request_timeout=GROQ_REQUEST_TIMEOUT,
-                ))
+                if api_key and api_key.startswith('sk-ant-'):
+                    self.llms.append(ChatAnthropic(
+                        model=model or "claude-3-5-sonnet-latest",
+                        anthropic_api_key=api_key,
+                        temperature=0.6,
+                        timeout=GROQ_REQUEST_TIMEOUT
+                    ))
+                else:
+                    logger.warning("Anthropic/Claude requested but API key is invalid. Will rely on other configured fallbacks.")
             else:
                  # Default to Groq
-                 self.llms.append(ChatGroq(
-                    groq_api_key=api_key,
-                    model_name=model or GROQ_MODEL,
-                    temperature=0.6,
-                    request_timeout=GROQ_REQUEST_TIMEOUT,
-                ))
+                 if api_key and 'gsk_' in str(api_key):
+                     self.llms.append(ChatGroq(
+                        groq_api_key=api_key,
+                        model_name=model or GROQ_MODEL,
+                        temperature=0.6,
+                        request_timeout=GROQ_REQUEST_TIMEOUT,
+                     ))
 
         # Add fallback Groq key passed from Node.js backend (from DB settings)
         if fallback_groq_key and fallback_groq_key.startswith('gsk_'):
@@ -326,6 +329,30 @@ class GroqService:
                     request_timeout=GROQ_REQUEST_TIMEOUT,
                 ))
                 logger.info("[GroqService] Added fallback Groq LLM from Node.js backend config")
+
+        # ── OMNI-FALLBACK: Inject all database keys ──
+        if api_keys_dict:
+            # 1. Fallback Groq
+            if api_keys_dict.get('groq') and 'gsk_' in str(api_keys_dict['groq']):
+                if not any(getattr(llm, 'groq_api_key', None) == api_keys_dict['groq'] for llm in self.llms):
+                    self.llms.append(ChatGroq(groq_api_key=api_keys_dict['groq'], model_name=GROQ_MODEL, temperature=0.6, request_timeout=GROQ_REQUEST_TIMEOUT))
+            # 2. Fallback Claude
+            if api_keys_dict.get('claude') and 'sk-ant-' in str(api_keys_dict['claude']):
+                if not any(isinstance(llm, ChatAnthropic) and getattr(llm, 'anthropic_api_key', None) == api_keys_dict['claude'] for llm in self.llms):
+                    self.llms.append(ChatAnthropic(model="claude-3-5-sonnet-latest", anthropic_api_key=api_keys_dict['claude'], temperature=0.6, timeout=GROQ_REQUEST_TIMEOUT))
+            # 3. Fallback OpenAI
+            if api_keys_dict.get('openai') and 'sk-' in str(api_keys_dict['openai']) and 'ant-' not in str(api_keys_dict['openai']):
+                if not any(isinstance(llm, ChatOpenAI) and getattr(llm, 'openai_api_key', None) == api_keys_dict['openai'] and not hasattr(llm, 'base_url') for llm in self.llms):
+                    self.llms.append(ChatOpenAI(model="gpt-4o-mini", openai_api_key=api_keys_dict['openai'], temperature=0.6, request_timeout=GROQ_REQUEST_TIMEOUT))
+            # 4. Fallback Gemini
+            if api_keys_dict.get('gemini') and 'AIza' in str(api_keys_dict['gemini']):
+                if not any(isinstance(llm, ChatGoogleGenerativeAI) and getattr(llm, 'google_api_key', None) == api_keys_dict['gemini'] for llm in self.llms):
+                    self.llms.append(ChatGoogleGenerativeAI(model="gemini-1.5-pro", google_api_key=api_keys_dict['gemini'], temperature=0.6, timeout=GROQ_REQUEST_TIMEOUT))
+            # 5. Fallback DeepSeek
+            if api_keys_dict.get('deepseek') and 'sk-' in str(api_keys_dict['deepseek']):
+                if not any(isinstance(llm, ChatOpenAI) and getattr(llm, 'openai_api_key', None) == api_keys_dict['deepseek'] and hasattr(llm, 'base_url') for llm in self.llms):
+                    self.llms.append(ChatOpenAI(model="deepseek-chat", openai_api_key=api_keys_dict['deepseek'], base_url="https://api.deepseek.com/v1", temperature=0.6, request_timeout=GROQ_REQUEST_TIMEOUT))
+            logger.info("[GroqService] Processed Database Omni-Fallback keys")
 
         # Always add system fallbacks (from .env) as secondary options to ensure reliability
         if GROQ_API_KEYS:
@@ -344,7 +371,7 @@ class GroqService:
             # Avoid duplicate Gemini entries
             if not any(isinstance(llm, ChatGoogleGenerativeAI) and getattr(llm, 'google_api_key', None) == GEMINI_API_KEY for llm in self.llms):
                 self.llms.append(ChatGoogleGenerativeAI(
-                    model="gemini-1.5-flash-latest",
+                    model="gemini-1.5-pro",
                     google_api_key=GEMINI_API_KEY,
                     temperature=0.6,
                     timeout=GROQ_REQUEST_TIMEOUT,
@@ -681,11 +708,11 @@ class GroqService:
                     continue
                 break
 
-        logger.error(f"All {n} provider(s) failed during stream.")
+        logger.error("All AI providers (Primary + Fallbacks) failed to generate a response.")
         if last_exc:
-            raise AllGroqApisFailedError(ALL_APIS_FAILED_MESSAGE) from last_exc
+             raise AllGroqApisFailedError(f"{ALL_APIS_FAILED_MESSAGE} (Last Error: {str(last_exc)})") from last_exc
         else:
-            raise AllGroqApisFailedError(ALL_APIS_FAILED_MESSAGE)
+             raise AllGroqApisFailedError(f"DEBUG - LLMs is ZERO. Dict state was empty.")
 
 
     # ─── PROMPT ASSEMBLY ─────────────────────────────────────────────────────

@@ -660,7 +660,7 @@ async def chat(request: ChatRequest):
 
         # Send the message through the non-streaming pipeline:
         #   chat_service → groq_service → vector_store (RAG) → Groq LLM → response text
-        response_text = chat_service.process_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
+        response_text = chat_service.process_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
 
         # Persist the updated session (including the new user + assistant messages)
         # to a JSON file on disk so it survives server restarts.
@@ -1080,7 +1080,7 @@ async def chat_stream(request: ChatRequest):
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
         # process_message_stream returns a generator that yields text chunks.
-        chunk_iter = chat_service.process_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
+        chunk_iter = chat_service.process_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
         # Detect language of user message to set the context
         user_lang = language_service.detect_language(request.message)
 
@@ -1158,7 +1158,7 @@ async def chat_realtime(request: ChatRequest):
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
         # process_realtime_message: Tavily search -> RAG context -> Groq LLM -> text
-        response_text = chat_service.process_realtime_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
+        response_text = chat_service.process_realtime_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
         chat_service.save_chat_session(session_id)
 
         # GENERATE RYAN AUDIO IF REQUESTED
@@ -1221,7 +1221,7 @@ async def chat_realtime_stream(request: ChatRequest):
                 request.session_id or "new", len(request.message), request.message)
     try:
         session_id = chat_service.get_or_create_session(request.session_id)
-        chunk_iter = chat_service.process_realtime_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None))
+        chunk_iter = chat_service.process_realtime_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
         # Detect language of user message to set the context
         user_lang = language_service.detect_language(request.message)
 

@@ -145,7 +145,7 @@ class RealtimeGroqService(GroqService):
       This makes query extraction fast (~200-500ms) and cheap (~10 tokens).
     """
 
-    def __init__(self, vector_store_service: VectorStoreService, api_key: str = None, model: str = None, provider: str = None):
+    def __init__(self, vector_store_service: VectorStoreService, api_key: str = None, model: str = None, provider: str = None, fallback_groq_key: str = None, api_keys_dict: dict = None):
         """
         Initialize the realtime service: parent LLM clients + Tavily + fast LLM.
 
@@ -164,7 +164,7 @@ class RealtimeGroqService(GroqService):
         """
         # Call GroqService.__init__ to create self.llms and self.vector_store_service.
         # super().__init__() is how Python calls the parent class's constructor.
-        super().__init__(vector_store_service, api_key=api_key, model=model, provider=provider)
+        super().__init__(vector_store_service, api_key=api_key, model=model, provider=provider, fallback_groq_key=fallback_groq_key, api_keys_dict=api_keys_dict)
 
         # ── Set up Tavily web search client ──
         # os.getenv reads from environment variables (loaded from .env by the config module).

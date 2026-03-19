@@ -10,15 +10,26 @@ const config = require('../config/env');
 // Configuration
 let genAI = null;
 
+let _cachedGeminiKey = null;
+let _lastGeminiCacheTime = 0;
+const CACHE_TTL_MS = 60 * 1000;
+
 async function getGenAI() {
     if (genAI) return genAI;
 
     let apiKey = null;
+    const now = Date.now();
 
-    // 1. Try DB Settings First (Highest Priority for Dynamic Updates)
+    // 1. Try DB Settings First with 60s Cache
     try {
-        const settings = await Settings.findOne().select('+ai.geminiApiKey');
-        apiKey = settings?.ai?.geminiApiKey;
+        if (_cachedGeminiKey && (now - _lastGeminiCacheTime < CACHE_TTL_MS)) {
+            apiKey = _cachedGeminiKey;
+        } else {
+            const settings = await Settings.findOne().select('+ai.geminiApiKey');
+            apiKey = settings?.ai?.geminiApiKey;
+            _cachedGeminiKey = apiKey;
+            _lastGeminiCacheTime = now;
+        }
     } catch (err) {
         console.error('[GeminiService] Database error while fetching key:', err.message);
     }
