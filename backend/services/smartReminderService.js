@@ -270,8 +270,11 @@ async function checkEarlyWarnings(io) {
             // Check if user needs to leave soon
             const timeToLeave = timeUntilReminder - requiredTime;
 
+            // Check if already notified for early warning
+            const alreadyNotifiedEW = reminder.timeline?.some(t => t.action === 'Early Warning Alert');
+
             // Send early warning if user needs to leave within 30 minutes
-            if (timeToLeave > 0 && timeToLeave <= 1800) {
+            if (!alreadyNotifiedEW && timeToLeave > 0 && timeToLeave <= 1800) {
                 const minutesToLeave = Math.ceil(timeToLeave / 60);
                 const travelMinutes = Math.ceil(travelInfo.durationInTraffic / 60);
 
@@ -310,6 +313,17 @@ async function checkEarlyWarnings(io) {
                         });
                     }
                 }
+
+                // Add to timeline to prevent duplicate
+                await Reminder.findByIdAndUpdate(reminder._id, {
+                    $push: {
+                        timeline: {
+                            action: 'Early Warning Alert',
+                            timestamp: new Date(),
+                            icon: 'bell'
+                        }
+                    }
+                });
 
                 console.log(`Early warning sent for reminder: ${reminder.title}`);
             }
@@ -402,8 +416,11 @@ async function adjustReminderTimesForTraffic(io) {
             const trafficDelay = travelInfo.durationInTraffic - travelInfo.duration;
             const delayMinutes = Math.ceil(trafficDelay / 60);
 
+            // Check if already notified for traffic alert
+            const alreadyNotifiedTraffic = reminder.timeline?.some(t => t.action === 'Traffic Alert');
+
             // If traffic delay is more than 10 minutes, send alert
-            if (delayMinutes >= 10) {
+            if (!alreadyNotifiedTraffic && delayMinutes >= 10) {
                 const message = `🚦 Traffic Alert: Heavy traffic detected for "${reminder.title}". Current delay: +${delayMinutes} min. Consider leaving earlier!`;
 
                 await Notification.create({
@@ -437,6 +454,17 @@ async function adjustReminderTimesForTraffic(io) {
                         });
                     }
                 }
+
+                // Add to timeline to prevent duplicate
+                await Reminder.findByIdAndUpdate(reminder._id, {
+                    $push: {
+                        timeline: {
+                            action: 'Traffic Alert',
+                            timestamp: new Date(),
+                            icon: 'alert-triangle'
+                        }
+                    }
+                });
 
                 console.log(`Traffic alert sent for reminder: ${reminder.title}`);
             }

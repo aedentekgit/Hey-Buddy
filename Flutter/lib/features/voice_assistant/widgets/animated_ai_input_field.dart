@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -394,7 +395,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
   }
 
   Widget _buildWaveform() {
-    return Container(
+    return SizedBox(
       height: 32,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

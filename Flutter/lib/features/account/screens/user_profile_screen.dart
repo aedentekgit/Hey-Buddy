@@ -457,8 +457,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          placeholder: (_, __) => _fallbackAvatar(name, size),
-          errorWidget: (_, __, ___) => _fallbackAvatar(name, size),
+          placeholder: (_, _) => _fallbackAvatar(name, size),
+          errorWidget: (_, _, _) => _fallbackAvatar(name, size),
         ),
       );
     }

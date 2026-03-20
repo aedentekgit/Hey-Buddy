@@ -7,7 +7,7 @@ const { uploadFile } = require('../services/fileService');
 
 const getSettings = async (req, res) => {
     try {
-        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +googleCalendar.clientSecret +googleMaps.apiKey');
+        const settings = await Settings.findOne().select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +ai.elevenLabsApiKey +googleCalendar.clientSecret +googleMaps.apiKey');
         res.json({ success: true, data: settings || {} });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -22,7 +22,7 @@ const getPublicSettings = async (req, res) => {
             return res.json({ success: true, data: publicSettingsCache });
         }
 
-        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled googleMaps.apiKey googleMaps.enabled');
+        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled googleMaps.apiKey googleMaps.enabled ai.availableVoices');
         publicSettingsCache = settings;
         res.json({ success: true, data: settings });
     } catch (error) {
@@ -222,7 +222,7 @@ const updateSettings = async (req, res) => {
                 upsert: false,
                 runValidators: false,
             }
-        ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +googleCalendar.clientSecret');
+        ).select('+smtp.password +googleAuth.webClientSecret +ai.geminiApiKey +ai.openaiApiKey +ai.claudeApiKey +ai.deepseekApiKey +ai.groqApiKey +ai.elevenLabsApiKey +googleCalendar.clientSecret');
 
         invalidatePublicCache(); // Invalidate on update
 

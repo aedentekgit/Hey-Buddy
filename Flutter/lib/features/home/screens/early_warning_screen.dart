@@ -1,3 +1,4 @@
+// ignore_for_file: curly_braces_in_flow_control_structures, unused_local_variable
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -324,10 +325,11 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           _onSave(silent: true);
                           final msg =
                               "Early Warning System turned ${v ? 'ON' : 'OFF'}";
-                          if (v)
+                          if (v) {
                             ToastUtils.showSuccessToast(msg);
-                          else
+                          } else {
                             ToastUtils.showErrorToast(msg);
+                          }
                         },
                       ),
                       _FeatureRow(
@@ -343,10 +345,11 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           _onSave(silent: true);
                           final msg =
                               "Traffic-Aware ETA turned ${v ? 'ON' : 'OFF'}";
-                          if (v)
+                          if (v) {
                             ToastUtils.showSuccessToast(msg);
-                          else
+                          } else {
                             ToastUtils.showErrorToast(msg);
+                          }
                         },
                       ),
                       _FeatureRow(
@@ -362,10 +365,11 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           _onSave(silent: true);
                           final msg =
                               "Item Exit Guards turned ${v ? 'ON' : 'OFF'}";
-                          if (v)
+                          if (v) {
                             ToastUtils.showSuccessToast(msg);
-                          else
+                          } else {
                             ToastUtils.showErrorToast(msg);
+                          }
                         },
                         isLast: true,
                       ),
@@ -389,10 +393,11 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           _onSave(silent: true);
                           final msg =
                               "Push Notifications turned ${v ? 'ON' : 'OFF'}";
-                          if (v)
+                          if (v) {
                             ToastUtils.showSuccessToast(msg);
-                          else
+                          } else {
                             ToastUtils.showErrorToast(msg);
+                          }
                         },
                       ),
                       _AlertRow(
@@ -405,10 +410,11 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           setState(() => _notifyEmail = v);
                           _onSave(silent: true);
                           final msg = "Email Alerts turned ${v ? 'ON' : 'OFF'}";
-                          if (v)
+                          if (v) {
                             ToastUtils.showSuccessToast(msg);
-                          else
+                          } else {
                             ToastUtils.showErrorToast(msg);
+                          }
                         },
                       ),
                       _AlertRow(
@@ -422,10 +428,11 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           _onSave(silent: true);
                           final msg =
                               "Family Notifications turned ${v ? 'ON' : 'OFF'}";
-                          if (v)
+                          if (v) {
                             ToastUtils.showSuccessToast(msg);
-                          else
+                          } else {
                             ToastUtils.showErrorToast(msg);
+                          }
                         },
                       ),
                       _AlertRow(
@@ -439,10 +446,11 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           _onSave(silent: true);
                           final msg =
                               "Emergency Alerts turned ${v ? 'ON' : 'OFF'}";
-                          if (v)
+                          if (v) {
                             ToastUtils.showSuccessToast(msg);
-                          else
+                          } else {
                             ToastUtils.showErrorToast(msg);
+                          }
                         },
                         isLast: true,
                       ),
@@ -712,9 +720,9 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
   Future<void> _handlePriority() async {
     final current = _priority;
     String next = 'low';
-    if (current == 'low')
+    if (current == 'low') {
       next = 'medium';
-    else if (current == 'medium')
+    } else if (current == 'medium')
       next = 'high';
     else
       next = 'low';

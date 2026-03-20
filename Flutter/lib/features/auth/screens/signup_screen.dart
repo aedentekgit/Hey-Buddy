@@ -255,8 +255,9 @@ class _SignupScreenState extends State<SignupScreen> {
                             elevation: WidgetStateProperty.resolveWith<double>((
                               states,
                             ) {
-                              if (states.contains(WidgetState.pressed))
+                              if (states.contains(WidgetState.pressed)) {
                                 return 0;
+                              }
                               return 12;
                             }),
                           ),

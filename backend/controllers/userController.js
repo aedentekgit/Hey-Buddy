@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Guest = require('../models/Guest');
+const Reminder = require('../models/Reminder');
 const paginate = require('../utils/paginate');
 const fs = require('fs');
 const path = require('path');
@@ -121,6 +122,9 @@ const deleteUser = async (req, res) => {
         if (user.profilePicture) {
             await deleteFile(user.profilePicture);
         }
+
+        // Cascade delete: Remove all reminders owned by this user
+        await Reminder.deleteMany({ userId: id });
 
         await User.findByIdAndDelete(id);
 
@@ -253,6 +257,9 @@ const deleteMyAccount = async (req, res) => {
         if (user.profilePicture) {
             await deleteFile(user.profilePicture);
         }
+
+        // Cascade delete: Remove all reminders owned by this user
+        await Reminder.deleteMany({ userId: userId });
 
         await User.findByIdAndDelete(userId);
 

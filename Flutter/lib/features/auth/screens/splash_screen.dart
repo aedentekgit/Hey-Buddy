@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';

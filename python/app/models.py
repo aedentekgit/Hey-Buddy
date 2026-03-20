@@ -109,6 +109,7 @@ class ChatRequest(BaseModel):
     tone: Optional[str] = 'soft'
     fallback_groq_key: Optional[str] = None
     api_keys: Optional[dict] = None
+    voice_id: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -158,6 +159,7 @@ class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000)
     gender: Optional[str] = 'male'
     tone: Optional[str] = 'soft'
+    voice_id: Optional[str] = None
 
 
 class ActionRequest(BaseModel):

@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/features/voice_assistant/screens/buddy_assistant_page.dart';
 import 'package:buddy_mobile/features/explore/screens/explore_screen.dart';

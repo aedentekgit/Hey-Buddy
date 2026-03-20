@@ -52,8 +52,9 @@ class AppConfig {
   static String googleMapsApiKey = "AIzaSyAdNgoVCokinFU6OD0pRxOg47RCmJ3kaA0";
 
   static String? formatImageUrl(String? path) {
-    if (path == null || path.isEmpty || path == "null" || path == "undefined")
+    if (path == null || path.isEmpty || path == "null" || path == "undefined") {
       return null;
+    }
 
     String finalPath = path;
 

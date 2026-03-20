@@ -22,7 +22,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // If the message has a notification payload, Android/iOS OS already shows the banner.
   // We only need to show a local notification for DATA-ONLY messages (no notification payload).
   final bool isDataOnly = message.notification == null;
-  final String? title = message.data['title'] as String? ?? 'Buddy';
+  final String title = message.data['title'] as String? ?? 'Buddy';
   final String? text = isDataOnly
       ? (message.data['body'] as String?)
       : message.notification?.body;

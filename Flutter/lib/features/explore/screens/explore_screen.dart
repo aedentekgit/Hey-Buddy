@@ -1,5 +1,5 @@
+// ignore_for_file: deprecated_member_use, unused_local_variable, use_build_context_synchronously
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';

@@ -1,3 +1,4 @@
+// ignore_for_file: non_constant_identifier_names
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -332,12 +333,12 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                 height: 160,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
+                placeholder: (_, _) => Container(
                   height: 160,
                   color: AppColors.bg,
                   child: const Center(child: CircularProgressIndicator()),
                 ),
-                errorWidget: (_, __, ___) => Container(
+                errorWidget: (_, _, _) => Container(
                   height: 80,
                   color: AppColors.bg,
                   child: Center(

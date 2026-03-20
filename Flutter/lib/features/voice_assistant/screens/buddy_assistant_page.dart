@@ -1,5 +1,5 @@
+// ignore_for_file: deprecated_member_use, unused_element, unused_local_variable, use_build_context_synchronously
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'dart:math' as math;
 import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,7 +12,6 @@ import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
@@ -286,22 +285,26 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
   /// Returns a human-friendly reason string for the auth prompt.
   String _detectActionReason(String lower) {
-    if (lower.contains('remind') || lower.contains('reminder'))
+    if (lower.contains('remind') || lower.contains('reminder')) {
       return 'set a Reminder';
+    }
     if (lower.contains('memory') ||
         lower.contains('memo') ||
-        lower.contains('remember'))
+        lower.contains('remember')) {
       return 'save a Memory';
+    }
     if (lower.contains('note')) return 'save a Note';
     if (lower.contains('alarm')) return 'set an Alarm';
     if (lower.contains('schedule') ||
         lower.contains('appointment') ||
-        lower.contains('meeting'))
+        lower.contains('meeting')) {
       return 'schedule an Event';
+    }
     if (lower.contains('task') ||
         lower.contains('todo') ||
-        lower.contains('to-do'))
+        lower.contains('to-do')) {
       return 'create a Task';
+    }
     return 'save this';
   }
 
@@ -344,16 +347,18 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       setState(() => _isListening = true);
       await _speechToText.listen(
         onResult: (result) {
-          if (kDebugMode)
+          if (kDebugMode) {
             debugPrint(
               'STT Result: "${result.recognizedWords}" (Final: ${result.finalResult})',
             );
+          }
           setState(() {
             _inputController.text = result.recognizedWords;
           });
           if (result.finalResult) {
-            if (kDebugMode)
+            if (kDebugMode) {
               debugPrint('STT Final Result arrived. Sending message...');
+            }
             setState(() => _isListening = false);
             _handleSend();
           }
@@ -432,6 +437,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   Widget _buildOfflineState(BuddyProvider provider, BrandingProvider branding) {
     return Positioned.fill(
       child: GlassContainer(
+        borderRadius: 0,
         blur: 15,
         opacity: 0.8,
         color: const Color(0xFF0F172A), // Dark slate like React version
@@ -447,7 +453,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   height: 80,
                   decoration: BoxDecoration(
                     color: Colors.redAccent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(0),
                     border: Border.all(
                       color: Colors.redAccent.withValues(alpha: 0.2),
                       width: 1.5,
@@ -497,7 +503,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                       backgroundColor: branding.primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(0),
                       ),
                       elevation: 0,
                     ),
@@ -531,7 +537,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         color: Colors.white.withValues(alpha: 0.2),
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(0),
                       ),
                     ),
                   ),
@@ -561,7 +567,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(0),
               boxShadow: [
                 BoxShadow(
                   color: branding.primaryColor.withValues(alpha: 0.3),
@@ -572,7 +578,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             ),
             child: Row(
               children: [
-                Container(
+                SizedBox(
                   width: 64,
                   height: 64,
                   child: ClipOval(
@@ -703,16 +709,20 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ] else
             ...provider.localNews.map((news) {
               IconData icon = LucideIcons.info;
-              if (news.toLowerCase().contains('weather'))
+              if (news.toLowerCase().contains('weather')) {
                 icon = LucideIcons.cloudSun;
+              }
               if (news.toLowerCase().contains('event') ||
-                  news.toLowerCase().contains('fest'))
+                  news.toLowerCase().contains('fest')) {
                 icon = LucideIcons.partyPopper;
+              }
               if (news.toLowerCase().contains('traffic') ||
-                  news.toLowerCase().contains('infra'))
+                  news.toLowerCase().contains('infra')) {
                 icon = LucideIcons.car;
-              if (news.toLowerCase().contains('alert'))
+              }
+              if (news.toLowerCase().contains('alert')) {
                 icon = LucideIcons.alertTriangle;
+              }
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14),
@@ -965,6 +975,20 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                             height: 1.5,
+                          ),
+                        )
+                      else if (msg['text'].isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildDot(0, branding),
+                              const SizedBox(width: 5),
+                              _buildDot(1, branding),
+                              const SizedBox(width: 5),
+                              _buildDot(2, branding),
+                            ],
                           ),
                         )
                       else

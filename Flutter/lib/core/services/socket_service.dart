@@ -1,3 +1,4 @@
+// ignore_for_file: library_prefixes
 import "package:flutter/foundation.dart";
 
 import 'dart:async';

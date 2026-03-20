@@ -1,3 +1,4 @@
+// ignore_for_file: curly_braces_in_flow_control_structures, deprecated_member_use, unused_element, unused_field, use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -74,7 +75,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   
   // Collaboration
   late bool notifyCreator;
-  bool _isSearchingFamily = false;
+  final bool _isSearchingFamily = false;
   List<dynamic> _familySearchResults = [];
   final TextEditingController _familySearchController = TextEditingController();
 
@@ -409,7 +410,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
       ),
     );
 
-    if (confirm != true || userId == null) return;
+    if (confirm != true) return;
 
     final success = await _taskService.unshareReminder(
       widget.reminder['_id'],
@@ -481,10 +482,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         ToastUtils.showSuccessToast("Location captured ✓");
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ToastUtils.showErrorToast(
           "Could not get location: ${e.toString().split(':').first}",
         );
+      }
     } finally {
       if (mounted) setState(() => _isGettingLocation = false);
     }
@@ -1008,9 +1010,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   Future<void> _handlePriority() async {
     final current = priority;
     String next = 'low';
-    if (current == 'low')
+    if (current == 'low') {
       next = 'medium';
-    else if (current == 'medium')
+    } else if (current == 'medium')
       next = 'high';
     else
       next = 'low';
@@ -2719,8 +2721,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
   }
 
   String _getAdjustedTime() {
-    if (timeController.text.isEmpty || !timeController.text.contains(':'))
+    if (timeController.text.isEmpty || !timeController.text.contains(':')) {
       return "--:--";
+    }
     try {
       final parts = timeController.text.split(':');
       final now = DateTime.now();
@@ -2732,8 +2735,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
         parts[1].split(' ')[0].trim(),
       ); // handle potential " PM"
 
-      if (timeController.text.toLowerCase().contains('pm') && hour < 12)
+      if (timeController.text.toLowerCase().contains('pm') && hour < 12) {
         hour += 12;
+      }
 
       final target = DateTime(now.year, now.month, now.day, hour, minute);
       final adjusted = target.subtract(Duration(minutes: bufferTime.toInt()));
@@ -2754,8 +2758,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     if (a.contains('completed')) return LucideIcons.checkCircle2;
     if (a.contains('snoozed')) return LucideIcons.alarmClock;
     if (a.contains('alert') || a.contains('guard')) return LucideIcons.shieldAlert;
-    if (a.contains('updated') || a.contains('reschedule'))
+    if (a.contains('updated') || a.contains('reschedule')) {
       return LucideIcons.refreshCw;
+    }
     if (a.contains('risk')) return LucideIcons.alertTriangle;
     return LucideIcons.circle;
   }
@@ -2765,8 +2770,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
     if (a.contains('created')) return AppColors.accent;
     if (a.contains('completed')) return AppColors.green;
     if (a.contains('snoozed')) return AppColors.orange;
-    if (a.contains('alert') || a.contains('risk') || a.contains('guard'))
+    if (a.contains('alert') || a.contains('risk') || a.contains('guard')) {
       return AppColors.danger;
+    }
     return AppColors.textMid;
   }
 

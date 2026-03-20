@@ -1,3 +1,4 @@
+// ignore_for_file: curly_braces_in_flow_control_structures, unused_local_variable
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -48,9 +49,9 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
     final statusSet = <String>{};
     for (final r in reminders) {
       final s = (r['status'] ?? '').toString().toLowerCase();
-      if (s == 'completed')
+      if (s == 'completed') {
         statusSet.add('Completed');
-      else if (s == 'risk_alert')
+      } else if (s == 'risk_alert')
         statusSet.add('Risk Alert');
       else
         statusSet.add('Active');
@@ -240,7 +241,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     itemCount: 7, // 1 Date Chip + 6 Filters
-                    separatorBuilder: (_, __) => const SizedBox(width: 7),
+                    separatorBuilder: (_, _) => const SizedBox(width: 7),
                     itemBuilder: (_, i) {
                       // 0: Date Picker
                       if (i == 0) {
@@ -364,7 +365,7 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                   final tomorrowThreshold = todayThreshold.add(const Duration(days: 1));
                   final dayAfterTomorrowThreshold = tomorrowThreshold.add(const Duration(days: 1));
 
-                  DateTime? _parseDate(Map<String, dynamic> r) {
+                  DateTime? parseDate(Map<String, dynamic> r) {
                     final raw = r['date'] as String?;
                     if (raw == null) return null;
                     try {
@@ -376,17 +377,17 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                   }
 
                   final todayList = filtered.where((r) {
-                    final d = _parseDate(r);
+                    final d = parseDate(r);
                     return d != null && d.isAtSameMomentAs(todayThreshold);
                   }).toList();
 
                   final upcomingList = filtered.where((r) {
-                    final d = _parseDate(r);
+                    final d = parseDate(r);
                     return d != null && d.isAfter(todayThreshold);
                   }).toList();
 
                   final pastList = filtered.where((r) {
-                    final d = _parseDate(r);
+                    final d = parseDate(r);
                     return d != null && d.isBefore(todayThreshold);
                   }).toList();
 

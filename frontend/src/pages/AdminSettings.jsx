@@ -5,7 +5,7 @@ import CustomSelect from '../components/CustomSelect'; // Import CustomSelectDro
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import {
-    Settings, Mail, MessageSquare, CreditCard, Share2, Palette, Save, Plus, Trash2, Send, Upload, ChevronRight, Globe,
+    Settings, Mail, MessageSquare, CreditCard, Share2, Palette, Save, Plus, Trash2, Send, Upload, ChevronRight, Globe, Play, Square,
     Facebook, Instagram, Twitter, Linkedin, Youtube, ExternalLink, RefreshCw, CheckCircle2, ShieldCheck, Zap, Eye, EyeOff, Lock, ChevronDown, Bell, Database, Calendar, Link2,
     Sun, Moon, Volume2, Copy, FileJson, Clock, Smartphone, Image, MapPin, HardDrive, Cloud, Inbox, Cpu, Fingerprint, Layout, Key, AlertTriangle
 } from 'lucide-react';
@@ -76,7 +76,7 @@ const AdminSettings = () => {
             { name: 'Razorpay', apiKey: '', apiSecret: '', callbackUrl: '', enabled: false }
         ],
         socialMedia: { facebook: '', instagram: '', whatsapp: '', twitter: '', linkedin: '', youtube: '' },
-        ai: { activeModel: 'anthropic/claude-3.5-sonnet', consensusMode: false, listeningDuration: 5, models: { gpt4o: 'openai/gpt-4o-mini', claude: 'anthropic/claude-3.5-sonnet', deepseek: 'deepseek/deepseek-chat', groq: 'groq/llama-3.3-70b-versatile' }, geminiApiKey: '', groqApiKey: '' },
+        ai: { activeModel: 'anthropic/claude-3.5-sonnet', consensusMode: false, listeningDuration: 5, models: { gpt4o: 'openai/gpt-4o-mini', claude: 'anthropic/claude-3.5-sonnet', deepseek: 'deepseek/deepseek-chat', groq: 'groq/llama-3.3-70b-versatile' }, geminiApiKey: '', groqApiKey: '', elevenLabsApiKey: '', elevenLabsVoiceId: '21m00Tcm4TlvDq8ikWAM', availableVoices: [] },
         googleCalendar: {
             clientId: '',
             clientSecret: '',
@@ -101,6 +101,55 @@ const AdminSettings = () => {
 
     const [voicePrefs, setVoicePrefs] = useState({ gender: 'female', tone: 'soft' });
     const [showGeminiKey, setShowGeminiKey] = useState(false);
+    
+    // Voice Preview System
+    const [playingVoiceId, setPlayingVoiceId] = useState(null);
+    const audioRef = useRef(null);
+
+    const handlePlayPreview = async (voiceId, gender) => {
+        if (playingVoiceId === voiceId) {
+            // Stop if already playing
+            if (audioRef.current) {
+                audioRef.current.pause();
+            }
+            setPlayingVoiceId(null);
+            return;
+        }
+
+        try {
+            setPlayingVoiceId(voiceId);
+            
+            // Request Edge TTS Proxy
+            const response = await api.post('/ai/tts', {
+                text: "Hello, I am your buddy AI assistant.",
+                voice_id: voiceId,
+                gender: gender || 'male'
+            }, {
+                responseType: 'blob'
+            });
+
+            const audioUrl = URL.createObjectURL(response.data);
+            
+            if (audioRef.current) {
+                audioRef.current.pause();
+                URL.revokeObjectURL(audioRef.current.src);
+            }
+            
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            
+            audio.onended = () => {
+                setPlayingVoiceId(null);
+                URL.revokeObjectURL(audioUrl);
+            };
+            
+            await audio.play();
+        } catch (err) {
+            console.error("Audio preview failed:", err);
+            setPlayingVoiceId(null);
+            toast.error("Failed to load audio preview");
+        }
+    };
 
     useEffect(() => {
         if (user?.voicePreferences) {
@@ -151,7 +200,10 @@ const AdminSettings = () => {
                             openaiApiKey: data.ai?.openaiApiKey || '',
                             claudeApiKey: data.ai?.claudeApiKey || '',
                             deepseekApiKey: data.ai?.deepseekApiKey || '',
-                            groqApiKey: data.ai?.groqApiKey || ''
+                            groqApiKey: data.ai?.groqApiKey || '',
+                            elevenLabsApiKey: data.ai?.elevenLabsApiKey || '',
+                            elevenLabsVoiceId: data.ai?.elevenLabsVoiceId || '21m00Tcm4TlvDq8ikWAM',
+                            availableVoices: data.ai?.availableVoices || []
                         },
                         googleCalendar: { ...settings.googleCalendar, ...(data.googleCalendar || {}) },
                         googleAuth: { ...settings.googleAuth, ...(data.googleAuth || {}) },
@@ -232,7 +284,9 @@ const AdminSettings = () => {
                             openaiApiKey: prev.ai?.openaiApiKey || data.ai?.openaiApiKey || '',
                             claudeApiKey: prev.ai?.claudeApiKey || data.ai?.claudeApiKey || '',
                             deepseekApiKey: prev.ai?.deepseekApiKey || data.ai?.deepseekApiKey || '',
-                            groqApiKey: prev.ai?.groqApiKey || data.ai?.groqApiKey || ''
+                            groqApiKey: prev.ai?.groqApiKey || data.ai?.groqApiKey || '',
+                            elevenLabsApiKey: prev.ai?.elevenLabsApiKey || data.ai?.elevenLabsApiKey || '',
+                            elevenLabsVoiceId: prev.ai?.elevenLabsVoiceId || data.ai?.elevenLabsVoiceId || '21m00Tcm4TlvDq8ikWAM'
                         },
                         googleAuth: { ...prev.googleAuth, ...(data.googleAuth || {}), webClientSecret: prev.googleAuth?.webClientSecret || data.googleAuth?.webClientSecret || '' }, // Keep secret
                         googleCalendar: { ...prev.googleCalendar, ...(data.googleCalendar || {}), clientSecret: prev.googleCalendar?.clientSecret || data.googleCalendar?.clientSecret || '' } // Keep secret
@@ -1206,11 +1260,297 @@ const AdminSettings = () => {
                                                 />
                                             </div>
 
+                                            {/* ElevenLabs Key & Voice ID */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', gridColumn: '1 / -1' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                    <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>ElevenLabs Voice Synthesis</h4>
+                                                    {settings.ai.elevenLabsApiKey && <div style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: '10px', background: '#10b981', color: 'white', fontWeight: '800' }}>ACTIVE</div>}
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                                                    <InputGroup
+                                                        label="ElevenLabs API Key"
+                                                        type="password"
+                                                        value={settings.ai.elevenLabsApiKey || ''}
+                                                        onChange={v => setSettings({ ...settings, ai: { ...settings.ai, elevenLabsApiKey: v } })}
+                                                    />
+                                                    <InputGroup
+                                                        label="Default Voice ID"
+                                                        type="text"
+                                                        value={settings.ai.elevenLabsVoiceId || ''}
+                                                        onChange={v => setSettings({ ...settings, ai: { ...settings.ai, elevenLabsVoiceId: v } })}
+                                                        placeholder="e.g. 21m00Tcm4TlvDq8ikWAM"
+                                                    />
+                                                </div>
+                                            </div>
 
+                                            {/* Edge TTS Voices Management */}
+                                            <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', gridColumn: '1 / -1' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                    <div>
+                                                        <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Available Voices (Edge TTS)</h4>
+                                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-sub)', marginTop: '4px' }}>Manage the voices users can choose from in the app.</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newVoice = { name: 'New Voice', voiceId: '', gender: 'male', isDefault: false };
+                                                            setSettings({ ...settings, ai: { ...settings.ai, availableVoices: [...(settings.ai.availableVoices || []), newVoice] } });
+                                                        }}
+                                                        style={{ padding: '8px 16px', borderRadius: '12px', background: 'var(--primary-color)', color: 'white', border: 'none', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                    >
+                                                        <Plus size={16} /> Add Voice
+                                                    </button>
+                                                </div>
 
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    {(!settings.ai.availableVoices || settings.ai.availableVoices.length === 0) && (
+                                                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-sub)', fontSize: '0.9rem', background: 'var(--card-bg)', borderRadius: '16px', border: '1px dashed var(--border-color)' }}>No voices configured. Defaults will be used.</div>
+                                                    )}
+                                                    
+                                                    {settings.ai.availableVoices && settings.ai.availableVoices.length > 0 && (
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.5fr) minmax(180px, 1.5fr) minmax(120px, 1fr) 140px', gap: '16px', padding: '0 16px', marginBottom: '-4px', marginTop: '8px' }}>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Display Name</div>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Voice ID</div>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gender</div>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</div>
+                                                        </div>
+                                                    )}
+
+                                                    <AnimatePresence>
+                                                        {settings.ai.availableVoices?.map((voice, idx) => (
+                                                            <motion.div 
+                                                                key={idx}
+                                                                initial={{ opacity: 0, y: 10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                exit={{ opacity: 0, scale: 0.95 }}
+                                                                transition={{ duration: 0.2 }}
+                                                                style={{ 
+                                                                    display: 'grid', 
+                                                                    gridTemplateColumns: 'minmax(180px, 1.5fr) minmax(180px, 1.5fr) minmax(120px, 1fr) 140px', 
+                                                                    gap: '16px', 
+                                                                    alignItems: 'center', 
+                                                                    background: 'var(--card-bg)', 
+                                                                    padding: '12px 16px', 
+                                                                    borderRadius: '16px', 
+                                                                    border: '1px solid var(--border-color)',
+                                                                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
+                                                                    position: 'relative',
+                                                                    overflow: 'hidden'
+                                                                }}
+                                                            >
+                                                                {voice.isDefault && (
+                                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--primary-color)' }} />
+                                                                )}
+
+                                                                <input 
+                                                                    type="text"
+                                                                    value={voice.name}
+                                                                    onChange={(e) => {
+                                                                        const newVoices = [...settings.ai.availableVoices];
+                                                                        newVoices[idx].name = e.target.value;
+                                                                        setSettings({ ...settings, ai: { ...settings.ai, availableVoices: newVoices } });
+                                                                    }}
+                                                                    placeholder="e.g. Ryan (British Male)"
+                                                                    style={{ 
+                                                                        width: '100%', 
+                                                                        padding: '10px 14px', 
+                                                                        borderRadius: '10px', 
+                                                                        border: '1px solid transparent', // clean look
+                                                                        background: 'var(--bg-lite)', 
+                                                                        color: 'var(--text-main)',
+                                                                        fontSize: '0.9rem',
+                                                                        fontWeight: '600',
+                                                                        transition: 'all 0.2s',
+                                                                        outline: 'none'
+                                                                    }}
+                                                                    onFocus={(e) => {
+                                                                        e.target.style.borderColor = 'var(--primary-color)';
+                                                                        e.target.style.background = 'var(--card-bg)';
+                                                                        e.target.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent)';
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        e.target.style.borderColor = 'transparent';
+                                                                        e.target.style.background = 'var(--bg-lite)';
+                                                                        e.target.style.boxShadow = 'none';
+                                                                    }}
+                                                                />
+
+                                                                <input 
+                                                                    type="text"
+                                                                    value={voice.voiceId}
+                                                                    onChange={(e) => {
+                                                                        const newVoices = [...settings.ai.availableVoices];
+                                                                        newVoices[idx].voiceId = e.target.value;
+                                                                        setSettings({ ...settings, ai: { ...settings.ai, availableVoices: newVoices } });
+                                                                    }}
+                                                                    placeholder="e.g. en-GB-RyanNeural"
+                                                                    style={{ 
+                                                                        width: '100%', 
+                                                                        padding: '10px 14px', 
+                                                                        borderRadius: '10px', 
+                                                                        border: '1px solid transparent', 
+                                                                        background: 'var(--bg-lite)', 
+                                                                        color: 'var(--text-main)',
+                                                                        fontSize: '0.85rem',
+                                                                        fontFamily: 'monospace',
+                                                                        transition: 'all 0.2s',
+                                                                        outline: 'none'
+                                                                    }}
+                                                                    onFocus={(e) => {
+                                                                        e.target.style.borderColor = 'var(--primary-color)';
+                                                                        e.target.style.background = 'var(--card-bg)';
+                                                                        e.target.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent)';
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        e.target.style.borderColor = 'transparent';
+                                                                        e.target.style.background = 'var(--bg-lite)';
+                                                                        e.target.style.boxShadow = 'none';
+                                                                    }}
+                                                                />
+
+                                                                <div style={{ position: 'relative' }}>
+                                                                    <select
+                                                                        value={voice.gender || 'male'}
+                                                                        onChange={(e) => {
+                                                                            const newVoices = [...settings.ai.availableVoices];
+                                                                            newVoices[idx].gender = e.target.value;
+                                                                            setSettings({ ...settings, ai: { ...settings.ai, availableVoices: newVoices } });
+                                                                        }}
+                                                                        style={{ 
+                                                                            width: '100%', 
+                                                                            padding: '10px 30px 10px 14px', 
+                                                                            borderRadius: '10px', 
+                                                                            border: '1px solid transparent', 
+                                                                            background: 'var(--bg-lite)', 
+                                                                            color: 'var(--text-main)', 
+                                                                            fontSize: '0.9rem', 
+                                                                            fontWeight: '600',
+                                                                            appearance: 'none',
+                                                                            cursor: 'pointer',
+                                                                            transition: 'all 0.2s',
+                                                                            outline: 'none'
+                                                                        }}
+                                                                        onFocus={(e) => {
+                                                                            e.target.style.borderColor = 'var(--primary-color)';
+                                                                        }}
+                                                                        onBlur={(e) => {
+                                                                            e.target.style.borderColor = 'transparent';
+                                                                        }}
+                                                                    >
+                                                                        <option value="male">Male</option>
+                                                                        <option value="female">Female</option>
+                                                                    </select>
+                                                                    <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-sub)' }} />
+                                                                </div>
+
+                                                                {/* Actions Group */}
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handlePlayPreview(voice.voiceId, voice.gender)}
+                                                                        disabled={!voice.voiceId}
+                                                                        style={{ 
+                                                                            width: '36px',
+                                                                            height: '36px',
+                                                                            borderRadius: '10px', 
+                                                                            background: playingVoiceId === voice.voiceId ? 'color-mix(in srgb, var(--primary-color) 20%, transparent)' : 'var(--bg-lite)', 
+                                                                            color: 'var(--primary-color)', 
+                                                                            border: `1px solid ${playingVoiceId === voice.voiceId ? 'var(--primary-color)' : 'transparent'}`, 
+                                                                            cursor: voice.voiceId ? 'pointer' : 'not-allowed', 
+                                                                            display: 'flex', 
+                                                                            alignItems: 'center', 
+                                                                            justifyContent: 'center', 
+                                                                            opacity: voice.voiceId ? 1 : 0.5,
+                                                                            transition: 'all 0.2s ease',
+                                                                        }}
+                                                                        onMouseOver={(e) => {
+                                                                            if (voice.voiceId && playingVoiceId !== voice.voiceId) {
+                                                                                e.currentTarget.style.background = 'color-mix(in srgb, var(--primary-color) 10%, transparent)';
+                                                                            }
+                                                                        }}
+                                                                        onMouseOut={(e) => {
+                                                                            if (voice.voiceId && playingVoiceId !== voice.voiceId) {
+                                                                                e.currentTarget.style.background = 'var(--bg-lite)';
+                                                                            }
+                                                                        }}
+                                                                        title={playingVoiceId === voice.voiceId ? "Stop Preview" : "Play Preview Audio"}
+                                                                    >
+                                                                        {playingVoiceId === voice.voiceId ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const newVoices = [...settings.ai.availableVoices].map((v, i) => ({ ...v, isDefault: i === idx ? !v.isDefault : false }));
+                                                                            setSettings({ ...settings, ai: { ...settings.ai, availableVoices: newVoices } });
+                                                                        }}
+                                                                        style={{ 
+                                                                            width: '36px',
+                                                                            height: '36px',
+                                                                            borderRadius: '10px', 
+                                                                            background: voice.isDefault ? 'var(--primary-color)' : 'var(--bg-lite)', 
+                                                                            color: voice.isDefault ? 'white' : 'var(--text-sub)', 
+                                                                            border: '1px solid transparent', 
+                                                                            cursor: 'pointer', 
+                                                                            display: 'flex', 
+                                                                            alignItems: 'center', 
+                                                                            justifyContent: 'center', 
+                                                                            transition: 'all 0.2s ease',
+                                                                        }}
+                                                                        onMouseOver={(e) => {
+                                                                            if (!voice.isDefault) {
+                                                                                e.currentTarget.style.background = 'color-mix(in srgb, var(--primary-color) 10%, transparent)';
+                                                                                e.currentTarget.style.color = 'var(--primary-color)';
+                                                                            }
+                                                                        }}
+                                                                        onMouseOut={(e) => {
+                                                                            if (!voice.isDefault) {
+                                                                                e.currentTarget.style.background = 'var(--bg-lite)';
+                                                                                e.currentTarget.style.color = 'var(--text-sub)';
+                                                                            }
+                                                                        }}
+                                                                        title={voice.isDefault ? "Default Voice" : "Set as Default"}
+                                                                    >
+                                                                        <CheckCircle2 size={16} />
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const newVoices = settings.ai.availableVoices.filter((_, i) => i !== idx);
+                                                                            setSettings({ ...settings, ai: { ...settings.ai, availableVoices: newVoices } });
+                                                                        }}
+                                                                        style={{ 
+                                                                            width: '36px',
+                                                                            height: '36px',
+                                                                            borderRadius: '10px', 
+                                                                            background: 'var(--bg-lite)', 
+                                                                            color: 'var(--danger-color)', 
+                                                                            border: '1px solid transparent', 
+                                                                            cursor: 'pointer', 
+                                                                            display: 'flex', 
+                                                                            alignItems: 'center', 
+                                                                            justifyContent: 'center',
+                                                                            transition: 'all 0.2s ease',
+                                                                        }}
+                                                                        onMouseOver={(e) => {
+                                                                            e.currentTarget.style.background = 'color-mix(in srgb, var(--danger-color) 10%, transparent)';
+                                                                        }}
+                                                                        onMouseOut={(e) => {
+                                                                            e.currentTarget.style.background = 'var(--bg-lite)';
+                                                                        }}
+                                                                        title="Remove Voice"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </motion.div>
+                                                        ))}
+                                                    </AnimatePresence>
+                                                </div>
+                                            </div>
 
                                         </div>
-
 
                                         {/* Consensus & Accuracy */}
                                         <div style={{ padding: '24px', background: 'var(--bg-lite)', borderRadius: '24px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>

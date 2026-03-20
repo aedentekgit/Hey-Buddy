@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:geolocator/geolocator.dart';
 
 import 'package:buddy_mobile/core/services/location_service.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';

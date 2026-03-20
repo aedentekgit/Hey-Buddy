@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use, unused_element
 import 'package:flutter/foundation.dart';
 import '../services/task_service.dart';
 import 'package:geolocator/geolocator.dart';
@@ -157,7 +158,9 @@ class TasksProvider with ChangeNotifier {
     if (x <= 0) return 0;
     if (x >= 1) return 1;
     double r = x;
-    for (int i = 0; i < 10; i++) r = (r + x / r) / 2;
+    for (int i = 0; i < 10; i++) {
+      r = (r + x / r) / 2;
+    }
     return r;
   }
 

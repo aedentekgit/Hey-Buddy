@@ -835,29 +835,39 @@ class GroqService:
         context = ""
         context_sources = []
         t0 = time.perf_counter()
-        try:
-            # Pass user_id to ensure we only get chunks this user is allowed to see.
-            retriever = self.vector_store_service.get_retriever(k=5, user_id=user_id)
-            search_query = self.get_text_content(question)
-            context_docs = retriever.invoke(search_query)
-            if context_docs:
-                # Concatenate all chunk texts. Each doc.page_content is a text chunk
-                # from a learning file or past chat session. We join with newlines
-                # so the LLM sees them as separate paragraphs.
-                context = "\n".join([doc.page_content for doc in context_docs])
-                # Track sources for logging (helps debug "where did that answer come from?").
-                context_sources = [doc.metadata.get("source", "unknown") for doc in context_docs]
-                logger.info("[CONTEXT] Retrieved %d chunks from sources: %s", len(context_docs), context_sources)
-            else:
-                logger.info("[CONTEXT] No relevant chunks found for query")
-        except Exception as retrieval_err:
-            # If the vector store is broken, we proceed with empty context.
-            # The LLM can still answer from its training data — just without
-            # personalized context. This is a graceful degradation pattern:
-            # partial functionality is better than a complete failure.
-            logger.warning("Vector store retrieval failed, using empty context: %s", retrieval_err)
-        finally:
-            _log_timing("vector_db", time.perf_counter() - t0)
+        
+        # ⚡️ SPEED OPTIMIZATION: Bypass CPU-heavy HuggingFace Embeddings for short greetings
+        search_query = self.get_text_content(question).strip()
+        is_trivial_greeting = search_query.lower() in [
+            "hi", "hello", "hey", "good morning", "good evening", 
+            "good afternoon", "you there?", "are you there?", 
+            "hey buddy", "hi buddy", "buddy", "yo", "sup"
+        ] or len(search_query) <= 2
+        
+        if not is_trivial_greeting:
+            try:
+                # Pass user_id to ensure we only get chunks this user is allowed to see.
+                retriever = self.vector_store_service.get_retriever(k=5, user_id=user_id)
+                context_docs = retriever.invoke(search_query)
+                if context_docs:
+                    # Concatenate all chunk texts. Each doc.page_content is a text chunk
+                    # from a learning file or past chat session. We join with newlines
+                    # so the LLM sees them as separate paragraphs.
+                    context = "\n".join([doc.page_content for doc in context_docs])
+                    # Track sources for logging (helps debug "where did that answer come from?").
+                    context_sources = [doc.metadata.get("source", "unknown") for doc in context_docs]
+                    logger.info("[CONTEXT] Retrieved %d chunks from sources: %s", len(context_docs), context_sources)
+                else:
+                    logger.info("[CONTEXT] No relevant chunks found for query")
+            except Exception as retrieval_err:
+                # If the vector store is broken, we proceed with empty context.
+                # The LLM can still answer from its training data — just without
+                # personalized context. This is a graceful degradation pattern.
+                logger.warning("Vector store retrieval failed, using empty context: %s", retrieval_err)
+        else:
+            logger.info("[CONTEXT] Bypassed Vector DB RAG Search for trivial greeting to save TTFT latency.")
+            
+        _log_timing("vector_db", time.perf_counter() - t0)
 
         # ── Step 2: Build the system message layer by layer ──
         # Each layer is concatenated to form one large system message string.
@@ -865,6 +875,7 @@ class GroqService:
         system_message = BUDDY_SYSTEM_PROMPT  # Layer 1: base personality
 
         system_message += f"\n\nCurrent time and date: {time_info}"  # Layer 2: time awareness
+        system_message += "\nIMPORTANT FORMATTING: When mentioning dates or times to the user (e.g., for reminders or events), format them in a natural, conversational, and user-friendly way (e.g., 'March 20, 2026 at 10:00 AM' or 'tomorrow at 5:00 PM'). Do NOT use raw database formats like '2026-03-20' or '10:00'."
 
         if memory_context:
             logger.info("[MEMORY] Passing context to LLM: %d chars", len(memory_context))

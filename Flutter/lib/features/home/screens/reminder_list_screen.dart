@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -5,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
-import 'package:buddy_mobile/features/home/screens/reminder_create_screen.dart';
 import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
@@ -244,7 +244,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                           ),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [AppColors.accent, const Color(0xFF6366F1)],
+                              colors: [AppColors.accent, Color(0xFF6366F1)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -641,7 +641,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     itemCount: filters.length + 1,
-                    separatorBuilder: (_, __) => const SizedBox(width: 7),
+                    separatorBuilder: (_, _) => const SizedBox(width: 7),
                     itemBuilder: (_, i) {
                       // First item = Date picker chip
                       if (i == 0) {
@@ -755,7 +755,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
           final todayDate = DateTime(now.year, now.month, now.day);
           final tomorrowDate = todayDate.add(const Duration(days: 1));
 
-          DateTime? _parseDate(Map<String, dynamic> t) {
+          DateTime? parseDate(Map<String, dynamic> t) {
             final raw = t['date'] as String?;
             if (raw == null) return null;
             try {
@@ -773,11 +773,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               .where((t) => TaskUtils.formatDate(t['date']) == 'Tomorrow')
               .toList();
           final upcoming = filtered.where((t) {
-            final d = _parseDate(t);
+            final d = parseDate(t);
             return d != null && d.isAfter(tomorrowDate);
           }).toList();
           final past = filtered.where((t) {
-            final d = _parseDate(t);
+            final d = parseDate(t);
             return d != null && d.isBefore(todayDate);
           }).toList();
 
@@ -1039,7 +1039,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                         const SizedBox(width: 4),
                                         Expanded(
                                           child: Text(
-                                            location!,
+                                            location,
                                             style: GoogleFonts.inter(
                                               fontSize: 11.5,
                                               color: AppColors.textMid,

@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use, unused_field
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -5,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
 import 'package:buddy_mobile/shared/widgets/pressable.dart';
-import 'package:buddy_mobile/shared/utils/task_utils.dart';
 import 'package:buddy_mobile/features/home/screens/smart_details_screen.dart';
 
 class CalendarViewScreen extends StatefulWidget {
@@ -267,7 +267,7 @@ class _CalendarViewScreenState extends State<CalendarViewScreen> {
         return ListView.separated(
           padding: const EdgeInsets.all(18),
           itemCount: tasks.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) => _ReminderCard(task: tasks[index]),
         );
       },

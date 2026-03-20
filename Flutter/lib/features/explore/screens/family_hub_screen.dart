@@ -363,8 +363,8 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
       context: context,
       barrierDismissible: true,
       barrierLabel: '',
-      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
-      transitionBuilder: (ctx, a1, _, __) => Transform.scale(
+      pageBuilder: (_, _, _) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, a1, _, _) => Transform.scale(
         scale: a1.value,
         child: Opacity(
           opacity: a1.value,
@@ -548,7 +548,7 @@ class _EmergencyCard extends StatelessWidget {
                   // Pulsing icon
                   AnimatedBuilder(
                     animation: pulseAnim,
-                    builder: (_, __) => Transform.scale(
+                    builder: (_, _) => Transform.scale(
                       scale: pulseAnim.value,
                       child: Container(
                         width: 50,
@@ -930,8 +930,8 @@ class _MemberCard extends StatelessWidget {
                             child: CachedNetworkImage(
                               imageUrl: profilePic,
                               fit: BoxFit.cover,
-                              placeholder: (_, __) => _fallbackAvatar(name),
-                              errorWidget: (_, __, ___) =>
+                              placeholder: (_, _) => _fallbackAvatar(name),
+                              errorWidget: (_, _, _) =>
                                   _fallbackAvatar(name),
                             ),
                           )

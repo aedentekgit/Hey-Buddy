@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:buddy_mobile/core/services/settings_service.dart';
@@ -20,6 +21,9 @@ class BrandingProvider extends ChangeNotifier {
   String? _latestAppVersion;
   bool _mandatoryUpdate = false;
   String? _updateUrl;
+
+  List<dynamic> _availableVoices = [];
+  List<dynamic> get availableVoices => _availableVoices;
 
   BrandingProvider(this.prefs) {
     _hydrateFromLocal();
@@ -74,6 +78,11 @@ class BrandingProvider extends ChangeNotifier {
         if (data != null) {
           final mobileApp = data['mobileApp'];
           final appearance = data['appearance'];
+          final ai = data['ai'];
+
+          if (ai != null && ai['availableVoices'] != null) {
+            _availableVoices = List<dynamic>.from(ai['availableVoices']);
+          }
 
           if (mobileApp != null) {
             final newAppName = mobileApp['appName'] ?? AppConfig.appName;
@@ -121,20 +130,24 @@ class BrandingProvider extends ChangeNotifier {
               'branding_primary_color',
               '#${_primaryColor.value.toRadixString(16).substring(2)}',
             );
-            if (_logoUrl != null)
+            if (_logoUrl != null) {
               await prefs.setString('branding_logo_url', _logoUrl!);
-            if (_splashUrl != null)
+            }
+            if (_splashUrl != null) {
               await prefs.setString('branding_splash_url', _splashUrl!);
-            if (newGoogleClientId != null)
+            }
+            if (newGoogleClientId != null) {
               await prefs.setString(
                 'branding_google_client_id',
                 newGoogleClientId,
               );
-            if (newGoogleMapsApiKey != null)
+            }
+            if (newGoogleMapsApiKey != null) {
               await prefs.setString(
                 'branding_google_maps_api_key',
                 newGoogleMapsApiKey,
               );
+            }
 
             // Update AppConfig
             AppConfig.appName = _appName;

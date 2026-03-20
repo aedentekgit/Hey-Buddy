@@ -129,8 +129,9 @@ class TaskUtils {
         'destination',
         'check-in',
         'boarding',
-      ]))
+      ])) {
         return LucideIcons.plane;
+      }
 
       // Medical & Health
       if (kw([
@@ -157,8 +158,9 @@ class TaskUtils {
         'injection',
         'checkup',
         'physiotherapy',
-      ]))
+      ])) {
         return LucideIcons.stethoscope;
+      }
 
       // Vehicle & Auto
       if (kw([
@@ -182,8 +184,9 @@ class TaskUtils {
         'parking',
         'driving',
         'license',
-      ]))
+      ])) {
         return LucideIcons.car;
+      }
 
       // Birthday & Celebrations
       if (kw([
@@ -204,8 +207,9 @@ class TaskUtils {
         'holi',
         'ceremony',
         'invite',
-      ]))
+      ])) {
         return LucideIcons.gift;
+      }
 
       // Work & Office
       if (kw([
@@ -230,8 +234,9 @@ class TaskUtils {
         'teams',
         'kpi',
         'target',
-      ]))
+      ])) {
         return LucideIcons.briefcase;
+      }
 
       // Finance & Banking
       if (kw([
@@ -264,8 +269,9 @@ class TaskUtils {
         '£',
         'pay',
         'fee',
-      ]))
+      ])) {
         return LucideIcons.wallet;
+      }
 
       // Food & Dining
       if (kw([
@@ -290,8 +296,9 @@ class TaskUtils {
         'diet',
         'eat',
         'grocery',
-      ]))
+      ])) {
         return LucideIcons.utensils;
+      }
 
       // Fitness & Gym
       if (kw([
@@ -321,8 +328,9 @@ class TaskUtils {
         'steps',
         'walk',
         'run',
-      ]))
+      ])) {
         return LucideIcons.activity;
+      }
 
       // Education & Learning
       if (kw([
@@ -349,8 +357,9 @@ class TaskUtils {
         'coursera',
         'test',
         'quiz',
-      ]))
+      ])) {
         return LucideIcons.graduationCap;
+      }
 
       // Family & Relationships
       if (kw([
@@ -375,8 +384,9 @@ class TaskUtils {
         'nephew',
         'niece',
         'kids',
-      ]))
+      ])) {
         return LucideIcons.users;
+      }
 
       // Home & Property
       if (kw([
@@ -398,8 +408,9 @@ class TaskUtils {
         'mortgage',
         'property',
         'society',
-      ]))
+      ])) {
         return LucideIcons.home;
+      }
 
       // Shopping
       if (kw([
@@ -416,8 +427,9 @@ class TaskUtils {
         'sale',
         'cart',
         'shop',
-      ]))
+      ])) {
         return LucideIcons.shoppingBag;
+      }
 
       // Phone & Contacts
       if (kw([
@@ -429,8 +441,9 @@ class TaskUtils {
         'telegram',
         'reminder call',
         'ring',
-      ]))
+      ])) {
         return LucideIcons.phone;
+      }
 
       // Pet & Animals
       if (kw([
@@ -445,8 +458,9 @@ class TaskUtils {
         'vaccination',
         'deworming',
         'grooming',
-      ]))
+      ])) {
         return LucideIcons.dog;
+      }
 
       // Tech & Devices
       if (kw([
@@ -463,8 +477,9 @@ class TaskUtils {
         'server',
         'wifi',
         'internet',
-      ]))
+      ])) {
         return LucideIcons.monitor;
+      }
 
       // Love & Personal
       if (kw([
@@ -476,8 +491,9 @@ class TaskUtils {
         'anniversary',
         'valentine',
         'romance',
-      ]))
+      ])) {
         return LucideIcons.heart;
+      }
     }
 
     return LucideIcons.bell; // Default
@@ -537,8 +553,9 @@ class TaskUtils {
         'airport',
         'vacation',
         'holiday',
-      ]))
+      ])) {
         return const Color(0xFF0EA5E9);
+      }
       if (kw([
         'doctor',
         'dentist',
@@ -548,8 +565,9 @@ class TaskUtils {
         'clinic',
         'surgery',
         'vaccination',
-      ]))
+      ])) {
         return const Color(0xFFEF4444);
+      }
       if (kw([
         'car',
         'bike',
@@ -558,8 +576,9 @@ class TaskUtils {
         'fuel',
         'petrol',
         'mechanic',
-      ]))
+      ])) {
         return const Color(0xFFF97316);
+      }
       if (kw([
         'birthday',
         'anniversary',
@@ -567,8 +586,9 @@ class TaskUtils {
         'party',
         'gift',
         'celebration',
-      ]))
+      ])) {
         return const Color(0xFFEC4899);
+      }
       if (kw([
         'meeting',
         'office',
@@ -577,8 +597,9 @@ class TaskUtils {
         'deadline',
         'presentation',
         'interview',
-      ]))
+      ])) {
         return const Color(0xFF6366F1);
+      }
       if (kw([
         'money',
         'bank',
@@ -589,8 +610,9 @@ class TaskUtils {
         'tax',
         'pay',
         'fee',
-      ]))
+      ])) {
         return const Color(0xFFF59E0B);
+      }
       if (kw([
         'food',
         'dinner',
@@ -599,8 +621,9 @@ class TaskUtils {
         'restaurant',
         'eat',
         'grocery',
-      ]))
+      ])) {
         return const Color(0xFFF97316);
+      }
       if (kw([
         'gym',
         'workout',
@@ -610,8 +633,9 @@ class TaskUtils {
         'run',
         'walk',
         'cardio',
-      ]))
+      ])) {
         return const Color(0xFFF97316);
+      }
       if (kw([
         'study',
         'exam',
@@ -620,8 +644,9 @@ class TaskUtils {
         'school',
         'course',
         'assignment',
-      ]))
+      ])) {
         return const Color(0xFF8B5CF6);
+      }
       if (kw([
         'family',
         'mom',
@@ -631,18 +656,24 @@ class TaskUtils {
         'sister',
         'brother',
         'kids',
-      ]))
+      ])) {
         return const Color(0xFFEC4899);
-      if (kw(['buy', 'shop', 'purchase', 'amazon', 'order', 'shopping']))
+      }
+      if (kw(['buy', 'shop', 'purchase', 'amazon', 'order', 'shopping'])) {
         return const Color(0xFF10B981);
-      if (kw(['home', 'house', 'rent', 'repair', 'plumber', 'electrician']))
+      }
+      if (kw(['home', 'house', 'rent', 'repair', 'plumber', 'electrician'])) {
         return const Color(0xFF10B981);
-      if (kw(['love', 'date', 'girlfriend', 'boyfriend', 'valentine']))
+      }
+      if (kw(['love', 'date', 'girlfriend', 'boyfriend', 'valentine'])) {
         return const Color(0xFFEC4899);
-      if (kw(['dog', 'cat', 'pet', 'vet', 'animal']))
+      }
+      if (kw(['dog', 'cat', 'pet', 'vet', 'animal'])) {
         return const Color(0xFF10B981);
-      if (kw(['laptop', 'computer', 'tech', 'software', 'app', 'wifi']))
+      }
+      if (kw(['laptop', 'computer', 'tech', 'software', 'app', 'wifi'])) {
         return const Color(0xFF6366F1);
+      }
     }
 
     return const Color(0xFF64748B); // Slate

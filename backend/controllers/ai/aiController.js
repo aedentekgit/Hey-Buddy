@@ -162,11 +162,16 @@ exports.proxyChatToPython = async (req, res) => {
         }
 
 
+        // Fetch user preferences for personalized voice
+        const userDetails = await User.findById(userId).select('voicePreferences');
+        const userVoiceId = userDetails?.voicePreferences?.voiceId || 'en-GB-RyanNeural';
+
         // 3. Forward full payload to Python FastAPI
         const payload = {
             message,
             session_id: finalSessionId,
             tts: tts || false,
+            voice_id: userVoiceId,
             api_key: aiConfig.apiKey,
             provider: aiConfig.provider,
             model: aiConfig.model,

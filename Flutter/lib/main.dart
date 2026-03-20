@@ -11,7 +11,6 @@ import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/splash_screen.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
 
-import 'package:buddy_mobile/features/home/screens/main_screen.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';

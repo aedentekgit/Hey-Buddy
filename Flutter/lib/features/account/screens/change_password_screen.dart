@@ -4,7 +4,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
-import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -181,8 +180,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       icon: LucideIcons.key,
                       iconColor: AppColors.teal,
                       validator: (v) {
-                        if (v == null || v.length < 8)
+                        if (v == null || v.length < 8) {
                           return 'Password too short';
+                        }
                         return null;
                       },
                     ),
@@ -208,8 +208,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       icon: LucideIcons.checkCircle,
                       iconColor: AppColors.green,
                       validator: (v) {
-                        if (v != _newPwdCtrl.text)
+                        if (v != _newPwdCtrl.text) {
                           return 'Passwords do not match';
+                        }
                         return null;
                       },
                     ),

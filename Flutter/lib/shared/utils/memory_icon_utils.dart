@@ -59,8 +59,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'luggage',
     'backpack',
     'destination',
-  ]))
+  ])) {
     return LucideIcons.plane;
+  }
 
   // Medical & Health
   if (kw([
@@ -94,8 +95,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'pediatrician',
     'vaccination',
     'injection',
-  ]))
+  ])) {
     return LucideIcons.stethoscope;
+  }
 
   // Vehicle & Auto
   if (kw([
@@ -125,8 +127,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'driving',
     'license',
     'rto',
-  ]))
+  ])) {
     return LucideIcons.car;
+  }
 
   // Birthday & Celebrations
   if (kw([
@@ -149,8 +152,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'holi',
     'puja',
     'ceremony',
-  ]))
+  ])) {
     return LucideIcons.gift;
+  }
 
   // Work & Office
   if (kw([
@@ -181,8 +185,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'deadline',
     'kpi',
     'target',
-  ]))
+  ])) {
     return LucideIcons.briefcase;
+  }
 
   // Finance & Banking
   if (kw([
@@ -217,8 +222,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     '\$',
     '€',
     '£',
-  ]))
+  ])) {
     return LucideIcons.wallet;
+  }
 
   // Food & Recipes
   if (kw([
@@ -243,8 +249,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'diet',
     'calories',
     'nutrition',
-  ]))
+  ])) {
     return LucideIcons.utensils;
+  }
 
   // WiFi & Tech & Passwords
   if (kw([
@@ -265,8 +272,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'otp',
     'pin',
     '2fa',
-  ]))
+  ])) {
     return LucideIcons.wifi;
+  }
 
   // Fitness & Gym
   if (kw([
@@ -297,8 +305,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'supplement',
     'bmi',
     'calories burned',
-  ]))
+  ])) {
     return LucideIcons.activity;
+  }
 
   // Education & Learning
   if (kw([
@@ -324,8 +333,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'online course',
     'udemy',
     'coursera',
-  ]))
+  ])) {
     return LucideIcons.graduationCap;
+  }
 
   // Family & Relationships
   if (kw([
@@ -349,8 +359,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'aunt',
     'nephew',
     'niece',
-  ]))
+  ])) {
     return LucideIcons.users;
+  }
 
   // Home & Property
   if (kw([
@@ -373,8 +384,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'mortgage',
     'property',
     'society',
-  ]))
+  ])) {
     return LucideIcons.home;
+  }
 
   // Shopping
   if (kw([
@@ -392,8 +404,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'sale',
     'cart',
     'delivery',
-  ]))
+  ])) {
     return LucideIcons.shoppingBag;
+  }
 
   // Security & Passwords
   if (kw([
@@ -407,8 +420,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'emergency contact',
     'insurance',
     'policy',
-  ]))
+  ])) {
     return LucideIcons.shield;
+  }
 
   // Phone & Contacts
   if (kw([
@@ -423,8 +437,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'location',
     'map',
     'directory',
-  ]))
+  ])) {
     return LucideIcons.contact;
+  }
 
   // Ideas & Notes
   if (kw([
@@ -440,8 +455,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'wish',
     'dream',
     'todo',
-  ]))
+  ])) {
     return LucideIcons.lightbulb;
+  }
 
   // Pet & Animals
   if (kw([
@@ -456,8 +472,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'vaccination',
     'deworming',
     'grooming',
-  ]))
+  ])) {
     return LucideIcons.dog;
+  }
 
   // Tech & Devices
   if (kw([
@@ -474,8 +491,9 @@ IconData getMemoryIcon(Map<String, dynamic> item) {
     'charger',
     'warranty',
     'serial number',
-  ]))
+  ])) {
     return LucideIcons.monitor;
+  }
 
   // Default
   return LucideIcons.database;

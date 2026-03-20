@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -236,7 +237,7 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     itemCount: filters.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 7),
+                    separatorBuilder: (_, _) => const SizedBox(width: 7),
                     itemBuilder: (_, i) {
                       final f = filters[i];
                       final active = f == _activeFilter;

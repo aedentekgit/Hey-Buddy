@@ -144,6 +144,24 @@ const settingsSchema = new mongoose.Schema({
         claudeApiKey: { type: String, select: false },
         deepseekApiKey: { type: String, select: false },
         groqApiKey: { type: String, select: false },
+        elevenLabsApiKey: { type: String, select: false },
+        elevenLabsVoiceId: { type: String, default: '21m00Tcm4TlvDq8ikWAM' }, // Default "Rachel" voice
+        availableVoices: {
+            type: [{
+                name: String,
+                voiceId: String,
+                gender: { type: String, enum: ['male', 'female'], default: 'male' },
+                isDefault: { type: Boolean, default: false }
+            }],
+            default: [
+                { name: 'Ryan (British Male)', voiceId: 'en-GB-RyanNeural', gender: 'male', isDefault: true },
+                { name: 'Christopher (US Male)', voiceId: 'en-US-ChristopherNeural', gender: 'male', isDefault: false },
+                { name: 'Guy (US Male)', voiceId: 'en-US-GuyNeural', gender: 'male', isDefault: false },
+                { name: 'Sonia (British Female)', voiceId: 'en-GB-SoniaNeural', gender: 'female', isDefault: false },
+                { name: 'Aria (US Female)', voiceId: 'en-US-AriaNeural', gender: 'female', isDefault: false },
+                { name: 'Jenny (US Female)', voiceId: 'en-US-JennyNeural', gender: 'female', isDefault: false }
+            ]
+        },
         aiAssistantApiUrl: { type: String, default: '' },
         tokenLimit: { type: Number, default: 1000000 },
         totalTokensUsed: { type: Number, default: 0 }

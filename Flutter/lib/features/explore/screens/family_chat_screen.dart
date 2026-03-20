@@ -520,8 +520,8 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               child: CachedNetworkImage(
                 imageUrl: avatarUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => _fallbackAvatarPlaceholder(name, isMe),
-                errorWidget: (_, __, ___) =>
+                placeholder: (_, _) => _fallbackAvatarPlaceholder(name, isMe),
+                errorWidget: (_, _, _) =>
                     _fallbackAvatarPlaceholder(name, isMe),
               ),
             )
@@ -599,13 +599,13 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
         borderRadius: BorderRadius.circular(12),
         child: CachedNetworkImage(
           imageUrl: url ?? '',
-          placeholder: (_, __) => Container(
+          placeholder: (_, _) => Container(
             height: 150,
             width: double.infinity,
             color: Colors.black12,
             child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
-          errorWidget: (_, __, ___) => const Icon(Icons.error),
+          errorWidget: (_, _, _) => const Icon(Icons.error),
           fit: BoxFit.cover,
         ),
       );

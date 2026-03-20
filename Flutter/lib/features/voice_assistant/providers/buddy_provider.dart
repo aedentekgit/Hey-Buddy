@@ -1,8 +1,7 @@
+// ignore_for_file: override_on_non_overriding_member, unused_field, unused_local_variable
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
 import 'package:buddy_mobile/features/voice_assistant/services/audio_stream_service.dart';
@@ -10,7 +9,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:http/http.dart' as http;
-import 'package:record/record.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class BuddyProvider with ChangeNotifier {
   final BuddyService _buddyService = BuddyService();
@@ -19,10 +18,9 @@ class BuddyProvider with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _storage = const FlutterSecureStorage();
   final FlutterTts _flutterTts = FlutterTts();
-
-  // Expose these for potential direct use (but provider methods are preferred)
+  
+  // Expose these for potential direct use (but provider methods are preferred)  AudioPlayer get audioPlayer => _audioPlayer;
   FlutterTts get tts => _flutterTts;
-  AudioPlayer get audioPlayer => _audioPlayer;
 
   List<Map<String, dynamic>> _messages = [];
   List<dynamic> _historyList = [];
@@ -51,9 +49,13 @@ class BuddyProvider with ChangeNotifier {
   String get connectionError => _connectionError;
 
   // TTS Buffering Variables
-  String _ttsBuffer = '';
   final List<String> _ttsQueue = [];
+  String _ttsBuffer = '';
   bool _isSpeakingQueue = false;
+
+  // Cloud Audio Queue
+  final List<String> _audioChunkQueue = [];
+  bool _isPlayingAudioChunkQueue = false;
 
   String _currentGender = 'male';
   String _currentTone = 'normal';
@@ -80,7 +82,7 @@ class BuddyProvider with ChangeNotifier {
   void dispose() {
     _audioPlayer.dispose();
     _audioStreamService.dispose();
-    _flutterTts.stop();
+    
     socketService.dispose();
     super.dispose();
   }
@@ -130,10 +132,52 @@ class BuddyProvider with ChangeNotifier {
     _ttsQueue.clear();
     _ttsBuffer = '';
     _isSpeakingQueue = false;
+
+    _audioChunkQueue.clear();
+    _isPlayingAudioChunkQueue = false;
+
     _isSpeaking = false;
     socketService.interrupt(); // TELL BACKEND TO STOP STREAMING
     await _flutterTts.stop();
     await _audioPlayer.stop();
+    notifyListeners();
+  }
+
+  Future<void> _processAudioChunkQueue() async {
+    if (_isPlayingAudioChunkQueue || _audioChunkQueue.isEmpty) return;
+    _isPlayingAudioChunkQueue = true;
+    _isSpeaking = true;
+    notifyListeners();
+
+    while (_audioChunkQueue.isNotEmpty) {
+      if (!_isPlayingAudioChunkQueue) break;
+      final audioB64 = _audioChunkQueue.removeAt(0);
+
+      try {
+        final audioBytes = base64Decode(audioB64);
+        var completer = Completer<void>();
+        StreamSubscription? compSub;
+        StreamSubscription? stateSub;
+
+        compSub = _audioPlayer.onPlayerComplete.listen((_) {
+          if (!completer.isCompleted) completer.complete();
+        });
+        stateSub = _audioPlayer.onPlayerStateChanged.listen((state) {
+          if (state == PlayerState.stopped && !completer.isCompleted) completer.complete();
+        });
+
+        await _audioPlayer.play(BytesSource(audioBytes));
+        await completer.future;
+
+        await compSub.cancel();
+        await stateSub.cancel();
+      } catch (e) {
+        debugPrint("Error playing audio chunk: $e");
+      }
+    }
+
+    _isPlayingAudioChunkQueue = false;
+    _isSpeaking = false;
     notifyListeners();
   }
 
@@ -197,8 +241,8 @@ class BuddyProvider with ChangeNotifier {
         pitch += 0.1;
       }
 
-      await _flutterTts.setPitch(pitch);
-      await _flutterTts.setSpeechRate(speechRate);
+      
+      
     } catch (e) {
       debugPrint("Error configuring local TTS: $e");
     }
@@ -260,8 +304,9 @@ class BuddyProvider with ChangeNotifier {
               if (!completer.isCompleted) completer.complete();
             });
             stateSub = _audioPlayer.onPlayerStateChanged.listen((state) {
-              if (state == PlayerState.stopped && !completer.isCompleted)
+              if (state == PlayerState.stopped && !completer.isCompleted) {
                 completer.complete();
+              }
             });
 
             _isSpeaking = true;
@@ -484,7 +529,7 @@ class BuddyProvider with ChangeNotifier {
       if (_isSpeaking || _isSpeakingQueue) {
         debugPrint('Barge-in detected: Silencing Buddy');
         _audioPlayer.stop();
-        _flutterTts.stop();
+        
         _isSpeaking = false;
         _isSpeakingQueue = false;
         _ttsQueue.clear();
@@ -687,7 +732,9 @@ class BuddyProvider with ChangeNotifier {
 
     try {
       final token = await _storage.read(key: 'jwt');
-      String endpoint = _isRealtimeEnabled ? 'realtime/stream' : 'stream';
+      // Bugfix: Web app defaults to General ('stream') for human-like conversational capability.
+      // App mistakenly tied Socket state to Realtime Web Search mode, making it robotic.
+      String endpoint = 'stream'; 
       final url = Uri.parse('${AppConfig.baseUrl}ai/chat/$endpoint');
 
       final request = http.Request('POST', url)
@@ -701,7 +748,7 @@ class BuddyProvider with ChangeNotifier {
       request.body = jsonEncode({
         'message': text.isEmpty && isWakeWord ? 'Hey Buddy' : text,
         'session_id': _currentConversationId,
-        'tts': false, // Enforce local TTS fallback completely to bypass expensive websocket audio
+        'tts': true, // Enforce cloud TTS to match web dashboard audio tone exactly
       });
 
       final client = http.Client();
@@ -734,18 +781,18 @@ class BuddyProvider with ChangeNotifier {
       notifyListeners();
 
       // Buffer for incomplete SSE network packets
-      String _streamBuffer = '';
+      String streamBuffer = '';
 
       // Start reading the HTTP Stream chunk by chunk!
       response.stream.transform(utf8.decoder).listen(
         (chunkData) {
-          _streamBuffer += chunkData;
+          streamBuffer += chunkData;
 
           // SSE chunks are separated by double newlines (\n\n)
-          while (_streamBuffer.contains('\n\n')) {
-            int index = _streamBuffer.indexOf('\n\n');
-            String eventChunk = _streamBuffer.substring(0, index).trim();
-            _streamBuffer = _streamBuffer.substring(index + 2);
+          while (streamBuffer.contains('\n\n')) {
+            int index = streamBuffer.indexOf('\n\n');
+            String eventChunk = streamBuffer.substring(0, index).trim();
+            streamBuffer = streamBuffer.substring(index + 2);
 
             if (eventChunk.startsWith('data: ')) {
               String jsonStr = eventChunk.substring(6);
@@ -755,40 +802,19 @@ class BuddyProvider with ChangeNotifier {
                 // If there's an error from Python, display it securely.
                 if (parsed['error'] != null) {
                    if (_messages.isNotEmpty && _messages.last['type'] == 'ai') {
-                      _messages.last['text'] += "\n\nError: " + parsed['error'].toString();
+                      _messages.last['text'] += "\n\nError: ${parsed['error']}";
                    }
                    continue;
+                }
+
+                if (parsed['audio'] != null) {
+                  _audioChunkQueue.add(parsed['audio']);
+                  _processAudioChunkQueue();
                 }
 
                 if (parsed['chunk'] != null && _messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
                   String actualText = parsed['chunk'];
                   _messages.last['text'] += actualText;
-                  
-                  // Re-use logic for local TTS Sentence Segmentation exactly as before!
-                  String sanitizedText = actualText
-                      .replaceAll('*', '')
-                      .replaceAll('`', '')
-                      .replaceAll('#', '')
-                      .replaceAll(RegExp(r'json|markdown|\\[|\\]|\\(|\\)', caseSensitive: false), '')
-                      .replaceAll(RegExp(r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]', unicode: true), '');
-
-                  _ttsBuffer += sanitizedText;
-                  String tempBuffer = _ttsBuffer;
-                  List<String> sentences = [];
-                  final sentenceRegEx = RegExp(r'[^.!?]+[.!?]+');
-                  Iterable<Match> matches = sentenceRegEx.allMatches(tempBuffer);
-
-                  int lastMatchEnd = 0;
-                  for (final match in matches) {
-                    sentences.add(match.group(0)!);
-                    lastMatchEnd = match.end;
-                  }
-
-                  if (sentences.isNotEmpty) {
-                    _ttsBuffer = tempBuffer.substring(lastMatchEnd);
-                    _ttsQueue.addAll(sentences);
-                    _processTtsQueue();
-                  }
                 }
               } catch (e) {
                 // Ignore incomplete json fragments or malformed lines
@@ -814,7 +840,7 @@ class BuddyProvider with ChangeNotifier {
         onError: (err) {
           debugPrint('API Stream Error: $err');
           _isThinking = false;
-          _flutterTts.speak("I'm sorry, my stream was interrupted.");
+          
           notifyListeners();
           client.close();
         },
@@ -824,7 +850,7 @@ class BuddyProvider with ChangeNotifier {
       debugPrint("HTTP Stream Request Error: $e");
       addMessage('ai', "Error connecting to AI: $e");
       _isThinking = false;
-      _flutterTts.speak("I'm sorry, I could not connect to the server.");
+      
       notifyListeners();
     }
   }

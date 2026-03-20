@@ -594,12 +594,12 @@ class _FileCard extends StatelessWidget {
               width: double.infinity,
               height: 200,
               fit: BoxFit.cover,
-              placeholder: (_, __) => Container(
+              placeholder: (_, _) => Container(
                 height: 200,
                 color: AppColors.bg,
                 child: const Center(child: CircularProgressIndicator()),
               ),
-              errorWidget: (_, __, ___) => Container(
+              errorWidget: (_, _, _) => Container(
                 height: 120,
                 color: AppColors.bg,
                 child: Center(

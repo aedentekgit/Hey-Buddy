@@ -851,7 +851,7 @@ def _generate_tts_sync(text: str, voice: str, rate: str) -> bytes:
 _tts_pool = ThreadPoolExecutor(max_workers=4)
 
 
-def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enabled: bool = False, initial_language: str = "en", gender: str = "male", tone: str = "normal"):
+def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enabled: bool = False, initial_language: str = "en", gender: str = "male", tone: str = "normal", voice_id: str = None):
     """
     The core SSE (Server-Sent Events) generator for streaming chat responses.
 
@@ -915,7 +915,7 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
     def _submit(text):
         """Submit a sentence to the TTS thread pool and add the Future to audio_queue."""
         # Detect language and pick a matching voice. Use initial_language as hint for efficiency.
-        voice = language_service.get_voice_for_text(text, gender=gender, default_voice=TTS_VOICE)
+        voice = voice_id if voice_id else language_service.get_voice_for_text(text, gender=gender, default_voice=TTS_VOICE)
         
         # Map tone to rate
         rate = TTS_RATE
@@ -1085,7 +1085,7 @@ async def chat_stream(request: ChatRequest):
         user_lang = language_service.detect_language(request.message)
 
         return StreamingResponse(
-            _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone),
+            _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone, voice_id=request.voice_id),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -1166,8 +1166,8 @@ async def chat_realtime(request: ChatRequest):
         if request.tts:
             try:
                 # Use Ryan (en-GB-RyanNeural) specifically
-                # Use personality-based voice selection
-                voice = language_service.get_voice_for_text(response_text, gender=request.gender, default_voice=TTS_VOICE)
+                # Use personality-based voice selection unless a specific voice_id is passed
+                voice = request.voice_id if request.voice_id else language_service.get_voice_for_text(response_text, gender=request.gender, default_voice=TTS_VOICE)
                 
                 # Map tone to rate
                 rate = TTS_RATE
@@ -1226,7 +1226,7 @@ async def chat_realtime_stream(request: ChatRequest):
         user_lang = language_service.detect_language(request.message)
 
         return StreamingResponse(
-            _stream_generator(session_id, chunk_iter, is_realtime=True, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone),
+            _stream_generator(session_id, chunk_iter, is_realtime=True, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone, voice_id=request.voice_id),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -1416,8 +1416,8 @@ async def text_to_speech(request: TTSRequest):
     async def generate():
         """Async generator that yields MP3 audio chunks from edge_tts."""
         try:
-            # Detect language and pick a matching voice
-            voice = language_service.get_voice_for_text(text, gender=request.gender, default_voice=TTS_VOICE)
+            # Detect language and pick a matching voice if specific ID not provided
+            voice = request.voice_id if request.voice_id else language_service.get_voice_for_text(text, gender=request.gender, default_voice=TTS_VOICE)
             
             # Map tone to rate
             rate = TTS_RATE

@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
@@ -327,8 +328,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ) {
                                         if (states.contains(
                                           WidgetState.pressed,
-                                        ))
+                                        )) {
                                           return 0;
+                                        }
                                         return 12;
                                       }),
                                 ),

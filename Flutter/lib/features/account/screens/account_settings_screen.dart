@@ -1,3 +1,4 @@
+// ignore_for_file: final_not_initialized_constructor, unused_element, unused_field
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ import 'package:buddy_mobile/features/account/screens/change_password_screen.dar
 import 'package:buddy_mobile/core/providers/security_provider.dart';
 import 'package:buddy_mobile/features/account/screens/terms_conditions_screen.dart';
 import 'package:buddy_mobile/features/account/screens/privacy_policy_screen.dart';
+import 'package:buddy_mobile/features/account/screens/voice_preference_screen.dart';
 
 class AccountSettingsScreen extends StatefulWidget {
   final ValueChanged<bool>? onSubViewChanged;
@@ -30,10 +32,10 @@ class AccountSettingsScreen extends StatefulWidget {
 class _AccountSettingsScreenState extends State<AccountSettingsScreen>
     with WidgetsBindingObserver {
   // Toggle states
-  bool _voiceAlerts = true;
-  bool _pushNotifications = true;
-  bool _emailDigest = false;
-  bool _inAppAlerts = true;
+  final bool _voiceAlerts = true;
+  final bool _pushNotifications = true;
+  final bool _emailDigest = false;
+  final bool _inAppAlerts = true;
 
   @override
   void initState() {
@@ -268,10 +270,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                           if (success) {
                             final msg =
                                 "Voice Alerts turned ${v ? 'ON' : 'OFF'}";
-                            if (v)
+                            if (v) {
                               ToastUtils.showSuccessToast(msg);
-                            else
+                            } else {
                               ToastUtils.showErrorToast(msg);
+                            }
                           }
                         },
                       ),
@@ -292,10 +295,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                           if (success) {
                             final msg =
                                 "Push Notifications turned ${v ? 'ON' : 'OFF'}";
-                            if (v)
+                            if (v) {
                               ToastUtils.showSuccessToast(msg);
-                            else
+                            } else {
                               ToastUtils.showErrorToast(msg);
+                            }
                           }
                         },
                       ),
@@ -316,10 +320,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                           if (success) {
                             final msg =
                                 "Email Digest turned ${v ? 'ON' : 'OFF'}";
-                            if (v)
+                            if (v) {
                               ToastUtils.showSuccessToast(msg);
-                            else
+                            } else {
                               ToastUtils.showErrorToast(msg);
+                            }
                           }
                         },
                       ),
@@ -340,10 +345,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                           if (success) {
                             final msg =
                                 "In-App Alerts turned ${v ? 'ON' : 'OFF'}";
-                            if (v)
+                            if (v) {
                               ToastUtils.showSuccessToast(msg);
-                            else
+                            } else {
                               ToastUtils.showErrorToast(msg);
+                            }
                           }
                         },
                       ),
@@ -374,13 +380,44 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                           updatedUser['googleCalendarConnected'] == true;
                       final msg =
                           "Google Calendar ${isNowConnected ? 'connected' : 'disconnected'}";
-                      if (isNowConnected)
+                      if (isNowConnected) {
                         ToastUtils.showSuccessToast(msg);
-                      else
+                      } else {
                         ToastUtils.showErrorToast(msg);
+                      }
                     },
                   ),
                   isLast: true,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // ── AI Assistant ──────────────────────────────────────────
+              _SecLabel(label: 'AI Assistant'),
+              _Card(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    _SettingsRow(
+                      icon: LucideIcons.bot,
+                      iconColor: AppColors.accent,
+                      label: 'AI Voice Preference',
+                      sub: 'Choose how Buddy sounds',
+                      trailing: const Icon(
+                        LucideIcons.chevronRight,
+                        size: 15,
+                        color: AppColors.textDim,
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const VoicePreferenceScreen(),
+                        ),
+                      ),
+                      isLast: true,
+                    ),
+                  ],
                 ),
               ),
 
@@ -406,10 +443,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                             if (success) {
                               final msg =
                                   "Biometric Security turned ${v ? 'ON' : 'OFF'}";
-                              if (v)
+                              if (v) {
                                 ToastUtils.showSuccessToast(msg);
-                              else
+                              } else {
                                 ToastUtils.showErrorToast(msg);
+                              }
                             } else if (v) {
                               ToastUtils.showErrorToast(
                                 'Biometric authentication failed',
@@ -783,7 +821,6 @@ class _Toggle extends StatelessWidget {
   const _Toggle({
     required this.value,
     required this.onChanged,
-    this.activeColor,
   });
 
   @override
@@ -849,8 +886,8 @@ class _Avatar extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          placeholder: (_, __) => _fallback(),
-          errorWidget: (_, __, ___) => _fallback(),
+          placeholder: (_, _) => _fallback(),
+          errorWidget: (_, _, _) => _fallback(),
         ),
       );
     }
