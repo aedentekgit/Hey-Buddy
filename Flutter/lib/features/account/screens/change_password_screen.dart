@@ -57,72 +57,85 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       body: Column(
         children: [
           // Header
-          Container(
-            color: AppColors.surface,
-            child: SafeArea(
-              bottom: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border(bottom: BorderSide(color: AppColors.border)),
+          SafeArea(
+            bottom: false,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(36),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.8),
+                  width: 1,
                 ),
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.bg,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: const Icon(
-                          LucideIcons.arrowLeft,
-                          size: 19,
-                          color: AppColors.text,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Change Password',
-                            style: GoogleFonts.nunito(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.text,
-                            ),
-                          ),
-                          Text(
-                            'Update your account security',
-                            style: GoogleFonts.inter(
-                              fontSize: 11.5,
-                              color: AppColors.textMid,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.accentLight,
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.text.withValues(alpha: 0.03),
+                        shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        LucideIcons.shieldCheck,
-                        size: 18,
-                        color: AppColors.accent,
+                      child: Icon(
+                        LucideIcons.arrowLeft,
+                        size: 19,
+                        color: AppColors.text,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Change Password',
+                          style: GoogleFonts.nunito(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.text,
+                          ),
+                        ),
+                        Text(
+                          'Update your account security',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            color: AppColors.textMid,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentLight,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      LucideIcons.shieldCheck,
+                      size: 18,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

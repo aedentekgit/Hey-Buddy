@@ -91,33 +91,66 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(
-          'Buddy\'s Voice',
-          style: GoogleFonts.nunito(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppColors.text,
-          ),
-        ),
-        backgroundColor: AppColors.bg,
-        elevation: 0,
-        centerTitle: true,
-        leading: GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: const Icon(Icons.arrow_back_rounded, color: AppColors.text, size: 20),
-          ),
-        ),
-      ),
       body: Column(
         children: [
+          SafeArea(
+            bottom: false,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(36),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.8),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.text.withValues(alpha: 0.03),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        LucideIcons.arrowLeft,
+                        size: 19,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      'Buddy\'s Voice',
+                      style: GoogleFonts.nunito(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           // Intro Card
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -182,7 +215,7 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(LucideIcons.settings, size: 40, color: AppColors.textDim),
+                        Icon(LucideIcons.settings, size: 40, color: AppColors.textDim),
                         const SizedBox(height: 16),
                         Text(
                           'No voices configured.',

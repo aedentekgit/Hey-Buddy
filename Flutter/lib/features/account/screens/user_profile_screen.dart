@@ -83,107 +83,118 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           return Column(
             children: [
               // ── Header ──────────────────────────────────────────────
-              Container(
+          SafeArea(
+            bottom: false,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
                 color: AppColors.surface,
-                child: SafeArea(
-                  bottom: false,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      border: Border(
-                        bottom: BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.circular(36),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.8),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.maybePop(context),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.text.withValues(alpha: 0.03),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        LucideIcons.arrowLeft,
+                        size: 18,
+                        color: AppColors.text,
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                    child: Row(
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        GestureDetector(
-                          onTap: () => Navigator.maybePop(context),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppColors.bg,
-                              borderRadius: BorderRadius.circular(11),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: const Icon(
-                              LucideIcons.arrowLeft,
-                              size: 18,
-                              color: AppColors.text,
-                            ),
+                        Text(
+                          'My Profile',
+                          style: GoogleFonts.nunito(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.text,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'My Profile',
-                                style: GoogleFonts.nunito(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.text,
-                                ),
-                              ),
-                              Text(
-                                'View and edit your details',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: AppColors.textMid,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Edit / Cancel toggle
-                        GestureDetector(
-                          onTap: () => setState(() {
-                            if (_editMode) {
-                              // Reset on cancel
-                              _nameCtrl.text = user['name'] ?? '';
-                              _phoneCtrl.text = user['phone'] ?? '';
-                              _dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
-                              _timeFormat = user['timeFormat'] ?? '12';
-                              _timezone = user['timezone'] ?? 'UTC';
-                            }
-                            _editMode = !_editMode;
-                          }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _editMode
-                                  ? AppColors.bg
-                                  : AppColors.accentLight,
-                              borderRadius: BorderRadius.circular(11),
-                              border: Border.all(
-                                color: _editMode
-                                    ? AppColors.border
-                                    : AppColors.accent.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Text(
-                              _editMode ? 'Cancel' : 'Edit',
-                              style: GoogleFonts.nunito(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: _editMode
-                                    ? AppColors.textMid
-                                    : AppColors.accent,
-                              ),
-                            ),
+                        Text(
+                          'View and edit your details',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: AppColors.textMid,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                  // Edit / Cancel toggle
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      if (_editMode) {
+                        // Reset on cancel
+                        _nameCtrl.text = user['name'] ?? '';
+                        _phoneCtrl.text = user['phone'] ?? '';
+                        _dateFormat = user['dateFormat'] ?? 'DD/MM/YYYY';
+                        _timeFormat = user['timeFormat'] ?? '12';
+                        _timezone = user['timezone'] ?? 'UTC';
+                      }
+                      _editMode = !_editMode;
+                    }),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _editMode
+                            ? AppColors.surface
+                            : AppColors.accentLight,
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          color: _editMode
+                              ? AppColors.border
+                              : AppColors.accent.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        _editMode ? 'Cancel' : 'Edit',
+                        style: GoogleFonts.nunito(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _editMode
+                              ? AppColors.textMid
+                              : AppColors.accent,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+          ),
 
               // ── Body ────────────────────────────────────────────────
               Expanded(
