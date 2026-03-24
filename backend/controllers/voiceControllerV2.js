@@ -175,7 +175,9 @@ exports.saveReminder = async (req, res) => {
         if (reminderData.location && (!reminderData.coordinates?.lat || !reminderData.coordinates?.lng)) {
             try {
                 const { geocodeAddress } = require('../services/smartReminderService');
-                const coords = await geocodeAddress(reminderData.location);
+                const User = require('../models/User');
+                const user = await User.findById(userId);
+                const coords = await geocodeAddress(reminderData.location, user?.currentLocation);
                 if (coords) {
                     reminderData.coordinates = coords;
                     console.log('[SaveReminder] Auto-geocoded location:', coords);

@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/voice_assistant/screens/buddy_assistant_page.dart';
 import 'package:buddy_mobile/features/explore/screens/explore_screen.dart';
 import 'package:buddy_mobile/features/home/screens/reminder_list_screen.dart';
@@ -184,20 +185,8 @@ class _MainScreenState extends State<MainScreen> {
         }
       },
       child: Scaffold(
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                primaryColor.withValues(alpha: 0.08),
-                const Color(0xFFF9FAFF),
-                const Color(0xFFF9FAFF),
-              ],
-              stops: const [0.0, 0.4, 1.0],
-            ),
-          ),
-          child: SafeArea(
+        backgroundColor: AppColors.bg,
+        body: SafeArea(
             left: false,
             right: false,
             child: Column(
@@ -241,7 +230,6 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
-        ),
       ),
     );
   }

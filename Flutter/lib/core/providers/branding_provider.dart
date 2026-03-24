@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:buddy_mobile/core/services/settings_service.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,6 +22,9 @@ class BrandingProvider extends ChangeNotifier {
   String? _latestAppVersion;
   bool _mandatoryUpdate = false;
   String? _updateUrl;
+  
+  bool _isDarkMode = false;
+  bool get isDarkMode => _isDarkMode;
 
   List<dynamic> _availableVoices = [];
   List<dynamic> get availableVoices => _availableVoices;
@@ -49,8 +53,18 @@ class BrandingProvider extends ChangeNotifier {
     AppConfig.splashUrl = _splashUrl;
     AppConfig.googleClientId = savedClientId;
     if (savedMapsKey != null) AppConfig.googleMapsApiKey = savedMapsKey;
+    
+    _isDarkMode = prefs.getBool('branding_is_dark_mode') ?? false;
+    AppColors.setDarkMode(_isDarkMode);
 
     _isLoading = true; // Still loading fresh data from backend
+  }
+  
+  Future<void> toggleDarkMode(bool isDark) async {
+    _isDarkMode = isDark;
+    await prefs.setBool('branding_is_dark_mode', isDark);
+    AppColors.setDarkMode(isDark);
+    notifyListeners();
   }
 
   bool get isLoading => _isLoading;
@@ -194,10 +208,13 @@ class BrandingProvider extends ChangeNotifier {
 
   ThemeData get themeData => ThemeData(
     useMaterial3: true,
+    primaryColor: _primaryColor,
+    brightness: _isDarkMode ? Brightness.dark : Brightness.light,
     colorScheme: ColorScheme.fromSeed(
       seedColor: _primaryColor,
       primary: _primaryColor,
-      surface: Colors.white,
+      brightness: _isDarkMode ? Brightness.dark : Brightness.light,
+      surface: AppColors.surface,
     ),
     // Enable swipe-to-go-back on ALL platforms (Android + iOS)
     pageTransitionsTheme: const PageTransitionsTheme(
@@ -207,17 +224,19 @@ class BrandingProvider extends ChangeNotifier {
         TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
       },
     ),
-    textTheme: GoogleFonts.plusJakartaSansTextTheme(),
+    textTheme: GoogleFonts.plusJakartaSansTextTheme(
+      _isDarkMode ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.grey[50],
+      fillColor: _isDarkMode ? AppColors.surface : Colors.grey[50],
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey[300]!),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey[200]!),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -252,7 +271,7 @@ class BrandingProvider extends ChangeNotifier {
     switchTheme: SwitchThemeData(
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) return _primaryColor;
-        return const Color(0xFFE2E8F0);
+        return _isDarkMode ? const Color(0xFF4B5563) : const Color(0xFFE2E8F0);
       }),
       thumbColor: WidgetStateProperty.all(Colors.white),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
@@ -260,7 +279,7 @@ class BrandingProvider extends ChangeNotifier {
     dropdownMenuTheme: DropdownMenuThemeData(
       textStyle: GoogleFonts.outfit(fontSize: 14),
       menuStyle: MenuStyle(
-        backgroundColor: WidgetStateProperty.all(Colors.white),
+        backgroundColor: WidgetStateProperty.all(AppColors.surface),
         elevation: WidgetStateProperty.all(8),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -269,7 +288,7 @@ class BrandingProvider extends ChangeNotifier {
     ),
     menuTheme: MenuThemeData(
       style: MenuStyle(
-        backgroundColor: WidgetStateProperty.all(Colors.white),
+        backgroundColor: WidgetStateProperty.all(AppColors.surface),
         elevation: WidgetStateProperty.all(8),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

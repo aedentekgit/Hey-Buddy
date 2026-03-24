@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import '../services/task_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:math' as math;
 
 class TasksProvider with ChangeNotifier {
   final TaskService _taskService = TaskService();
@@ -77,17 +78,6 @@ class TasksProvider with ChangeNotifier {
           double? useLat = position?.latitude;
           double? useLng = position?.longitude;
 
-          // EMULATOR FALLBACK: Simulate Madurai GPS for travel stats in emulator
-          if (useLat != null &&
-              useLat > 37.0 &&
-              useLat < 38.0 &&
-              useLng != null &&
-              useLng > -123.0 &&
-              useLng < -121.0) {
-            useLat = 9.9252;
-            useLng = 78.1198;
-          }
-
           final stats = await _taskService.fetchTravelStats(
             id,
             lat: useLat,
@@ -134,38 +124,15 @@ class TasksProvider with ChangeNotifier {
   /// Haversine formula — straight-line distance in km between two coordinates.
   double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
     const R = 6371.0;
-    const toRad = 3.141592653589793 / 180;
-    final dLat = (lat2 - lat1) * toRad;
-    final dLng = (lng2 - lng1) * toRad;
-    final a =
-        _sinSq(dLat / 2) + _cosDeg(lat1) * _cosDeg(lat2) * _sinSq(dLng / 2);
-    final c = 2 * _asin(_sqrtClamp(a));
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return R * c;
-  }
-
-  // dart:math-free helpers (no import needed)
-  double _sinSq(double x) {
-    final s = x - x * x * x / 6 + x * x * x * x * x / 120;
-    return s * s;
-  }
-
-  double _cosDeg(double deg) {
-    final x = deg * 3.141592653589793 / 180;
-    return 1 - x * x / 2 + x * x * x * x / 24;
-  }
-
-  double _sqrtClamp(double x) {
-    if (x <= 0) return 0;
-    if (x >= 1) return 1;
-    double r = x;
-    for (int i = 0; i < 10; i++) {
-      r = (r + x / r) / 2;
-    }
-    return r;
-  }
-
-  double _asin(double x) {
-    return x + x * x * x / 6 + 3 * x * x * x * x * x / 40;
   }
 
   Future<List<Map<String, dynamic>>> _processTasksInBackground(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/core/services/location_service.dart';
@@ -61,6 +62,7 @@ class _ExploreScreenState extends State<ExploreScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    Provider.of<BrandingProvider>(context); // Force rebuild on theme change
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.user;
     final String userName = (user['name'] as String? ?? 'Alex Johnson');
@@ -233,13 +235,49 @@ class _HeroCardState extends State<_HeroCard> {
 
   @override
   Widget build(BuildContext context) {
+    final branding = Provider.of<BrandingProvider>(context);
+    final isLight = !branding.isDarkMode;
+    final color = AppColors.accent;
+
     return Container(
       width: double.infinity,
       clipBehavior: Clip.hardEdge,
-
       decoration: BoxDecoration(
-        gradient: AppColors.headerGradient,
+        color: isLight ? null : AppColors.surface,
+        gradient: isLight ? LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.8),
+            color.withValues(alpha: 0.08),
+            color.withValues(alpha: 0.15),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ) : AppColors.headerGradient,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isLight ? Colors.white.withValues(alpha: 0.9) : Colors.transparent,
+          width: isLight ? 1.5 : 0.0,
+        ),
+        boxShadow: isLight
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+                const BoxShadow(
+                  color: Colors.white,
+                  blurRadius: 12,
+                  offset: Offset(-4, -4),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
       ),
       child: Stack(
         fit: StackFit.passthrough,
@@ -251,9 +289,9 @@ class _HeroCardState extends State<_HeroCard> {
             child: Container(
               width: 140,
               height: 140,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0x18FFFFFF),
+                color: isLight ? color.withValues(alpha: 0.08) : const Color(0x18FFFFFF),
               ),
             ),
           ),
@@ -263,9 +301,9 @@ class _HeroCardState extends State<_HeroCard> {
             child: Container(
               width: 95,
               height: 95,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0x12FFFFFF),
+                color: isLight ? color.withValues(alpha: 0.05) : const Color(0x12FFFFFF),
               ),
             ),
           ),
@@ -279,7 +317,7 @@ class _HeroCardState extends State<_HeroCard> {
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.75),
+                    color: isLight ? AppColors.textMid : Colors.white.withValues(alpha: 0.75),
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -289,7 +327,7 @@ class _HeroCardState extends State<_HeroCard> {
                   style: GoogleFonts.nunito(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                    color: isLight ? AppColors.text : Colors.white,
                     height: 1.1,
                   ),
                 ),
@@ -300,20 +338,21 @@ class _HeroCardState extends State<_HeroCard> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: isLight ? color.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
+                    border: isLight ? Border.all(color: Colors.white, width: 1.5) : null,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_locationIcon, size: 16, color: Colors.white),
+                      Icon(_locationIcon, size: 16, color: isLight ? color.withValues(alpha: 0.9) : Colors.white),
                       const SizedBox(width: 8),
                       Text(
                         _locationText,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: isLight ? color.withValues(alpha: 0.9) : Colors.white,
                         ),
                       ),
                     ],
@@ -429,60 +468,140 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final branding = Provider.of<BrandingProvider>(context);
+    final isLight = !branding.isDarkMode;
+
     return Pressable(
       onTap: action.onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.cardBorder),
-          boxShadow: AppColors.cardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: action.color.withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(color: action.color.withOpacity(0.2)),
-                  ),
-                  child: Icon(action.icon, size: 19, color: action.color),
-                ),
-                if (action.sub.contains('new'))
-                  Container(
-                    width: 7,
-                    height: 7,
-                    margin: const EdgeInsets.only(top: 2, right: 2),
-                    decoration: const BoxDecoration(
-                      color: AppColors.danger,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-              ],
+          color: isLight ? null : AppColors.surface,
+          gradient: isLight ? LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.8),
+              action.color.withValues(alpha: 0.08),
+              action.color.withValues(alpha: 0.15),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ) : null,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isLight ? Colors.white.withValues(alpha: 0.9) : AppColors.cardBorder,
+            width: isLight ? 1.5 : 1.0,
+          ),
+          boxShadow: isLight ? [
+            BoxShadow(
+              color: action.color.withValues(alpha: 0.15),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-            const Spacer(),
-            Text(
-              action.label,
-              style: GoogleFonts.nunito(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.text,
-              ),
+            const BoxShadow(
+              color: Colors.white,
+              blurRadius: 12,
+              offset: Offset(-4, -4),
             ),
-            const SizedBox(height: 2),
-            Text(
-              action.sub,
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMid),
+          ] : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
+        ),
+        child: Stack(
+          children: [
+            // Decorative background icon for glossy 3D feel
+            Positioned(
+              right: -10,
+              bottom: -15,
+              child: Transform.rotate(
+                angle: -0.2,
+                child: Icon(
+                  action.icon,
+                  size: 80,
+                  color: action.color.withValues(alpha: isLight ? 0.1 : 0.03),
+                ),
+              ),
+            ),
+
+            // Foreground Content
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: isLight ? null : action.color.withValues(alpha: 0.1),
+                        gradient: isLight ? LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0.9),
+                            Colors.white.withValues(alpha: 0.4),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ) : null,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isLight ? Colors.white : action.color.withValues(alpha: 0.2),
+                          width: isLight ? 1.5 : 1.0,
+                        ),
+                        boxShadow: isLight ? [
+                          BoxShadow(
+                            color: action.color.withValues(alpha: 0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          )
+                        ] : null,
+                      ),
+                      child: Icon(
+                        action.icon, 
+                        size: 20, 
+                        color: isLight ? action.color.withValues(alpha: 0.9) : action.color
+                      ),
+                    ),
+                    if (action.sub.contains('new'))
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(top: 2, right: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.danger,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  action.label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  action.sub,
+                  style: GoogleFonts.inter(
+                    fontSize: 11, 
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMid,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         ),
       ),
     );
@@ -495,61 +614,127 @@ class _CalendarWideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final branding = Provider.of<BrandingProvider>(context);
+    final isLight = !branding.isDarkMode;
+    final color = AppColors.accent;
+
     return Pressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), AppColors.accent],
+          color: isLight ? null : AppColors.surface,
+          gradient: isLight ? LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.8),
+              color.withValues(alpha: 0.08),
+              color.withValues(alpha: 0.15),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-          ),
+          ) : null,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [
+          border: Border.all(
+            color: isLight ? Colors.white.withValues(alpha: 0.9) : AppColors.cardBorder,
+            width: isLight ? 1.5 : 1.0,
+          ),
+          boxShadow: isLight ? [
             BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.2),
+              color: color.withValues(alpha: 0.15),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+            const BoxShadow(
+              color: Colors.white,
               blurRadius: 12,
-              offset: const Offset(0, 6),
+              offset: Offset(-4, -4),
+            ),
+          ] : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Row(
+        child: Stack(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(15),
+            Positioned(
+              right: -10,
+              bottom: -25,
+              child: Transform.rotate(
+                angle: -0.2,
+                child: Icon(
+                  LucideIcons.calendar,
+                  size: 110,
+                  color: color.withValues(alpha: isLight ? 0.1 : 0.03),
+                ),
               ),
-              child: const Icon(LucideIcons.calendar, color: Colors.white, size: 24),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  Text(
-                    'Calendar View',
-                    style: GoogleFonts.nunito(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: isLight ? color.withValues(alpha: 0.14) : color.withValues(alpha: 0.1),
+                      gradient: isLight ? LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: 0.9),
+                          Colors.white.withValues(alpha: 0.4),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ) : null,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: isLight ? Colors.white : color.withValues(alpha: 0.2),
+                        width: isLight ? 1.5 : 1.0,
+                      ),
+                      boxShadow: isLight ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        )
+                      ] : null,
+                    ),
+                    child: Icon(
+                      LucideIcons.calendar, 
+                      color: isLight ? color.withValues(alpha: 0.9) : color, 
+                      size: 24
                     ),
                   ),
-                  Text(
-                    'Track all your scheduled reminders',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.8),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Calendar View',
+                          style: GoogleFonts.nunito(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: isLight ? AppColors.text : Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Track all your scheduled reminders',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isLight ? AppColors.textMid : Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  Icon(LucideIcons.chevronRight, color: isLight ? color.withValues(alpha: 0.4) : Colors.white70, size: 20),
                 ],
               ),
             ),
-            const Icon(LucideIcons.chevronRight, color: Colors.white70, size: 20),
           ],
         ),
       ),
@@ -593,7 +778,7 @@ class _MemoryMarquee extends StatelessWidget {
         }
 
         return SizedBox(
-          height: 38,
+          height: 30,
           child: _MarqueeRow(items: titles, onTap: onTap),
         );
       },
@@ -655,7 +840,8 @@ class _MarqueeRowState extends State<_MarqueeRow> {
           onTap: widget.onTap,
           child: Container(
             margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
@@ -716,13 +902,42 @@ class _TodayReminders extends StatelessWidget {
 class _EmptyReminders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final branding = Provider.of<BrandingProvider>(context);
+    final isLight = !branding.isDarkMode;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        color: isLight ? null : AppColors.surface,
+        gradient: isLight ? LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.8),
+            AppColors.accent.withValues(alpha: 0.05),
+            Colors.white.withValues(alpha: 0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ) : null,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isLight ? Colors.white.withValues(alpha: 0.9) : AppColors.border,
+          width: isLight ? 1.5 : 1.0,
+        ),
+        boxShadow: isLight
+            ? [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.1),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+                const BoxShadow(
+                  color: Colors.white,
+                  blurRadius: 12,
+                  offset: Offset(-4, -4),
+                ),
+              ]
+            : AppColors.cardShadow,
       ),
       child: Column(
         children: [
@@ -733,7 +948,7 @@ class _EmptyReminders extends StatelessWidget {
               color: AppColors.accentLight,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               LucideIcons.bell,
               size: 28,
               color: AppColors.accent,
@@ -806,14 +1021,14 @@ class _ReminderCard extends StatelessWidget {
                 Container(width: 5, color: color),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 16, 16, 16),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Icon
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -826,9 +1041,9 @@ class _ReminderCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(15),
                             border: Border.all(color: color.withValues(alpha: 0.2)),
                           ),
-                          child: Icon(icon, color: color, size: 24),
+                          child: Icon(icon, color: color, size: 18),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         // Content
                         Expanded(
                           child: Column(
@@ -843,7 +1058,7 @@ class _ReminderCard extends StatelessWidget {
                                     child: Text(
                                       title,
                                       style: GoogleFonts.nunito(
-                                        fontSize: 15,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w800,
                                         color: isOverdue
                                             ? AppColors.textDim
@@ -891,7 +1106,7 @@ class _ReminderCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
 
                               // Bottom Row: Location + ETA
                               Row(

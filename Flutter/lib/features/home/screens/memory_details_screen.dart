@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -177,6 +178,7 @@ class MemoryDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final c = _color;
     final fields = _parsedFields;
     final notes = _notes.isNotEmpty
@@ -370,6 +372,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
       color: AppColors.surface,
       child: SafeArea(
@@ -392,7 +395,7 @@ class _Header extends StatelessWidget {
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     LucideIcons.arrowLeft,
                     size: 18,
                     color: AppColors.text,
@@ -453,7 +456,7 @@ class _Header extends StatelessWidget {
                       color: AppColors.danger.withValues(alpha: 0.2),
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     LucideIcons.trash2,
                     size: 16,
                     color: AppColors.danger,
@@ -476,6 +479,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(
@@ -500,6 +504,7 @@ class _FieldRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
@@ -543,6 +548,7 @@ class _TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
@@ -577,6 +583,7 @@ class _FileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,

@@ -85,7 +85,24 @@ class BuddyApp extends StatelessWidget {
           theme: branding.themeData,
           home: const SplashScreen(),
           builder: (context, child) {
-            return child!;
+            return Container(
+              decoration: BoxDecoration(
+                color: branding.isDarkMode ? null : const Color(0xFFF5F7FA), // Light mode fallback
+                gradient: branding.isDarkMode
+                    ? const LinearGradient(
+                        colors: [
+                          Color(0xFF0B101E), // Deep dark navy
+                          Color(0xFF1A1A2E), // Glossy purple-navy
+                          Color(0xFF0F172A), // Slate
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        stops: [0.0, 0.5, 1.0],
+                      )
+                    : null,
+              ),
+              child: child!,
+            );
           },
         );
       },

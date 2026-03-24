@@ -107,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   height: 300,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                    color: AppColors.accent.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -122,18 +122,18 @@ class _SplashScreenState extends State<SplashScreen> {
                         child: branding.splashUrl != null
                             ? CachedNetworkImage(
                                 imageUrl: branding.splashUrl!,
-                                height: 80,
+                                height: 120,
                                 placeholder: (context, url) =>
-                                    const SizedBox(height: 80, width: 80),
+                                    const SizedBox(height: 120, width: 120),
                                 errorWidget: (context, url, error) => Icon(
                                   Icons.auto_awesome,
-                                  size: 48,
+                                  size: 64,
                                   color: branding.primaryColor,
                                 ),
                               )
                             : Icon(
                                 Icons.auto_awesome,
-                                size: 48,
+                                size: 64,
                                 color: branding.primaryColor,
                               ),
                       ),

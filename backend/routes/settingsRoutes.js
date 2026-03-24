@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getSettings, updateSettings, getPublicSettings, testSMTP, testSMS, testNotification, internalFileSync, internalFileDeleteSync } = require('../controllers/settingsController');
+const { getSettings, updateSettings, getPublicSettings, getAppLogo, testSMTP, testSMS, testNotification, internalFileSync, internalFileDeleteSync } = require('../controllers/settingsController');
 const { protect, authorize } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
 router.get('/public', getPublicSettings);
+router.get('/logo', getAppLogo);
+router.head('/logo', getAppLogo);
 router.get('/', protect, getSettings);
 router.put('/', protect, authorize('admin'), upload.fields([
     { name: 'logo', maxCount: 1 },

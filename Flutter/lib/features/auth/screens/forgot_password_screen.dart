@@ -123,7 +123,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     style: GoogleFonts.outfit(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
-                      color: const Color(0xFF1E293B),
+                      color: AppColors.text,
                       letterSpacing: -1,
                     ),
                   ),
@@ -227,9 +227,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+            border: Border.all(color: AppColors.border, width: 1.5),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -247,7 +247,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF1E293B),
+              color: AppColors.text,
             ),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 20),
@@ -270,7 +270,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 18,
+                vertical: 12,
               ),
               isDense: true,
             ),
@@ -288,7 +288,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final branding = Provider.of<BrandingProvider>(context, listen: false);
     return SizedBox(
       width: double.infinity,
-      height: 58,
+      height: 50,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style:

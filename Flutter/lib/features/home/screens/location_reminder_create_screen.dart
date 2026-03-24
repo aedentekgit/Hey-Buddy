@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -132,6 +133,7 @@ class _LocationReminderCreateScreenState
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Column(
@@ -159,7 +161,7 @@ class _LocationReminderCreateScreenState
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           LucideIcons.arrowLeft,
                           size: 18,
                           color: AppColors.text,
@@ -360,6 +362,7 @@ class _FieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Text(
       text.toUpperCase(),
       style: GoogleFonts.inter(
@@ -389,6 +392,7 @@ class _StyledField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final color = iconColor ?? AppColors.accent;
     return Container(
       decoration: BoxDecoration(
@@ -446,6 +450,7 @@ class _TappableField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final color = iconColor ?? AppColors.accent;
     return GestureDetector(
       onTap: onTap,
@@ -498,6 +503,7 @@ class _WarningOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,

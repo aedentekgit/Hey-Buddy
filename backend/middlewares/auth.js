@@ -127,4 +127,35 @@ const protectInternal = (req, res, next) => {
     next();
 };
 
-module.exports = { protect, authorize, protectOptional, protectInternal };
+// Granular Permission Check Middleware
+const checkPermission = (requiredPermission) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user || !req.user.role) {
+                return res.status(401).json({ success: false, message: 'Not authorized' });
+            }
+
+            // If user is super admin, they get all permissions implicitly (optional but common)
+            if (req.user.role === 'Super Admin' || req.user.role === 'admin') {
+                return next();
+            }
+
+            const Role = require('../models/Role');
+            const roleDoc = await Role.findOne({ name: req.user.role });
+
+            if (!roleDoc || !roleDoc.permissions || !roleDoc.permissions.includes(requiredPermission)) {
+                return res.status(403).json({
+                    success: false,
+                    message: `Access denied: Requires permission '${requiredPermission}'`
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('[AUTH] Permission check failed:', error.message);
+            res.status(500).json({ success: false, message: 'Internal server error during permission check' });
+        }
+    };
+};
+
+module.exports = { protect, authorize, protectOptional, protectInternal, checkPermission };

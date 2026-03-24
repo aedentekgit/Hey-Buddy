@@ -25,7 +25,7 @@ def get_action_tools(user_id: str):
     
     @tool
     def schedule_reminder(title: str, date: str, time: str, description: str = "", location: str = ""):
-        """Schedule a dynamic reminder for the user. Provide the title, date (YYYY-MM-DD), time (HH:MM or HH:MM AM/PM), description, and location."""
+        """Schedule a dynamic reminder for the user. Provide the title, date (YYYY-MM-DD), time (HH:MM or HH:MM AM/PM), description, and location. DO NOT use this tool if the user is just asking what their reminders are."""
         logger.info(f"Executing tool: schedule_reminder for {title}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
         payload = {
@@ -47,7 +47,7 @@ def get_action_tools(user_id: str):
 
     @tool
     def update_reminder(reminder_id: str, title: str = None, date: str = None, time: str = None, description: str = "", location: str = ""):
-        """Update an existing reminder. Provide the reminder_id found in context and any fields to change."""
+        """Update an existing reminder. Provide the reminder_id found in context and any fields to change. DO NOT use this tool to answer questions about a reminder. ONLY use it if the user asks to CHANGE or UPDATE it."""
         logger.info(f"Executing tool: update_reminder for {reminder_id}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
         payload = {
@@ -70,7 +70,7 @@ def get_action_tools(user_id: str):
 
     @tool
     def save_memory(content: str, category: str):
-        """Save a NEW important memory, fact, or user preference. NEVER use this for reminders, tasks, or appointments; use schedule_reminder or schedule_location_reminder instead."""
+        """Save a NEW important memory, fact, or user preference. NEVER use this for reminders, tasks, or appointments. DO NOT use this tool if the user is asking a question or if the memory already exists in your context. ONLY use this when the user tells you explicitly NEW information to remember."""
         logger.info(f"Executing tool: save_memory: {content}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
         payload = {
@@ -89,7 +89,7 @@ def get_action_tools(user_id: str):
 
     @tool
     def update_memory(memory_id: str, content: str, category: str = None):
-        """Update an existing memory/fact. Provide the memory_id found in context and the new content or category."""
+        """Update an existing memory/fact. Provide the memory_id found in context and the new content or category. DO NOT use this to just repeat or retrieve the memory. ONLY use it if the user provides new details to CHANGE it."""
         logger.info(f"Executing tool: update_memory: {memory_id}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
         payload = {
@@ -109,7 +109,7 @@ def get_action_tools(user_id: str):
 
     @tool
     def schedule_location_reminder(title: str, location: str, description: str = "", date: str = "", time: str = ""):
-        """Schedule a reminder tied to a specific location (geofence). Use this when a user says 'remind me at [place]' or 'when I visit [place]'. Provide title, location name, and optionally date/time."""
+        """Schedule a reminder tied to a specific location (geofence). Use this when a user says 'remind me at [place]'. DO NOT use this tool if the user is just asking about an existing location reminder."""
         logger.info(f"Executing tool: schedule_location_reminder for {title} at {location}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
         payload = {
@@ -129,4 +129,24 @@ def get_action_tools(user_id: str):
         except Exception as e:
             return f"Error: {e}"
 
-    return [schedule_reminder, save_memory, update_reminder, update_memory, schedule_location_reminder]
+    @tool
+    def save_document(title: str, content: str, summary: str = ""):
+        """Save a long-form document, extracted text, or analyzed image data. ONLY use this when the user explicitly asks to 'save this' or upload it for later. DO NOT use this tool if the user is just asking a question about the image/document (e.g. 'what is this')."""
+        logger.info(f"Executing tool: save_document for {title}")
+        headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
+        payload = {
+            "action": "CREATE_DOCUMENT",
+            "userId": user_id,
+            "value": {
+                "title": title,
+                "content": content,
+                "summary": summary
+            }
+        }
+        try:
+            res = requests.post(NODE_ACTION_URL, json=payload, headers=headers)
+            return "Successfully saved document" if res.status_code == 200 else f"Failed: {res.text}"
+        except Exception as e:
+            return f"Error: {e}"
+
+    return [schedule_reminder, save_memory, update_reminder, update_memory, schedule_location_reminder, save_document]

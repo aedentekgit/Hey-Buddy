@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 
-/// Top navigation header — matches the JSX TopNav gradient design.
+/// Top navigation header — redesigned as a modern floating pill.
 /// Index mapping: 0 = Buddy, 1 = Explore, 2 = Settings
 class MobileAppHeader extends StatelessWidget {
   final int currentIndex;
@@ -24,27 +24,46 @@ class MobileAppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      height: 60,
-      decoration: const BoxDecoration(gradient: AppColors.headerGradient),
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(36),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.8),
+          width: 1,
+        ),
+      ),
       child: Row(
         children: [
           if (_settingsActive)
             GestureDetector(
               onTap: () => Navigator.maybePop(context),
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 width: 38,
                 height: 38,
-                margin: const EdgeInsets.only(right: 12),
+                margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.text.withValues(alpha: 0.04),
+                  shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   LucideIcons.chevronLeft,
-                  color: Colors.white,
-                  size: 20,
+                  color: AppColors.text,
+                  size: 18,
                 ),
               ),
             ),
@@ -55,7 +74,7 @@ class MobileAppHeader extends StatelessWidget {
             active: _buddyActive,
             onTap: () => onTabTapped(0),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 8),
           _NavTab(
             icon: LucideIcons.compass,
             label: 'Explore',
@@ -67,30 +86,23 @@ class MobileAppHeader extends StatelessWidget {
           GestureDetector(
             onTap: onProfileTapped,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 40,
-              height: 40,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(13),
+                shape: BoxShape.circle,
                 color: _settingsActive
-                    ? Colors.white.withValues(alpha: 0.95)
-                    : Colors.white.withValues(alpha: 0.15),
-                boxShadow: _settingsActive
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
+                    ? AppColors.purple.withValues(alpha: 0.1)
+                    : AppColors.text.withValues(alpha: 0.03),
+                border: _settingsActive
+                    ? Border.all(color: AppColors.purple.withValues(alpha: 0.3), width: 1.5)
+                    : Border.all(color: Colors.transparent, width: 1.5),
               ),
               child: Icon(
                 LucideIcons.settings,
-                size: 17,
-                color: _settingsActive
-                    ? AppColors.accent
-                    : Colors.white.withValues(alpha: 0.9),
+                size: 18,
+                color: _settingsActive ? AppColors.purple : AppColors.textMid,
               ),
             ),
           ),
@@ -118,30 +130,51 @@ class _NavTab extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: active ? 24 : 18,
-              color: active ? Colors.white : Colors.white.withValues(alpha: 0.45),
-            ),
-            if (active) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.nunito(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -0.3,
-                ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: active ? 14 : 10,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: active ? AppColors.accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  )
+                ]
+              : [],
+        ),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: active ? Colors.white : AppColors.textMid,
               ),
+              if (active) ...[
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

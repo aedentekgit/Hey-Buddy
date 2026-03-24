@@ -346,10 +346,23 @@ const internalFileDeleteSync = async (req, res) => {
     }
 };
 
+const getAppLogo = async (req, res) => {
+    try {
+        const settings = await Settings.findOne();
+        if (settings && settings.general && settings.general.logo) {
+            return res.redirect(settings.general.logo);
+        }
+        res.status(404).json({ success: false, message: 'Logo not found' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     getSettings,
     updateSettings,
     getPublicSettings,
+    getAppLogo,
     testSMTP,
     testSMS,
     testNotification,

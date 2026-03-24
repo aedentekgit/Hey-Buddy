@@ -1,5 +1,6 @@
 // ignore_for_file: curly_braces_in_flow_control_structures, unused_local_variable
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -77,6 +78,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final reminder = widget.reminder;
     final title = reminder['title'] ?? 'Reminder';
     final location = reminder['location'] ?? 'No Location';
@@ -115,7 +117,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           LucideIcons.arrowLeft,
                           size: 18,
                           color: AppColors.text,
@@ -158,7 +160,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                             color: AppColors.danger.withValues(alpha: 0.25),
                           ),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           LucideIcons.trash2,
                           size: 16,
                           color: AppColors.danger,
@@ -765,7 +767,7 @@ class _EarlyWarningScreenState extends State<EarlyWarningScreen> {
                   color: AppColors.dangerLight,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
+                child: Icon(
                   LucideIcons.trash2,
                   size: 22,
                   color: AppColors.danger,
@@ -886,6 +888,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     Color color = AppColors.orange;
     if (status == 'completed' || label == 'On Track') {
       color = AppColors.green;
@@ -919,6 +922,7 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -948,6 +952,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
@@ -1034,6 +1039,7 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -1105,6 +1111,7 @@ class _FeatureRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Column(
       children: [
         Padding(
@@ -1199,6 +1206,7 @@ class _AlertRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Column(
       children: [
         Padding(
@@ -1255,6 +1263,7 @@ class _Toggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: AnimatedContainer(
@@ -1262,7 +1271,11 @@ class _Toggle extends StatelessWidget {
         width: 44,
         height: 25,
         decoration: BoxDecoration(
-          color: value ? AppColors.accent : const Color(0xFFD1D5DB),
+          color: value
+              ? Theme.of(context).primaryColor
+              : (Theme.of(context).brightness == Brightness.dark 
+                  ? const Color(0xFF4B5563) 
+                  : const Color(0xFFD1D5DB)),
           borderRadius: BorderRadius.circular(13),
         ),
         child: AnimatedAlign(

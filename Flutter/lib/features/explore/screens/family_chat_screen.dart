@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/services.dart';
+import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_field.dart';
 
 class FamilyChatScreen extends StatefulWidget {
   final String title;
@@ -82,99 +84,110 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFEEF0FB), // JSX lavender bg
+      backgroundColor: AppColors.bg,
       body: Column(
         children: [
-          // ── Header ──────────────────────────────────────────────────
-          Container(
-            color: AppColors.surface,
-            child: SafeArea(
-              bottom: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border(bottom: BorderSide(color: AppColors.border)),
+          SafeArea(
+            bottom: false,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(36),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.8),
+                  width: 1,
                 ),
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.maybePop(context),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.bg,
-                          borderRadius: BorderRadius.circular(11),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: const Icon(
-                          LucideIcons.arrowLeft,
-                          size: 18,
-                          color: AppColors.text,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Avatar
-                    Container(
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.maybePop(context),
+                    child: Container(
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        gradient: AppColors.headerGradient,
-                        borderRadius: BorderRadius.circular(11),
+                        color: AppColors.bg,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.border.withValues(alpha: 0.5),
+                        ),
                       ),
                       child: Icon(
-                        widget.isGroup ? LucideIcons.users : LucideIcons.user,
-                        size: 18,
-                        color: Colors.white,
+                        LucideIcons.chevronLeft,
+                        size: 20,
+                        color: AppColors.text,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.isGroup ? 'Family Group Chat' : widget.title,
-                            style: GoogleFonts.nunito(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.text,
+                  ),
+                  const SizedBox(width: 12),
+                  // Avatar
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.headerGradient,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      widget.isGroup ? LucideIcons.users : LucideIcons.user,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.isGroup ? 'Family Group' : widget.title,
+                          style: GoogleFonts.nunito(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.text,
+                            height: 1.2,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: AppColors.green,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
-                          Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: AppColors.green,
-                                  shape: BoxShape.circle,
-                                ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Secure Connection',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.green,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Secure End-to-End Chat',
-                                style: GoogleFonts.inter(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-
-          // ── Messages ─────────────────────────────────────────────────
           Expanded(
             child: Consumer<FamilyProvider>(
               builder: (context, provider, _) {
@@ -221,8 +234,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               },
             ),
           ),
-
-          // ── Input ────────────────────────────────────────────────────
           _buildInputSection(),
         ],
       ),
@@ -241,7 +252,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               gradient: AppColors.headerGradient,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               LucideIcons.messageSquare,
               size: 28,
               color: Colors.white,
@@ -296,7 +307,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               decoration: BoxDecoration(
                 gradient: isMe
                     ? const LinearGradient(
-                        colors: [Color(0xFF5B6CF9), Color(0xFF7C3AED)],
+                        colors: [Color(0xFF5B6CF9), AppColors.accent],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       )
@@ -337,7 +348,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Row(
                                 children: [
-                                  const Icon(LucideIcons.forward, size: 10, color: Colors.grey),
+                                  Icon(LucideIcons.forward, size: 10, color: Colors.grey),
                                   const SizedBox(width: 4),
                                   Text(
                                     'Forwarded',
@@ -439,9 +450,9 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   if (msg['isPinned'] == true)
-                                    const Icon(LucideIcons.pin, size: 10, color: Colors.blueAccent),
+                                    Icon(LucideIcons.pin, size: 10, color: Colors.blueAccent),
                                   if (msg['isStarred'] == true)
-                                    const Icon(LucideIcons.star, size: 10, color: Colors.amber),
+                                    Icon(LucideIcons.star, size: 10, color: Colors.amber),
                                   
                                   ..._buildReactionChips(msg),
                                 ],
@@ -605,7 +616,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
             color: Colors.black12,
             child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
-          errorWidget: (_, _, _) => const Icon(Icons.error),
+          errorWidget: (_, _, _) => Icon(Icons.error),
           fit: BoxFit.cover,
         ),
       );
@@ -630,7 +641,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
         ),
         child: Row(
           children: [
-            const Icon(LucideIcons.fileText, size: 20, color: AppColors.accent),
+            Icon(LucideIcons.fileText, size: 20, color: AppColors.accent),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -643,7 +654,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                 ),
               ),
             ),
-            const Icon(LucideIcons.download, size: 16, color: AppColors.textMid),
+            Icon(LucideIcons.download, size: 16, color: AppColors.textMid),
           ],
         ),
       ),
@@ -674,7 +685,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(LucideIcons.reply, size: 16, color: AppColors.accent),
+                      Icon(LucideIcons.reply, size: 16, color: AppColors.accent),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -686,154 +697,19 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                       ),
                       GestureDetector(
                         onTap: () => provider.setReplyingTo(null),
-                        child: const Icon(LucideIcons.x, size: 16),
+                        child: Icon(LucideIcons.x, size: 16),
                       ),
                     ],
                   ),
                 ),
 
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(100),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: CustomPaint(
-                  painter: _StaticGradientRingPainter(
-                    borderWidth: 1.5,
-                    isEnabled: true,
-                    isFocused: _isFocused,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _isFocused
-                              ? Colors.white.withValues(alpha: 0.95)
-                              : Colors.white.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _messageController,
-                                focusNode: _focusNode,
-                                style: GoogleFonts.inter(
-                                  fontSize: 15,
-                                  color: const Color(0xFF1E293B),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Type a message…',
-                                  hintStyle: GoogleFonts.inter(
-                                    color: const Color(0xFF94A3B8),
-                                    fontSize: 14,
-                                  ),
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                ),
-                                textCapitalization: TextCapitalization.sentences,
-                                onSubmitted: (_) => _sendMessage(),
-                              ),
-                            ),
-
-                            // Mic Button
-                            _buildActionIconButton(
-                              icon: LucideIcons.mic,
-                              color: const Color(0xFF64748B),
-                              onTap: () {
-                                // TODO: Voice message logic
-                              },
-                            ),
-
-                            const SizedBox(width: 4),
-
-                            // Plus Button
-                            _buildActionIconButton(
-                              icon: LucideIcons.plus,
-                              color: const Color(0xFF64748B),
-                              onTap: () => _showAttachmentOptions(),
-                            ),
-
-                            const SizedBox(width: 4),
-
-                            // Send Button (only visible when typing)
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              transitionBuilder: (child, animation) =>
-                                  ScaleTransition(
-                                    scale: animation,
-                                    child: FadeTransition(
-                                      opacity: animation,
-                                      child: child,
-                                    ),
-                                  ),
-                              child: _isTyping
-                                  ? InkWell(
-                                      key: const ValueKey('send_btn'),
-                                      onTap: _sendMessage,
-                                      borderRadius: BorderRadius.circular(100),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        margin: const EdgeInsets.only(
-                                          left: 4,
-                                          right: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFF6366F1),
-                                              Color(0xFF8B5CF6),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(
-                                                0xFF6366F1,
-                                              ).withValues(alpha: 0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          LucideIcons.send,
-                                          color: Colors.white,
-                                          size: 16,
-                                        ),
-                                      ),
-                                    )
-                                  : const SizedBox(key: ValueKey('empty_send')),
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              AnimatedAIInputField(
+                controller: _messageController,
+                onMicPressed: () {
+                  // TODO: Voice message logic
+                },
+                onAttachPressed: _showAttachmentOptions,
+                onSendPressed: _sendMessage,
               ),
             ],
           ),
@@ -1106,7 +982,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(LucideIcons.image, color: AppColors.accent),
+              leading: Icon(LucideIcons.image, color: AppColors.accent),
               title: Text('Photo Gallery', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -1114,7 +990,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(LucideIcons.camera, color: AppColors.teal),
+              leading: Icon(LucideIcons.camera, color: AppColors.teal),
               title: Text('Camera', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -1122,7 +998,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(LucideIcons.fileText, color: AppColors.orange),
+              leading: Icon(LucideIcons.fileText, color: AppColors.orange),
               title: Text('Document', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -1229,75 +1105,3 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   }
 }
 
-class _StaticGradientRingPainter extends CustomPainter {
-  final double borderWidth;
-  final bool isEnabled;
-  final bool isFocused;
-
-  _StaticGradientRingPainter({
-    required this.borderWidth,
-    required this.isEnabled,
-    required this.isFocused,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (!isEnabled) {
-      final borderRect = Offset.zero & size;
-      final borderRRect = RRect.fromRectAndRadius(
-        borderRect,
-        Radius.circular(size.height / 2),
-      );
-      final paint = Paint()
-        ..color = const Color(0xFFE2E8F0)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = borderWidth;
-      canvas.drawRRect(borderRRect, paint);
-      return;
-    }
-
-    final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(size.height / 2),
-    );
-
-    final List<Color> colors = [
-      const Color(0xFF3B82F6), // Blue
-      const Color(0xFF8B5CF6), // Purple
-      const Color(0xFFD946EF), // Pink
-      const Color(0xFF6366F1), // Indigo
-      const Color(0xFF3B82F6),
-    ];
-
-    final gradient = SweepGradient(
-      colors: colors,
-      stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
-      transform: const GradientRotation(math.pi / 4), // Static rotation
-    );
-
-    // Inner shadow/glow when focused
-    if (isFocused) {
-      final blurPaint = Paint()
-        ..shader = gradient.createShader(rect)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = borderWidth * 2;
-      canvas.drawRRect(rrect, blurPaint);
-    }
-
-    final paint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth;
-
-    canvas.drawRRect(rrect, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _StaticGradientRingPainter oldDelegate) {
-    return oldDelegate.isFocused != isFocused ||
-        oldDelegate.isEnabled != isEnabled ||
-        oldDelegate.borderWidth != borderWidth;
-  }
-}

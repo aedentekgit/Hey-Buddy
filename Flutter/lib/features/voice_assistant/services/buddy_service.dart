@@ -185,6 +185,32 @@ class BuddyService {
     }
   }
 
+  Future<Map<String, dynamic>> uploadChatFile(File file) async {
+    try {
+      final token = await _getToken();
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${_baseUrl}chat/upload'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+
+      String extension = file.path.split('.').last.toLowerCase();
+      MediaType mediaType = (extension == 'png')
+          ? MediaType('image', 'png')
+          : MediaType('image', 'jpeg');
+
+      request.files.add(
+        await http.MultipartFile.fromPath('file', file.path, contentType: mediaType),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> confirmMedicalReminders(
     String prescriptionId,
     Map<String, dynamic> confirmationData,

@@ -159,9 +159,9 @@ class MobileMemoryCard extends StatelessWidget {
                 children: [
                   // Icon Box
                   Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
+                    width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
                       color: activeIconBg,
                       borderRadius: BorderRadius.circular(8),
                     ),

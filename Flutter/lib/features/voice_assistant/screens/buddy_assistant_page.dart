@@ -76,7 +76,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       auth.addListener(_onAuthChanged);
 
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      
+
       double? lat = userProvider.user['currentLocation']?['lat'];
       double? lon = userProvider.user['currentLocation']?['lng'];
 
@@ -391,8 +391,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
     // Check for 401 Unauthorized and redirect
     if (provider.needsLogin) {
-      provider.clearNeedsLogin();
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        provider.clearNeedsLogin();
         // Force logout in AuthProvider too
         Provider.of<AuthProvider>(context, listen: false).logout();
         Navigator.of(context).pushAndRemoveUntil(
@@ -403,7 +403,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEEF0FB), // JSX lavender bg
+      backgroundColor:
+          Colors.transparent, // Let main_screen handle the unified background
       body: SafeArea(
         left: false,
         right: false,
@@ -563,11 +564,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [branding.primaryColor, const Color(0xFF7C3AED)],
+                colors: [branding.primaryColor, AppColors.accent],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(0),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
                   color: branding.primaryColor.withValues(alpha: 0.3),
@@ -638,7 +639,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.textMid,
                 ),
               ),
               const Spacer(),
@@ -661,11 +662,13 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                             userProvider.user['currentLocation']?['lng'];
 
                         try {
-                          LocationPermission permission = await Geolocator.checkPermission();
-                          if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+                          LocationPermission permission =
+                              await Geolocator.checkPermission();
+                          if (permission == LocationPermission.denied ||
+                              permission == LocationPermission.deniedForever) {
                             permission = await Geolocator.requestPermission();
                           }
-                          
+
                           if (permission == LocationPermission.always ||
                               permission == LocationPermission.whileInUse) {
                             final pos = await Geolocator.getCurrentPosition(
@@ -679,7 +682,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         } catch (_) {
                           // Keep existing lat, lon as fallback
                         }
-                        
+
                         provider.fetchLocalNews(lat, lon);
                       },
               ),
@@ -743,7 +746,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
@@ -771,10 +774,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: branding.primaryColor.withValues(alpha: 0.1),
+                      color: branding.primaryColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: branding.primaryColor.withValues(alpha: 0.3),
+                      ),
                     ),
-                    child: Icon(icon, color: branding.primaryColor, size: 20),
+                    child: Icon(
+                      icon,
+                      color: branding.isDarkMode
+                          ? Colors.white
+                          : branding.primaryColor,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 16),
                 ],
@@ -784,7 +796,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     style: GoogleFonts.outfit(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1E293B),
+                      color: AppColors.text,
                       height: 1.3,
                     ),
                   ),
@@ -907,22 +919,25 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   : CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 14,
-                  ),
+                  clipBehavior: Clip.antiAlias,
+                  padding: msg['image'] != null
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
                   decoration: BoxDecoration(
                     gradient: isUser
                         ? LinearGradient(
                             colors: [
                               branding.primaryColor,
-                              const Color(0xFF7C3AED),
+                              AppColors.accent,
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
                         : null,
-                    color: isUser ? null : Colors.white,
+                    color: isUser ? null : AppColors.surface,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(22),
                       topRight: const Radius.circular(22),
@@ -944,77 +959,113 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (msg['image'] != null) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: CachedNetworkImage(
-                            imageUrl:
-                                msg['image'], // Using CachedNetworkImage if it's a URL
-                            width: 240,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
-                              height: 180,
-                              color: Colors.grey[100],
-                              child: const Center(
-                                child: CircularProgressIndicator(),
+                        (msg['image'].toString().startsWith('http') || msg['image'].toString().startsWith('https'))
+                            ? CachedNetworkImage(
+                                imageUrl: msg['image'],
+                                width: 240,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  height: 180,
+                                  color: Colors.grey[100],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Image.file(
+                                  File(msg['image']),
+                                  width: 240,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.file(
+                                File(msg['image']),
+                                width: 240,
+                                fit: BoxFit.cover,
                               ),
-                            ),
-                            errorWidget: (context, url, error) => Image.file(
-                              File(msg['image']),
-                              width: 240,
-                              fit: BoxFit.cover,
-                            ), // Fallback to file if it was a file path
-                          ),
-                        ),
-                        const SizedBox(height: 10),
+                        if (msg['text'] != null && msg['text'].toString().isNotEmpty)
+                          const SizedBox(height: 10),
                       ],
-                      if (isUser)
-                        Text(
-                          msg['text'],
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            height: 1.5,
-                          ),
-                        )
-                      else if (msg['text'].isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildDot(0, branding),
-                              const SizedBox(width: 5),
-                              _buildDot(1, branding),
-                              const SizedBox(width: 5),
-                              _buildDot(2, branding),
-                            ],
-                          ),
-                        )
-                      else
-                        MarkdownBody(
-                          data: msg['text'],
-                          styleSheet: MarkdownStyleSheet(
-                            p: GoogleFonts.inter(
-                              color: const Color(0xFF1E293B),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              height: 1.5,
-                            ),
-                            strong: GoogleFonts.inter(
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0F172A),
-                            ),
-                            listBullet: GoogleFonts.inter(
-                              color: const Color(0xFF1E293B),
-                            ),
-                            code: GoogleFonts.firaCode(
-                              fontSize: 13,
-                              backgroundColor: const Color(0xFFF1F5F9),
-                              color: branding.primaryColor,
-                            ),
-                          ),
+                      Padding(
+                        padding: msg['image'] != null && ((msg['text'] != null && msg['text'].toString().isNotEmpty) || !isUser)
+                            ? const EdgeInsets.only(left: 14, right: 14, bottom: 14)
+                            : EdgeInsets.zero,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isUser)
+                              if (msg['text'] != null && msg['text'].toString().isNotEmpty)
+                                Text(
+                                  msg['text'],
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.5,
+                                  ),
+                                )
+                              else
+                                const SizedBox.shrink()
+                            else if (msg['text'].isEmpty)
+                              msg['isPartial'] == true
+                                  ? Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                        horizontal: 4,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _buildDot(0, branding),
+                                          const SizedBox(width: 5),
+                                          _buildDot(1, branding),
+                                          const SizedBox(width: 5),
+                                          _buildDot(2, branding),
+                                        ],
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(LucideIcons.checkCircle2, color: branding.primaryColor, size: 16),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          "Action completed successfully.",
+                                          style: GoogleFonts.inter(
+                                            color: AppColors.text,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                            else
+                              MarkdownBody(
+                                data: msg['text'],
+                                styleSheet: MarkdownStyleSheet(
+                                  p: GoogleFonts.inter(
+                                    color: AppColors.text,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.5,
+                                  ),
+                                  strong: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.text,
+                                  ),
+                                  listBullet: GoogleFonts.inter(
+                                    color: AppColors.textMid,
+                                  ),
+                                  code: GoogleFonts.firaCode(
+                                    fontSize: 13,
+                                    backgroundColor: AppColors.bg,
+                                    color: branding.primaryColor,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -1050,7 +1101,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(22),
                 topRight: Radius.circular(22),
@@ -1064,7 +1115,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   offset: const Offset(0, 4),
                 ),
               ],
-              border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+              border: Border.all(color: AppColors.border, width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1194,9 +1245,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+              border: Border.all(color: AppColors.border),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.02),
@@ -1213,7 +1264,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.textMid,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1339,9 +1390,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -1360,7 +1411,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                 style: GoogleFonts.outfit(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1E293B),
+                  color: AppColors.text,
                 ),
               ),
             ],

@@ -727,7 +727,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(LucideIcons.x, size: 20, color: AppColors.textMid),
+                      icon: Icon(LucideIcons.x, size: 20, color: AppColors.textMid),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -777,7 +777,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         children: [
                           Row(
                             children: [
-                              const Icon(LucideIcons.calendarClock, color: Colors.white, size: 20),
+                              Icon(LucideIcons.calendarClock, color: Colors.white, size: 20),
                               const SizedBox(width: 12),
                               Text(
                                 'Set Custom Time',
@@ -789,7 +789,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                               ),
                             ],
                           ),
-                          const Icon(LucideIcons.chevronRight, color: Colors.white70, size: 18),
+                          Icon(LucideIcons.chevronRight, color: Colors.white70, size: 18),
                         ],
                       ),
                     ),
@@ -848,7 +848,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(LucideIcons.alarmClockOff, color: AppColors.danger, size: 18),
+                            Icon(LucideIcons.alarmClockOff, color: AppColors.danger, size: 18),
                             const SizedBox(width: 8),
                             Text(
                               'TURN OFF SNOOZE',
@@ -1055,7 +1055,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                   color: AppColors.dangerLight,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
+                child: Icon(
                   LucideIcons.trash2,
                   size: 22,
                   color: AppColors.danger,
@@ -1231,7 +1231,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                           color: AppColors.danger.withValues(alpha: 0.25),
                         ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         LucideIcons.trash2,
                         size: 16,
                         color: AppColors.danger,
@@ -1384,16 +1384,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                       decoration: BoxDecoration(
                                         color: _isGettingLocation
                                             ? Colors.grey[200]
-                                            : const Color(
-                                                0xFF7C3AED,
-                                              ).withValues(alpha: 0.1),
+                                            : AppColors.accent.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                           color: _isGettingLocation
                                               ? Colors.grey[300]!
-                                              : const Color(
-                                                  0xFF7C3AED,
-                                                ).withValues(alpha: 0.3),
+                                              : AppColors.accent.withValues(alpha: 0.3),
                                         ),
                                       ),
                                       child: Row(
@@ -1406,17 +1402,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                                   child:
                                                       CircularProgressIndicator(
                                                         strokeWidth: 1.5,
-                                                        color: const Color(
-                                                          0xFF7C3AED,
-                                                        ),
+                                                        color: AppColors.accent,
                                                       ),
                                                 )
                                               : Icon(
                                                   LucideIcons.navigation,
                                                   size: 12,
-                                                  color: const Color(
-                                                    0xFF7C3AED,
-                                                  ),
+                                                  color: AppColors.accent,
                                                 ),
                                           const SizedBox(width: 4),
                                           Text(
@@ -1428,7 +1420,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                               fontWeight: FontWeight.w600,
                                               color: _isGettingLocation
                                                   ? Colors.grey[600]
-                                                  : const Color(0xFF7C3AED),
+                                                  : AppColors.accent,
                                             ),
                                           ),
                                         ],
@@ -1452,9 +1444,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                       ),
                                     ],
                                     border: Border.all(
-                                      color: const Color(
-                                        0xFF7C3AED,
-                                      ).withValues(alpha: 0.15),
+                                      color: AppColors.accent.withValues(alpha: 0.15),
                                     ),
                                   ),
                                   child: ClipRRect(
@@ -1491,15 +1481,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                                   width: 28,
                                                   height: 28,
                                                   decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xFF7C3AED,
-                                                    ).withValues(alpha: 0.08),
+                                                    color: AppColors.accent.withValues(alpha: 0.08),
                                                     shape: BoxShape.circle,
                                                   ),
-                                                  child: const Icon(
+                                                  child: Icon(
                                                     LucideIcons.mapPin,
                                                     size: 13,
-                                                    color: Color(0xFF7C3AED),
+                                                    color: AppColors.accent,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 10),
@@ -1579,7 +1567,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           LucideIcons.mapPin,
                                           size: 10,
                                           color: Color(0xFF10B981),
@@ -1625,7 +1613,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         LucideIcons.satellite,
                                         size: 10,
                                         color: Color(0xFF10B981),
@@ -2270,7 +2258,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                               const SizedBox(height: 16),
                               Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     LucideIcons.target,
                                     size: 18,
                                     color: Color(0xFF6366F1),
@@ -2367,8 +2355,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                           style: GoogleFonts.outfit(color: AppColors.text, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: "Search family members...",
-                            hintStyle: const TextStyle(color: AppColors.textMid),
-                            prefixIcon: const Icon(LucideIcons.search, color: AppColors.textMid, size: 18),
+                            hintStyle: TextStyle(color: AppColors.textMid),
+                            prefixIcon: Icon(LucideIcons.search, color: AppColors.textMid, size: 18),
                             filled: true,
                             fillColor: AppColors.bg,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -2413,7 +2401,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                               title: Text(user['name'] ?? 'Unknown', style: GoogleFonts.outfit(fontSize: 14)),
                               subtitle: Text(user['email'] ?? '', style: GoogleFonts.outfit(fontSize: 12)),
                               trailing: IconButton(
-                                icon: const Icon(LucideIcons.plusCircle, color: AppColors.accent),
+                                icon: Icon(LucideIcons.plusCircle, color: AppColors.accent),
                                 onPressed: () {
                                    setState(() {
                                       if (!sharedWith.any((s) => s is Map && s['user'] is Map && s['user']['_id'] == user['_id'])) {
@@ -2530,7 +2518,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                 ),
                                 if (isEditing)
                                   IconButton(
-                                    icon: const Icon(
+                                    icon: Icon(
                                       LucideIcons.trash2,
                                       size: 16,
                                       color: Colors.red,
@@ -3049,6 +3037,7 @@ class _SmartFeatureTile extends StatelessWidget {
                       child: Switch.adaptive(
                         value: value,
                         onChanged: onChanged,
+                        activeColor: tagColor,
                       ),
                     ),
                   ],
@@ -3094,10 +3083,10 @@ class _AlertTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppColors.accent, size: 20),
+            child: Icon(icon, color: Theme.of(context).primaryColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -3127,7 +3116,11 @@ class _AlertTile extends StatelessWidget {
           const SizedBox(width: 8),
           Transform.scale(
             scale: 0.8,
-            child: Switch.adaptive(value: value, onChanged: onChanged),
+            child: Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              activeColor: Theme.of(context).primaryColor,
+            ),
           ),
         ],
       ),

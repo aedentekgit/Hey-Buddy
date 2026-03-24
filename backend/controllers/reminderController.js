@@ -209,15 +209,17 @@ exports.createReminder = async (req, res) => {
 
         const userId = req.user._id;
 
+        let finalCoordinates = coordinates;
+
         // AUTO-GEOCODE: Use location name to find coordinates if missing
-        if (location && (!coordinates?.lat || !coordinates?.lng)) {
+        if (location && (!finalCoordinates?.lat || !finalCoordinates?.lng)) {
             try {
                 const { geocodeAddress } = require('../services/smartReminderService');
                 const User = require('../models/User');
                 const user = await User.findById(userId);
                 const coords = await geocodeAddress(location, user?.currentLocation);
                 if (coords) {
-                    coordinates = coords;
+                    finalCoordinates = coords;
                     console.log(`[ReminderController] Auto-geocoded "${location}" to:`, coords);
                 }
             } catch (err) {
@@ -233,7 +235,7 @@ exports.createReminder = async (req, res) => {
             date,
             time,
             location,
-            coordinates,
+            coordinates: finalCoordinates,
             geofenceRadius: geofenceRadius || 500,
             reminderType: reminderType || (time ? 'time' : 'location'),
             intent: intent || 'generic',

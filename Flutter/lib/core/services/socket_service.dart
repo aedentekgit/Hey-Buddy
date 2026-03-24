@@ -26,6 +26,10 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   final _bargeInController = StreamController<dynamic>.broadcast();
   final _stopCmdController = StreamController<dynamic>.broadcast();
+  final _connectErrorStreamController = StreamController<dynamic>.broadcast();
+  final _errorStreamController = StreamController<dynamic>.broadcast();
+  final _turnStartedStreamController = StreamController<dynamic>.broadcast();
+  final _responseDoneStreamController = StreamController<dynamic>.broadcast();
 
   Stream<String> get audioStream => _audioStreamController.stream;
   Stream<String> get captionStream => _captionStreamController.stream;
@@ -39,6 +43,10 @@ class SocketService {
       _messageUpdatedStreamController.stream;
   Stream<dynamic> get bargeInStream => _bargeInController.stream;
   Stream<dynamic> get stopCommandStream => _stopCmdController.stream;
+  Stream<dynamic> get connectErrorStream => _connectErrorStreamController.stream;
+  Stream<dynamic> get errorStream => _errorStreamController.stream;
+  Stream<dynamic> get turnStartedStream => _turnStartedStreamController.stream;
+  Stream<dynamic> get responseDoneStream => _responseDoneStreamController.stream;
 
   String? _lastToken;
   bool _isConnecting = false;
@@ -132,6 +140,8 @@ class SocketService {
       socket?.off('wake_word_detected');
       socket?.off('barge_in_detected');
       socket?.off('stop_command');
+      socket?.off('turn_started');
+      socket?.off('response_done');
 
       socket?.onConnect((_) {
         debugPrint('Socket Connected successfully to ${AppConfig.socketUrl}');
@@ -157,13 +167,23 @@ class SocketService {
       socket?.on('connect_error', (data) {
         debugPrint('Socket Connection Error: $data');
         _safeAdd(_statusStreamController, false);
+        _safeAdd(_connectErrorStreamController, data);
         _isConnecting = false;
       });
 
       socket?.on('error', (err) {
         debugPrint('Socket Error: $err');
         _safeAdd(_statusStreamController, false);
+        _safeAdd(_errorStreamController, err);
         _isConnecting = false;
+      });
+
+      socket?.on('turn_started', (data) {
+        _safeAdd(_turnStartedStreamController, data);
+      });
+
+      socket?.on('response_done', (data) {
+        _safeAdd(_responseDoneStreamController, data);
       });
 
       socket?.on('voice_alert', (data) {
@@ -306,5 +326,9 @@ class SocketService {
     _messageUpdatedStreamController.close();
     _bargeInController.close();
     _stopCmdController.close();
+    _connectErrorStreamController.close();
+    _errorStreamController.close();
+    _turnStartedStreamController.close();
+    _responseDoneStreamController.close();
   }
 }

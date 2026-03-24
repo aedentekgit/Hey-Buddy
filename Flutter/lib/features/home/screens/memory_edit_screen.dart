@@ -1,5 +1,6 @@
 // ignore_for_file: non_constant_identifier_names
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -96,6 +97,7 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Column(
@@ -123,7 +125,7 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                           borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           LucideIcons.arrowLeft,
                           size: 18,
                           color: AppColors.text,
@@ -309,7 +311,7 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
             ),
             TextButton.icon(
               onPressed: () => setState(() => _selectedFile = null),
-              icon: const Icon(
+              icon: Icon(
                 LucideIcons.x,
                 size: 15,
                 color: AppColors.danger,
@@ -373,7 +375,7 @@ class _MemoryEditScreenState extends State<MemoryEditScreen> {
                         color: AppColors.accentLight,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         LucideIcons.upload,
                         size: 24,
                         color: AppColors.accent,

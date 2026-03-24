@@ -239,8 +239,24 @@ exports.proxyActionToPython = async (req, res) => {
                 status: (code) => ({ json: (data) => console.log('Action Proxy -> Reminder Result:', data) })
             };
 
+            let conflictWarning = '';
+            try {
+                if (reminderData.date && reminderData.time) {
+                    const Reminder = require('../../models/Reminder');
+                    const existing = await Reminder.findOne({ 
+                        userId, 
+                        date: reminderData.date, 
+                        time: reminderData.time,
+                        status: { $nin: ['completed', 'cancelled'] }
+                    });
+                    if (existing) {
+                        conflictWarning = ` Note: The user already has a reminder scheduled at this exact time ("${existing.title}"). Please inform them about this scheduling conflict.`;
+                    }
+                }
+            } catch(e) { console.error('Conflict check error:', e); }
+
             await reminderController.createReminder(mockReq, mockRes);
-            return res.status(200).json({ success: true, message: 'Reminder action executed' });
+            return res.status(200).json({ success: true, message: 'Reminder action executed.' + conflictWarning });
         }
 
         if (act === 'CREATE_LOCATION_REMINDER') {
@@ -252,7 +268,9 @@ exports.proxyActionToPython = async (req, res) => {
             if (reminderData.location && (!reminderData.coordinates?.lat || !reminderData.coordinates?.lng)) {
                 try {
                     const { geocodeAddress } = require('../../services/smartReminderService');
-                    const coords = await geocodeAddress(reminderData.location);
+                    const User = require('../../models/User');
+                    const user = await User.findById(userId);
+                    const coords = await geocodeAddress(reminderData.location, user?.currentLocation);
                     if (coords) {
                         reminderData.coordinates = coords;
                     }
@@ -319,6 +337,21 @@ exports.proxyActionToPython = async (req, res) => {
 
             await recordController.createMemory(mockReq, mockRes);
             return res.status(200).json({ success: true, message: 'Memory action executed' });
+        }
+
+        if (act === 'CREATE_DOCUMENT') {
+            let docData = val;
+            if (typeof val === 'string') {
+                try { docData = JSON.parse(val); } catch (e) { }
+            }
+            const Document = require('../../models/Document');
+            await Document.create({
+                userId: userId,
+                fileName: docData.title || 'AI Generated Document',
+                content: docData.content || docData.summary || 'No content provided',
+                summary: docData.summary || ''
+            });
+            return res.status(200).json({ success: true, message: 'Document action executed' });
         }
 
         if (act === 'UPDATE_MEMORY') {

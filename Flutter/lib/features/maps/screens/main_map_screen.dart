@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/features/home/providers/tasks_provider.dart';
@@ -48,6 +49,7 @@ class _MainMapScreenState extends State<MainMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final provider = Provider.of<TasksProvider>(context);
 
     return Scaffold(

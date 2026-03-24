@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -178,7 +179,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             LucideIcons.x,
                             size: 20,
                             color: AppColors.textMid,
@@ -243,7 +244,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                             horizontal: 24,
                           ),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: [AppColors.accent, Color(0xFF6366F1)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
@@ -356,7 +357,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   LucideIcons.alarmClockOff,
                                   color: AppColors.danger,
                                   size: 18,
@@ -537,6 +538,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final provider = Provider.of<TasksProvider>(context);
     final allTasks = provider.processedTasks;
     final filters = _buildFilters(allTasks);
@@ -549,122 +551,143 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       // ── search + filter header ──────────────────────────────────
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(125),
-        child: Container(
-          color: AppColors.surface,
-          child: SafeArea(
+      appBar: null,
+      body: Column(
+        children: [
+          SafeArea(
             bottom: false,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Search row
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.maybePop(context),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.bg,
-                            borderRadius: BorderRadius.circular(11),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: const Icon(
-                            LucideIcons.arrowLeft,
-                            size: 18,
-                            color: AppColors.text,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.bg,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: AppColors.border,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                LucideIcons.search,
-                                size: 16,
-                                color: AppColors.textDim,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: _searchCtrl,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13.5,
-                                    color: AppColors.text,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: 'Search reminders…',
-                                    hintStyle: GoogleFonts.inter(
-                                      fontSize: 13.5,
-                                      color: AppColors.textDim,
-                                    ),
-                                    border: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
-                                    isCollapsed: true,
-                                    filled: true,
-                                    fillColor: Colors.transparent,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  clipBehavior: Clip.hardEdge,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(36),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
                       ),
                     ],
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.8),
+                      width: 1,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.maybePop(context),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.border.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Icon(
+                              LucideIcons.chevronLeft,
+                              size: 20,
+                              color: AppColors.text,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.search,
+                                  size: 16,
+                                  color: AppColors.textDim,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchCtrl,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: AppColors.text,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search...',
+                                      hintStyle: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: AppColors.textDim,
+                                      ),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      disabledBorder: InputBorder.none,
+                                      filled: false,
+                                      isCollapsed: true,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                // Dynamic filter chips
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 SizedBox(
-                  height: 36,
+                  height: 48,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     itemCount: filters.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(width: 7),
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
-                      // First item = Date picker chip
                       if (i == 0) {
                         final dateActive = _selectedDate != null;
                         return GestureDetector(
                           onTap: () => _openDatePicker(allTasks),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
-                              color: dateActive
-                                  ? AppColors.accent
-                                  : AppColors.bg,
+                              color: dateActive ? AppColors.accent : AppColors.surface,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: dateActive
-                                    ? AppColors.accent
-                                    : AppColors.border,
-                                width: 1.5,
+                                color: dateActive ? AppColors.accent : AppColors.border,
                               ),
+                              boxShadow: !dateActive ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ] : [
+                                BoxShadow(
+                                  color: AppColors.accent.withValues(alpha: 0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -672,9 +695,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                 Icon(
                                   LucideIcons.calendarDays,
                                   size: 13,
-                                  color: dateActive
-                                      ? Colors.white
-                                      : AppColors.textMid,
+                                  color: dateActive ? Colors.white : AppColors.textMid,
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
@@ -684,9 +705,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                   style: GoogleFonts.nunito(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: dateActive
-                                        ? Colors.white
-                                        : AppColors.textMid,
+                                    color: dateActive ? Colors.white : AppColors.textMid,
                                   ),
                                 ),
                               ],
@@ -695,8 +714,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                         );
                       }
                       final f = filters[i - 1];
-                      final active =
-                          f == _activeFilter && _selectedDate == null;
+                      final active = f == _activeFilter && _selectedDate == null;
                       return GestureDetector(
                         onTap: () => setState(() {
                           _activeFilter = f;
@@ -704,19 +722,27 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                         }),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: active ? AppColors.accent : AppColors.bg,
+                            color: active ? AppColors.accent : AppColors.surface,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: active
-                                  ? AppColors.accent
-                                  : AppColors.border,
-                              width: 1.5,
+                              color: active ? AppColors.accent : AppColors.border,
                             ),
+                            boxShadow: !active ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1),
+                              ),
+                            ] : [
+                              BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
                           child: Text(
                             f,
@@ -732,13 +758,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Divider(height: 1, color: AppColors.border),
               ],
             ),
           ),
-        ),
-      ),
-      body: Builder(
+          Expanded(
+            child: Builder(
         builder: (context) {
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -812,6 +836,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
           );
         },
       ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -838,12 +865,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
           if (itemDate.isBefore(todayMidnight)) {
             shouldStrike = true;
           } else if (itemDate == todayMidnight && rawTime != null) {
-            final parts = rawTime.split(':');
-            if (parts.length >= 2) {
-              final h = int.tryParse(parts[0]) ?? 0;
-              final m = int.tryParse(parts[1]) ?? 0;
-              final reminderDt = DateTime(now.year, now.month, now.day, h, m);
-              if (now.isAfter(reminderDt)) shouldStrike = true;
+            final reminderDt = TaskUtils.parseTime(todayMidnight, rawTime);
+            if (reminderDt != null && now.isAfter(reminderDt)) {
+              shouldStrike = true;
             }
           }
         }
@@ -944,14 +968,14 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                     // Card content
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Icon container
                             Container(
-                              width: 50,
-                              height: 50,
+                              width: 38,
+                              height: 38,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -966,9 +990,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                   color: color.withValues(alpha: 0.25),
                                 ),
                               ),
-                              child: Icon(icon, color: color, size: 22),
+                              child: Icon(icon, color: color, size: 18),
                             ),
-                            const SizedBox(width: 13),
+                            const SizedBox(width: 12),
                             // Content
                             Expanded(
                               child: Column(
@@ -981,7 +1005,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                           title,
                                           style: GoogleFonts.nunito(
                                             fontWeight: FontWeight.w800,
-                                            fontSize: 14.5,
+                                            fontSize: 14,
                                             color:
                                                 shouldStrike
                                                     ? AppColors.textDim
@@ -1078,7 +1102,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                                       ],
                                     ),
                                   ],
-                                  const SizedBox(height: 9),
+                                  const SizedBox(height: 6),
                                   Row(
                                     children: [
                                       _Chip(
@@ -1122,7 +1146,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               color: AppColors.accentLight,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               LucideIcons.bell,
               size: 28,
               color: AppColors.accent,
@@ -1200,6 +1224,7 @@ class _GroupLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final dotColor = _dotColor;
     final badgeColor = _badgeColor;
     return Padding(
@@ -1310,6 +1335,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final firstDay = DateTime(_month.year, _month.month, 1);
     final daysInMonth = DateUtils.getDaysInMonth(_month.year, _month.month);
     final startOffset = firstDay.weekday % 7; // Sunday=0
@@ -1327,7 +1353,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
           // ── Month header with gradient ───────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: AppColors.headerGradient,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
@@ -1538,6 +1564,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: small ? 8 : 11,
@@ -1566,6 +1593,7 @@ class _PriorityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -1608,6 +1636,7 @@ class _SlidableAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),

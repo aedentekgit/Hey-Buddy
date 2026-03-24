@@ -18,7 +18,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminSettings from './pages/AdminSettings';
 import Users from './pages/Users';
-import Roles from './pages/Roles';
+import RoleManagement from './pages/Admin/RoleManagement/RoleManagement';
 import BuddyAssistant from './pages/BuddyAssistant';
 import Reminders from './pages/Reminders';
 import Memories from './pages/Memories';
@@ -120,7 +120,7 @@ const App = () => {
                                             path="/admin/roles"
                                             element={
                                                 <ProtectedRoute pageId="roles">
-                                                    <Roles />
+                                                    <RoleManagement />
                                                 </ProtectedRoute>
                                             }
                                         />

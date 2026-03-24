@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
 import 'package:buddy_mobile/features/voice_assistant/services/audio_stream_service.dart';
@@ -420,13 +421,13 @@ class BuddyProvider with ChangeNotifier {
       notifyListeners();
     });
 
-    socketService.socket?.on('turn_started', (_) async {
+    socketService.turnStartedStream.listen((_) async {
       _isThinking = true;
       _isListening = false; // Reset listening UI as processing started
       notifyListeners();
     });
 
-    socketService.socket?.on('connect_error', (data) {
+    socketService.connectErrorStream.listen((data) {
       debugPrint('Socket Connect Error: $data');
       _isThinking = false;
       if (data.toString().contains('Authentication failed') ||
@@ -437,7 +438,7 @@ class BuddyProvider with ChangeNotifier {
       notifyListeners();
     });
 
-    socketService.socket?.on('error', (err) {
+    socketService.errorStream.listen((err) {
       debugPrint('Socket Error event: $err');
       _isThinking = false;
       if (err.toString().contains('Authentication failed') ||
@@ -449,7 +450,7 @@ class BuddyProvider with ChangeNotifier {
     });
 
     // Handle end of stream
-    socketService.socket?.on('response_done', (_) {
+    socketService.responseDoneStream.listen((_) {
       if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
         _messages.last['isPartial'] = false;
       }
@@ -698,13 +699,24 @@ class BuddyProvider with ChangeNotifier {
             // fallback
           }
         }
+        
+        String contentStr = m['content']?.toString() ?? '';
+        String? parsedImageUrl;
+        
+        final RegExp regExp = RegExp(r"\[Attached Image: (.*?)\]");
+        final match = regExp.firstMatch(contentStr);
+        if (match != null) {
+           parsedImageUrl = AppConfig.formatImageUrl(match.group(1));
+           contentStr = contentStr.replaceAll(regExp, "").trim();
+        }
+
         return {
           'id':
               DateTime.now().millisecondsSinceEpoch.toString() +
               m['content'].hashCode.toString(),
           'type': m['role'] == 'user' ? 'user' : 'ai',
-          'text': m['content'],
-          'image': null,
+          'text': contentStr,
+          'image': parsedImageUrl,
           'shouldType': false, // History should not type
           'timestamp': timestamp,
         };
@@ -723,9 +735,24 @@ class BuddyProvider with ChangeNotifier {
     _isThinking = true;
     notifyListeners();
 
+    String finalText = text.isEmpty && isWakeWord ? 'Hey Buddy' : text;
+
     if (imagePath != null) {
-      // Images currently not supported in stream mode easily via standard json body. 
-      // For now, text is prioritized over voice parsing.
+      try {
+        final uploadRes = await _buddyService.uploadChatFile(File(imagePath));
+        if (uploadRes['success'] == true && uploadRes['data'] != null) {
+          final imageUrl = uploadRes['data']['fileUrl'] ?? uploadRes['data'].toString();
+          if (imageUrl is String && imageUrl.isNotEmpty) {
+             if (finalText.trim().isEmpty) {
+                finalText = "I have uploaded an image: $imageUrl\nPlease analyze its contents. If it contains text or important information, save it as a Document (using save_document tool).";
+             } else {
+                finalText = "$finalText\n\n[Attached Image: $imageUrl]".trim();
+             }
+          }
+        }
+      } catch (e) {
+        debugPrint("Image Upload Error: $e");
+      }
     }
 
     await stopAllAudio(); // STOP PREVIOUS VOICE IMMEDIATELY
@@ -746,7 +773,7 @@ class BuddyProvider with ChangeNotifier {
       }
 
       request.body = jsonEncode({
-        'message': text.isEmpty && isWakeWord ? 'Hey Buddy' : text,
+        'message': finalText,
         'session_id': _currentConversationId,
         'tts': true, // Enforce cloud TTS to match web dashboard audio tone exactly
       });

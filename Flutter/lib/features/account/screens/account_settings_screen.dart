@@ -11,6 +11,7 @@ import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart'
     as buddy;
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
@@ -163,6 +164,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Force rebuild when dark mode toggles
+    Provider.of<BrandingProvider>(context);
+    
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Consumer<UserProvider>(
@@ -236,7 +240,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           LucideIcons.chevronRight,
                           size: 16,
                           color: AppColors.textMid,
@@ -361,6 +365,29 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
 
               const SizedBox(height: 18),
 
+              // ── Appearance ──────────────────────────────────────────
+              _SecLabel(label: 'Appearance'),
+              _Card(
+                padding: EdgeInsets.zero,
+                child: Consumer<BrandingProvider>(
+                  builder: (context, branding, _) => _SettingsRow(
+                    icon: LucideIcons.moon,
+                    iconColor: AppColors.purple,
+                    label: 'Dark Mode',
+                    sub: 'Toggle application theme locally',
+                    trailing: _Toggle(
+                      value: branding.isDarkMode,
+                      onChanged: (v) {
+                        branding.toggleDarkMode(v);
+                      },
+                    ),
+                    isLast: true,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
               // ── Integrations ──────────────────────────────────────────
               _SecLabel(label: 'Integrations'),
               _Card(
@@ -404,7 +431,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       iconColor: AppColors.accent,
                       label: 'AI Voice Preference',
                       sub: 'Choose how Buddy sounds',
-                      trailing: const Icon(
+                      trailing: Icon(
                         LucideIcons.chevronRight,
                         size: 15,
                         color: AppColors.textDim,
@@ -491,7 +518,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       iconColor: AppColors.accent,
                       label: 'Terms & Conditions',
                       sub: 'Read our usage rules',
-                      trailing: const Icon(
+                      trailing: Icon(
                         LucideIcons.chevronRight,
                         size: 15,
                         color: AppColors.textDim,
@@ -509,7 +536,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                       iconColor: AppColors.green,
                       label: 'Privacy Policy',
                       sub: 'How we protect your data',
-                      trailing: const Icon(
+                      trailing: Icon(
                         LucideIcons.chevronRight,
                         size: 15,
                         color: AppColors.textDim,
@@ -575,7 +602,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
                             color: AppColors.dangerLight,
                             borderRadius: BorderRadius.circular(11),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             LucideIcons.alertTriangle,
                             size: 17,
                             color: AppColors.danger,
@@ -819,8 +846,10 @@ class _Toggle extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final Color? activeColor;
   const _Toggle({
+    super.key,
     required this.value,
     required this.onChanged,
+    this.activeColor,
   });
 
   @override
@@ -833,8 +862,10 @@ class _Toggle extends StatelessWidget {
         height: 25,
         decoration: BoxDecoration(
           color: value
-              ? (activeColor ?? Theme.of(context).primaryColor)
-              : const Color(0xFFD1D5DB),
+              ? (activeColor ?? Theme.of(context).colorScheme.primary)
+              : (Theme.of(context).brightness == Brightness.dark 
+                  ? const Color(0xFF4B5563) 
+                  : const Color(0xFFD1D5DB)),
           borderRadius: BorderRadius.circular(13),
         ),
         child: AnimatedAlign(

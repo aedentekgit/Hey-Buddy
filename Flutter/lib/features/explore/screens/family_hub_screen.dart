@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -19,9 +20,7 @@ class FamilyHubScreen extends StatefulWidget {
 class _FamilyHubScreenState extends State<FamilyHubScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _emailCtrl = TextEditingController();
-  final TextEditingController _searchCtrl = TextEditingController();
   bool _isInviting = false;
-  String _searchQuery = '';
   String _selectedFilter = 'All'; // All, Active, Pending
 
   // Pulse animation for emergency icon
@@ -51,46 +50,98 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
   void dispose() {
     _pulse.dispose();
     _emailCtrl.dispose();
-    _searchCtrl.dispose();
     super.dispose();
   }
 
   // ── build ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Scaffold(
       backgroundColor: AppColors.bg,
-      // ── sub-screen header (back + title) ──────────────────────────
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
-        child: Container(
-          color: AppColors.surface,
-          child: SafeArea(
+      appBar: null,
+      body: Column(
+        children: [
+           SafeArea(
             bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-              child: Row(
-                children: [
-                  _iconBtn(
-                    icon: LucideIcons.arrowLeft,
-                    onTap: () => Navigator.maybePop(context),
-                  ),
-                  const SizedBox(width: 14),
-                  Text(
-                    'Family Hub',
-                    style: GoogleFonts.nunito(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.text,
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(36),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.8),
+                      width: 1,
                     ),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.maybePop(context),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.border.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Icon(
+                            LucideIcons.chevronLeft,
+                            size: 20,
+                            color: AppColors.text,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Family Hub',
+                              style: GoogleFonts.nunito(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.text,
+                                height: 1.2,
+                              ),
+                            ),
+                            Text(
+                              'Your circle of trust',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textMid,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildFilterChips(),
+                const SizedBox(height: 6),
+              ],
             ),
           ),
-        ),
-      ),
-      body: Consumer<FamilyProvider>(
+          Expanded(
+            child: Consumer<FamilyProvider>(
         builder: (context, provider, _) {
           if (provider.isLoading && provider.members.isEmpty) {
             return const Center(child: CircularProgressIndicator());
@@ -102,11 +153,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(18, 0, 18, 48),
               children: [
-                const SizedBox(height: 16),
-                _buildSearchBar(),
-                const SizedBox(height: 14),
-                _buildFilterChips(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
 
                 // ── Emergency card ─────────────────────────────────
                 if (_selectedFilter == 'All') ...[
@@ -192,13 +239,11 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                 if (_selectedFilter == 'All' || _selectedFilter == 'Active') ...[
                   if (provider.members
                       .where((m) => m['user_id'] != provider.currentUserId)
-                      .where((m) => (m['name'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase()))
                       .isEmpty)
                     _buildEmpty()
                   else
                     ...provider.members
                         .where((m) => m['user_id'] != provider.currentUserId)
-                        .where((m) => (m['name'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase()))
                         .map(
                       (m) => _MemberCard(
                         member: m,
@@ -221,57 +266,18 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
           );
         },
       ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(LucideIcons.search, size: 18, color: AppColors.textDim),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: (val) => setState(() => _searchQuery = val),
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: AppColors.text,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Search family members...',
-                hintStyle: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: AppColors.textDim,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                isCollapsed: true,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildFilterChips() {
     final filters = ['All', 'Active', 'Pending'];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 18), // Added padding here for the correct gap matching the other screens
       child: Row(
         children: filters.map((filter) {
           final isSelected = _selectedFilter == filter;
@@ -279,7 +285,8 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
               onTap: () => setState(() => _selectedFilter = filter),
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.accent : AppColors.surface,
@@ -287,6 +294,19 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                   border: Border.all(
                     color: isSelected ? AppColors.accent : AppColors.border,
                   ),
+                  boxShadow: !isSelected ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ] : [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Text(
                   filter,
@@ -317,7 +337,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
               color: AppColors.pinkLight,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               LucideIcons.users,
               size: 28,
               color: AppColors.pink,
@@ -383,7 +403,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                     color: AppColors.dangerLight,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     LucideIcons.alertTriangle,
                     size: 24,
                     color: AppColors.danger,
@@ -417,7 +437,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                       'I need help! Immediate assistance required.',
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         backgroundColor: AppColors.danger,
                         behavior: SnackBarBehavior.floating,
                         content: Text('Emergency alert broadcasted!'),
@@ -428,7 +448,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         colors: [AppColors.accent, AppColors.purple],
                       ),
                       borderRadius: BorderRadius.circular(15),
@@ -523,112 +543,134 @@ class _EmergencyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.danger.withValues(alpha: 0.08),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
+    final branding = Provider.of<BrandingProvider>(context);
+    final isLight = !branding.isDarkMode;
+    final color = AppColors.danger;
+
+    return GestureDetector(
+      onTap: onSend,
+      child: Container(
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: isLight ? null : AppColors.surface,
+          gradient: isLight ? LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.8),
+              color.withValues(alpha: 0.08),
+              color.withValues(alpha: 0.15),
             ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ) : null,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isLight ? Colors.white.withValues(alpha: 0.9) : AppColors.cardBorder,
+            width: isLight ? 1.5 : 1.0,
           ),
-          child: Column(
-            children: [
-              Row(
+          boxShadow: isLight ? [
+            BoxShadow(
+              color: color.withValues(alpha: 0.15),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+            const BoxShadow(
+              color: Colors.white,
+              blurRadius: 12,
+              offset: Offset(-4, -4),
+            ),
+          ] : [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -10,
+              bottom: -25,
+              child: Transform.rotate(
+                angle: -0.2,
+                child: Icon(
+                  LucideIcons.alertTriangle,
+                  size: 110,
+                  color: color.withValues(alpha: isLight ? 0.25 : 0.08),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  // Pulsing icon
                   AnimatedBuilder(
                     animation: pulseAnim,
                     builder: (_, _) => Transform.scale(
                       scale: pulseAnim.value,
                       child: Container(
-                        width: 50,
-                        height: 50,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
-                          color: AppColors.danger,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
+                          color: isLight ? color.withValues(alpha: 0.14) : color.withValues(alpha: 0.1),
+                          gradient: isLight ? LinearGradient(
+                            colors: [
+                              Colors.white.withValues(alpha: 0.9),
+                              Colors.white.withValues(alpha: 0.4),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ) : null,
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(
+                            color: isLight ? Colors.white : color.withValues(alpha: 0.2),
+                            width: isLight ? 1.5 : 1.0,
+                          ),
+                          boxShadow: isLight ? [
                             BoxShadow(
-                              color: AppColors.danger.withValues(alpha: 0.5),
-                              blurRadius: 20,
-                              spreadRadius: 0,
-                            ),
-                          ],
+                              color: color.withValues(alpha: 0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            )
+                          ] : null,
                         ),
-                        child: const Icon(
-                          LucideIcons.alertTriangle,
-                          size: 26,
-                          color: Colors.white,
+                        child: Icon(
+                          LucideIcons.alertTriangle, 
+                          color: isLight ? color.withValues(alpha: 0.9) : color, 
+                          size: 24
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Emergency Help',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.text,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Emergency Help',
+                          style: GoogleFonts.nunito(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: isLight ? AppColors.text : Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Alert everyone instantly',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textMid,
+                        Text(
+                          'Send emergency alert',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isLight ? AppColors.textMid : Colors.white.withValues(alpha: 0.8),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              // Red alert button
-              GestureDetector(
-                onTap: onSend,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.danger,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.danger.withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    'SEND EMERGENCY ALERT',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
+                      ],
                     ),
                   ),
-                ),
+                  Icon(LucideIcons.chevronRight, color: isLight ? color.withValues(alpha: 0.9) : Colors.white, size: 20),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -656,11 +698,12 @@ class _InviteCardState extends State<_InviteCard> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: AppColors.cardShadow,
       ),
@@ -668,10 +711,10 @@ class _InviteCardState extends State<_InviteCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            padding: const EdgeInsets.only(left: 2, bottom: 10),
             child: Text(
               'Invite New Member',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.nunito(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: AppColors.text,
@@ -685,6 +728,7 @@ class _InviteCardState extends State<_InviteCard> {
                   onFocusChange: (focused) => setState(() => _isFocused = focused),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
+                    height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
                       color: _isFocused ? AppColors.surface : AppColors.bg,
@@ -730,7 +774,8 @@ class _InviteCardState extends State<_InviteCard> {
                               border: InputBorder.none,
                               focusedBorder: InputBorder.none,
                               enabledBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              filled: false,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 10),
                               isCollapsed: true,
                             ),
                           ),
@@ -745,8 +790,8 @@ class _InviteCardState extends State<_InviteCard> {
                 onTap: widget.isLoading ? null : widget.onSend,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: widget.isLoading ? AppColors.accent.withValues(alpha: 0.5) : AppColors.accent,
                     borderRadius: BorderRadius.circular(16),
@@ -796,6 +841,7 @@ class _PendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final name = req['sender_name']?.toString() ?? 'Unknown';
     final email = req['sender_email']?.toString() ?? '';
 
@@ -868,6 +914,7 @@ class _MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     final name = member['name']?.toString() ?? '?';
     final role =
         member['role']?.toString() ?? member['email']?.toString() ?? '';
@@ -876,7 +923,7 @@ class _MemberCard extends StatelessWidget {
     );
 
     // Rotating avatar bg colors
-    const avatarColors = [
+    final avatarColors = [
       AppColors.accent,
       AppColors.teal,
       AppColors.orange,
@@ -896,7 +943,7 @@ class _MemberCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.7),
+            color: AppColors.surface.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: AppColors.border),
           ),
@@ -949,7 +996,7 @@ class _MemberCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.accent,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: AppColors.surface, width: 2),
                         ),
                         child: Text(
                           'YOU',
@@ -1045,6 +1092,7 @@ class _ActionBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1068,6 +1116,7 @@ class _SecLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
     return Text(
       text.toUpperCase(),
       style: GoogleFonts.inter(

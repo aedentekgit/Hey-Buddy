@@ -52,22 +52,12 @@ const app = express();
 const http = require('http');
 const { Server } = require('socket.io');
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').filter(o => o.trim());
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: [
-            config.FRONTEND_URL,
-            config.FRONTEND_URL_ALT,
-            config.AI_SERVICE_URL,
-            'https://ayuskart.com',
-            'https://staging.ayuskart.com',
-            'capacitor://localhost',
-            'http://localhost',
-            'http://localhost:5001',
-            'http://localhost:8000',
-            'http://localhost:3000',
-            'http://localhost:5173'
-        ].filter(Boolean),
+        origin: allowedOrigins,
         credentials: true
     },
     pingTimeout: 60000,
@@ -97,20 +87,7 @@ app.use(morgan(morganFormat, {
 }));
 
 app.use(cors({
-    origin: [
-        config.FRONTEND_URL,
-        config.FRONTEND_URL_ALT,
-        config.AI_SERVICE_URL,
-        'https://ayuskart.com',
-        'https://staging.ayuskart.com',
-        // SECURITY: 'null' removed — it matches file:// pages and sandboxed iframes, enabling CSRF attacks.
-        'capacitor://localhost',
-        'http://localhost',
-        'http://localhost:5001',
-        'http://localhost:8000',
-        'http://localhost:3000',
-        'http://localhost:5173'
-    ].filter(Boolean),
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-platform']
@@ -171,6 +148,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/location-reminders', locationReminderRoutes);
 app.use('/api/family', familyRoutes);
 app.use('/api/chat', chatRoutes);
+
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -80,14 +80,14 @@ class MobileTaskCard extends StatelessWidget {
                 // Card content
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 16, 16, 16),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // ── Icon ──────────────────────────────────────────
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -103,10 +103,10 @@ class MobileTaskCard extends StatelessWidget {
                           child: Icon(
                             headerIcon ?? LucideIcons.bell,
                             color: color,
-                            size: 24,
+                            size: 18,
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
 
                         // ── Content ─────────────────────────────────────
                         Expanded(
@@ -123,7 +123,7 @@ class MobileTaskCard extends StatelessWidget {
                                       title,
                                       style: GoogleFonts.nunito(
                                         fontWeight: FontWeight.w800,
-                                        fontSize: 15,
+                                        fontSize: 14,
                                         color: AppColors.text,
                                         height: 1.2,
                                       ),
@@ -160,7 +160,7 @@ class MobileTaskCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
 
                               // Location + distance/eta
                               if (hasLocation) ...[
@@ -198,7 +198,7 @@ class MobileTaskCard extends StatelessWidget {
                                   ],
                                 ),
                               ],
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                                 Row(
                                   children: [
                                     _Chip(
@@ -215,7 +215,7 @@ class MobileTaskCard extends StatelessWidget {
                                     ],
                                   ],
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
 
                               // Action row
                               Row(

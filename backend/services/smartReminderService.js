@@ -96,6 +96,15 @@ async function geocodeAddress(address, biasLocation = null) {
             region: 'in' // Bias towards India
         };
 
+        // Add bounding box bias (roughly 50km radius)
+        if (biasLocation?.lat && biasLocation?.lng) {
+            const lat = Number(biasLocation.lat);
+            const lng = Number(biasLocation.lng);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                params.bounds = `${lat - 0.5},${lng - 0.5}|${lat + 0.5},${lng + 0.5}`;
+            }
+        }
+
         const response = await axios.get(url, { params });
 
         if (response.data.status === 'OK' && response.data.results.length > 0) {
@@ -554,12 +563,12 @@ async function checkItemExitGuards(specificUserId = null, io) {
 
             if (standardExit || immediateAlertNeeded) {
                 const notesPart = reminder.notes ? `\nNote: ${reminder.notes}` : '';
-                const message = `📦 Don't forget: "${reminder.title}" - Make sure you have everything you need!${notesPart}`;
+                const message = `Don't forget: "${reminder.title}" - Make sure you have everything you need!${notesPart}`;
 
                 // 1. Create Internal Notification
                 await Notification.create({
                     userId: user._id,
-                    title: '📦 Item Exit Guard',
+                    title: 'Reminder Alert',
                     message: message,
                     type: 'reminder',
                     relatedId: reminder._id,
@@ -581,7 +590,7 @@ async function checkItemExitGuards(specificUserId = null, io) {
                 // 3. Send Push Notification
                 if (user.fcmTokens && user.fcmTokens.length > 0) {
                     const pushPromises = user.fcmTokens.map(token =>
-                        sendPushNotification(token, '📦 Item Exit Guard', message, {
+                        sendPushNotification(token, 'Reminder Alert', message, {
                             type: 'exit_guard',
                             reminderId: reminder._id.toString()
                         }).catch(err => console.error('Push failed:', err.message))

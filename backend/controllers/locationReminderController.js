@@ -49,12 +49,30 @@ exports.createLocationReminder = async (req, res) => {
             });
         }
 
+        let finalCoordinates = coordinates || { lat: null, lng: null };
+
+        // AUTO-GEOCODE: Use location name to find coordinates if missing
+        if (location && (!finalCoordinates.lat || !finalCoordinates.lng)) {
+            try {
+                const { geocodeAddress } = require('../services/smartReminderService');
+                const User = require('../models/User');
+                const user = await User.findById(req.user._id);
+                const coords = await geocodeAddress(location, user?.currentLocation);
+                if (coords) {
+                    finalCoordinates = coords;
+                    console.log(`[LocationReminderController] Auto-geocoded "${location}" to:`, coords);
+                }
+            } catch (err) {
+                console.warn("[LocationReminderController] Auto-geocoding failed during Create:", err.message);
+            }
+        }
+
         const reminder = await Reminder.create({
             userId: req.user._id,
             title,
             description: description || '',
             location,
-            coordinates: coordinates || { lat: null, lng: null },
+            coordinates: finalCoordinates,
             date: date || null,
             time: time || null,
             status: status || 'on_track',
@@ -97,6 +115,20 @@ exports.updateLocationReminder = async (req, res) => {
         if (description !== undefined) allowedUpdate.description = description;
         if (location !== undefined) allowedUpdate.location = location;
         if (coordinates !== undefined) allowedUpdate.coordinates = coordinates;
+        
+        // Handle Auto-Geocode if location changed and no coordinates provided
+        if (allowedUpdate.location && (!allowedUpdate.coordinates?.lat || !allowedUpdate.coordinates?.lng)) {
+            try {
+                const { geocodeAddress } = require('../services/smartReminderService');
+                const User = require('../models/User');
+                const user = await User.findById(req.user._id);
+                const coords = await geocodeAddress(allowedUpdate.location, user?.currentLocation);
+                if (coords) allowedUpdate.coordinates = coords;
+            } catch (err) {
+                console.warn("[LocationReminderController] Geocode failed during Update:", err.message);
+            }
+        }
+
         if (date !== undefined) allowedUpdate.date = date;
         if (time !== undefined) allowedUpdate.time = time;
         if (status !== undefined) allowedUpdate.status = status;

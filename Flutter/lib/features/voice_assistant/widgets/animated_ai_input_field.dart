@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:buddy_mobile/core/theme/app_colors.dart';
 
 class AnimatedAIInputField extends StatefulWidget {
   final TextEditingController controller;
@@ -249,8 +250,8 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                         ),
                         decoration: BoxDecoration(
                           color: _isFocused
-                              ? Colors.white.withValues(alpha: 0.95)
-                              : Colors.white.withValues(alpha: 
+                              ? AppColors.surface.withValues(alpha: 0.95)
+                              : AppColors.surface.withValues(alpha: 
                                   0.85 + (0.05 * hoverVal),
                                 ),
                           borderRadius: BorderRadius.circular(100),
@@ -270,7 +271,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                                       cursorRadius: const Radius.circular(2),
                                       style: GoogleFonts.inter(
                                         fontSize: 15,
-                                        color: const Color(0xFF1E293B),
+                                        color: AppColors.text,
                                         fontWeight: FontWeight.w500,
                                       ),
                                       decoration: InputDecoration(
@@ -287,7 +288,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                                             ),
 
                                         hintStyle: GoogleFonts.inter(
-                                          color: const Color(0xFF94A3B8),
+                                          color: AppColors.textDim,
                                           fontSize: 14,
                                         ),
                                       ),
@@ -303,7 +304,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                                   : LucideIcons.mic,
                               color: widget.isListening
                                   ? Colors.red
-                                  : const Color(0xFF64748B),
+                                  : AppColors.textMid,
                               onTap: widget.isEnabled
                                   ? widget.onMicPressed
                                   : null,
@@ -316,7 +317,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                             // Attach Button
                             _buildActionIconButton(
                               icon: LucideIcons.plus,
-                              color: const Color(0xFF64748B),
+                              color: AppColors.textMid,
                               onTap: widget.isEnabled
                                   ? widget.onAttachPressed
                                   : null,
@@ -436,7 +437,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
         child: Icon(
           icon,
           color: (isPulsing || widget.isSpeaking)
-              ? const Color(0xFF64748B)
+              ? AppColors.textMid
               : color,
           size: 20 + (isPulsing ? (2 * pulseVal) : 0),
         ),
@@ -570,7 +571,7 @@ class _GradientRingPainter extends CustomPainter {
         Radius.circular(size.height / 2),
       );
       final paint = Paint()
-        ..color = const Color(0xFFE2E8F0)
+        ..color = AppColors.border
         ..style = PaintingStyle.stroke
         ..strokeWidth = borderWidth;
       canvas.drawRRect(borderRRect, paint);
