@@ -4,7 +4,7 @@ class AppConfig {
   // FINAL PRODUCTION HOST
   static const String productionHost = 'ayuskart.com';
   // STAGING HOST (For Testing)
-  static const String stagingHost = 'staging.ayuskart.com';
+  static const String stagingHost = 'ayuskart.com';
   // LOCAL HOST (For Device Debugging - using discovered local IP)
   static const String localhostHost = '10.0.2.2:5001'; 
   static const String webLocalhostHost = 'localhost:5001';
@@ -47,9 +47,8 @@ class AppConfig {
   static String secondaryColor = '#FFFFFF';
   static String? logoUrl;
   static String? splashUrl;
-  static String? googleClientId =
-      "653874362760-32gca8aold1hap5s8271ad4803s959h5.apps.googleusercontent.com";
-  static String googleMapsApiKey = "AIzaSyAdNgoVCokinFU6OD0pRxOg47RCmJ3kaA0";
+  static String? googleClientId;
+  static String googleMapsApiKey = "";
 
   static String? formatImageUrl(String? path) {
     if (path == null || path.isEmpty || path == "null" || path == "undefined") {

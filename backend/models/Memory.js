@@ -19,6 +19,14 @@ const memorySchema = new mongoose.Schema({
         type: String,
         default: 'general'
     },
+    tags: {
+        type: [String],
+        default: []
+    },
+    expiresAt: {
+        type: Date,
+        default: null
+    },
     fileUrl: {
         type: String,
         default: null
@@ -30,5 +38,6 @@ const memorySchema = new mongoose.Schema({
 }, { timestamps: true });
 memorySchema.index({ userId: 1 });
 memorySchema.index({ createdAt: -1 });
+memorySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for auto-deletion
 
 module.exports = mongoose.model('Memory', memorySchema);

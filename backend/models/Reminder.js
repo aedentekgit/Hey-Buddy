@@ -19,6 +19,10 @@ const reminderSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    subtasks: [{
+        title: { type: String, required: true },
+        completed: { type: Boolean, default: false }
+    }],
     description: {
         type: String,
         default: ''
@@ -82,8 +86,12 @@ const reminderSchema = new mongoose.Schema({
     },
     reminderType: {
         type: String,
-        enum: ['time', 'location'],
+        enum: ['time', 'location', 'contact'],
         default: 'time'
+    },
+    contactTrigger: {
+        type: String,
+        default: null // e.g. "Mom", "John", "Doctor"
     },
     backupContacts: [{
         name: String,
@@ -102,7 +110,7 @@ const reminderSchema = new mongoose.Schema({
     }],
     condition: {
         type: String,
-        enum: ['distance_check', 'time_only', 'none'],
+        enum: ['distance_check', 'time_only', 'contact_check', 'none'],
         default: 'none'
     },
     repeat: {

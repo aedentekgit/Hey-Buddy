@@ -59,7 +59,7 @@ const toolHandlers = {
     create_reminder: async (userId, args, userContext) => {
         console.log(`[GeminiTools] Executing create_reminder for user ${userId}`);
         try {
-            const { title, time, notes, date, location } = args;
+            const { title, time, notes, date, location, priority, repeat, triggerEvent, subtasks, contactTrigger } = args;
             const reminderDate = date || userContext.localDate || new Date().toLocaleDateString('en-CA');
 
             // Automatically geocode location if provided to get coordinates
@@ -97,6 +97,10 @@ const toolHandlers = {
                 date: reminderDate,
                 intent: intent,
                 source: 'buddy',
+                priority: priority || 'medium',
+                repeat: repeat || false,
+                subtasks: Array.isArray(subtasks) ? subtasks.map(t => ({ title: t })) : [],
+                contactTrigger: contactTrigger || null,
                 smartFeatures: {
                     earlyWarning: true,
                     trafficAware: true,
@@ -108,8 +112,47 @@ const toolHandlers = {
                 }
             };
 
-            // Only add notes if the schema has it (we'll add it to schema next)
-            if (notes) reminderData.notes = notes;
+            // Only add notes if the schema has it
+            let finalNotes = notes || '';
+            if (triggerEvent && triggerEvent.toLowerCase() === 'leave') {
+                finalNotes += (finalNotes ? '\n' : '') + 'Trigger: When leaving location';
+                reminderData.condition = 'distance_check';
+            }
+            if (contactTrigger) {
+                reminderData.condition = 'contact_check';
+                reminderData.reminderType = 'contact';
+            }
+            
+            // Contextual Auto-enrichment from Memory
+            try {
+                const words = title.split(' ').filter(w => w.length > 3);
+                if (words.length > 0) {
+                    const regex = new RegExp(words.join('|'), 'i');
+                    const relatedMemories = await Memory.find({ userId, content: regex }).limit(3);
+                    if (relatedMemories.length > 0) {
+                        finalNotes += (finalNotes ? '\n\n' : '') + '💡 Auto-Enriched Context:';
+                        relatedMemories.forEach(m => { finalNotes += '\n- ' + m.content; });
+                    }
+                }
+            } catch(e) { console.error('Enrichment error:', e); }
+
+            if (finalNotes) reminderData.notes = finalNotes;
+
+            // Check for conflict
+            let conflictWarning = '';
+            try {
+                if (reminderDate && time) {
+                    const existing = await Reminder.findOne({ 
+                        userId, 
+                        date: reminderDate, 
+                        time: time,
+                        status: { $nin: ['completed', 'cancelled'] }
+                    });
+                    if (existing) {
+                        conflictWarning = ` Note: The user already has a reminder scheduled at this exact time ("${existing.title}"). Please inform them about this scheduling conflict.`;
+                    }
+                }
+            } catch(e) { console.error('Gemini conflict check error:', e); }
 
             // Create reminder in database
             console.log('[GeminiTools] Creating reminder in DB:', JSON.stringify(reminderData));
@@ -132,6 +175,7 @@ const toolHandlers = {
             if (location && !coordinates.lat) {
                 message += " Note: I couldn't find the exact map coordinates for this location. Please check your Google Maps settings.";
             }
+            message += conflictWarning;
 
             console.log(`[GeminiTools] Reminder created successfully: ${reminder._id}`);
             return { status: 'success', message: message, data: reminder };
@@ -148,11 +192,13 @@ const toolHandlers = {
         };
     },
     save_memory: async (userId, args) => {
-        const { content, category } = args;
+        const { content, category, tags, expiresInHours } = args;
         const memory = await Memory.create({
             userId,
             content,
-            category: category || 'general'
+            category: category || 'general',
+            tags: tags || [],
+            expiresAt: expiresInHours ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000) : null
         });
 
         // Sync with Python Vector Store
@@ -268,6 +314,17 @@ const toolHandlers = {
 
         return { status: 'success', message: 'Reminder updated.', data: reminder };
     },
+    bulk_reschedule_reminders: async (userId, args) => {
+        const { currentDate, newDate } = args;
+        if (!currentDate || !newDate) return { status: 'error', message: 'Both currentDate and newDate are required.' };
+        
+        const result = await Reminder.updateMany(
+            { userId, date: currentDate, status: 'pending' },
+            { $set: { date: newDate } }
+        );
+        
+        return { status: 'success', message: `Successfully rescheduled ${result.modifiedCount} reminders from ${currentDate} to ${newDate}.` };
+    },
     list_memories: async (userId) => {
         const memories = await Memory.find({ userId }).sort({ createdAt: -1 }).limit(10);
         return { status: 'success', memories: memories.map(m => m.content) };
@@ -380,7 +437,12 @@ const buddyTools = [
                         time: { type: 'STRING', description: 'The time (e.g. 08:00 PM)' },
                         location: { type: 'STRING', description: 'Address or place name for location-based alerts' },
                         notes: { type: 'STRING', description: 'Additional instructions' },
-                        date: { type: 'STRING', description: 'The date (YYYY-MM-DD)' }
+                        date: { type: 'STRING', description: 'The date (YYYY-MM-DD)' },
+                        priority: { type: 'STRING', description: 'Priority level: "low", "medium", or "high". Default is "medium"' },
+                        repeat: { type: 'BOOLEAN', description: 'Set to true if this is a recurring/repeating reminder' },
+                        triggerEvent: { type: 'STRING', description: 'For location reminders: "arrive" or "leave". Defaults to "arrive"' },
+                        subtasks: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Checklist of sub-tasks needed to complete this main reminder' },
+                        contactTrigger: { type: 'STRING', description: 'Name of the contact for communication triggers (e.g. "when I call Mom")' }
                     },
                     required: ['title', 'time']
                 }
@@ -397,7 +459,9 @@ const buddyTools = [
                     type: 'OBJECT',
                     properties: {
                         content: { type: 'STRING', description: 'The fact or information to remember' },
-                        category: { type: 'STRING', description: 'Optional category (health, personal, etc.)' }
+                        category: { type: 'STRING', description: 'Optional category (health, personal, etc.)' },
+                        tags: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Array of keywords or tags (e.g., ["health", "family"])' },
+                        expiresInHours: { type: 'NUMBER', description: 'If this memory is temporary (like a parking spot), the number of hours until it should expire/be forgotten.' }
                     },
                     required: ['content']
                 }
@@ -443,6 +507,18 @@ const buddyTools = [
                         }
                     },
                     required: ['updateData']
+                }
+            },
+            {
+                name: 'bulk_reschedule_reminders',
+                description: 'Bulk shift all pending reminders from one date to another date (e.g. push all of today\'s tasks to tomorrow).',
+                parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                        currentDate: { type: 'STRING', description: 'The current date to find reminders for (YYYY-MM-DD)' },
+                        newDate: { type: 'STRING', description: 'The new target date to move them to (YYYY-MM-DD)' }
+                    },
+                    required: ['currentDate', 'newDate']
                 }
             },
             {
@@ -593,6 +669,7 @@ STRICT RULES:
 2. Just reply naturally like a human WITHOUT explaining your internal thought process. ONLY output the direct, final conversational reply to the user.
 3. INTERNAL REASONING IS FORBIDDEN: NEVER include sentences about your planning, focus, or interpretation of user intent. (e.g., "I'm focusing on...", "I'll use...", "I've decided to...", "My primary focus is...").
 4. NO SEARCH COMMENTARY: When you find information via Google Search, DO NOT explain that you are finding it. Just provide the final answer immediately. Your entire response should ONLY consist of the final information the user requested. NEVER explain how you will synthesize key points.
+4b. NO CONTEXT COMMENTARY: NEVER mention that you are reading from "saved memories", "context", "notes", or "history". Speak naturally as if you just know it (e.g., instead of "According to your saved memories, your wallet is in the red bag", just say "Your wallet is in the red bag.")
 
 5. REMINDERS (Tasks/Schedule) vs MEMORIES (Facts/Notes) are separated.
    - Schedule/Tasks -> Use 'list_reminders' with date="today" if not in UPCOMING list.
