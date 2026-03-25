@@ -52,6 +52,14 @@ class MemoriesProvider extends ChangeNotifier {
   }
 
   Future<bool> updateMemory(String id, String content, {File? file}) async {
+    final index = _memories.indexWhere((m) => m['_id'] == id);
+    Map<String, dynamic>? oldMemory;
+    if (index != -1) {
+      oldMemory = Map<String, dynamic>.from(_memories[index]);
+      _memories[index] = {..._memories[index], 'content': content};
+      notifyListeners();
+    }
+
     try {
       final success = await _memoryService.updateMemory(
         id,
@@ -59,22 +67,50 @@ class MemoriesProvider extends ChangeNotifier {
         file: file,
       );
       if (success) {
-        await loadMemories(); // Refresh
+        Future.delayed(const Duration(milliseconds: 300), () => loadMemories(silent: true));
+      } else if (index != -1 && oldMemory != null) {
+         _memories[index] = oldMemory;
+         notifyListeners();
       }
       return success;
     } catch (e) {
+      if (index != -1 && oldMemory != null) {
+         _memories[index] = oldMemory;
+         notifyListeners();
+      }
       return false;
     }
   }
 
   Future<bool> updatePrescription(String id, Map<String, dynamic> data) async {
+    final index = _memories.indexWhere((m) => m['_id'] == id);
+    Map<String, dynamic>? oldMemory;
+    if (index != -1) {
+      oldMemory = Map<String, dynamic>.from(_memories[index]);
+      _memories[index] = {
+        ..._memories[index],
+        'extractedData': {
+          ...(_memories[index]['extractedData'] ?? {}),
+          ...data,
+        }
+      };
+      notifyListeners();
+    }
+
     try {
       final success = await _memoryService.updatePrescription(id, data);
       if (success) {
-        await loadMemories(); // Refresh
+        Future.delayed(const Duration(milliseconds: 300), () => loadMemories(silent: true));
+      } else if (index != -1 && oldMemory != null) {
+         _memories[index] = oldMemory;
+         notifyListeners();
       }
       return success;
     } catch (e) {
+      if (index != -1 && oldMemory != null) {
+         _memories[index] = oldMemory;
+         notifyListeners();
+      }
       return false;
     }
   }

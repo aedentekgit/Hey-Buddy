@@ -54,6 +54,8 @@ module.exports = (io) => {
                     fileUrl,
                     fileName,
                     fileType,
+                    readBy: [],
+                    deliveredTo: [],
                     timestamp: newMessage.createdAt
                 });
 
@@ -183,12 +185,36 @@ module.exports = (io) => {
                     fileName: populated.fileName,
                     fileType: populated.fileType,
                     forwardedFrom: populated.forwardedFrom,
+                    readBy: [],
+                    deliveredTo: [],
                     timestamp: populated.createdAt
                 };
 
                 io.to(targetRoomId).emit('new_message', formatted);
             } catch (error) {
                 console.error("[Socket] Forward error:", error);
+            }
+        });
+
+        socket.on('mark_read', async (data) => {
+            try {
+                const { roomId, userId } = data;
+                if (!roomId || !userId) return;
+
+                const messages = await ChatMessage.find({ roomId, readBy: { $ne: userId } });
+                if (messages.length > 0) {
+                    await ChatMessage.updateMany(
+                        { roomId, readBy: { $ne: userId } },
+                        { $addToSet: { readBy: userId, deliveredTo: userId } }
+                    );
+
+                    io.to(roomId).emit('messages_read', {
+                        roomId,
+                        userId
+                    });
+                }
+            } catch (error) {
+                console.error("[Socket] Mark read error:", error);
             }
         });
 

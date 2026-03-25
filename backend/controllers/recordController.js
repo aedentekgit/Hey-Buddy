@@ -7,6 +7,7 @@ const { OpenAI } = require('openai');
 const paginate = require('../utils/paginate');
 const { uploadFile, deleteFile } = require('../services/fileService');
 const Settings = require('../models/Settings');
+const { emitDataSync } = require('../utils/socketEmitter');
 
 // Helper to get openai instance dynamically
 async function getOpenAI() {
@@ -149,6 +150,10 @@ const recordController = {
             }
 
             const doc = await Memory.findOneAndUpdate({ _id: memoryId, userId }, updateData, { new: true });
+
+            // EMIT REAL-TIME SYNC
+            emitDataSync(req, res, userId, 'memory', 'update', { id: memoryId });
+
             res.json({ success: true, data: doc });
         } catch (error) {
             console.error('Update Memory Error:', error);
@@ -162,17 +167,21 @@ const recordController = {
             await deleteFile(memory.fileUrl).catch(e => console.warn('File delete failed:', e));
         }
         await Memory.deleteOne({ _id: req.params.id, userId: req.user._id });
+
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, req.user._id, 'memory', 'delete', { id: req.params.id });
+
         res.json({ success: true, message: "Deleted." });
     },
 
     createMemory: async (req, res) => {
         try {
-            const { content, category } = req.body;
+            const { content, category, fileUrl: bodyFileUrl, fileName: bodyFileName } = req.body;
             const userId = req.user._id;
             if (!content) return res.status(400).json({ success: false, message: "Content is required" });
 
-            let fileUrl = null;
-            let fileName = null;
+            let fileUrl = bodyFileUrl || null;
+            let fileName = bodyFileName || null;
 
             if (req.file) {
                 const destination = `memories/${userId}-${Date.now()}${path.extname(req.file.originalname)}`;
@@ -187,6 +196,9 @@ const recordController = {
                 fileUrl,
                 fileName
             });
+            
+            // EMIT REAL-TIME SYNC
+            emitDataSync(req, res, userId, 'memory', 'create', { id: memory._id });
 
             res.status(201).json({ success: true, data: memory });
         } catch (error) {
@@ -213,14 +225,17 @@ const recordController = {
                 ];
             }
 
-            const [memories, prescriptions] = await Promise.all([
+            const Document = require('../models/Document');
+            const [memories, prescriptions, documents] = await Promise.all([
                 Memory.find(memQuery).lean(),
-                Prescription.find(presQuery).lean()
+                Prescription.find(presQuery).lean(),
+                Document.find({ userId }).lean()
             ]);
 
             const combined = [
                 ...memories.map(m => ({ ...m, type: 'memory' })),
-                ...prescriptions.map(p => ({ ...p, type: 'record' }))
+                ...prescriptions.map(p => ({ ...p, type: 'record' })),
+                ...documents.map(d => ({ ...d, type: 'document' }))
             ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
             const total = combined.length;

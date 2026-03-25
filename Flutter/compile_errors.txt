@@ -1,93 +1,13 @@
 Analyzing Flutter...                                            
 
-  error • Invalid constant value • lib/features/account/screens/account_settings_screen.dart:242:34 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/account_settings_screen.dart:410:32 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/account_settings_screen.dart:497:32 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/account_settings_screen.dart:515:32 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/account_settings_screen.dart:581:36 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/change_password_screen.dart:85:34 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/change_password_screen.dart:121:32 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/change_password_screen.dart:296:22 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/privacy_policy_screen.dart:47:81 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/terms_conditions_screen.dart:47:78 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/user_profile_screen.dart:113:38 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/user_profile_screen.dart:802:32 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/voice_preference_screen.dart:115:64 • invalid_constant
-  error • Invalid constant value • lib/features/account/screens/voice_preference_screen.dart:185:75 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/calendar_view_screen.dart:53:66 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/calendar_view_screen.dart:66:56 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/calendar_view_screen.dart:80:43 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/calendar_view_screen.dart:125:60 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/calendar_view_screen.dart:176:56 • invalid_constant
-warning • The value of the local variable 'intent' isn't used • lib/features/explore/screens/calendar_view_screen.dart:231:11 • unused_local_variable
-  error • Invalid constant value • lib/features/explore/screens/calendar_view_screen.dart:280:70 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/explore_screen.dart:465:30 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/explore_screen.dart:504:41 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/explore_screen.dart:739:22 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_chat_screen.dart:115:34 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_chat_screen.dart:633:63 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_chat_screen.dart:646:63 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_chat_screen.dart:677:70 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_chat_screen.dart:1109:61 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_chat_screen.dart:1117:62 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_chat_screen.dart:1125:64 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_hub_screen.dart:323:22 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_hub_screen.dart:389:28 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_hub_screen.dart:421:42 • invalid_constant
-  error • Invalid constant value • lib/features/explore/screens/family_hub_screen.dart:432:34 • invalid_constant
-  error • Const variables must be initialized with a constant value • lib/features/explore/screens/family_hub_screen.dart:880:7 • const_initialized_with_non_constant_value
-  error • The values in a const list literal must be constants • lib/features/explore/screens/family_hub_screen.dart:880:7 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/explore/screens/family_hub_screen.dart:881:7 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/explore/screens/family_hub_screen.dart:882:7 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/explore/screens/family_hub_screen.dart:883:7 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/explore/screens/family_hub_screen.dart:884:7 • non_constant_list_element
-  error • Invalid constant value • lib/features/home/screens/early_warning_screen.dart:121:34 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/early_warning_screen.dart:164:34 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/early_warning_screen.dart:771:26 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminder_create_screen.dart:165:34 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminders_screen.dart:179:36 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminders_screen.dart:203:40 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminders_screen.dart:340:49 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminders_screen.dart:710:40 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminders_screen.dart:775:37 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminders_screen.dart:892:46 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/location_reminders_screen.dart:1121:25 • invalid_constant
-warning • The value of the local variable 'primaryColor' isn't used • lib/features/home/screens/main_screen.dart:167:11 • unused_local_variable
-  error • Invalid constant value • lib/features/home/screens/memory_details_screen.dart:398:28 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/memory_details_screen.dart:459:28 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/memory_edit_screen.dart:129:34 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/memory_edit_screen.dart:315:24 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/memory_edit_screen.dart:379:32 • invalid_constant
-  error • Const variables must be initialized with a constant value • lib/features/home/screens/memory_list_screen.dart:45:5 • const_initialized_with_non_constant_value
-  error • The values in a const list literal must be constants • lib/features/home/screens/memory_list_screen.dart:45:5 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/home/screens/memory_list_screen.dart:46:5 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/home/screens/memory_list_screen.dart:47:5 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/home/screens/memory_list_screen.dart:48:5 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/home/screens/memory_list_screen.dart:49:5 • non_constant_list_element
-  error • The values in a const list literal must be constants • lib/features/home/screens/memory_list_screen.dart:50:5 • non_constant_list_element
-  error • Invalid constant value • lib/features/home/screens/memory_list_screen.dart:175:36 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/memory_list_screen.dart:199:40 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/memory_list_screen.dart:276:49 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/memory_list_screen.dart:331:22 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:184:36 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:247:40 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:361:42 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:579:36 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:603:40 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:735:49 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:1128:22 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/reminder_list_screen.dart:1331:25 • invalid_constant
-  error • Invalid constant value • lib/features/home/screens/smart_details_screen.dart:48:34 • invalid_constant
-  error • Invalid constant value • lib/features/home/widgets/smart_details_panel.dart:730:72 • invalid_constant
-  error • Invalid constant value • lib/features/home/widgets/smart_details_panel.dart:851:74 • invalid_constant
-  error • Invalid constant value • lib/features/home/widgets/smart_details_panel.dart:1061:26 • invalid_constant
-  error • Invalid constant value • lib/features/home/widgets/smart_details_panel.dart:1237:32 • invalid_constant
-  error • Invalid constant value • lib/features/home/widgets/smart_details_panel.dart:2370:63 • invalid_constant
-  error • Invalid constant value • lib/features/home/widgets/smart_details_panel.dart:2371:79 • invalid_constant
-  error • Invalid constant value • lib/features/home/widgets/smart_details_panel.dart:2416:81 • invalid_constant
-  error • Invalid constant value • lib/shared/widgets/mobile_app_header.dart:65:26 • invalid_constant
-  error • Undefined class 'Color' • lib/test_colors.dart:2:10 • undefined_class
-  error • The name 'Color' isn't a class • lib/test_colors.dart:2:27 • creation_with_non_type
-  error • Invalid constant value • lib/test_widget.dart:9:42 • invalid_constant
+warning • A value for optional parameter 'key' isn't ever given • lib/features/account/screens/account_settings_screen.dart:849:11 • unused_element_parameter
+warning • A value for optional parameter 'activeColor' isn't ever given • lib/features/account/screens/account_settings_screen.dart:852:10 • unused_element_parameter
+   info • The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/features/explore/screens/family_chat_screen.dart:3:8 • unnecessary_import
+warning • Unused import: 'dart:math' • lib/features/explore/screens/family_chat_screen.dart:4:8 • unused_import
+warning • The value of the field '_isTyping' isn't used • lib/features/explore/screens/family_chat_screen.dart:39:8 • unused_field
+warning • The value of the field '_isFocused' isn't used • lib/features/explore/screens/family_chat_screen.dart:40:8 • unused_field
+warning • The declaration '_buildActionIconButton' isn't referenced • lib/features/explore/screens/family_chat_screen.dart:1054:10 • unused_element
+warning • The declaration '_iconBtn' isn't referenced • lib/features/explore/screens/family_hub_screen.dart:520:10 • unused_element
+warning • The value of the local variable 'primaryColor' isn't used • lib/features/home/screens/main_screen.dart:168:11 • unused_local_variable
    info • Don't invoke 'print' in production code • test_geo.dart:4:3 • avoid_print
 

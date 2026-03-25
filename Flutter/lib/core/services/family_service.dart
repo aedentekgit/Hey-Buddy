@@ -124,4 +124,28 @@ class FamilyService {
       return {'success': false, 'message': e.toString()};
     }
   }
+
+  Future<Map<String, dynamic>> deleteChatHistory(String chatId) async {
+    final response = await http.delete(
+      Uri.parse('${AppConfig.baseUrl}chat/$chatId/history'),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(response.body);
+  }
+
+  Future<Map<String, dynamic>> muteChat(String chatId) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}chat/$chatId/mute'),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(response.body);
+  }
+
+  Future<Map<String, dynamic>> archiveChat(String chatId) async {
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}chat/$chatId/archive'),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(response.body);
+  }
 }

@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
-import 'dart:ui';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -21,11 +19,13 @@ import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_
 class FamilyChatScreen extends StatefulWidget {
   final String title;
   final bool isGroup;
+  final String? avatarUrl;
 
   const FamilyChatScreen({
     super.key,
     this.title = 'Private Chat',
     this.isGroup = false,
+    this.avatarUrl,
   });
 
   @override
@@ -36,8 +36,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  bool _isTyping = false;
-  bool _isFocused = false;
 
   @override
   void initState() {
@@ -51,15 +49,11 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   }
 
   void _onFocusChange() {
-    setState(() {
-      _isFocused = _focusNode.hasFocus;
-    });
+    setState(() {});
   }
 
   void _onTextChanged() {
-    setState(() {
-      _isTyping = _messageController.text.trim().isNotEmpty;
-    });
+    setState(() {});
   }
 
   @override
@@ -136,14 +130,22 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      gradient: AppColors.headerGradient,
+                      gradient: widget.avatarUrl == null ? AppColors.headerGradient : null,
                       borderRadius: BorderRadius.circular(12),
+                      image: widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty
+                          ? DecorationImage(
+                              image: CachedNetworkImageProvider(AppConfig.formatImageUrl(widget.avatarUrl)!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
-                    child: Icon(
-                      widget.isGroup ? LucideIcons.users : LucideIcons.user,
-                      size: 18,
-                      color: Colors.white,
-                    ),
+                    child: (widget.avatarUrl == null || widget.avatarUrl!.isEmpty)
+                        ? Icon(
+                            widget.isGroup ? LucideIcons.users : LucideIcons.user,
+                            size: 18,
+                            color: Colors.white,
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -183,6 +185,85 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: Icon(LucideIcons.moreVertical, color: AppColors.text, size: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    color: AppColors.surface,
+                    offset: const Offset(0, 40),
+                    onSelected: (value) async {
+                      final provider = context.read<FamilyProvider>();
+                      if (value == 'mute') {
+                        final success = await provider.muteCurrentChat();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(success ? 'Chat mute toggled' : 'Failed to mute chat')),
+                        );
+                      } else if (value == 'emergency') {
+                        final success = await provider.sendEmergencyAlert("Urgent assistance required!");
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(success ? 'SOS Sent to emergency contacts!' : 'Failed to send SOS'),
+                            backgroundColor: success ? AppColors.green : AppColors.danger,
+                          ),
+                        );
+                      } else if (value == 'clear') {
+                        final success = await provider.deleteCurrentChatHistory();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(success ? 'Chat history cleared' : 'Failed to clear history')),
+                        );
+                      } else if (value == 'archive') {
+                        final success = await provider.archiveCurrentChat();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(success ? 'Chat archive toggled' : 'Failed to archive chat')),
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'mute',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.bellOff, size: 18, color: AppColors.textMid),
+                            const SizedBox(width: 12),
+                            Text('Mute', style: GoogleFonts.inter(fontSize: 14, color: AppColors.text)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'emergency',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.alertTriangle, size: 18, color: AppColors.danger),
+                            const SizedBox(width: 12),
+                            Text('Emergency Help', style: GoogleFonts.inter(fontSize: 14, color: AppColors.danger)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'clear',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.trash2, size: 18, color: AppColors.textMid),
+                            const SizedBox(width: 12),
+                            Text('Delete chat history', style: GoogleFonts.inter(fontSize: 14, color: AppColors.text)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'archive',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.archive, size: 18, color: AppColors.textMid),
+                            const SizedBox(width: 12),
+                            Text('Archive', style: GoogleFonts.inter(fontSize: 14, color: AppColors.text)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -462,14 +543,23 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                           const SizedBox(height: 5),
                           Align(
                             alignment: Alignment.bottomRight,
-                            child: Text(
-                              time,
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: isMe
-                                    ? Colors.white.withValues(alpha: 0.65)
-                                    : AppColors.textDim,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  time,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    color: isMe
+                                        ? Colors.white.withValues(alpha: 0.65)
+                                        : AppColors.textDim,
+                                  ),
+                                ),
+                                if (isMe) ...[
+                                  const SizedBox(width: 4),
+                                  _buildReadReceipt(msg),
+                                ]
+                              ],
                             ),
                           ),
                         ],
@@ -509,6 +599,27 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildReadReceipt(Map<String, dynamic> msg) {
+    final readBy = List<dynamic>.from(msg['readBy'] ?? []);
+    final deliveredTo = List<dynamic>.from(msg['deliveredTo'] ?? []);
+    
+    // Check if anyone else has read or delivered
+    final currentUserId = context.read<FamilyProvider>().currentUserId;
+    bool isRead = readBy.any((id) => id.toString() != currentUserId);
+    bool isDelivered = deliveredTo.any((id) => id.toString() != currentUserId) || isRead;
+
+    if (isRead) {
+      // Blue tick (Cyan-ish to contrast with the blue bubble)
+      return const Icon(Icons.done_all, size: 14, color: Color(0xFF00F3FF));
+    } else if (isDelivered) {
+      // Double grey tick
+      return const Icon(Icons.done_all, size: 14, color: Colors.white60);
+    } else {
+      // Single grey tick
+      return const Icon(Icons.check, size: 14, color: Colors.white60);
+    }
   }
 
   Widget _buildAvatar(String? name, {bool isMe = false, String? avatarUrl}) {
@@ -1049,22 +1160,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     } catch (e) {
       debugPrint('Attachment error: $e');
     }
-  }
-
-  Widget _buildActionIconButton({
-    required IconData icon,
-    required Color color,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(100),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: const BoxDecoration(shape: BoxShape.circle),
-        child: Icon(icon, color: color, size: 20),
-      ),
-    );
   }
 
   void _sendMessage() {

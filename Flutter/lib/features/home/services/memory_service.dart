@@ -22,7 +22,7 @@ class MemoryService {
 
       final response = await http.get(
         Uri.parse(
-          '${_baseUrl}voice/memories/mix',
+          '${_baseUrl}voice/memories/mix?_t=${DateTime.now().millisecondsSinceEpoch}',
         ), // Updated to correct endpoint
         headers: {
           'Authorization': 'Bearer $token',

@@ -13,6 +13,8 @@ const {
     deleteGoogleCalendarEvent
 } = require('../services/googleCalendarService');
 
+const { emitDataSync } = require('../utils/socketEmitter');
+
 // ─── Shared Helper ────────────────────────────────────────────────────────────
 /**
  * Given a pickup time string ("HH:MM" or "HH:MM AM/PM"), subtract total prepare
@@ -313,6 +315,10 @@ exports.createReminder = async (req, res) => {
             .populate('userId', 'name email profilePicture')
             .populate('sharedWith.user', 'name email profilePicture');
 
+        // EMIT REAL-TIME SYNC: Notify the creator and any added collaborators
+        const syncUserIds = [userId, ...(reminder.sharedWith.map(s => s.user.toString()))];
+        emitDataSync(req, res, syncUserIds, 'task', 'create', { id: reminder._id });
+
         res.status(201).json({
             success: true,
             data: appendOverdueStatus(fullyPopulated)
@@ -443,6 +449,10 @@ exports.updateReminder = async (req, res) => {
             .populate('userId', 'name email profilePicture')
             .populate('sharedWith.user', 'name email profilePicture');
 
+        // EMIT REAL-TIME SYNC: Update all relevant users (owner, previous, and new collaborators)
+        const syncUserIds = [userId, ...oldSharedWithIds, ...newSharedWithIds];
+        emitDataSync(req, res, syncUserIds, 'task', 'update', { id });
+
         res.status(200).json({ success: true, data: appendOverdueStatus(fullyPopulated) });
 
     } catch (error) {
@@ -470,6 +480,10 @@ exports.deleteReminder = async (req, res) => {
                 console.error("Google Sync Failed during Delete:", calError.message);
             }
         }
+
+        // EMIT REAL-TIME SYNC: Notify owner and any shared users before deletion is complete/final
+        const syncUserIds = [userId, ...(reminder.sharedWith.map(s => s.user.toString()))];
+        emitDataSync(req, res, syncUserIds, 'task', 'delete', { id });
 
         await Reminder.findByIdAndDelete(id);
 

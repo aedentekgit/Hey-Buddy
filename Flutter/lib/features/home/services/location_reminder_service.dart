@@ -13,7 +13,7 @@ class LocationReminderService {
     try {
       final token = await _storage.read(key: 'jwt');
       final response = await http.get(
-        Uri.parse('${_baseUrl}location-reminders'),
+        Uri.parse('${_baseUrl}location-reminders?_t=${DateTime.now().millisecondsSinceEpoch}'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

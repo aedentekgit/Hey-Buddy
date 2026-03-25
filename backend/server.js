@@ -71,6 +71,9 @@ const chatHandler = require('./sockets/chatHandler');
 voiceHandler(io);
 chatHandler(io);
 
+// Expose io instance to controllers
+app.set('io', io);
+
 // Security & Performance Middleware (FIRST)
 app.use(helmet({
     crossOriginEmbedderPolicy: false, // needed for some media types

@@ -3032,13 +3032,10 @@ class _SmartFeatureTile extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Transform.scale(
-                      scale: 0.8,
-                      child: Switch.adaptive(
-                        value: value,
-                        onChanged: onChanged,
-                        activeColor: tagColor,
-                      ),
+                    _Toggle(
+                      value: value,
+                      onChanged: onChanged,
+                      activeColor: tagColor,
                     ),
                   ],
                 ),
@@ -3113,14 +3110,10 @@ class _AlertTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Transform.scale(
-            scale: 0.8,
-            child: Switch.adaptive(
-              value: value,
-              onChanged: onChanged,
-              activeColor: Theme.of(context).primaryColor,
-            ),
+          _Toggle(
+            value: value,
+            onChanged: onChanged,
+            activeColor: Theme.of(context).primaryColor,
           ),
         ],
       ),
@@ -3215,6 +3208,60 @@ class _TimelineItem extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Toggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color activeColor;
+
+  const _Toggle({
+    required this.value,
+    required this.onChanged,
+    required this.activeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 44,
+        height: 25,
+        decoration: BoxDecoration(
+          color: value
+              ? activeColor
+              : (Theme.of(context).brightness == Brightness.dark 
+                  ? const Color(0xFF4B5563) 
+                  : const Color(0xFFD1D5DB)),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(2.0),
+            child: Container(
+              width: 21,
+              height: 21,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

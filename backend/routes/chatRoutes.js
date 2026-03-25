@@ -25,5 +25,8 @@ router.get('/group', protect, chatController.getFamilyGroupChat);
 router.get('/messages', protect, chatController.getChatMessages);
 router.post('/send', protect, chatController.sendMessage);
 router.post('/upload', protect, upload.single('file'), chatController.uploadFile);
+router.delete('/:chat_id/history', protect, chatController.deleteChatHistory);
+router.post('/:chat_id/mute', protect, chatController.muteChat);
+router.post('/:chat_id/archive', protect, chatController.archiveChat);
 
 module.exports = router;

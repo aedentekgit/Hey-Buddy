@@ -57,6 +57,14 @@ const chatMessageSchema = new mongoose.Schema({
     readBy: [{ // For group chat reading status
         type: String,
         ref: 'User'
+    }],
+    deliveredTo: [{ // For double tick status
+        type: String,
+        ref: 'User'
+    }],
+    clearedBy: [{ // For per-user chat deletion
+        type: String,
+        ref: 'User'
     }]
 }, { timestamps: true });
 

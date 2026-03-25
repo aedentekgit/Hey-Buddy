@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/features/explore/screens/family_chat_screen.dart';
+import 'package:buddy_mobile/features/explore/screens/archived_chats_screen.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -200,35 +201,55 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _SecLabel('Active Connections'),
-                      GestureDetector(
-                        onTap: () {
-                          provider.openGroupChat();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const FamilyChatScreen(isGroup: true),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ArchivedChatsScreen(),
+                                ),
+                              );
+                            },
+                            child: Icon(
+                              LucideIcons.archive,
+                              size: 18,
+                              color: AppColors.textMid,
                             ),
-                          );
-                        },
-                        child: Row(
-                          children: [
-                            Icon(
-                              LucideIcons.messageCircle,
-                              size: 16,
-                              color: AppColors.accent,
+                          ),
+                          const SizedBox(width: 14),
+                          GestureDetector(
+                            onTap: () {
+                              provider.openGroupChat();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const FamilyChatScreen(isGroup: true),
+                                ),
+                              );
+                            },
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.messageCircle,
+                                  size: 16,
+                                  color: AppColors.accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Group Chat',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Group Chat',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.accent,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -238,26 +259,64 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                 // ── Member cards ───────────────────────────────────
                 if (_selectedFilter == 'All' || _selectedFilter == 'Active') ...[
                   if (provider.members
-                      .where((m) => m['user_id'] != provider.currentUserId)
+                      .where((m) => m['user_id'] != provider.currentUserId && !provider.archivedMemberIds.contains(m['user_id']))
                       .isEmpty)
                     _buildEmpty()
                   else
                     ...provider.members
-                        .where((m) => m['user_id'] != provider.currentUserId)
+                        .where((m) => m['user_id'] != provider.currentUserId && !provider.archivedMemberIds.contains(m['user_id']))
                         .map(
-                      (m) => _MemberCard(
-                        member: m,
-                        isYou: false,
-                        onChat: () {
-                          provider.openPrivateChat(m['user_id']);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FamilyChatScreen(title: m['name']),
-                            ),
-                          );
+                      (m) => Dismissible(
+                        key: Key('conn_${m['user_id']}'),
+                        background: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: const Icon(LucideIcons.mail, color: Colors.white, size: 28),
+                        ),
+                        secondaryBackground: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.textMid,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: const Icon(LucideIcons.archive, color: Colors.white, size: 28),
+                        ),
+                        confirmDismiss: (dir) async {
+                          if (dir == DismissDirection.startToEnd) {
+                            provider.toggleUnread(m['user_id']);
+                            if (!context.mounted) return false;
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.unreadMemberIds.contains(m['user_id']) ? 'Marked as unread' : 'Marked as read')));
+                            return false; // don't dismiss
+                          } else {
+                            provider.toggleArchive(m['user_id']);
+                            if (!context.mounted) return false;
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chat archived')));
+                            return true; // do dismiss from active connections
+                          }
                         },
-                        onRemove: () => _confirmRemove(provider, m),
+                        child: _MemberCard(
+                          member: m,
+                          isYou: false,
+                          isUnread: provider.unreadMemberIds.contains(m['user_id']),
+                          onChat: () {
+                            provider.clearUnreadStatus(m['user_id']);
+                            provider.openPrivateChat(m['user_id']);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FamilyChatScreen(title: m['name'], avatarUrl: m['profilePicture']),
+                              ),
+                            );
+                          },
+                          onRemove: () => _confirmRemove(provider, m),
+                        ),
                       ),
                     ),
                 ],
@@ -516,22 +575,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
     );
   }
 
-  // ── Small icon button ──────────────────────────────────────────────────
-  Widget _iconBtn({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: AppColors.bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Icon(icon, size: 20, color: AppColors.text),
-      ),
-    );
-  }
+
 }
 
 // ── Emergency card ─────────────────────────────────────────────────────────
@@ -902,12 +946,14 @@ class _PendingCard extends StatelessWidget {
 class _MemberCard extends StatelessWidget {
   final dynamic member;
   final bool isYou;
+  final bool isUnread;
   final VoidCallback onChat;
   final VoidCallback onRemove;
 
   const _MemberCard({
     required this.member,
     required this.isYou,
+    this.isUnread = false,
     required this.onChat,
     required this.onRemove,
   });
@@ -1038,6 +1084,17 @@ class _MemberCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (isUnread) ...[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               // Action buttons
               Row(
                 children: [

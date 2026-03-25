@@ -81,7 +81,7 @@ exports.getChatMessages = async (req, res) => {
         const { chat_id } = req.query;
         if (!chat_id) return res.status(400).json({ success: false, message: "Chat ID is required" });
 
-        const messages = await ChatMessage.find({ roomId: chat_id })
+        const messages = await ChatMessage.find({ roomId: chat_id, clearedBy: { $ne: req.user._id } })
             .sort({ createdAt: 1 })
             .populate('senderId', 'name profilePicture');
 
@@ -99,6 +99,8 @@ exports.getChatMessages = async (req, res) => {
             isStarred: m.isStarredBy.includes(req.user._id),
             isPinned: m.isPinned || false,
             forwardedFrom: m.forwardedFrom,
+            readBy: m.readBy || [],
+            deliveredTo: m.deliveredTo || [],
             timestamp: m.createdAt
         }));
 
@@ -132,5 +134,74 @@ exports.sendMessage = async (req, res) => {
         res.status(200).json({ success: true, message: "Message sent", data: message });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to send message" });
+    }
+};
+
+// DELETE /chat/:chat_id/history
+exports.deleteChatHistory = async (req, res) => {
+    try {
+        const { chat_id } = req.params;
+        const userId = req.user._id;
+        
+        await ChatMessage.updateMany(
+            { roomId: chat_id },
+            { $addToSet: { clearedBy: userId } }
+        );
+
+        res.status(200).json({ success: true, message: "Chat history cleared" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to clear chat history" });
+    }
+};
+
+// POST /chat/:chat_id/mute
+exports.muteChat = async (req, res) => {
+    try {
+        const { chat_id } = req.params;
+        const userId = req.user._id;
+
+        const chatRoom = await ChatRoom.findById(chat_id);
+        if (!chatRoom) return res.status(404).json({ success: false, message: "Chat not found" });
+
+        const idx = chatRoom.mutedBy.indexOf(userId);
+        let msg = "";
+        if (idx !== -1) {
+            chatRoom.mutedBy.splice(idx, 1);
+            msg = "Chat unmuted";
+        } else {
+            chatRoom.mutedBy.push(userId);
+            msg = "Chat muted";
+        }
+        await chatRoom.save();
+
+        res.status(200).json({ success: true, message: msg, isMuted: idx === -1 });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to mute chat" });
+    }
+};
+
+// POST /chat/:chat_id/archive
+exports.archiveChat = async (req, res) => {
+    try {
+        const { chat_id } = req.params;
+        const userId = req.user._id;
+
+        const chatRoom = await ChatRoom.findById(chat_id);
+        if (!chatRoom) return res.status(404).json({ success: false, message: "Chat not found" });
+
+        const idx = chatRoom.archivedBy.indexOf(userId);
+        let msg = "";
+        if (idx !== -1) {
+            chatRoom.archivedBy.splice(idx, 1);
+            msg = "Chat unarchived";
+        } else {
+            chatRoom.archivedBy.push(userId);
+            msg = "Chat archived";
+        }
+        await chatRoom.save();
+
+        res.status(200).json({ success: true, message: msg, isArchived: idx === -1 });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to archive chat" });
     }
 };

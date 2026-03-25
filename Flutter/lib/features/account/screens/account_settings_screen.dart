@@ -844,12 +844,9 @@ class _SettingsRow extends StatelessWidget {
 class _Toggle extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
-  final Color? activeColor;
   const _Toggle({
-    super.key,
     required this.value,
     required this.onChanged,
-    this.activeColor,
   });
 
   @override
@@ -862,10 +859,11 @@ class _Toggle extends StatelessWidget {
         height: 25,
         decoration: BoxDecoration(
           color: value
-              ? (activeColor ?? Theme.of(context).colorScheme.primary)
+              ? Theme.of(context).colorScheme.primary
               : (Theme.of(context).brightness == Brightness.dark 
                   ? const Color(0xFF4B5563) 
                   : const Color(0xFFD1D5DB)),
+
           borderRadius: BorderRadius.circular(13),
         ),
         child: AnimatedAlign(

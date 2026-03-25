@@ -1,5 +1,4 @@
-import "package:flutter/foundation.dart";
-
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 
@@ -8,9 +7,7 @@ class BiometricService {
 
   Future<bool> isBiometricAvailable() async {
     final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
-    final bool canAuthenticate =
-        canAuthenticateWithBiometrics || await auth.isDeviceSupported();
-    return canAuthenticate;
+    return canAuthenticateWithBiometrics;
   }
 
   Future<List<BiometricType>> getAvailableBiometrics() async {
@@ -26,13 +23,17 @@ class BiometricService {
     String message = 'Authenticate to access your account',
   }) async {
     try {
+      // ignore: deprecated_member_use
       final bool didAuthenticate = await auth.authenticate(
         localizedReason: message,
+        // ignore: deprecated_member_use
+        biometricOnly: true,
+        // ignore: deprecated_member_use
+        persistAcrossBackgrounding: true,
       );
       return didAuthenticate;
     } on PlatformException catch (e) {
       debugPrint("Biometric authentication error: $e");
-      // Handle too many attempts or other specific errors if needed
       return false;
     }
   }

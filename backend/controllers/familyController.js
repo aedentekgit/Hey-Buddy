@@ -5,6 +5,7 @@ const ChatRoom = require('../models/ChatRoom');
 const Notification = require('../models/Notification');
 const { sendPushNotificationBatch } = require('../services/notificationService');
 const { sendEmail } = require('../services/emailService');
+const { emitDataSync } = require('../utils/socketEmitter');
 
 // POST /family/request
 exports.sendFamilyRequest = async (req, res) => {
@@ -113,6 +114,10 @@ exports.respondToRequest = async (req, res) => {
         if (action === 'decline') {
             request.status = 'declined';
             await request.save();
+            
+            // EMIT REAL-TIME SYNC: Notify sender of the decline
+            emitDataSync(req, res, request.senderId, 'family', 'decline', { id: request_id });
+
             return res.status(200).json({ success: true, message: "Request declined" });
         }
 
@@ -189,6 +194,9 @@ exports.respondToRequest = async (req, res) => {
                 actionUrl: '/family-hub'
             });
             await notification.save();
+
+            // EMIT REAL-TIME SYNC: Notify both sender and recipient to refresh family data
+            emitDataSync(req, res, [sender._id, recipient._id], 'family', 'accept', { familyId: family._id });
 
             return res.status(200).json({ success: true, message: "Family connection established", data: family });
         }
@@ -282,6 +290,9 @@ exports.removeMember = async (req, res) => {
         }
 
         res.status(200).json({ success: true, message: "Member removed from family" });
+
+        // EMIT REAL-TIME SYNC: Notify both users to refresh
+        emitDataSync(req, res, [currentUserId, targetUserId], 'family', 'delete', { memberId: targetUserId });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to remove member" });
     }

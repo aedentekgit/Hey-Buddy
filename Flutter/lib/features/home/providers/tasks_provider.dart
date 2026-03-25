@@ -105,6 +105,7 @@ class TasksProvider with ChangeNotifier {
 
             _processedTasks[i] = {
               ..._processedTasks[i],
+              '_distanceM': distanceM,
               '_distanceLabel': distLabel,
               '_etaLabel': etaLabel,
             };
@@ -196,40 +197,55 @@ class TasksProvider with ChangeNotifier {
   }
 
   Future<bool> deleteTask(String id) async {
-    final original = List.from(_tasks);
+    final originalTasks = List.from(_tasks);
+    final originalProcessed = List<Map<String, dynamic>>.from(_processedTasks);
     _tasks.removeWhere((t) => t['_id'] == id);
+    _processedTasks.removeWhere((t) => t['_id'] == id);
     notifyListeners();
 
     try {
       final success = await _taskService.deleteReminder(id);
       if (!success) {
-        _tasks = original;
+        _tasks = originalTasks;
+        _processedTasks = originalProcessed;
         notifyListeners();
       }
       return success;
     } catch (e) {
-      _tasks = original;
+      _tasks = originalTasks;
+      _processedTasks = originalProcessed;
       notifyListeners();
       return false;
     }
   }
 
   Future<bool> updateTask(String id, Map<String, dynamic> data) async {
+    final index = _tasks.indexWhere((t) => t['_id'] == id);
+    Map<String, dynamic>? oldTask;
+    
+    if (index != -1) {
+      oldTask = Map<String, dynamic>.from(_tasks[index]);
+      _tasks[index] = {..._tasks[index], ...data};
+      _processedTasks = await _processTasksInBackground(_tasks);
+      notifyListeners();
+    }
+
     try {
       final success = await _taskService.updateReminder(id, data);
       if (success) {
-        // Optimistically update the in-memory tasks to avoid full reload lag
-        final index = _tasks.indexWhere((t) => t['_id'] == id);
-        if (index != -1) {
-          _tasks[index] = {..._tasks[index], ...data};
-          _processedTasks = await _processTasksInBackground(_tasks);
-          notifyListeners();
-        }
-        // Then trigger a silent reload in the background to ensure consistency
-        loadTasks(silent: true);
+        Future.delayed(const Duration(milliseconds: 300), () => loadTasks(silent: true));
+      } else if (index != -1 && oldTask != null) {
+        _tasks[index] = oldTask;
+        _processedTasks = await _processTasksInBackground(_tasks);
+        notifyListeners();
       }
       return success;
     } catch (e) {
+      if (index != -1 && oldTask != null) {
+        _tasks[index] = oldTask;
+        _processedTasks = await _processTasksInBackground(_tasks);
+        notifyListeners();
+      }
       return false;
     }
   }
@@ -238,7 +254,7 @@ class TasksProvider with ChangeNotifier {
     try {
       final success = await _taskService.createReminder(data);
       if (success) {
-        await loadTasks();
+        await loadTasks(silent: true);
       }
       return success;
     } catch (e) {

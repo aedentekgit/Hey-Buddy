@@ -24,12 +24,15 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   final _messageUpdatedStreamController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final _messagesReadStreamController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _bargeInController = StreamController<dynamic>.broadcast();
   final _stopCmdController = StreamController<dynamic>.broadcast();
   final _connectErrorStreamController = StreamController<dynamic>.broadcast();
   final _errorStreamController = StreamController<dynamic>.broadcast();
   final _turnStartedStreamController = StreamController<dynamic>.broadcast();
   final _responseDoneStreamController = StreamController<dynamic>.broadcast();
+  final _dataSyncStreamController = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<String> get audioStream => _audioStreamController.stream;
   Stream<String> get captionStream => _captionStreamController.stream;
@@ -41,12 +44,15 @@ class SocketService {
   Stream<Map<String, dynamic>> get chatStream => _chatStreamController.stream;
   Stream<Map<String, dynamic>> get messageUpdatedStream =>
       _messageUpdatedStreamController.stream;
+  Stream<Map<String, dynamic>> get messagesReadStream =>
+      _messagesReadStreamController.stream;
   Stream<dynamic> get bargeInStream => _bargeInController.stream;
   Stream<dynamic> get stopCommandStream => _stopCmdController.stream;
   Stream<dynamic> get connectErrorStream => _connectErrorStreamController.stream;
   Stream<dynamic> get errorStream => _errorStreamController.stream;
   Stream<dynamic> get turnStartedStream => _turnStartedStreamController.stream;
   Stream<dynamic> get responseDoneStream => _responseDoneStreamController.stream;
+  Stream<Map<String, dynamic>> get dataSyncStream => _dataSyncStreamController.stream;
 
   String? _lastToken;
   bool _isConnecting = false;
@@ -142,6 +148,7 @@ class SocketService {
       socket?.off('stop_command');
       socket?.off('turn_started');
       socket?.off('response_done');
+      socket?.off('data_sync');
 
       socket?.onConnect((_) {
         debugPrint('Socket Connected successfully to ${AppConfig.socketUrl}');
@@ -231,6 +238,20 @@ class SocketService {
         }
       });
 
+      socket?.on('messages_read', (data) {
+        debugPrint('Messages Read: $data');
+        if (data is Map) {
+          _safeAdd(_messagesReadStreamController, Map<String, dynamic>.from(data));
+        }
+      });
+
+      socket?.on('data_sync', (data) {
+        debugPrint('📡 Data Sync Requested: $data');
+        if (data is Map) {
+          _safeAdd(_dataSyncStreamController, Map<String, dynamic>.from(data));
+        }
+      });
+
       // Successfully started connection flow
       _isConnecting = false;
     } catch (e) {
@@ -309,6 +330,13 @@ class SocketService {
     });
   }
 
+  void markMessagesRead(String roomId, String userId) {
+    socket?.emit('mark_read', {
+      'roomId': roomId,
+      'userId': userId,
+    });
+  }
+
   void disconnect() {
     socket?.disconnect();
   }
@@ -324,11 +352,13 @@ class SocketService {
     _wakeWordStreamController.close();
     _chatStreamController.close();
     _messageUpdatedStreamController.close();
+    _messagesReadStreamController.close();
     _bargeInController.close();
     _stopCmdController.close();
     _connectErrorStreamController.close();
     _errorStreamController.close();
     _turnStartedStreamController.close();
     _responseDoneStreamController.close();
+    _dataSyncStreamController.close();
   }
 }

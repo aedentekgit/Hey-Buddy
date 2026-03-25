@@ -25,6 +25,7 @@ class TaskService {
       if (start != null && end != null) {
         url += '&start=$start&end=$end';
       }
+      url += '&_t=${DateTime.now().millisecondsSinceEpoch}';
 
       final response = await http.get(
         Uri.parse(url),

@@ -69,8 +69,8 @@ def get_action_tools(user_id: str):
             return f"Error: {e}"
 
     @tool
-    def save_memory(content: str, category: str):
-        """Save a NEW important memory, fact, or user preference. NEVER use this for reminders, tasks, or appointments. DO NOT use this tool if the user is asking a question or if the memory already exists in your context. ONLY use this when the user tells you explicitly NEW information to remember."""
+    def save_memory(content: str, category: str, file_url: str = None, file_name: str = None):
+        """Save a NEW important memory, fact, or user preference. If saving an image, document, or file, pass its URL directly to file_url, and give it a helpful name in file_name. NEVER use this for reminders, tasks, or appointments. ONLY use this when the user tells you explicitly NEW information to remember or explicitly asks to save a file."""
         logger.info(f"Executing tool: save_memory: {content}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
         payload = {
@@ -78,7 +78,9 @@ def get_action_tools(user_id: str):
             "userId": user_id,
             "value": {
                 "content": content,
-                "category": category
+                "category": category,
+                "fileUrl": file_url,
+                "fileName": file_name
             }
         }
         try:
@@ -130,8 +132,8 @@ def get_action_tools(user_id: str):
             return f"Error: {e}"
 
     @tool
-    def save_document(title: str, content: str, summary: str = ""):
-        """Save a long-form document, extracted text, or analyzed image data. ONLY use this when the user explicitly asks to 'save this' or upload it for later. DO NOT use this tool if the user is just asking a question about the image/document (e.g. 'what is this')."""
+    def save_document(title: str, content: str, summary: str = "", file_url: str = None):
+        """Save a long-form document, extracted text, or analyzed image data. If saving an image, document, or file, pass its URL directly to file_url. ONLY use this when the user explicitly asks to 'save this' or upload it for later."""
         logger.info(f"Executing tool: save_document for {title}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
         payload = {
@@ -140,7 +142,8 @@ def get_action_tools(user_id: str):
             "value": {
                 "title": title,
                 "content": content,
-                "summary": summary
+                "summary": summary,
+                "fileUrl": file_url
             }
         }
         try:

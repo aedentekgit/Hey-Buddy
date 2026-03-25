@@ -9,6 +9,8 @@ import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:buddy_mobile/shared/utils/memory_icon_utils.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/screens/memory_edit_screen.dart';
 
@@ -32,13 +34,24 @@ class MemoryDetailsScreen extends StatelessWidget {
   }
 
   String get _title {
+    if (item['type'] == 'document') {
+      return item['fileName'] as String? ?? 'Document';
+    }
     final content = item['content'] as String? ?? '';
+    if (content.trim().startsWith('image /uploads') || content.trim().startsWith('http')) {
+      return item['fileName'] as String? ?? 'Saved Item';
+    }
     return content.split('\n').first.trim().isNotEmpty
         ? content.split('\n').first.trim()
         : (item['fileName'] as String? ?? 'Memory');
   }
 
-  String get _fullContent => item['content'] as String? ?? '';
+  String get _fullContent {
+    final c = item['content'] as String? ?? '';
+    // Hide rogue URLs that the AI accidentally passed into content
+    if (c.trim().startsWith('image /uploads')) return '';
+    return c;
+  }
 
   List<String> get _tags {
     final raw = item['tags'];
@@ -69,9 +82,13 @@ class MemoryDetailsScreen extends StatelessWidget {
         .split('\n')
         .where((l) => l.trim().isNotEmpty)
         .toList();
+    
+    if (lines.isEmpty) return [];
+    final bool skipFirstLine = item['type'] != 'document' && lines[0].trim() == _title;
+    final contentLines = skipFirstLine ? lines.skip(1) : lines;
+
     final fields = <List<String>>[];
-    for (final line in lines.skip(1)) {
-      // skip title line
+    for (final line in contentLines) {
       final idx = line.indexOf(':');
       if (idx > 0 && idx < line.length - 1) {
         final key = line.substring(0, idx).trim();
@@ -91,8 +108,11 @@ class MemoryDetailsScreen extends StatelessWidget {
         .where((l) => l.trim().isNotEmpty)
         .toList();
     if (lines.isEmpty) return '';
-    // Skip title line; collect lines that aren't key:value
-    final noteLines = lines.skip(1).where((line) {
+    
+    final bool skipFirstLine = item['type'] != 'document' && lines[0].trim() == _title;
+    final contentLines = skipFirstLine ? lines.skip(1) : lines;
+
+    final noteLines = contentLines.where((line) {
       final idx = line.indexOf(':');
       if (idx > 0 && idx < line.length - 1) {
         final key = line.substring(0, idx).trim();
@@ -225,23 +245,85 @@ class MemoryDetailsScreen extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        // Icon box
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [c.withValues(alpha: 0.22), c.withValues(alpha: 0.1)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                        // Icon box or Image thumbnail
+                        GestureDetector(
+                          onTap: (hasFile && _isImage(fileUrl)) ? () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => Dialog(
+                                backgroundColor: Colors.transparent,
+                                child: Container(
+                                  constraints: BoxConstraints(
+                                    maxHeight: MediaQuery.of(context).size.height * 0.6,
+                                    maxWidth: MediaQuery.of(context).size.width * 0.85,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.15),
+                                        blurRadius: 20,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: InteractiveViewer(
+                                          child: Container(
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            color: AppColors.bg,
+                                            child: CachedNetworkImage(
+                                              imageUrl: fileUrl,
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 10,
+                                        right: 10,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: IconButton(
+                                            icon: const Icon(LucideIcons.x, color: Colors.white, size: 20),
+                                            onPressed: () => Navigator.pop(context),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          } : null,
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [c.withValues(alpha: 0.22), c.withValues(alpha: 0.1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: c.withValues(alpha: 0.25),
+                                width: 2,
+                              ),
+                              image: (hasFile && _isImage(fileUrl)) ? DecorationImage(
+                                image: CachedNetworkImageProvider(fileUrl),
+                                fit: BoxFit.cover,
+                              ) : null,
                             ),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: c.withValues(alpha: 0.25),
-                              width: 2,
-                            ),
+                            child: (hasFile && _isImage(fileUrl)) ? null : Icon(_icon, color: c, size: 30),
                           ),
-                          child: Icon(_icon, color: c, size: 30),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -281,6 +363,45 @@ class MemoryDetailsScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+                        // Right Side Download Button
+                        if (hasFile) ...[
+                          const SizedBox(width: 12),
+                          GestureDetector(
+                            onTap: () async {
+                              try {
+                                ToastUtils.showInfoToast("Downloading...");
+                                final dio = Dio();
+                                final fileName = fileUrl.split('/').last;
+                                String savePath = '';
+                                
+                                if (Platform.isAndroid) {
+                                  savePath = '/storage/emulated/0/Download/$fileName';
+                                } else {
+                                  // Temporary crossplatform solution or generic external launch fallback
+                                  final uri = Uri.tryParse(fileUrl);
+                                  if (uri != null && await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                  return;
+                                }
+                                
+                                await dio.download(fileUrl, savePath);
+                                ToastUtils.showSuccessToast("Downloaded to device!");
+                              } catch (e) {
+                                ToastUtils.showErrorToast("Download failed");
+                              }
+                            },
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: c.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(LucideIcons.download, color: c, size: 20),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -334,15 +455,7 @@ class MemoryDetailsScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                   ],
 
-                  // ── Attachment ────────────────────────────────────────
-                  if (hasFile) ...[
-                    _SectionLabel(label: 'Attachment'),
-                    _FileCard(
-                      fileUrl: fileUrl,
-                      color: c,
-                      isImage: _isImage(fileUrl),
-                    ),
-                  ],
+
                 ],
               ),
             ),

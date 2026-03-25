@@ -15,6 +15,9 @@ class FamilyProvider extends ChangeNotifier {
   bool isLoading = false;
   String? currentChatId;
   String? currentUserId;
+  Set<String> archivedMemberIds = {};
+  Set<String> unreadMemberIds = {};
+  final _storage = const FlutterSecureStorage();
 
   FamilyProvider(this._socketService) {
     _initUser();
@@ -22,6 +25,10 @@ class FamilyProvider extends ChangeNotifier {
       if (data['roomId'] == currentChatId) {
         messages.insert(0, data);
         notifyListeners();
+        
+        if (currentUserId != null && data['sender_id'] != currentUserId) {
+           _socketService.markMessagesRead(currentChatId!, currentUserId!);
+        }
       }
     });
 
@@ -34,6 +41,28 @@ class FamilyProvider extends ChangeNotifier {
           messages[idx] = {...messages[idx], ...data};
           notifyListeners();
         }
+      }
+    });
+
+    _socketService.messagesReadStream.listen((data) {
+      if (data['roomId'] == currentChatId) {
+        final readUserId = data['userId'];
+        bool updated = false;
+        
+        for (int i = 0; i < messages.length; i++) {
+          if (messages[i] is Map) {
+            final msg = messages[i] as Map<String, dynamic>;
+            if (msg['sender_id'] != readUserId) {
+                final readBy = List<dynamic>.from(msg['readBy'] ?? []);
+                if (!readBy.contains(readUserId)) {
+                    readBy.add(readUserId);
+                    messages[i] = {...msg, 'readBy': readBy};
+                    updated = true;
+                }
+            }
+          }
+        }
+        if (updated) notifyListeners();
       }
     });
   }
@@ -76,10 +105,55 @@ class FamilyProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> loadLocalStatuses() async {
+    final archivedStr = await _storage.read(key: 'archived_members');
+    final unreadStr = await _storage.read(key: 'unread_members');
+    if (archivedStr != null) {
+      archivedMemberIds = Set<String>.from(archivedStr.split(',').where((s) => s.isNotEmpty));
+    }
+    if (unreadStr != null) {
+      unreadMemberIds = Set<String>.from(unreadStr.split(',').where((s) => s.isNotEmpty));
+    }
+    notifyListeners();
+  }
+
+  Future<void> toggleArchive(String memberId) async {
+    if (archivedMemberIds.contains(memberId)) {
+      archivedMemberIds.remove(memberId);
+    } else {
+      archivedMemberIds.add(memberId);
+      unreadMemberIds.remove(memberId); // clear unread if archived
+      await _storage.write(key: 'unread_members', value: unreadMemberIds.join(','));
+    }
+    await _storage.write(key: 'archived_members', value: archivedMemberIds.join(','));
+    notifyListeners();
+  }
+
+  Future<void> toggleUnread(String memberId) async {
+    if (unreadMemberIds.contains(memberId)) {
+      unreadMemberIds.remove(memberId);
+    } else {
+      unreadMemberIds.add(memberId);
+      archivedMemberIds.remove(memberId); // clear archive if unread
+      await _storage.write(key: 'archived_members', value: archivedMemberIds.join(','));
+    }
+    await _storage.write(key: 'unread_members', value: unreadMemberIds.join(','));
+    notifyListeners();
+  }
+
+  Future<void> clearUnreadStatus(String memberId) async {
+    if (unreadMemberIds.contains(memberId)) {
+      unreadMemberIds.remove(memberId);
+      await _storage.write(key: 'unread_members', value: unreadMemberIds.join(','));
+      notifyListeners();
+    }
+  }
+
   Future<void> loadData() async {
     isLoading = true;
     notifyListeners();
     try {
+      await loadLocalStatuses();
       members = await _service.getMembers();
       requests = await _service.getRequests();
     } catch (e) {
@@ -122,6 +196,29 @@ class FamilyProvider extends ChangeNotifier {
     return res['success'] == true;
   }
 
+  Future<bool> deleteCurrentChatHistory() async {
+    if (currentChatId == null) return false;
+    final res = await _service.deleteChatHistory(currentChatId!);
+    if (res['success'] == true) {
+      messages.clear();
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  Future<bool> muteCurrentChat() async {
+    if (currentChatId == null) return false;
+    final res = await _service.muteChat(currentChatId!);
+    return res['success'] == true;
+  }
+
+  Future<bool> archiveCurrentChat() async {
+    if (currentChatId == null) return false;
+    final res = await _service.archiveChat(currentChatId!);
+    return res['success'] == true;
+  }
+
   Future<void> openPrivateChat(String memberId) async {
     messages = []; // Clear immediately to prevent flicker
     notifyListeners();
@@ -131,6 +228,9 @@ class FamilyProvider extends ChangeNotifier {
       _socketService.joinChatRoom(currentChatId!);
       messages = await _service.getMessages(currentChatId!);
       notifyListeners();
+      if (currentUserId != null) {
+        _socketService.markMessagesRead(currentChatId!, currentUserId!);
+      }
     }
   }
 
@@ -143,6 +243,9 @@ class FamilyProvider extends ChangeNotifier {
       _socketService.joinChatRoom(currentChatId!);
       messages = await _service.getMessages(currentChatId!);
       notifyListeners();
+      if (currentUserId != null) {
+        _socketService.markMessagesRead(currentChatId!, currentUserId!);
+      }
     }
   }
 

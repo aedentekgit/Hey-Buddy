@@ -28,7 +28,15 @@ const chatRoomSchema = new mongoose.Schema({
     lastMessageAt: {
         type: Date,
         default: Date.now
-    }
+    },
+    mutedBy: [{
+        type: String,
+        ref: 'User'
+    }],
+    archivedBy: [{
+        type: String,
+        ref: 'User'
+    }]
 }, { timestamps: true });
 
 chatRoomSchema.index({ members: 1 });

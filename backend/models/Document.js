@@ -23,6 +23,7 @@ const documentSchema = new mongoose.Schema({
         type: String,
         required: true // Transcribed/extracted text
     },
+    fileUrl: String,
     summary: String,
     metadata: {
         size: Number,

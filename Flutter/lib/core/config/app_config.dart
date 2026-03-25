@@ -4,7 +4,7 @@ class AppConfig {
   // FINAL PRODUCTION HOST
   static const String productionHost = 'ayuskart.com';
   // STAGING HOST (For Testing)
-  static const String stagingHost = 'ayuskart.com';
+  static const String stagingHost = 'staging.ayuskart.com';
   // LOCAL HOST (For Device Debugging - using discovered local IP)
   static const String localhostHost = '10.0.2.2:5001'; 
   static const String webLocalhostHost = 'localhost:5001';

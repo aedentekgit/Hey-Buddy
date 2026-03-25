@@ -39,38 +39,56 @@ class LocationRemindersProvider with ChangeNotifier {
   }
 
   Future<bool> updateReminder(String id, Map<String, dynamic> data) async {
+    final index = _reminders.indexWhere((r) => r['_id'] == id);
+    Map<String, dynamic>? oldReminder;
+    
+    if (index != -1) {
+      oldReminder = Map<String, dynamic>.from(_reminders[index]);
+      _reminders[index] = {..._reminders[index], ...data};
+      notifyListeners();
+    }
+
     try {
       final success = await _service.updateLocationReminder(id, data);
       if (success) {
-        // Optimistically update memory
-        final index = _reminders.indexWhere((r) => r['_id'] == id);
-        if (index != -1) {
-          _reminders[index] = {..._reminders[index], ...data};
-          notifyListeners();
-        }
-        // Background reload without await or loading state
-        _service.fetchLocationReminders().then((res) {
-          if (res['success'] == true) {
-            _reminders = res['data'];
-            notifyListeners();
-          }
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _service.fetchLocationReminders().then((res) {
+            if (res['success'] == true) {
+              _reminders = res['data'];
+              notifyListeners();
+            }
+          });
         });
+      } else if (index != -1 && oldReminder != null) {
+        // Revert on failure
+        _reminders[index] = oldReminder;
+        notifyListeners();
       }
       return success;
     } catch (e) {
+      if (index != -1 && oldReminder != null) {
+        _reminders[index] = oldReminder;
+        notifyListeners();
+      }
       return false;
     }
   }
 
   Future<bool> deleteReminder(String id) async {
+    final original = List.from(_reminders);
+    _reminders.removeWhere((r) => r['_id'] == id);
+    notifyListeners();
+
     try {
       final success = await _service.deleteLocationReminder(id);
-      if (success) {
-        _reminders.removeWhere((r) => r['_id'] == id);
+      if (!success) {
+        _reminders = original;
         notifyListeners();
       }
       return success;
     } catch (e) {
+      _reminders = original;
+      notifyListeners();
       return false;
     }
   }

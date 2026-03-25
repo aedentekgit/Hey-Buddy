@@ -233,10 +233,12 @@ exports.proxyActionToPython = async (req, res) => {
 
             const mockReq = {
                 body: reminderData,
-                user: { _id: userId, googleRefreshToken: null }
+                user: { _id: userId, googleRefreshToken: null },
+                app: req.app // Pass the app context for Socket emission
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Reminder Result:', data) })
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                locals: {} // Some controllers use locals
             };
 
             let conflictWarning = '';
@@ -289,10 +291,12 @@ exports.proxyActionToPython = async (req, res) => {
 
             const mockReq = {
                 body: reminderData,
-                user: { _id: userId }
+                user: { _id: userId },
+                app: req.app
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Location Reminder Result:', data) })
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                locals: {}
             };
 
             await locationReminderController.createLocationReminder(mockReq, mockRes);
@@ -311,10 +315,12 @@ exports.proxyActionToPython = async (req, res) => {
             const mockReq = {
                 params: { id: reminderId },
                 body: reminderData,
-                user: { _id: userId, googleRefreshToken: null }
+                user: { _id: userId, googleRefreshToken: null },
+                app: req.app
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Update Reminder Result:', data) })
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                locals: {}
             };
 
             await reminderController.updateReminder(mockReq, mockRes);
@@ -329,10 +335,12 @@ exports.proxyActionToPython = async (req, res) => {
 
             const mockReq = {
                 body: memoryData,
-                user: { _id: userId }
+                user: { _id: userId },
+                app: req.app
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Memory Result:', data) })
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                locals: {}
             };
 
             await recordController.createMemory(mockReq, mockRes);
@@ -349,7 +357,8 @@ exports.proxyActionToPython = async (req, res) => {
                 userId: userId,
                 fileName: docData.title || 'AI Generated Document',
                 content: docData.content || docData.summary || 'No content provided',
-                summary: docData.summary || ''
+                summary: docData.summary || '',
+                fileUrl: docData.fileUrl || null
             });
             return res.status(200).json({ success: true, message: 'Document action executed' });
         }
@@ -366,10 +375,12 @@ exports.proxyActionToPython = async (req, res) => {
             const mockReq = {
                 params: { id: memoryId },
                 body: memoryData,
-                user: { _id: userId }
+                user: { _id: userId },
+                app: req.app
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Update Memory Result:', data) })
+                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                locals: {}
             };
 
             await recordController.updateMemory(mockReq, mockRes);

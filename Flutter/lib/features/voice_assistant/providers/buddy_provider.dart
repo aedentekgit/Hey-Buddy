@@ -710,6 +710,9 @@ class BuddyProvider with ChangeNotifier {
            contentStr = contentStr.replaceAll(regExp, "").trim();
         }
 
+        final RegExp sysInstExp = RegExp(r"<system_instruction>.*?</system_instruction>", dotAll: true);
+        contentStr = contentStr.replaceAll(sysInstExp, "").trim();
+
         return {
           'id':
               DateTime.now().millisecondsSinceEpoch.toString() +
@@ -744,9 +747,9 @@ class BuddyProvider with ChangeNotifier {
           final imageUrl = uploadRes['data']['fileUrl'] ?? uploadRes['data'].toString();
           if (imageUrl is String && imageUrl.isNotEmpty) {
              if (finalText.trim().isEmpty) {
-                finalText = "I have uploaded an image: $imageUrl\nPlease analyze its contents. If it contains text or important information, save it as a Document (using save_document tool).";
+                finalText = "<system_instruction>\nSystem Alert: The user has uploaded an image ($imageUrl) but didn't write anything. You must first analyze this image and comprehensively tell the user the details. After explaining it, ask the user if they want you to save this image/document details to their Memory. Do NOT save it immediately.\n</system_instruction>";
              } else {
-                finalText = "$finalText\n\n[Attached Image: $imageUrl]".trim();
+                finalText = "$finalText\n\n[Attached Image: $imageUrl]\n\n<system_instruction>\nSystem Alert: The user has uploaded an image ($imageUrl). Please analyze the image or document and comprehensively tell the user the details based on their message. After answering, gently ask the user if they want to save this to their Memory. Do NOT call the memory save tool immediately unless the user's message explicitly asked to save it.\n</system_instruction>";
              }
           }
         }
@@ -779,7 +782,7 @@ class BuddyProvider with ChangeNotifier {
       });
 
       final client = http.Client();
-      final response = await client.send(request).timeout(const Duration(seconds: 15));
+      final response = await client.send(request).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 401) {
         _needsLogin = true;
