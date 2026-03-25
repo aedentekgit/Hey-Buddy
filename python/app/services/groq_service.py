@@ -514,7 +514,10 @@ class GroqService:
                         
                         # Optimization: if we are going into turn 2+, remind the model not to repeat itself.
                         # This prevents the "Hey there... Hey there..." duplication seen in the UI.
-                        current_msgs.append(HumanMessage(content="(System: Do not repeat your previous greeting or intro. Just provide the final answer or next action.)"))
+                        current_msgs.append(HumanMessage(content="(System: Do not repeat your previous greeting or intro. Just provide the final answer or next action. Do not call any more tools.)"))
+                        
+                        # Unbind tools for next turn to prevent the model from calling it multiple times
+                        llm_with_tools = llm
                     else:
                         if i > 0:
                             logger.info(f"Fallback successful: endpoint #{i + 1}/{n} ({provider}) succeeded")
@@ -669,7 +672,10 @@ class GroqService:
                             current_msgs.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
                         
                         # Add a system nudge to stop the model from repeating its earlier content
-                        current_msgs.append(HumanMessage(content="(System: Provide only the new information. Do not repeat your earlier greeting or intro.)"))
+                        current_msgs.append(HumanMessage(content="(System: Provide only the final confirmation text. Do not repeat your earlier greeting or intro. Do not call any more tools.)"))
+                        
+                        # Unbind tools for the next turn to prevent the LLM from calling the tool again (saving multiple times bug)
+                        llm_with_tools = llm
                     else:
                         total_stream = time.perf_counter() - stream_start
                         _log_timing("groq_stream_total", total_stream, f"chunks: {chunk_count}")

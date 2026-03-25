@@ -883,9 +883,29 @@ class _TodayReminders extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final today = provider.processedTasks
-            .where((t) => TaskUtils.formatDate(t['date']) == 'Today')
-            .toList();
+        final today = provider.processedTasks.where((t) {
+          final isToday = TaskUtils.formatDate(t['date']) == 'Today';
+          if (!isToday) return false;
+
+          final String? loc = t['location'] as String?;
+          final String? time = t['time'] as String?;
+          final bool hasLocation = loc != null && loc.isNotEmpty && loc != 'No Location';
+
+          final bool isPureLocation = time == null || 
+                                      time.isEmpty || 
+                                      time.toLowerCase().contains('whenever') || 
+                                      time.toLowerCase().contains('arrive');
+
+          if (hasLocation && isPureLocation) {
+            final distM = t['_distanceM'] as num?;
+            if (distM != null) {
+              if (distM > 150) return false; // Not arrived (threshold 150m)
+            } else {
+              return false; // Wait for GPS to confirm arrival
+            }
+          }
+          return true;
+        }).toList();
 
         if (today.isEmpty) {
           return _EmptyReminders();

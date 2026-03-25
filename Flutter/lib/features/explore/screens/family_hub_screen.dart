@@ -516,22 +516,6 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
     );
   }
 
-  // ── Small icon button ──────────────────────────────────────────────────
-  Widget _iconBtn({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: AppColors.bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Icon(icon, size: 20, color: AppColors.text),
-      ),
-    );
-  }
 }
 
 // ── Emergency card ─────────────────────────────────────────────────────────

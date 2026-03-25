@@ -105,6 +105,7 @@ class TasksProvider with ChangeNotifier {
 
             _processedTasks[i] = {
               ..._processedTasks[i],
+              '_distanceM': distanceM,
               '_distanceLabel': distLabel,
               '_etaLabel': etaLabel,
             };

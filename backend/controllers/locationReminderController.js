@@ -1,5 +1,6 @@
 const Reminder = require('../models/Reminder');
 const paginate = require('../utils/paginate');
+const { emitDataSync } = require('../utils/socketEmitter');
 
 // ─── GET all location reminders for current user ──────────────────────────────
 exports.getLocationReminders = async (req, res) => {
@@ -93,6 +94,9 @@ exports.createLocationReminder = async (req, res) => {
             geofenceRadius: geofenceRadius ?? 500
         });
 
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, req.user._id, 'location_reminder', 'create', { id: reminder._id });
+
         res.status(201).json({ success: true, data: reminder });
     } catch (error) {
         console.error('[LocationReminder] create error:', error);
@@ -158,6 +162,10 @@ exports.updateLocationReminder = async (req, res) => {
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Location reminder not found' });
         }
+
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, req.user._id, 'location_reminder', 'update', { id: req.params.id });
+
         res.status(200).json({ success: true, data: reminder });
     } catch (error) {
         console.error('[LocationReminder] update error:', error);
@@ -176,6 +184,10 @@ exports.deleteLocationReminder = async (req, res) => {
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Location reminder not found' });
         }
+
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, req.user._id, 'location_reminder', 'delete', { id: req.params.id });
+
         res.status(200).json({ success: true, message: 'Location reminder deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -207,6 +219,10 @@ exports.setEarlyWarning = async (req, res) => {
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Location reminder not found' });
         }
+
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, req.user._id, 'location_reminder', 'update', { id: req.params.id });
+
         res.status(200).json({ success: true, data: reminder, message: 'Early warning saved' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -224,6 +240,10 @@ exports.setFamilyBackup = async (req, res) => {
         if (!reminder) {
             return res.status(404).json({ success: false, message: 'Location reminder not found' });
         }
+
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, req.user._id, 'location_reminder', 'update', { id: req.params.id });
+
         res.status(200).json({ success: true, data: reminder, message: 'Family backup activated' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Internal Server Error' });

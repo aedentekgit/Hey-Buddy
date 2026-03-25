@@ -261,39 +261,80 @@ class _CalendarViewScreenState extends State<CalendarViewScreen> {
               ],
             )
           else
-            ...sortedKeys.map((date) {
+            ...sortedKeys.asMap().entries.map((entry) {
+              final index = entry.key;
+              final date = entry.value;
               final dayTasks = grouped[date]!;
               final key = _dateKeys.putIfAbsent(date, () => GlobalKey());
-              return Padding(
-                key: key,
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 44,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getWeekdayAbbr(date.weekday),
-                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMid),
-                          ),
-                          Text(
-                            '${date.day}',
-                            style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.text),
-                          ),
-                        ],
+              return Column(
+                children: [
+                  if (index > 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Divider(
+                        color: AppColors.border.withValues(alpha: 0.3),
+                        thickness: 0.5,
+                        indent: 42,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Column(
-                        children: dayTasks.map((t) => _buildAgendaCard(t)).toList(),
-                      ),
+                  Padding(
+                    key: key,
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left indicator line with gradient
+                        Container(
+                          width: 3,
+                          height: 40,
+                          margin: const EdgeInsets.only(top: 4, right: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(2),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                AppColors.text,
+                                AppColors.text.withValues(alpha: 0.05),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 38, // Reduced from 44
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _getWeekdayAbbr(date.weekday),
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textMid,
+                                ),
+                              ),
+                              Text(
+                                '${date.day}',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.text,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 2), // Reduced space
+                        Expanded(
+                          child: Column(
+                            children:
+                                dayTasks.map((t) => _buildAgendaCard(t)).toList(),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               );
             }),
         ],

@@ -30,6 +30,7 @@ class SocketService {
   final _errorStreamController = StreamController<dynamic>.broadcast();
   final _turnStartedStreamController = StreamController<dynamic>.broadcast();
   final _responseDoneStreamController = StreamController<dynamic>.broadcast();
+  final _dataSyncStreamController = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<String> get audioStream => _audioStreamController.stream;
   Stream<String> get captionStream => _captionStreamController.stream;
@@ -47,6 +48,7 @@ class SocketService {
   Stream<dynamic> get errorStream => _errorStreamController.stream;
   Stream<dynamic> get turnStartedStream => _turnStartedStreamController.stream;
   Stream<dynamic> get responseDoneStream => _responseDoneStreamController.stream;
+  Stream<Map<String, dynamic>> get dataSyncStream => _dataSyncStreamController.stream;
 
   String? _lastToken;
   bool _isConnecting = false;
@@ -142,6 +144,7 @@ class SocketService {
       socket?.off('stop_command');
       socket?.off('turn_started');
       socket?.off('response_done');
+      socket?.off('data_sync');
 
       socket?.onConnect((_) {
         debugPrint('Socket Connected successfully to ${AppConfig.socketUrl}');
@@ -228,6 +231,13 @@ class SocketService {
         debugPrint('Message Updated: $data');
         if (data is Map) {
           _safeAdd(_messageUpdatedStreamController, Map<String, dynamic>.from(data));
+        }
+      });
+
+      socket?.on('data_sync', (data) {
+        debugPrint('📡 Data Sync Requested: $data');
+        if (data is Map) {
+          _safeAdd(_dataSyncStreamController, Map<String, dynamic>.from(data));
         }
       });
 
@@ -330,5 +340,6 @@ class SocketService {
     _errorStreamController.close();
     _turnStartedStreamController.close();
     _responseDoneStreamController.close();
+    _dataSyncStreamController.close();
   }
 }

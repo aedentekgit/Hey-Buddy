@@ -1,5 +1,4 @@
-import "package:flutter/foundation.dart";
-
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 
@@ -8,9 +7,8 @@ class BiometricService {
 
   Future<bool> isBiometricAvailable() async {
     final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
-    final bool canAuthenticate =
-        canAuthenticateWithBiometrics || await auth.isDeviceSupported();
-    return canAuthenticate;
+    final bool isSupported = await auth.isDeviceSupported();
+    return canAuthenticateWithBiometrics || isSupported;
   }
 
   Future<List<BiometricType>> getAvailableBiometrics() async {
@@ -32,7 +30,6 @@ class BiometricService {
       return didAuthenticate;
     } on PlatformException catch (e) {
       debugPrint("Biometric authentication error: $e");
-      // Handle too many attempts or other specific errors if needed
       return false;
     }
   }

@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
-import 'dart:ui';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -36,36 +34,18 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  bool _isTyping = false;
-  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
-    _messageController.addListener(_onTextChanged);
-    _focusNode.addListener(_onFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
       context.read<FamilyProvider>().clearUnreadCount();
     });
   }
 
-  void _onFocusChange() {
-    setState(() {
-      _isFocused = _focusNode.hasFocus;
-    });
-  }
-
-  void _onTextChanged() {
-    setState(() {
-      _isTyping = _messageController.text.trim().isNotEmpty;
-    });
-  }
-
   @override
   void dispose() {
-    _messageController.removeListener(_onTextChanged);
-    _focusNode.removeListener(_onFocusChange);
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
@@ -1049,22 +1029,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     } catch (e) {
       debugPrint('Attachment error: $e');
     }
-  }
-
-  Widget _buildActionIconButton({
-    required IconData icon,
-    required Color color,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(100),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: const BoxDecoration(shape: BoxShape.circle),
-        child: Icon(icon, color: color, size: 20),
-      ),
-    );
   }
 
   void _sendMessage() {

@@ -13,7 +13,6 @@ import 'package:buddy_mobile/features/account/screens/account_settings_screen.da
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
 import 'package:buddy_mobile/shared/dialogs/biometric_prompt_dialog.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
@@ -164,8 +163,6 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final branding = Provider.of<BrandingProvider>(context);
-    final primaryColor = branding.primaryColor;
     bool showHeader = !(_currentIndex == 2 && _isSettingsSubPage);
 
     return PopScope(
@@ -216,6 +213,20 @@ class _MainScreenState extends State<MainScreen> {
                   child: PageView(
                     controller: _pageController,
                     onPageChanged: (index) {
+                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      if (auth.token == null && index != 0) {
+                        // User is logged out and swiped to a protected tab.
+                        // Snap back to 0 without animation (so it doesn't linger)
+                        _pageController.jumpToPage(0);
+                        
+                        // Push them to the Login block
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        );
+                        return;
+                      }
+
                       setState(() {
                         _currentIndex = index;
                         if (_tabHistory.isEmpty || _tabHistory.last != index) {
@@ -223,7 +234,9 @@ class _MainScreenState extends State<MainScreen> {
                         }
                       });
                     },
-                    physics: const BouncingScrollPhysics(),
+                    physics: Provider.of<AuthProvider>(context).token == null 
+                        ? const NeverScrollableScrollPhysics() 
+                        : const BouncingScrollPhysics(),
                     children: _pages,
                   ),
                 ),

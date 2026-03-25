@@ -7,6 +7,7 @@ const path = require('path');
 const { uploadFileToFirebase } = require('../services/fileService');
 const { checkItemExitGuards } = require('../services/smartReminderService');
 const { resolveVoiceConfig } = require('../utils/personality');
+const { emitDataSync } = require('../utils/socketEmitter');
 
 // Get all users
 const getUsers = async (req, res) => {
@@ -229,6 +230,10 @@ const updateProfile = async (req, res) => {
         userResponse.resolvedVoiceConfig = resolveVoiceConfig(prefs, platform);
 
         console.log('[UserController] Profile updated successfully for:', user.email);
+        
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, userId, 'profile', 'update', { id: userId });
+
         res.json({
             success: true,
             message: 'Profile updated successfully',
@@ -360,6 +365,9 @@ const uploadProfilePicture = async (req, res) => {
             message: 'Profile picture updated',
             data: { profilePicture: publicUrl }
         });
+
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, userId, 'profile', 'update', { id: userId, field: 'avatar' });
     } catch (error) {
         console.error('Profile upload error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -433,6 +441,9 @@ const deleteProfilePicture = async (req, res) => {
             user.profilePicture = null;
             await user.save();
         }
+
+        // EMIT REAL-TIME SYNC
+        emitDataSync(req, res, userId, 'profile', 'update', { id: userId, field: 'avatar_delete' });
 
         res.json({ success: true, message: 'Profile picture removed' });
     } catch (error) {

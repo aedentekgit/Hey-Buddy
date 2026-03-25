@@ -779,7 +779,7 @@ class BuddyProvider with ChangeNotifier {
       });
 
       final client = http.Client();
-      final response = await client.send(request).timeout(const Duration(seconds: 15));
+      final response = await client.send(request).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 401) {
         _needsLogin = true;

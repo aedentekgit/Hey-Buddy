@@ -10,6 +10,7 @@ import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.d
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/splash_screen.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
+import 'package:buddy_mobile/core/services/socket_service.dart';
 
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -59,6 +60,12 @@ void main() async {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BuddyProvider()),
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
+        // Proxy provider logic to connect Socket events to Providers
+        ProxyProvider<BuddyProvider, RealtimeSyncManager>(
+          update: (context, buddy, _) => 
+              RealtimeSyncManager(context, buddy.socketService),
+          lazy: false,
+        ),
         ChangeNotifierProxyProvider<BuddyProvider, FamilyProvider>(
           create: (context) =>
               FamilyProvider(context.read<BuddyProvider>().socketService),
@@ -69,6 +76,39 @@ void main() async {
       child: const BuddyApp(),
     ),
   );
+}
+
+class RealtimeSyncManager {
+  final BuildContext context;
+  final SocketService socketService;
+
+  RealtimeSyncManager(this.context, this.socketService) {
+    _init();
+  }
+
+  void _init() {
+    socketService.dataSyncStream.listen((data) {
+      final type = data['type'];
+      debugPrint('RealtimeSyncManager: Received sync for $type');
+
+      // Use try-catch to safely access providers even if context is no longer mounted
+      try {
+        if (type == 'task' || type == 'reminder') {
+          context.read<TasksProvider>().loadTasks(silent: true);
+        } else if (type == 'location_reminder') {
+          context.read<LocationRemindersProvider>().loadReminders();
+        } else if (type == 'memory') {
+          context.read<MemoriesProvider>().loadMemories(silent: true);
+        } else if (type == 'profile') {
+          context.read<UserProvider>().loadProfile();
+        } else if (type == 'family') {
+          context.read<FamilyProvider>().loadData();
+        }
+      } catch (e) {
+        debugPrint('RealtimeSyncManager: Error accessing context - $e');
+      }
+    });
+  }
 }
 
 class BuddyApp extends StatelessWidget {

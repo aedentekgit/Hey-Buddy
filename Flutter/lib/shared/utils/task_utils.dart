@@ -676,6 +676,6 @@ class TaskUtils {
       }
     }
 
-    return const Color(0xFF64748B); // Slate
+    return const Color(0xFF3B72F6); // Accent Blue (Default)
   }
 }

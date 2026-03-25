@@ -22,22 +22,35 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.aedentek.heybuddy"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Fetch Google Maps API Key from local.properties or use empty string
+        val localProperties = File(rootProject.projectDir, "local.properties")
+        val properties = java.util.Properties()
+        if (localProperties.exists()) {
+            properties.load(localProperties.inputStream())
+        }
+        val googleMapsApiKey = properties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
     }
 
     signingConfigs {
         create("release") {
-            keyAlias = "upload"
-            keyPassword = "android"
-            storeFile = file("upload-keystore.jks")
-            storePassword = "android"
+            // Load keystore configuration from local.properties for security
+            val localProperties = File(rootProject.projectDir, "local.properties")
+            val properties = java.util.Properties()
+            if (localProperties.exists()) {
+                properties.load(localProperties.inputStream())
+            }
+
+            keyAlias = properties.getProperty("keyAlias") ?: "upload"
+            keyPassword = properties.getProperty("keyPassword") ?: "android"
+            storeFile = file(properties.getProperty("storeFile") ?: "upload-keystore.jks")
+            storePassword = properties.getProperty("storePassword") ?: "android"
         }
     }
 

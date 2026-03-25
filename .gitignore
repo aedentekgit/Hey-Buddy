@@ -66,6 +66,16 @@ backend/service-account.json
 backend/*.json
 !backend/package.json
 
+# Android Keystore & Configuration
+Flutter/android/local.properties
+Flutter/android/app/upload-keystore.jks
+Flutter/android/app/*.jks
+Flutter/android/key.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+
 # Debug
 ai_debug.txt
 
@@ -80,3 +90,14 @@ ai_debug.txt
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Python AI Service env files
+python/.env
+python/.env.production
+python/.env.staging
+
+# Vector store data (can be large)
+python/database/vector_store/*
+python/database/learning_data/*
+!python/database/vector_store/.gitkeep
+!python/database/learning_data/.gitkeep
