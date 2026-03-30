@@ -36,12 +36,10 @@ const getAiConfig = async () => {
     aiConfig.provider = provider || 'openai';
     // Strip OpenRouter-style ":free"/":latest" suffixes and fix deprecated model names
     let resolvedModel = (modelName || 'gpt-4o-mini').split(':')[0];
+    // Allow newer models to pass through without being downgraded to 1.5
     const MODEL_ALIASES = {
-        'gemini-2.0-flash-exp': 'gemini-1.5-flash',
-        'gemini-2.0-flash': 'gemini-1.5-flash',
         'gemini-flash-1.5-8b': 'gemini-1.5-flash-8b',
         'gemini-pro-latest': 'gemini-1.5-pro',
-        'gemini-flash': 'gemini-1.5-flash',
     };
     if (MODEL_ALIASES[resolvedModel]) resolvedModel = MODEL_ALIASES[resolvedModel];
     aiConfig.model = resolvedModel;
@@ -68,8 +66,8 @@ const getAiConfig = async () => {
         deepseek: aiSettings.deepseekApiKey || null
     };
 
-    // Voice Config Integration
-    const activeVoiceStr = aiSettings.activeVoiceModel || 'google/gemini-1.5-flash';
+    // Voice Config Integration - Default to Gemini 2.0 Flash for Live Voice Support
+    const activeVoiceStr = aiSettings.activeVoiceModel || 'google/gemini-2.0-flash-exp';
     const [voiceProvider, voiceModelName] = activeVoiceStr.split('/');
 
     aiConfig.voiceProvider = voiceProvider || 'google';
