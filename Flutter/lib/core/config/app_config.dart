@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
@@ -5,9 +6,18 @@ class AppConfig {
   static const String productionHost = 'ayuskart.com';
   // STAGING HOST (For Testing)
   static const String stagingHost = 'staging.ayuskart.com';
-  // LOCAL HOST (For Device Debugging - using discovered local IP)
-  static const String localhostHost = '10.0.2.2:5001'; 
+  // LOCAL HOST (For Device Debugging)
+  static const String androidLocalhostHost = '10.0.2.2:5001';
+  static const String iosLocalhostHost = 'localhost:5001';
   static const String webLocalhostHost = 'localhost:5001';
+
+  static String get localhostHost {
+    // Use platform-specific localhost address
+    if (kIsWeb) return webLocalhostHost;
+    if (Platform.isAndroid) return androidLocalhostHost;
+    if (Platform.isIOS) return iosLocalhostHost;
+    return 'localhost:5001'; // Default for other platforms
+  }
 
   static String get host {
     // Priority 1: Manual override via --dart-define=API_URL=...
@@ -16,7 +26,6 @@ class AppConfig {
 
     // Priority 2: Use Localhost in Debug mode
     if (kDebugMode) {
-      if (kIsWeb) return webLocalhostHost;
       return localhostHost;
     }
     
@@ -72,7 +81,7 @@ class AppConfig {
 
         // Crucial: After replacement, ensure protocol matches our current protocol
         // (Force HTTPS if we are on staging/production to avoid Cleartext blocks)
-        if (host != localhostHost && finalPath.startsWith('http://')) {
+        if (!host.contains('localhost') && !host.contains('10.0.2.2') && finalPath.startsWith('http://')) {
           finalPath = finalPath.replaceFirst('http://', 'https://');
         }
       }
@@ -89,7 +98,7 @@ class AppConfig {
     }
 
     // Force secure protocol for anything not on the local loopback
-    String effectiveProtocol = host == localhostHost ? 'http' : 'https';
+    String effectiveProtocol = (host.contains('localhost') || host.contains('10.0.2.2')) ? 'http' : 'https';
     return '$effectiveProtocol://$host/$finalPath';
   }
 }

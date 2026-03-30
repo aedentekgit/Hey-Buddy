@@ -16,6 +16,7 @@ router.delete('/profile', protect, userController.deleteMyAccount);
 router.post('/fcm-token', protectOptional, userController.saveFcmToken);
 router.post('/unlink-calendar', protect, userController.unlinkCalendar);
 router.post('/location', protectOptional, userController.updateLocation);
+router.get('/search', protect, userController.searchUsers);
 router.get('/reverse-geocode', protect, userController.reverseGeocode);
 
 // Admin Routes with :id parameter

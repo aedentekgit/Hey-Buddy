@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -55,8 +54,11 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-      () =>
-          Provider.of<MemoriesProvider>(context, listen: false).loadMemories(),
+      () {
+        if (mounted) {
+          Provider.of<MemoriesProvider>(context, listen: false).loadMemories();
+        }
+      },
     );
     _searchCtrl.addListener(
       () => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()),
@@ -96,6 +98,7 @@ class _MemoryListScreenState extends State<MemoryListScreen> {
     );
 
     if (confirmed == true) {
+      if (!mounted) return;
       final provider = Provider.of<MemoriesProvider>(context, listen: false);
       await provider.deleteItem(item['_id'], type);
       ToastUtils.showSuccessToast(

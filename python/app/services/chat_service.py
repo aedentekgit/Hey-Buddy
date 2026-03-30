@@ -373,6 +373,42 @@ class ChatService:
         logger.info("[TIMING] session_get_or_create: %.3fs (new_id)", time.perf_counter() - t0)
         return session_id
 
+    def clear_session(self, session_id: str) -> bool:
+        """
+        Manually clear a specific session from memory.
+        Returns True if the session was found and removed, False otherwise.
+        """
+        found = False
+        if session_id in self.sessions:
+            del self.sessions[session_id]
+            found = True
+        
+        if session_id in self.session_user_map:
+            del self.session_user_map[session_id]
+            found = True
+            
+        if found:
+            logger.info(f"[SESSION] Cleared session {session_id} from memory.")
+        return found
+
+    def clear_user_sessions(self, user_id: str) -> int:
+        """
+        Find and clear all sessions belonging to a specific user.
+        Returns the count of sessions cleared.
+        """
+        sessions_to_delete = [sid for sid, uid in self.session_user_map.items() if uid == user_id]
+        count = 0
+        for sid in sessions_to_delete:
+            if sid in self.sessions:
+                del self.sessions[sid]
+            if sid in self.session_user_map:
+                del self.session_user_map[sid]
+            count += 1
+        
+        if count > 0:
+            logger.info(f"[SESSION] Cleared {count} sessions for user {user_id} from memory.")
+        return count
+
     # -------------------------------------------------------------------------
     # MESSAGES AND HISTORY FORMATTING
     # -------------------------------------------------------------------------

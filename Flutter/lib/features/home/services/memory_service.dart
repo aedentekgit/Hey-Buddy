@@ -61,6 +61,23 @@ class MemoryService {
     }
   }
 
+  // Delete Document
+  Future<bool> deleteDocument(String documentId) async {
+    try {
+      final token = await _storage.read(key: 'jwt');
+
+      final response = await http.delete(
+        Uri.parse('${_baseUrl}rag/documents/$documentId'),
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error deleting document: $e");
+      return false;
+    }
+  }
+
   // Update Memory
   Future<bool> updateMemory(
     String memoryId,

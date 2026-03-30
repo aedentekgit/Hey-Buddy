@@ -11,6 +11,8 @@ import 'package:buddy_mobile/shared/utils/memory_icon_utils.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:buddy_mobile/features/home/providers/memories_provider.dart';
 import 'package:buddy_mobile/features/home/screens/memory_edit_screen.dart';
 
@@ -370,24 +372,36 @@ class MemoryDetailsScreen extends StatelessWidget {
                             onTap: () async {
                               try {
                                 ToastUtils.showInfoToast("Downloading...");
+                                
+                                // Request storage permission if needed (mostly for older Android)
+                                if (Platform.isAndroid) {
+                                  await Permission.storage.request();
+                                }
+                                
                                 final dio = Dio();
                                 final fileName = fileUrl.split('/').last;
                                 String savePath = '';
                                 
                                 if (Platform.isAndroid) {
+                                  // Try generic public download folder first
                                   savePath = '/storage/emulated/0/Download/$fileName';
                                 } else {
-                                  // Temporary crossplatform solution or generic external launch fallback
-                                  final uri = Uri.tryParse(fileUrl);
-                                  if (uri != null && await canLaunchUrl(uri)) {
-                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                  }
-                                  return;
+                                  final directory = await getApplicationDocumentsDirectory();
+                                  savePath = '${directory.path}/$fileName';
                                 }
                                 
-                                await dio.download(fileUrl, savePath);
-                                ToastUtils.showSuccessToast("Downloaded to device!");
+                                try {
+                                  await dio.download(fileUrl, savePath);
+                                  ToastUtils.showSuccessToast("Downloaded: $fileName");
+                                } catch (e) {
+                                  // Fallback to app directory if public download fails
+                                  final directory = await getApplicationDocumentsDirectory();
+                                  savePath = '${directory.path}/$fileName';
+                                  await dio.download(fileUrl, savePath);
+                                  ToastUtils.showSuccessToast("Downloaded to App Documents");
+                                }
                               } catch (e) {
+                                debugPrint("Download error: $e");
                                 ToastUtils.showErrorToast("Download failed");
                               }
                             },
@@ -684,6 +698,7 @@ class _TagChip extends StatelessWidget {
 
 // ── File card ─────────────────────────────────────────────────────────────────
 
+// ignore: unused_element
 class _FileCard extends StatelessWidget {
   final String fileUrl;
   final Color color;

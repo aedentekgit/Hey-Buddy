@@ -67,6 +67,7 @@ import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 
 from app.services.groq_service import GroqService, escape_curly_braces, AllGroqApisFailedError
 from app.services.vector_store import VectorStoreService
@@ -175,7 +176,11 @@ class RealtimeGroqService(GroqService):
             logger.info("Tavily search client initialized successfully")
         else:
             self.tavily_client = None
-            logger.warning("TAVILY_API_KEY not set. Realtime search will be unavailable.")
+            logger.warning("TAVILY_API_KEY not set. Falling back to DuckDuckGo for realtime search.")
+
+        # ── Set up DuckDuckGo search client ──
+        # Used as a fallback if Tavily is unavailable or fails.
+        self.ddg_search = DuckDuckGoSearchAPIWrapper(max_results=5)
 
         # ── Set up the fast LLM for query extraction ──
         # This is a separate, lightweight LLM client optimized for the small task
@@ -528,6 +533,56 @@ class RealtimeGroqService(GroqService):
             logger.error("Error performing Tavily search: %s", e)
             return ("", None)
 
+    def search_duckduckgo(self, query: str, num_results: int = 5) -> Tuple[str, Optional[dict]]:
+        """
+        Fallback search using DuckDuckGo when Tavily is unavailable.
+        """
+        try:
+            t0 = time.perf_counter()
+            # DuckDuckGo query
+            results = self.ddg_search.results(query, max_results=num_results)
+            
+            if not results:
+                logger.warning("No DuckDuckGo search results for query: %s", query)
+                return ("", None)
+
+            # Build payload for frontend
+            payload: Optional[dict] = {
+                "query": query,
+                "answer": "Results from DuckDuckGo search.",
+                "results": [
+                    {
+                        "title": r.get("title", "No title"),
+                        "content": (r.get("snippet") or "")[:500],
+                        "url": r.get("link", ""),
+                        "score": 0.5, # DDG doesn't provide scores
+                    }
+                    for r in results
+                ],
+            }
+
+            # Format for LLM
+            parts = [f"=== WEB SEARCH RESULTS (DUCKDUCKGO) FOR: {query} ===\n"]
+            for i, result in enumerate(results, 1):
+                title = result.get("title", "No title")
+                snippet = result.get("snippet", "")
+                link = result.get("link", "")
+                parts.append(f"\n[Source {i}]")
+                parts.append(f"Title: {title}")
+                if snippet:
+                    parts.append(f"Content: {snippet}")
+                if link:
+                    parts.append(f"URL: {link}")
+            parts.append("\n=== END SEARCH RESULTS ===")
+            formatted = "\n".join(parts)
+
+            logger.info("[DDG] %d results, formatted: %d chars (%.3fs)", len(results), len(formatted), time.perf_counter() - t0)
+            return (formatted, payload)
+
+        except Exception as e:
+            logger.error("Error performing DuckDuckGo search: %s", e)
+            return ("", None)
+
     # ─── PUBLIC API OVERRIDES ────────────────────────────────────────────────
     # These methods OVERRIDE the parent GroqService's get_response/stream_response.
     # The override pattern is:
@@ -580,12 +635,16 @@ class RealtimeGroqService(GroqService):
             search_query = self._extract_search_query(question, chat_history)
             logger.info("[REALTIME] Searching Tavily for: %s", search_query)
 
-            # Step 2: Run Tavily web search (returns formatted string for prompt + payload for UI).
+            # Step 2: Run web search (Tavily first, then DuckDuckGo fallback).
             formatted_results, _ = self.search_tavily(search_query, num_results=7)
+            if not formatted_results:
+                logger.info("[REALTIME] Falling back to DuckDuckGo search...")
+                formatted_results, _ = self.search_duckduckgo(search_query)
+
             if formatted_results:
-                logger.info("[REALTIME] Tavily returned results (length: %d chars)", len(formatted_results))
+                logger.info("[REALTIME] Web search returned results (length: %d chars)", len(formatted_results))
             else:
-                logger.warning("[REALTIME] Tavily returned no results for: %s", search_query)
+                logger.warning("[REALTIME] All search providers returned no results for: %s", search_query)
 
             # Step 3: Build the prompt with search results injected as extra_system_parts.
             extra_parts = [formatted_results] if formatted_results else None
@@ -627,10 +686,14 @@ class RealtimeGroqService(GroqService):
             logger.info("[REALTIME] Searching Tavily for: %s", search_query)
 
             formatted_results, payload = self.search_tavily(search_query, num_results=7)
+            if not formatted_results:
+                logger.info("[REALTIME-STREAM] Falling back to DuckDuckGo search...")
+                formatted_results, payload = self.search_duckduckgo(search_query)
+
             if formatted_results:
-                logger.info("[REALTIME] Tavily returned results (length: %d chars)", len(formatted_results))
+                logger.info("[REALTIME] Web search returned results (length: %d chars)", len(formatted_results))
             else:
-                logger.warning("[REALTIME] Tavily returned no results for: %s", search_query)
+                logger.warning("[REALTIME] All search providers returned no results for: %s", search_query)
 
             # Send search results to the client for the right-side widget (before any text).
             if payload:

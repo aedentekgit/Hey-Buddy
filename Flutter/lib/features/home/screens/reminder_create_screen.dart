@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -344,7 +343,8 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
             color: const Color(0xFF64748B),
           ),
         ),
-        activeColor: color,
+        activeThumbColor: Colors.white,
+        activeTrackColor: color,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
     );
@@ -371,7 +371,8 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen> {
           title,
           style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600),
         ),
-        activeColor: Theme.of(context).primaryColor,
+        activeThumbColor: Colors.white,
+        activeTrackColor: Theme.of(context).primaryColor,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       ),
     );

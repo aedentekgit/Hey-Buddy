@@ -85,21 +85,32 @@ exports.syncConversation = async (req, res) => {
             return res.status(400).json({ success: false, message: 'userId is required' });
         }
 
-        // Find the most recent conversation or create a new one
-        let conversation = await Conversation.findOne({ userId }).sort({ updatedAt: -1 });
+        // ENFORCE MASTER THREAD: Use userId as the primary _id for the conversation.
+        // This ensures that for ANY device the user logs into, they hit the EXACT same MongoDB document.
+        // History will "travel" seamlessly between Web and Mobile.
+        let conversation = await Conversation.findOne({ 
+            $or: [
+                { _id: userId },
+                { userId: userId }
+            ]
+        }).sort({ updatedAt: -1 });
 
         if (conversation) {
-            // Update messages (replace entirely or sync)
+            // Update the existing master thread
             conversation.messages = messages;
+            // Ensure userId is set (migration for old docs)
+            conversation.userId = userId;
             await conversation.save();
         } else {
+            // Create a new master thread with userId as _id
             conversation = await Conversation.create({
+                _id: userId,
                 userId: userId,
                 messages: messages,
                 title: 'Buddy Conversation'
             });
         }
-        res.status(200).json({ success: true, message: 'Conversation synced successfully' });
+        res.status(200).json({ success: true, message: 'Conversation synced successfully', conversationId: conversation._id });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

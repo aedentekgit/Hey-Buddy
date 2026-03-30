@@ -173,6 +173,10 @@ class FamilyProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<List<dynamic>> searchUsers(String query) async {
+    return await _service.searchUsers(query);
+  }
+
   Future<bool> respondToRequest(String requestId, String action) async {
     final res = await _service.respondToRequest(requestId, action);
     if (res['success'] == true) {

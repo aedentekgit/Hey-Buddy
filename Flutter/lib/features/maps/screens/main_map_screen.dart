@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -21,7 +20,11 @@ class _MainMapScreenState extends State<MainMapScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-      () => Provider.of<TasksProvider>(context, listen: false).loadTasks(),
+      () {
+        if (mounted) {
+          Provider.of<TasksProvider>(context, listen: false).loadTasks();
+        }
+      },
     );
   }
 

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { protect, protectInternal } = require('../middlewares/auth');
-const { uploadDocument, queryKnowledge, getDocuments, getAllKnowledge } = require('../controllers/ragController');
+const { uploadDocument, queryKnowledge, getDocuments, getAllKnowledge, deleteDocument } = require('../controllers/ragController');
 
 // SECURITY: Restrict uploads to safe document types and cap at 10 MB.
 // Previously: any file type, no size limit.
@@ -36,5 +36,6 @@ router.use(protect);
 router.post('/upload', upload.single('document'), uploadDocument);
 router.post('/query', queryKnowledge);
 router.get('/documents', getDocuments);
+router.delete('/documents/:id', deleteDocument);
 
 module.exports = router;

@@ -37,6 +37,8 @@ class MemoriesProvider extends ChangeNotifier {
       bool success;
       if (type == 'memory') {
         success = await _memoryService.deleteMemory(id);
+      } else if (type == 'document') {
+        success = await _memoryService.deleteDocument(id);
       } else {
         success = await _memoryService.deletePrescription(id);
       }

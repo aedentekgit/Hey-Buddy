@@ -799,27 +799,109 @@ class _InviteCardState extends State<_InviteCard> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: TextField(
-                            controller: widget.ctrl,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: AppColors.text,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            onSubmitted: (_) => widget.onSend(),
-                            decoration: InputDecoration(
-                              hintText: 'Email or Apple ID',
-                              hintStyle: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: AppColors.textDim,
-                                fontWeight: FontWeight.w400,
-                              ),
-                              border: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              filled: false,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                              isCollapsed: true,
+                          child: Consumer<FamilyProvider>(
+                            builder: (context, provider, _) => RawAutocomplete<Map<String, dynamic>>(
+                              textEditingController: widget.ctrl,
+                              focusNode: FocusNode(),
+                              optionsBuilder: (TextEditingValue textEditingValue) async {
+                                if (textEditingValue.text.isEmpty) {
+                                  return const Iterable<Map<String, dynamic>>.empty();
+                                }
+                                final results = await provider.searchUsers(textEditingValue.text);
+                                return List<Map<String, dynamic>>.from(results);
+                              },
+                              displayStringForOption: (Map<String, dynamic> option) => option['email'],
+                              onSelected: (Map<String, dynamic> selection) {
+                                widget.ctrl.text = selection['email'];
+                              },
+                              fieldViewBuilder: (
+                                BuildContext context,
+                                TextEditingController fieldTextEditingController,
+                                FocusNode fieldFocusNode,
+                                VoidCallback onFieldSubmitted,
+                              ) {
+                                return TextField(
+                                  controller: fieldTextEditingController,
+                                  focusNode: fieldFocusNode,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    color: AppColors.text,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onSubmitted: (_) {
+                                    onFieldSubmitted();
+                                    widget.onSend();
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Email or Apple ID',
+                                    hintStyle: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: AppColors.textDim,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    border: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    filled: false,
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                    isCollapsed: true,
+                                  ),
+                                );
+                              },
+                              optionsViewBuilder: (
+                                BuildContext context,
+                                AutocompleteOnSelected<Map<String, dynamic>> onSelected,
+                                Iterable<Map<String, dynamic>> options,
+                              ) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    borderRadius: BorderRadius.circular(12),
+                                    elevation: 4,
+                                    color: AppColors.surface,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(maxHeight: 200, maxWidth: 280),
+                                      child: ListView.separated(
+                                        padding: const EdgeInsets.all(0),
+                                        shrinkWrap: true,
+                                        itemCount: options.length,
+                                        separatorBuilder: (context, index) => Divider(
+                                          height: 1, color: AppColors.border, indent: 16, endIndent: 16
+                                        ),
+                                        itemBuilder: (BuildContext context, int index) {
+                                          final option = options.elementAt(index);
+                                          return InkWell(
+                                            onTap: () => onSelected(option),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    option['name'],
+                                                    style: GoogleFonts.inter(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 14,
+                                                      color: AppColors.text,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    option['email'],
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 12,
+                                                      color: AppColors.textMid,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ),

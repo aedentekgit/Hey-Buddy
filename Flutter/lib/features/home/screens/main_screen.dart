@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
@@ -108,13 +107,17 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     // Initial profile load for auto-login
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.token != null) {
-      Provider.of<UserProvider>(context, listen: false).loadProfile();
-    }
-    
-    // Listen for auth changes to load/clear profile
-    auth.addListener(_onAuthChanged);
+    // Use Future.microtask to avoid setState during build
+    Future.microtask(() {
+      if (!mounted) return;
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.token != null) {
+        Provider.of<UserProvider>(context, listen: false).loadProfile();
+      }
+
+      // Listen for auth changes to load/clear profile
+      auth.addListener(_onAuthChanged);
+    });
   }
 
   void _onAuthChanged() {
@@ -169,7 +172,7 @@ class _MainScreenState extends State<MainScreen> {
 
     return PopScope(
       canPop: _tabHistory.length <= 1,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (_tabHistory.length > 1) {
           setState(() {
@@ -188,6 +191,7 @@ class _MainScreenState extends State<MainScreen> {
         body: SafeArea(
             left: false,
             right: false,
+            bottom: false,
             child: Column(
               children: [
                 if (showHeader)

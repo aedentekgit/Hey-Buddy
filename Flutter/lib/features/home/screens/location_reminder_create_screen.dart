@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -111,12 +110,13 @@ class _LocationReminderCreateScreenState
       'warningLevel': _warningLevel,
     };
 
+    final provider = context.read<LocationRemindersProvider>();
     final success = isEditing
-        ? await context.read<LocationRemindersProvider>().updateReminder(
+        ? await provider.updateReminder(
             widget.reminder!['_id'],
             data,
           )
-        : await context.read<LocationRemindersProvider>().createReminder(data);
+        : await provider.createReminder(data);
 
     if (mounted) {
       setState(() => _isLoading = false);

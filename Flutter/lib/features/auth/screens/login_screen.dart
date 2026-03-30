@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
@@ -272,11 +271,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 padding: const EdgeInsets.only(top: 10),
                                 child: TextButton.icon(
                                   onPressed: () async {
+                                    final navigator = Navigator.of(context);
                                     final success = await security
                                         .authenticate();
                                     if (success) {
-                                      if (!mounted) return;
-                                      Navigator.of(context).pushReplacement(
+                                      navigator.pushReplacement(
                                         MaterialPageRoute(
                                           builder: (_) => const MainScreen(),
                                         ),

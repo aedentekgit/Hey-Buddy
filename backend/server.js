@@ -7,7 +7,7 @@ const config = require('./config/env');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-// const xss = require('xss-clean');
+const xssLib = require('xss');
 const morgan = require('morgan');
 const logger = require('./utils/logger');
 
@@ -97,7 +97,26 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-// app.use(xss());
+// Express 5-compatible XSS sanitization middleware
+// xss-clean is broken on Express 5 because it tries to overwrite req.query which is now read-only.
+// We use the 'xss' library and sanitize req.body + req.params only (query strings shouldn't contain HTML).
+const xssSanitize = (obj) => {
+    if (!obj || typeof obj !== 'object') return obj;
+    for (const key of Object.keys(obj)) {
+        if (typeof obj[key] === 'string') {
+            obj[key] = xssLib(obj[key]);
+        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+            xssSanitize(obj[key]);
+        }
+    }
+    return obj;
+};
+app.use((req, _res, next) => {
+    if (req.body) xssSanitize(req.body);
+    if (req.params) xssSanitize(req.params);
+    next();
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Fallback: if file doesn't exist locally, redirect to VPS Staging
 app.use('/uploads', (req, res) => {
@@ -180,6 +199,17 @@ if (process.env.NODE_ENV === 'development') {
     });
 }
 
+// Global Error Handler (must be registered BEFORE startServer to catch async route errors)
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    const status = err.status || 500;
+    res.status(status).json({
+        success: false,
+        message: err.message || 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err : {}
+    });
+});
+
 // Database connection & Server Startup
 const startServer = async () => {
     try {
@@ -224,17 +254,6 @@ const startServer = async () => {
 };
 
 startServer();
-
-// Global Error Handler
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    const status = err.status || 500;
-    res.status(status).json({
-        success: false,
-        message: err.message || 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err : {}
-    });
-});
 
 // Uncaught exception handler
 process.on('uncaughtException', (err) => {

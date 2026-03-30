@@ -1,4 +1,3 @@
-// ignore_for_file: override_on_non_overriding_member, unused_field, unused_local_variable
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -29,15 +28,11 @@ class BuddyProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isThinking = false;
   bool _isRealtimeEnabled = false;
-  bool _isFetchingNews = false;
-  List<String> _localNews = [];
-  String? _localCity;
   bool _isSpeaking = false;
   bool _isListening = false;
   bool _needsLogin = false;
   bool get needsLogin => _needsLogin;
   bool _isConnected = true;
-  bool _hasAttemptedConnection = false;
   bool get isConnected => _isConnected;
   bool get isSpeaking => _isSpeaking;
   bool get isListening => _isListening;
@@ -77,6 +72,31 @@ class BuddyProvider with ChangeNotifier {
   BuddyProvider() {
     _audioStreamService = AudioStreamService(socketService);
     _setupSocketListeners();
+    _configureAudioPlayer();
+  }
+
+  Future<void> _configureAudioPlayer() async {
+    // Configure audio player for iOS
+    if (Platform.isIOS) {
+      await _audioPlayer.setAudioContext(
+        AudioContext(
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {
+              AVAudioSessionOptions.mixWithOthers,
+              AVAudioSessionOptions.duckOthers,
+            },
+          ),
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: false,
+            contentType: AndroidContentType.speech,
+            usageType: AndroidUsageType.media,
+            audioFocus: AndroidAudioFocus.gain,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -89,45 +109,8 @@ class BuddyProvider with ChangeNotifier {
   }
 
   bool get isRealtimeEnabled => _isRealtimeEnabled;
-  bool get isFetchingNews => _isFetchingNews;
-  List<String> get localNews => _localNews;
-  String? get localCity => _localCity;
 
-  Future<void> fetchLocalNews(double? lat, double? lon) async {
-    if (_isFetchingNews) return;
-    _isFetchingNews = true;
-    notifyListeners();
 
-    try {
-      double? useLat = lat;
-      double? useLon = lon;
-
-      // EMULATOR FALLBACK: Simulate Madurai GPS for fetching local news
-      if (useLat != null &&
-          useLat > 37.0 &&
-          useLat < 38.0 &&
-          useLon != null &&
-          useLon > -123.0 &&
-          useLon < -121.0) {
-        useLat = 9.9252;
-        useLon = 78.1198;
-      }
-
-      final response = await _buddyService.getLocalNews(useLat, useLon);
-      if (response['success'] == true) {
-        _localNews = List<String>.from(response['news']);
-        _localCity = response['city'];
-      } else if (response['statusCode'] == 401) {
-        _needsLogin = true;
-      }
-    } catch (e) {
-      // Handle error gracefully if needed
-      debugPrint('Error fetching news: $e');
-    } finally {
-      _isFetchingNews = false;
-      notifyListeners();
-    }
-  }
 
   Future<void> stopAllAudio() async {
     _ttsQueue.clear();
@@ -144,11 +127,15 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  bool _hasShownTtsFallbackMessage = false;
+
   Future<void> _processAudioChunkQueue() async {
     if (_isPlayingAudioChunkQueue || _audioChunkQueue.isEmpty) return;
     _isPlayingAudioChunkQueue = true;
     _isSpeaking = true;
     notifyListeners();
+
+    bool anyAudioFailed = false;
 
     while (_audioChunkQueue.isNotEmpty) {
       if (!_isPlayingAudioChunkQueue) break;
@@ -167,13 +154,67 @@ class BuddyProvider with ChangeNotifier {
           if (state == PlayerState.stopped && !completer.isCompleted) completer.complete();
         });
 
-        await _audioPlayer.play(BytesSource(audioBytes));
-        await completer.future;
+        try {
+          await _audioPlayer.play(BytesSource(audioBytes));
+          // Add timeout to prevent hanging
+          await completer.future.timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              debugPrint("⚠️ Audio playback timeout");
+              anyAudioFailed = true;
+            },
+          );
+        } catch (playError) {
+          if (!_hasShownTtsFallbackMessage && Platform.isIOS) {
+            debugPrint("⚠️ iOS Audio playback error - will use TTS fallback");
+            _hasShownTtsFallbackMessage = true;
+          }
+          anyAudioFailed = true;
+        }
 
         await compSub.cancel();
         await stateSub.cancel();
       } catch (e) {
         debugPrint("Error playing audio chunk: $e");
+        anyAudioFailed = true;
+      }
+    }
+
+    // If all audio failed and we're on iOS, use TTS as fallback
+    if (anyAudioFailed && Platform.isIOS && _messages.isNotEmpty && _messages.last['type'] == 'ai') {
+      String textToSpeak = _messages.last['text'] ?? '';
+      if (textToSpeak.isNotEmpty) {
+        debugPrint("🔊 Using TTS fallback for iOS");
+        debugPrint("💡 Note: iOS Simulator doesn't output audio - use a real device to hear voice");
+
+        try {
+          // Set up completion handler before speaking
+          _flutterTts.setCompletionHandler(() {
+            _isSpeaking = false;
+            _isPlayingAudioChunkQueue = false;
+            notifyListeners();
+          });
+
+          await _flutterTts.speak(textToSpeak);
+
+          // On iOS Simulator, TTS doesn't actually play, so we manually reset after a timeout
+          // Estimate: ~100ms per word
+          int wordCount = textToSpeak.split(' ').length;
+          int estimatedDuration = (wordCount * 0.4 * 1000).toInt(); // 400ms per word
+
+          Future.delayed(Duration(milliseconds: estimatedDuration.clamp(1000, 10000)), () {
+            if (_isSpeaking) {
+              debugPrint("🔊 TTS simulation complete (iOS Simulator)");
+              _isSpeaking = false;
+              _isPlayingAudioChunkQueue = false;
+              notifyListeners();
+            }
+          });
+
+          return; // Exit early
+        } catch (e) {
+          debugPrint("Error in TTS fallback: $e");
+        }
       }
     }
 
@@ -227,7 +268,7 @@ class BuddyProvider with ChangeNotifier {
         }
       }
 
-      // Fallback Pitch/Rate if specific voice mapping wasn't enough
+      // Compute pitch and rate based on gender and tone
       if (gender == 'male') {
         pitch = 0.8;
       } else {
@@ -242,8 +283,9 @@ class BuddyProvider with ChangeNotifier {
         pitch += 0.1;
       }
 
-      
-      
+      // FIX: Actually apply the computed values to the TTS engine
+      await _flutterTts.setPitch(pitch.clamp(0.5, 2.0));
+      await _flutterTts.setSpeechRate(speechRate.clamp(0.0, 1.0));
     } catch (e) {
       debugPrint("Error configuring local TTS: $e");
     }
@@ -471,6 +513,7 @@ class BuddyProvider with ChangeNotifier {
     socketService.audioStream.listen((base64Audio) async {
       // PREMIUM EXPERIENCE: Play high-quality MP3 from the Python Brain
       if (base64Audio.isNotEmpty) {
+        bool audioPlaybackFailed = false;
         try {
           await _flutterTts.stop(); // Stop local fallback immediately
           _ttsQueue.clear();
@@ -479,16 +522,60 @@ class BuddyProvider with ChangeNotifier {
           final audioBytes = base64Decode(base64Audio);
           _isSpeaking = true;
           notifyListeners();
-          await _audioPlayer.play(BytesSource(audioBytes));
 
-          // Since this is a stream of chunks, we might want to track if it's still playing
-          // but for now, simple toggle
-          _audioPlayer.onPlayerComplete.first.then((_) {
-            _isSpeaking = false;
-            notifyListeners();
-          });
+          try {
+            await _audioPlayer.play(BytesSource(audioBytes));
+
+            // Since this is a stream of chunks, we might want to track if it's still playing
+            // but for now, simple toggle
+            _audioPlayer.onPlayerComplete.first.then((_) {
+              _isSpeaking = false;
+              notifyListeners();
+            });
+          } catch (playError) {
+            // Audio playback failed (common on iOS Simulator)
+            debugPrint("⚠️ Audio playback failed, falling back to TTS: $playError");
+            audioPlaybackFailed = true;
+          }
+
+          // Fallback to TTS if audio playback failed
+          if (audioPlaybackFailed && Platform.isIOS) {
+            debugPrint("🔊 Using TTS fallback for iOS");
+            debugPrint("💡 Note: iOS Simulator doesn't output audio - use a real device to hear voice");
+
+            // Get the last AI message text to speak
+            if (_messages.isNotEmpty && _messages.last['type'] == 'ai') {
+              String textToSpeak = _messages.last['text'] ?? '';
+              if (textToSpeak.isNotEmpty) {
+                _flutterTts.setCompletionHandler(() {
+                  _isSpeaking = false;
+                  notifyListeners();
+                });
+
+                await _flutterTts.speak(textToSpeak);
+
+                // On iOS Simulator, TTS doesn't actually play, so we manually reset after a timeout
+                int wordCount = textToSpeak.split(' ').length;
+                int estimatedDuration = (wordCount * 0.4 * 1000).toInt(); // 400ms per word
+
+                Future.delayed(Duration(milliseconds: estimatedDuration.clamp(1000, 10000)), () {
+                  if (_isSpeaking) {
+                    debugPrint("🔊 TTS simulation complete (iOS Simulator)");
+                    _isSpeaking = false;
+                    notifyListeners();
+                  }
+                });
+              } else {
+                _isSpeaking = false;
+                notifyListeners();
+              }
+            } else {
+              _isSpeaking = false;
+              notifyListeners();
+            }
+          }
         } catch (e) {
-          debugPrint("Error playing server audio: $e");
+          debugPrint("Error processing server audio: $e");
           _isSpeaking = false;
           notifyListeners();
         }
@@ -497,7 +584,6 @@ class BuddyProvider with ChangeNotifier {
 
     socketService.statusStream.listen((isConnected) {
       debugPrint('📡 Socket status changed: $isConnected');
-      _hasAttemptedConnection = true;
       _isRealtimeEnabled = isConnected;
       _isConnected = isConnected;
       _isServerReachable = true; // Socket connected means server is reachable
@@ -608,7 +694,6 @@ class BuddyProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  @override
   void toggleRealtime(bool enable) {
     if (enable) {
       // Try to connect - socket has built-in reconnection (20 attempts, 3s delay)
@@ -643,6 +728,13 @@ class BuddyProvider with ChangeNotifier {
 
   void setMessages(List<Map<String, dynamic>> msgs) {
     _messages = msgs;
+    notifyListeners();
+  }
+
+  void clearSession() {
+    _messages.clear();
+    _historyList.clear();
+    _currentConversationId = null;
     notifyListeners();
   }
 
@@ -840,6 +932,11 @@ class BuddyProvider with ChangeNotifier {
                 if (parsed['audio'] != null) {
                   _audioChunkQueue.add(parsed['audio']);
                   _processAudioChunkQueue();
+                }
+
+                if (parsed['session_id'] != null && _currentConversationId == null) {
+                   _currentConversationId = parsed['session_id'].toString();
+                   debugPrint('📌 Conversation session locked to: $_currentConversationId');
                 }
 
                 if (parsed['chunk'] != null && _messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {

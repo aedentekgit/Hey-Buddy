@@ -74,9 +74,31 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       // This is the fix for: APK socket connects as guest (null token at startup)
       // and never reconnects after login.
       auth.addListener(_onAuthChanged);
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+      double? lat = userProvider.user['currentLocation']?['lat'];
+      double? lon = userProvider.user['currentLocation']?['lng'];
+
+      if (lat == null || lon == null) {
+        Geolocator.checkPermission().then((permission) {
+          if (permission == LocationPermission.always ||
+              permission == LocationPermission.whileInUse) {
+            Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.high,
+                  timeLimit: const Duration(seconds: 15),
+                )
+                .then((pos) {
+                  userProvider.setGuestLocation(pos.latitude, pos.longitude);
+                })
+                .catchError((e) {
+                  // Silent fail
+                });
+          }
+        });
+      }
     });
   }
-
   void _onAuthChanged() {
     if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -90,8 +112,18 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       _lastKnownToken = currentToken;
 
       final provider = Provider.of<BuddyProvider>(context, listen: false);
+
+      // Clear previous chat
+      provider.clearSession();
+
       // Force a full socket reconnect so it picks up the new JWT
       provider.toggleRealtime(false);
+
+      if (currentToken != null) {
+        // Logged in: fetch history
+        provider.fetchHistory();
+      }
+
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
           provider.toggleRealtime(true);
@@ -192,28 +224,36 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     if (auth.token == null) {
       final lower = text.toLowerCase();
       final actionKeywords = [
-        'remind me',
-        'reminder for',
-        'remember that',
-        'save this',
-        'save to my',
-        'store this',
-        'set a reminder',
-        'add to my memory',
-        'create a reminder',
-        'schedule a',
-        'don\'t forget to',
-        'dont forget to',
-        'set an alarm',
-        'keep track of',
+        'remind',
+        'reminder',
+        'remember',
+        'memo',
+        'memory',
+        'save',
+        'note',
+        'schedule',
+        'alarm',
+        'alert',
+        'set a',
+        'add a',
+        'create a',
+        'store',
+        'don\'t forget',
+        'dont forget',
+        'keep track',
+        'task',
+        'todo',
+        'to-do',
+        'plan',
+        'appointment',
+        'meeting',
+        'event',
+        'at ',
+        'pm',
+        'am',
       ];
-
-      // Explicitly allow news-related queries for guests
-      final newsKeywords = ['news', 'headline', 'world', 'global', 'current event', 'weather', 'what\'s happening'];
-      final isNewsRequest = newsKeywords.any((kw) => lower.contains(kw));
-
       final isActionRequest = actionKeywords.any((kw) => lower.contains(kw));
-      if (isActionRequest && !isNewsRequest) {
+      if (isActionRequest) {
         _showAuthPrompt(reason: _detectActionReason(lower));
         return;
       }
@@ -247,30 +287,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     _scrollToBottom();
   }
 
-  /// Returns a human-friendly reason string for the auth prompt.
-  String _detectActionReason(String lower) {
-    if (lower.contains('remind') || lower.contains('reminder')) {
-      return 'set a Reminder';
-    }
-    if (lower.contains('memory') ||
-        lower.contains('memo') ||
-        lower.contains('remember')) {
-      return 'save a Memory';
-    }
-    if (lower.contains('note')) return 'save a Note';
-    if (lower.contains('alarm')) return 'set an Alarm';
-    if (lower.contains('schedule') ||
-        lower.contains('appointment') ||
-        lower.contains('meeting')) {
-      return 'schedule an Event';
-    }
-    if (lower.contains('task') ||
-        lower.contains('todo') ||
-        lower.contains('to-do')) {
-      return 'create a Task';
-    }
-    return 'save this';
-  }
 
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -372,6 +388,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       body: SafeArea(
         left: false,
         right: false,
+        bottom: false,
         child: KeyboardGuidedHover(
           child: Stack(
             children: [
@@ -521,131 +538,75 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Column(
         children: [
-          const SizedBox(height: 120),
-          Center(
-            child: Column(
+          const SizedBox(height: 20),
+          // ── Buddy Hero Section ────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [branding.primaryColor, AppColors.accent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: branding.primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: branding.primaryColor.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: SizedBox(
-                    width: 80,
-                    height: 80,
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/app_icon.png',
-                        fit: BoxFit.cover,
-                      ),
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/app_icon.png',
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  "Hey Buddy",
-                  style: GoogleFonts.outfit(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.text,
-                    letterSpacing: -1,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "I'm here to help you. What's on your mind?",
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textMid,
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                       Text(
+                        "Buddy AI Assistant",
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "How can I help you today? Feel free to ask me anything.",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 100),
           const SizedBox(height: 100), // Space for input
         ],
       ),
     );
   }
 
-  Widget _buildSuggestionItem(
-    String text,
-    BrandingProvider branding, [
-    IconData? icon,
-  ]) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            _inputController.text = text;
-            _handleSend();
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-            child: Row(
-              children: [
-                if (icon != null) ...[
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: branding.primaryColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: branding.primaryColor.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: branding.isDarkMode
-                          ? Colors.white
-                          : branding.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                ],
-                Expanded(
-                  child: Text(
-                    text,
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.text,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-                Icon(
-                  LucideIcons.chevronRight,
-                  size: 16,
-                  color: Colors.grey[300],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildPixelAnimation(BrandingProvider branding) {
     return Container(
@@ -762,10 +723,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   decoration: BoxDecoration(
                     gradient: isUser
                         ? LinearGradient(
-                            colors: [
-                              branding.primaryColor,
-                              AppColors.accent,
-                            ],
+                            colors: [branding.primaryColor, AppColors.accent],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
@@ -792,7 +750,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (msg['image'] != null) ...[
-                        (msg['image'].toString().startsWith('http') || msg['image'].toString().startsWith('https'))
+                        (msg['image'].toString().startsWith('http') ||
+                                msg['image'].toString().startsWith('https'))
                             ? CachedNetworkImage(
                                 imageUrl: msg['image'],
                                 width: 240,
@@ -804,29 +763,40 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                                     child: CircularProgressIndicator(),
                                   ),
                                 ),
-                                errorWidget: (context, url, error) => Image.file(
-                                  File(msg['image']),
-                                  width: 240,
-                                  fit: BoxFit.cover,
-                                ),
+                                errorWidget: (context, url, error) =>
+                                    Image.file(
+                                      File(msg['image']),
+                                      width: 240,
+                                      fit: BoxFit.cover,
+                                    ),
                               )
                             : Image.file(
                                 File(msg['image']),
                                 width: 240,
                                 fit: BoxFit.cover,
                               ),
-                        if (msg['text'] != null && msg['text'].toString().isNotEmpty)
+                        if (msg['text'] != null &&
+                            msg['text'].toString().isNotEmpty)
                           const SizedBox(height: 10),
                       ],
                       Padding(
-                        padding: msg['image'] != null && ((msg['text'] != null && msg['text'].toString().isNotEmpty) || !isUser)
-                            ? const EdgeInsets.only(left: 14, right: 14, bottom: 14)
+                        padding:
+                            msg['image'] != null &&
+                                ((msg['text'] != null &&
+                                        msg['text'].toString().isNotEmpty) ||
+                                    !isUser)
+                            ? const EdgeInsets.only(
+                                left: 14,
+                                right: 14,
+                                bottom: 14,
+                              )
                             : EdgeInsets.zero,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (isUser)
-                              if (msg['text'] != null && msg['text'].toString().isNotEmpty)
+                              if (msg['text'] != null &&
+                                  msg['text'].toString().isNotEmpty)
                                 Text(
                                   msg['text'],
                                   style: GoogleFonts.inter(
@@ -859,7 +829,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                                   : Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(LucideIcons.checkCircle2, color: branding.primaryColor, size: 16),
+                                        Icon(
+                                          LucideIcons.checkCircle2,
+                                          color: branding.primaryColor,
+                                          size: 16,
+                                        ),
                                         const SizedBox(width: 8),
                                         Text(
                                           "Information is currently unavailable.",
@@ -1140,7 +1114,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     AuthProvider auth,
   ) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       color: Colors.transparent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1259,115 +1233,114 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 20, 28, 36),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(28, 20, 28, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
               ),
-              const SizedBox(height: 24),
-              // Icon
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      branding.primaryColor,
-                      branding.primaryColor.withValues(alpha: 0.7),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+            ),
+            const SizedBox(height: 24),
+            // Icon
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    branding.primaryColor,
+                    branding.primaryColor.withValues(alpha: 0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                LucideIcons.logIn,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Sign in to $reason',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'This action requires a Buddy account. Sign in or create a free account to $reason, get smart reminders, and unlock the full Buddy experience.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: const Color(0xFF64748B),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 28),
+            // Login button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                },
+                icon: const Icon(LucideIcons.logIn, size: 18),
+                label: Text(
+                  'Sign In to Continue',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
                   ),
-                  shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  LucideIcons.logIn,
-                  color: Colors.white,
-                  size: 30,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Sign in to $reason',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'This action requires a Buddy account. Sign in or create a free account to $reason, get smart reminders, and unlock the full Buddy experience.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: const Color(0xFF64748B),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 28),
-              // Login button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  },
-                  icon: const Icon(LucideIcons.logIn, size: 18),
-                  label: Text(
-                    'Sign In to Continue',
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: branding.primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: branding.primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              // Later button
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(
-                    'Maybe Later',
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      color: const Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w600,
-                    ),
+            ),
+            const SizedBox(height: 12),
+            // Later button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  'Maybe Later',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: const Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

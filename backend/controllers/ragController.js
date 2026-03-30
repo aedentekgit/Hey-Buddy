@@ -105,6 +105,22 @@ exports.getDocuments = async (req, res) => {
     }
 };
 
+exports.deleteDocument = async (req, res) => {
+    try {
+        const doc = await Document.findOne({ _id: req.params.id, userId: req.user._id });
+        if (!doc) return res.status(404).json({ success: false, message: "Document not found" });
+
+        if (doc.fileUrl) {
+            await deleteFile(doc.fileUrl).catch(e => console.warn('File delete failed:', e));
+        }
+        await Document.deleteOne({ _id: req.params.id });
+
+        res.json({ success: true, message: "Deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 /**
  * INTERNAL USE ONLY: Fetch absolutely everything for Python RAG indexing
  * Consolidated across all knowledge-base models

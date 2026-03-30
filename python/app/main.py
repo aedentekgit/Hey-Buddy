@@ -215,6 +215,7 @@ from app.services.realtime_service import RealtimeGroqService
 from app.services.chat_service import ChatService
 from app.services.system_service import SystemService
 from app.services.language_service import LanguageService
+from app.services.consensus_service import ConsensusService
 from app.models import ChatRequest, ChatResponse, TTSRequest, ActionRequest
 
 # Configuration values loaded from config.py (which reads .env).
@@ -266,6 +267,7 @@ realtime_service: RealtimeGroqService = None
 chat_service: ChatService = None
 system_service: SystemService = None
 language_service: LanguageService = None
+consensus_service: ConsensusService = None
 
 
 def print_title():
@@ -331,7 +333,7 @@ async def lifespan(app: FastAPI):
     
     All services are stored as global variables so they can be accessed by API endpoints.
     """
-    global vector_store_service, groq_service, realtime_service, chat_service, system_service, language_service
+    global vector_store_service, groq_service, realtime_service, chat_service, system_service, language_service, consensus_service
     
     print_title()
     logger.info("=" * 60)
@@ -383,10 +385,14 @@ async def lifespan(app: FastAPI):
         system_service = SystemService()
         logger.info("System service initialized successfully")
 
-        # --- Step 6: Language Service ---
         logger.info("Initializing language service...")
         language_service = LanguageService()
         logger.info("Language service initialized successfully")
+
+        # --- Step 7: Consensus Service ---
+        logger.info("Initializing consensus service...")
+        consensus_service = ConsensusService(groq_service)
+        logger.info("Consensus service initialized successfully")
         
         # --- Startup complete — print a summary ---
         logger.info("=" * 60)
@@ -395,6 +401,7 @@ async def lifespan(app: FastAPI):
         logger.info("  - Groq AI (General): Ready")
         logger.info("  - Groq AI (Realtime): Ready")
         logger.info("  - Chat Service: Ready")
+        logger.info("  - Consensus Mode: Ready")
         logger.info("=" * 60)
         logger.info("Hey buddy is online and ready!")
         logger.info("API: http://localhost:8000")
@@ -555,7 +562,8 @@ async def api_info():
             "/chat/realtime/stream": "Realtime chat (streaming chunks)",
             "/chat/history/{session_id}": "Get chat history",
             "/health": "System health check",
-            "/tts": "Text-to-speech (POST text, returns streamed MP3)"
+            "/tts": "Text-to-speech (POST text, returns streamed MP3)",
+            "/chat/consensus": "Premium consensus mode (multi-LLM verification)"
         }
     }
 
@@ -685,6 +693,54 @@ async def chat(request: ChatRequest):
             raise HTTPException(status_code=429, detail=RATE_LIMIT_MESSAGE)
         logger.error("[API /chat] Error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
+
+
+@app.post("/chat/consensus", response_model=ChatResponse, dependencies=[Depends(_require_api_key)])
+async def chat_consensus(request: ChatRequest):
+    """
+    PREMIUM: Consensus Mode endpoint.
+    
+    Calls multiple LLMs (Groq, Gemini, OpenAI) in parallel, then uses a 
+    'Verifying LLM' to synthesize a final, highly reliable consensus answer.
+    
+    Perfect for factual questions where you want to minimize hallucinations.
+    """
+    if not consensus_service:
+        raise HTTPException(status_code=503, detail="Consensus service not initialized")
+
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    logger.info("[API /chat/consensus] Incoming | message=%.100s", request.message)
+    try:
+        # Get history from chat_service (if session exists)
+        history = []
+        if request.session_id:
+            session = chat_service.sessions.get(request.session_id)
+            if session:
+                history = session.get("history", [])
+
+        # Call the consensus service (async)
+        response_text = await consensus_service.get_consensus_response(
+            question=request.message,
+            chat_history=history,
+            user_id=request.userId
+        )
+
+        # Build session_id if missing
+        session_id = request.session_id or chat_service.get_or_create_session(None)
+        
+        # Save response to history (optional, here we do it to keep session context)
+        if session_id in chat_service.sessions:
+            chat_service.sessions[session_id]["history"].append(("user", request.message))
+            chat_service.sessions[session_id]["history"].append(("assistant", response_text))
+            chat_service.save_chat_session(session_id)
+
+        return ChatResponse(response=response_text, session_id=session_id)
+
+    except Exception as e:
+        logger.error("[API /chat/consensus] Error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Consensus error: {str(e)}")
 
 
 # =============================================================================
@@ -1384,6 +1440,29 @@ async def get_chat_history(session_id: str):
     except Exception as e:
         logger.error(f"Error retrieving history: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error retrieving history: {str(e)}")
+
+
+@app.delete("/chat/history/{session_id}", dependencies=[Depends(_require_api_key)])
+async def delete_chat_session(session_id: str):
+    """
+    Clear a specific chat session from memory.
+    """
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    
+    found = chat_service.clear_session(session_id)
+    return {"success": found, "message": f"Session {session_id} cleared" if found else "Session not found"}
+
+@app.delete("/chat/user/{user_id}/history", dependencies=[Depends(_require_api_key)])
+async def delete_all_user_history(user_id: str):
+    """
+    Clear all chat sessions for a specific user from memory.
+    """
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    
+    count = chat_service.clear_user_sessions(user_id)
+    return {"success": True, "count": count, "message": f"Cleared {count} sessions for user {user_id}"}
 
 
 # ============================================================================

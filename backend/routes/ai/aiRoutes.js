@@ -7,6 +7,7 @@ const aiController = require('../../controllers/ai/aiController');
 router.post('/chat', protectOptional, aiController.proxyChatToPython);
 router.post('/chat/stream', protectOptional, aiController.proxyChatToPython);
 router.post('/chat/realtime/stream', protectOptional, aiController.proxyChatToPython);
+router.post('/chat/consensus', protectOptional, aiController.proxyChatToPython);
 router.get('/health', protectOptional, aiController.proxyHealthToPython);
 router.post('/tts', protectOptional, aiController.proxyTtsToPython);
 router.post('/action', protectOptional, aiController.proxyActionToPython);

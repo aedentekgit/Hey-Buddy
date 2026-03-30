@@ -1,4 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -60,6 +59,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
     );
 
     if (confirmed == true) {
+      if (!mounted) return;
       final provider = Provider.of<TasksProvider>(context, listen: false);
       final success = await provider.deleteTask(task['_id']);
       if (success) ToastUtils.showSuccessToast("Reminder deleted");
@@ -84,6 +84,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
       snoozedTime = _snoozeTime(originalTime, picked);
     }
 
+    if (!mounted) return;
     final success = await Provider.of<TasksProvider>(
       context,
       listen: false,
@@ -447,7 +448,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-      () => Provider.of<TasksProvider>(context, listen: false).loadTasks(),
+      () {
+        if (mounted) {
+          Provider.of<TasksProvider>(context, listen: false).loadTasks();
+        }
+      },
     );
     _searchCtrl.addListener(
       () => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()),

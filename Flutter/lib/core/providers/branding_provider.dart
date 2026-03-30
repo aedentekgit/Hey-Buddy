@@ -1,4 +1,3 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:buddy_mobile/core/services/settings_service.dart';
@@ -142,7 +141,7 @@ class BrandingProvider extends ChangeNotifier {
             await prefs.setString('branding_app_name', _appName);
             await prefs.setString(
               'branding_primary_color',
-              '#${_primaryColor.value.toRadixString(16).substring(2)}',
+              '#${(_primaryColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
             );
             if (_logoUrl != null) {
               await prefs.setString('branding_logo_url', _logoUrl!);
@@ -166,7 +165,7 @@ class BrandingProvider extends ChangeNotifier {
             // Update AppConfig
             AppConfig.appName = _appName;
             AppConfig.primaryColor =
-                '#${_primaryColor.value.toRadixString(16).substring(2)}';
+                '#${(_primaryColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
             AppConfig.logoUrl = _logoUrl;
             AppConfig.splashUrl = _splashUrl;
             if (newGoogleClientId != null) {

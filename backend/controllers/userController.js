@@ -484,6 +484,29 @@ const reverseGeocode = async (req, res) => {
     }
 };
 
+const searchUsers = async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q || q.length < 2) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+        const currentUserId = req.user._id;
+        // Search by name or email
+        const regex = new RegExp(q, 'i');
+        const users = await User.find({
+            _id: { $ne: currentUserId },
+            $or: [{ name: regex }, { email: regex }]
+        })
+        .select('name email profilePicture')
+        .limit(10);
+
+        res.status(200).json({ success: true, data: users });
+    } catch (error) {
+        console.error("Search Users Error:", error);
+        res.status(500).json({ success: false, message: 'Server error searching users' });
+    }
+};
+
 module.exports = {
     getUsers,
     createUser,
@@ -498,5 +521,6 @@ module.exports = {
     deleteProfilePicture,
     adminUploadProfilePicture,
     adminDeleteProfilePicture,
-    reverseGeocode
+    reverseGeocode,
+    searchUsers
 };

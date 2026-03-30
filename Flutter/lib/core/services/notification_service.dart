@@ -205,10 +205,21 @@ class NotificationService {
   }
 
   Future<void> updateToken() async {
-    final String? token = await _fcm.getToken();
-    if (token != null) {
-      debugPrint('[FCM] Updating token: $token');
-      await _saveTokenToServer(token);
+    try {
+      final String? token = await _fcm.getToken();
+      if (token != null) {
+        debugPrint('[FCM] Updating token: $token');
+        await _saveTokenToServer(token);
+      } else {
+        debugPrint('[FCM] Token is null - likely on iOS Simulator (APNS not available)');
+      }
+    } catch (e) {
+      // Gracefully handle APNS errors on iOS Simulator
+      if (e.toString().contains('apns-token-not-set')) {
+        debugPrint('[FCM] ⚠️ APNS token not available (iOS Simulator limitation)');
+      } else {
+        debugPrint('[FCM] Error getting token: $e');
+      }
     }
   }
 

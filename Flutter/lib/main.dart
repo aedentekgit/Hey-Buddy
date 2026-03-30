@@ -41,7 +41,12 @@ void main() async {
     await notificationService.initialize();
     debugPrint('[Main] ✅ Firebase & Notifications initialized');
   } catch (e) {
-    debugPrint("[Main] ⚠️ Firebase/Notification initialization failed: $e");
+    // Gracefully handle APNS errors on iOS Simulator
+    if (e.toString().contains('apns-token-not-set')) {
+      debugPrint("[Main] ℹ️ APNS not available on iOS Simulator (normal)");
+    } else {
+      debugPrint("[Main] ⚠️ Firebase/Notification initialization failed: $e");
+    }
   }
 
   // Pre-load SharedPreferences to eliminate hydration lag

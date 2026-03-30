@@ -140,6 +140,8 @@ exports.proxyChatToPython = async (req, res) => {
             pythonEndpoint = `${aiServiceUrl}/chat/stream`;
         } else if (isRealtime) {
             pythonEndpoint = `${aiServiceUrl}/chat/realtime`;
+        } else if (requestPath.includes('consensus')) {
+            pythonEndpoint = `${aiServiceUrl}/chat/consensus`;
         }
 
         console.log(`[AI Gateway] Target Python Endpoint: ${pythonEndpoint}`);
@@ -183,8 +185,12 @@ exports.proxyChatToPython = async (req, res) => {
             context.memories.forEach(m => {
                 memoryString += `- [ID: ${m.id}] [Category: ${m.category}] ${m.content}\n`;
             });
+            memoryString += "\n";
         }
 
+        if (!req.user) {
+            memoryString += "\n[SYSTEM ALERT]: This is a GUEST user (Not Logged In). You CAN answer general knowledge questions, provide global news, and chat casually. However, you CANNOT save memories, retrieve past memories, set reminders, or access personal data. If the guest asks to perform any of these personalized actions (e.g., 'remind me', 'save this memory', 'where am I'), politely inform them that they must Sign In or Create a Buddy Account to unlock personal assistant features.\n";
+        }
 
         // Fetch user preferences for personalized voice
         const userDetails = await User.findById(userId).select('voicePreferences');

@@ -1,4 +1,4 @@
-// ignore_for_file: final_not_initialized_constructor, unused_element, unused_field
+// ignore_for_file: unused_element
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -32,11 +32,6 @@ class AccountSettingsScreen extends StatefulWidget {
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen>
     with WidgetsBindingObserver {
-  // Toggle states
-  final bool _voiceAlerts = true;
-  final bool _pushNotifications = true;
-  final bool _emailDigest = false;
-  final bool _inAppAlerts = true;
 
   @override
   void initState() {
@@ -169,6 +164,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
     
     return Scaffold(
       backgroundColor: AppColors.bg,
+      extendBody: true,
+      extendBodyBehindAppBar: true,
       body: Consumer<UserProvider>(
         builder: (context, userProvider, _) {
           final user = userProvider.user;

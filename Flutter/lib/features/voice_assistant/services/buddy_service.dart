@@ -235,26 +235,4 @@ class BuddyService {
     }
   }
 
-  Future<Map<String, dynamic>> getLocalNews(double? lat, double? lon) async {
-    try {
-      final headers = await _getHeaders();
-      String url = '${_baseUrl}voice/news/local';
-      if (lat != null && lon != null) {
-        url += '?lat=$lat&lon=$lon';
-      }
-      final response = await http
-          .get(Uri.parse(url), headers: headers)
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-      return {
-        'success': false,
-        'message': 'Status: ${response.statusCode}',
-        'statusCode': response.statusCode,
-      };
-    } catch (e) {
-      return {'success': false, 'message': e.toString()};
-    }
-  }
 }

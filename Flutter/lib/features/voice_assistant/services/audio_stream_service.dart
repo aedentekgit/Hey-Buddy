@@ -1,6 +1,7 @@
 import "package:flutter/foundation.dart";
 
 import 'dart:async';
+import 'dart:io';
 import 'package:record/record.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
 
@@ -18,27 +19,42 @@ class AudioStreamService {
     if (_isStreaming) return;
 
     try {
-      if (await _recorder.hasPermission()) {
-        const config = RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
-          numChannels: 1,
-        );
+      // On iOS Simulator, microphone doesn't work properly
+      // We'll still try to initialize but won't fail if permission check fails
+      bool hasPermission = await _recorder.hasPermission();
 
-        final stream = await _recorder.startStream(config);
-
-        _audioSubscription = stream.listen((data) {
-          debugPrint('🎵 Audio chunk sent: ${data.length} bytes');
-          _socketService.sendAudioChunk(data);
-        });
-
-        _isStreaming = true;
-        debugPrint('🎙️ Audio streaming started (PCM 16kHz)');
-      } else {
+      if (!hasPermission) {
+        if (Platform.isIOS && kDebugMode) {
+          debugPrint('⚠️ Microphone permission not available (this is expected on iOS Simulator)');
+          debugPrint('💡 Voice recording requires a real iOS device');
+          return;
+        }
         debugPrint('❌ Microphone permission denied');
+        return;
       }
+
+      const config = RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
+        sampleRate: 16000,
+        numChannels: 1,
+      );
+
+      final stream = await _recorder.startStream(config);
+
+      _audioSubscription = stream.listen((data) {
+        debugPrint('🎵 Audio chunk sent: ${data.length} bytes');
+        _socketService.sendAudioChunk(data);
+      });
+
+      _isStreaming = true;
+      debugPrint('🎙️ Audio streaming started (PCM 16kHz)');
     } catch (e) {
-      debugPrint('❌ Error starting audio stream: $e');
+      if (Platform.isIOS && kDebugMode) {
+        debugPrint('⚠️ Audio streaming not available on iOS Simulator: $e');
+        debugPrint('💡 Use a real iOS device for voice recording features');
+      } else {
+        debugPrint('❌ Error starting audio stream: $e');
+      }
     }
   }
 

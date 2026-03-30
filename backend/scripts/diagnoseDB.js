@@ -3,11 +3,11 @@ const dotenv = require('dotenv');
 const path = require('path');
 
 // Load models
-const User = require('./models/User');
-const Reminder = require('./models/Reminder');
-const Memory = require('./models/Memory');
+const User = require('../models/User');
+const Reminder = require('../models/Reminder');
+const Memory = require('../models/Memory');
 
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 async function diagnose() {
     try {

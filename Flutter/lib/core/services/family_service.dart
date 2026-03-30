@@ -11,6 +11,7 @@ class FamilyService {
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
+      'x-platform': 'mobile',
     };
   }
 
@@ -21,6 +22,18 @@ class FamilyService {
       body: jsonEncode({'email': email}),
     );
     return jsonDecode(response.body);
+  }
+
+  Future<List<dynamic>> searchUsers(String query) async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}users/search?q=$query'),
+      headers: await _getHeaders(),
+    );
+    final data = jsonDecode(response.body);
+    if (data['success'] == true) {
+      return data['data'];
+    }
+    return [];
   }
 
   Future<List<dynamic>> getRequests() async {
