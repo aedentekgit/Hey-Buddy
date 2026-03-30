@@ -13,7 +13,6 @@ import 'package:buddy_mobile/features/account/screens/account_settings_screen.da
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/features/auth/screens/login_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
 import 'package:buddy_mobile/shared/dialogs/biometric_prompt_dialog.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';

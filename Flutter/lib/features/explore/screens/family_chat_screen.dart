@@ -40,14 +40,13 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   @override
   void initState() {
     super.initState();
-    _messageController.addListener(_onTextChanged);
-    _focusNode.addListener(_onFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
       context.read<FamilyProvider>().clearUnreadCount();
     });
   }
 
+<<<<<<< HEAD
   void _onFocusChange() {
     setState(() {});
   }
@@ -56,10 +55,10 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     setState(() {});
   }
 
+=======
+>>>>>>> a1f0e939a4b114e77e70d7849ace34850146d5bc
   @override
   void dispose() {
-    _messageController.removeListener(_onTextChanged);
-    _focusNode.removeListener(_onFocusChange);
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();

@@ -575,7 +575,6 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
     );
   }
 
-
 }
 
 // ── Emergency card ─────────────────────────────────────────────────────────

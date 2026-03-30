@@ -7,7 +7,12 @@ class BiometricService {
 
   Future<bool> isBiometricAvailable() async {
     final bool canAuthenticateWithBiometrics = await auth.canCheckBiometrics;
+<<<<<<< HEAD
     return canAuthenticateWithBiometrics;
+=======
+    final bool isSupported = await auth.isDeviceSupported();
+    return canAuthenticateWithBiometrics || isSupported;
+>>>>>>> a1f0e939a4b114e77e70d7849ace34850146d5bc
   }
 
   Future<List<BiometricType>> getAvailableBiometrics() async {

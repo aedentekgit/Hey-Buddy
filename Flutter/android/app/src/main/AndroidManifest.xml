@@ -5,8 +5,7 @@
         android:icon="@mipmap/launcher_icon"
         android:roundIcon="@mipmap/launcher_icon"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:enableOnBackInvokedCallback="true"
-        android:usesCleartextTraffic="true">
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -29,9 +28,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Google Maps API Key - Now fetched dynamically from branding settings -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAdNgoVCokinFU6OD0pRxOg47RCmJ3kaA0" />
+            android:value="${GOOGLE_MAPS_API_KEY}" />
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

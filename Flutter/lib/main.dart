@@ -91,18 +91,21 @@ class RealtimeSyncManager {
       final type = data['type'];
       debugPrint('RealtimeSyncManager: Received sync for $type');
 
-      if (!context.mounted) return;
-
-      if (type == 'task' || type == 'reminder') {
-        context.read<TasksProvider>().loadTasks(silent: true);
-      } else if (type == 'location_reminder') {
-        context.read<LocationRemindersProvider>().loadReminders();
-      } else if (type == 'memory') {
-        context.read<MemoriesProvider>().loadMemories(silent: true);
-      } else if (type == 'profile') {
-        context.read<UserProvider>().loadProfile();
-      } else if (type == 'family') {
-        context.read<FamilyProvider>().loadData();
+      // Use try-catch to safely access providers even if context is no longer mounted
+      try {
+        if (type == 'task' || type == 'reminder') {
+          context.read<TasksProvider>().loadTasks(silent: true);
+        } else if (type == 'location_reminder') {
+          context.read<LocationRemindersProvider>().loadReminders();
+        } else if (type == 'memory') {
+          context.read<MemoriesProvider>().loadMemories(silent: true);
+        } else if (type == 'profile') {
+          context.read<UserProvider>().loadProfile();
+        } else if (type == 'family') {
+          context.read<FamilyProvider>().loadData();
+        }
+      } catch (e) {
+        debugPrint('RealtimeSyncManager: Error accessing context - $e');
       }
     });
   }
