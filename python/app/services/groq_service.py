@@ -920,10 +920,13 @@ class GroqService:
                 "\n\n=== GUEST SECURITY POLICY ===\n"
                 "The current user is NOT logged in. They are a guest.\n"
                 "1. If they ask for ANY EXISTING personal details, reminders, memories, "
-                "addresses, phone numbers, or past private conversation history, "
+                "private home/work addresses, private phone numbers, or past private conversation history, "
                 "you MUST refuse and reply exactly: 'Please login to check the details.'\n"
-                "2. However, you ARE allowed to help them set NEW reminders, timers, or save NEW ephemeral memories for the current session. "
-                "You can confirm the details of what you just created, but do not fetch older data.\n"
+                "2. However, for ALL other queries, including general knowledge and PUBLIC information such as "
+                "local news, weather, infrastructure updates, and cultural events (even if they specify 'near me' or 'here'), "
+                "you ARE fully allowed to answer. Public location-based info is NOT private data. Use your tools and knowledge normally.\n"
+                "3. You can also help them set NEW reminders, timers, or save NEW ephemeral memories for the current session. "
+                "You can confirm what you just created, but do not fetch older data.\n"
                 "Do not try to find or provide older info even if you think you have it."
             )
 

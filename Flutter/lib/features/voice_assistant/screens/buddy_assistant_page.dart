@@ -74,34 +74,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       // This is the fix for: APK socket connects as guest (null token at startup)
       // and never reconnects after login.
       auth.addListener(_onAuthChanged);
-
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-      double? lat = userProvider.user['currentLocation']?['lat'];
-      double? lon = userProvider.user['currentLocation']?['lng'];
-
-      if (lat == null || lon == null) {
-        Geolocator.checkPermission().then((permission) {
-          if (permission == LocationPermission.always ||
-              permission == LocationPermission.whileInUse) {
-            Geolocator.getCurrentPosition(
-                  desiredAccuracy: LocationAccuracy.high,
-                  timeLimit: const Duration(seconds: 15),
-                )
-                .then((pos) {
-                  userProvider.setGuestLocation(pos.latitude, pos.longitude);
-                  provider.fetchLocalNews(pos.latitude, pos.longitude);
-                })
-                .catchError((e) {
-                  provider.fetchLocalNews(null, null);
-                });
-          } else {
-            provider.fetchLocalNews(null, null);
-          }
-        });
-      } else {
-        provider.fetchLocalNews(lat, lon);
-      }
     });
   }
 
@@ -220,36 +192,28 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     if (auth.token == null) {
       final lower = text.toLowerCase();
       final actionKeywords = [
-        'remind',
-        'reminder',
-        'remember',
-        'memo',
-        'memory',
-        'save',
-        'note',
-        'schedule',
-        'alarm',
-        'alert',
-        'set a',
-        'add a',
-        'create a',
-        'store',
-        'don\'t forget',
-        'dont forget',
-        'keep track',
-        'task',
-        'todo',
-        'to-do',
-        'plan',
-        'appointment',
-        'meeting',
-        'event',
-        'at ',
-        'pm',
-        'am',
+        'remind me',
+        'reminder for',
+        'remember that',
+        'save this',
+        'save to my',
+        'store this',
+        'set a reminder',
+        'add to my memory',
+        'create a reminder',
+        'schedule a',
+        'don\'t forget to',
+        'dont forget to',
+        'set an alarm',
+        'keep track of',
       ];
+
+      // Explicitly allow news-related queries for guests
+      final newsKeywords = ['news', 'headline', 'world', 'global', 'current event', 'weather', 'what\'s happening'];
+      final isNewsRequest = newsKeywords.any((kw) => lower.contains(kw));
+
       final isActionRequest = actionKeywords.any((kw) => lower.contains(kw));
-      if (isActionRequest) {
+      if (isActionRequest && !isNewsRequest) {
         _showAuthPrompt(reason: _detectActionReason(lower));
         return;
       }
@@ -557,181 +521,50 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Column(
         children: [
-          const SizedBox(height: 20),
-          // ── Buddy Hero Section ────────────────────────────
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [branding.primaryColor, AppColors.accent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: branding.primaryColor.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
+          const SizedBox(height: 120),
+          Center(
+            child: Column(
               children: [
-                SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/app_icon.png',
-                      fit: BoxFit.cover,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: branding.primaryColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/app_icon.png',
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Buddy in ${provider.localCity ?? 'Your Area'}",
-                        style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "I'm keeping an eye on your surroundings. Here's the latest:",
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.9),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 24),
+                Text(
+                  "Hey Buddy",
+                  style: GoogleFonts.outfit(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.text,
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "I'm here to help you. What's on your mind?",
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMid,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 28),
-
-          // ── Local Intelligence ──────────────────────────
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: branding.primaryColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                "LOCAL INTELLIGENCE",
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                  color: AppColors.textMid,
-                ),
-              ),
-              const Spacer(),
-              _smallActionButton(
-                icon: provider.isFetchingNews
-                    ? LucideIcons.refreshCw
-                    : LucideIcons.rotateCcw,
-                label: provider.isFetchingNews ? "Loading..." : "Refresh",
-                color: branding.primaryColor,
-                onTap: provider.isFetchingNews
-                    ? null
-                    : () async {
-                        final userProvider = Provider.of<UserProvider>(
-                          context,
-                          listen: false,
-                        );
-                        double? lat =
-                            userProvider.user['currentLocation']?['lat'];
-                        double? lon =
-                            userProvider.user['currentLocation']?['lng'];
-
-                        try {
-                          LocationPermission permission =
-                              await Geolocator.checkPermission();
-                          if (permission == LocationPermission.denied ||
-                              permission == LocationPermission.deniedForever) {
-                            permission = await Geolocator.requestPermission();
-                          }
-
-                          if (permission == LocationPermission.always ||
-                              permission == LocationPermission.whileInUse) {
-                            final pos = await Geolocator.getCurrentPosition(
-                              desiredAccuracy: LocationAccuracy.high,
-                              timeLimit: const Duration(seconds: 15),
-                            );
-                            lat = pos.latitude;
-                            lon = pos.longitude;
-                            userProvider.setGuestLocation(lat, lon);
-                          }
-                        } catch (_) {
-                          // Keep existing lat, lon as fallback
-                        }
-
-                        provider.fetchLocalNews(lat, lon);
-                      },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Show suggestions or news instantly!
-          if (provider.localNews.isEmpty) ...[
-            _buildSuggestionItem(
-              "What is the format of T20 WC 2026? 📜",
-              branding,
-              LucideIcons.helpCircle,
-            ),
-            const SizedBox(height: 14),
-            _buildSuggestionItem(
-              "Budget 2026: Taxpayers' Relief 💰",
-              branding,
-              LucideIcons.wallet,
-            ),
-            const SizedBox(height: 14),
-            _buildSuggestionItem(
-              "Convert photo of paper doc to document",
-              branding,
-              LucideIcons.fileText,
-            ),
-          ] else
-            ...provider.localNews.map((news) {
-              IconData icon = LucideIcons.info;
-              if (news.toLowerCase().contains('weather')) {
-                icon = LucideIcons.cloudSun;
-              }
-              if (news.toLowerCase().contains('event') ||
-                  news.toLowerCase().contains('fest')) {
-                icon = LucideIcons.partyPopper;
-              }
-              if (news.toLowerCase().contains('traffic') ||
-                  news.toLowerCase().contains('infra')) {
-                icon = LucideIcons.car;
-              }
-              if (news.toLowerCase().contains('alert')) {
-                icon = LucideIcons.alertTriangle;
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: _buildSuggestionItem(news, branding, icon),
-              );
-            }),
+          const SizedBox(height: 100),
           const SizedBox(height: 100), // Space for input
         ],
       ),
@@ -1029,7 +862,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                                         Icon(LucideIcons.checkCircle2, color: branding.primaryColor, size: 16),
                                         const SizedBox(width: 8),
                                         Text(
-                                          "Action completed successfully.",
+                                          "Information is currently unavailable.",
                                           style: GoogleFonts.inter(
                                             color: AppColors.text,
                                             fontSize: 14,
@@ -1429,110 +1262,112 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(28, 20, 28, 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Icon
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    branding.primaryColor,
-                    branding.primaryColor.withValues(alpha: 0.7),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      builder: (ctx) => SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(28, 20, 28, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                shape: BoxShape.circle,
               ),
-              child: const Icon(
-                LucideIcons.logIn,
-                color: Colors.white,
-                size: 30,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Sign in to $reason',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'This action requires a Buddy account. Sign in or create a free account to $reason, get smart reminders, and unlock the full Buddy experience.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: const Color(0xFF64748B),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 28),
-            // Login button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
-                icon: const Icon(LucideIcons.logIn, size: 18),
-                label: Text(
-                  'Sign In to Continue',
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+              const SizedBox(height: 24),
+              // Icon
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      branding.primaryColor,
+                      branding.primaryColor.withValues(alpha: 0.7),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  shape: BoxShape.circle,
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: branding.primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                child: const Icon(
+                  LucideIcons.logIn,
+                  color: Colors.white,
+                  size: 30,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            // Later button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  'Maybe Later',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: const Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 20),
+              Text(
+                'Sign in to $reason',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This action requires a Buddy account. Sign in or create a free account to $reason, get smart reminders, and unlock the full Buddy experience.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: const Color(0xFF64748B),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              // Login button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    );
+                  },
+                  icon: const Icon(LucideIcons.logIn, size: 18),
+                  label: Text(
+                    'Sign In to Continue',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: branding.primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              // Later button
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    'Maybe Later',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

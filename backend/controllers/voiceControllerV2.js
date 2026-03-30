@@ -288,12 +288,10 @@ exports.getLocalNews = async (req, res) => {
             }
         }
 
-        // Use Gemini to get 3 interesting points (2 local, 1 global)
-        const prompt = `Act as a news curator for ${cityStr}. Provide exactly 3 short, interesting news points (max 12 words each).
-        - Point 1 & 2: Local news relevant to ${cityStr} or its region.
-        - Point 3: A major global/international news headline from today.
+        // Use Gemini to get 3 interesting points (all local)
+        const prompt = `Act as a news curator for ${cityStr}. Provide exactly 3 short, interesting news points (max 12 words each) relevant to ${cityStr} or its surrounding region ONLY.
         
-        You must return EXACTLY 3 lines of text, one point per line, with no bullet points, no markdown, and absolutely no conversational filler. Do not apologize. Include emojis. Use your web_search tool to ensure these are real, current headlines for today.`;
+        You must return EXACTLY 3 lines of text, one point per line, with no bullet points, no markdown, NO EMOJIS, and absolutely no conversational filler. Do not apologize. Use your web_search tool to ensure these are real, current headlines for today. Focus exclusively on ${cityStr}.`;
 
         const aiResponse = await geminiService.generateResponse(prompt, userId, { userContext: { timeZone: 'Asia/Kolkata' } });
 
@@ -312,9 +310,9 @@ exports.getLocalNews = async (req, res) => {
         } catch (e) {
             const displayPlace = (cityStr === 'your location' || cityStr === 'your area') ? 'your area' : cityStr;
             news = [
-                `Local weather updates for ${displayPlace} today 🌤️`, 
-                `Upcoming cultural events in ${displayPlace} 🎭`, 
-                `New infrastructure developments ongoing near ${displayPlace} 🚧`
+                `Local weather updates for ${displayPlace} today`, 
+                `Upcoming cultural events in ${displayPlace}`, 
+                `New infrastructure developments ongoing near ${displayPlace}`
             ];
         }
 

@@ -97,13 +97,39 @@ exports.proxyChatToPython = async (req, res) => {
         const { message, session_id, tts } = req.body;
 
         // Use req.user._id if found in DB, else use decoded JWT userId as fallback
-        const userId = req.user ? req.user._id : (req.decodedUserId || `guest_${Date.now()}`);
-
-        const finalSessionId = session_id || userId.toString();
+        const isGuest = !req.user;
+        const userId = req.user ? req.user._id : (req.decodedUserId || `guest_session_${Date.now()}`);
 
         const requestPath = req.path;
         const isStream = requestPath.includes('stream');
         const isRealtime = requestPath.includes('realtime');
+
+        // --- Guest Gate: Enforce Login for Memory/Location, allow news ---
+        if (isGuest) {
+            const lowerMsg = (message || "").toLowerCase();
+            const memoryKeywords = ['remember', 'memory', 'remind', 'reminder', 'forget', 'fact', 'history'];
+            const locationKeywords = ['location', 'where', 'nearby', 'near me', 'traffic', 'direction', 'place', 'map'];
+            const newsKeywords = ['news', 'headline', 'world', 'global', 'current event', 'updates', 'weather', 'info', 'happening', 'infrastructure', 'infra'];
+
+            const isMemory = memoryKeywords.some(k => lowerMsg.includes(k));
+            const isLocation = locationKeywords.some(k => lowerMsg.includes(k));
+            const isNews = newsKeywords.some(k => lowerMsg.includes(k));
+
+            if ((isMemory || isLocation) && !isNews) {
+                const reply = "I'd love to help with your personal memories and location-aware features! However, these features require you to be signed in so I can keep your data secure and personalized. Please sign in to continue.";
+                if (isStream) {
+                    res.setHeader('Content-Type', 'text/event-stream');
+                    res.setHeader('Cache-Control', 'no-cache');
+                    res.setHeader('Connection', 'keep-alive');
+                    res.write(`data: ${JSON.stringify({ chunk: reply, success: true })}\n\n`);
+                    res.end();
+                    return;
+                }
+                return res.status(200).json({ success: true, message: reply });
+            }
+        }
+
+        const finalSessionId = session_id || userId.toString();
         const aiServiceUrl = config.AI_SERVICE_URL;
 
         console.log(`[AI Gateway] Incoming Request: ${requestPath} | Stream: ${isStream} | Realtime: ${isRealtime}`);
