@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/voice_assistant/screens/buddy_assistant_page.dart';
 import 'package:buddy_mobile/features/explore/screens/explore_screen.dart';

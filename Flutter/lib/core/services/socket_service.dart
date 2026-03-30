@@ -238,16 +238,12 @@ class SocketService {
         }
       });
 
-<<<<<<< HEAD
       socket?.on('messages_read', (data) {
         debugPrint('Messages Read: $data');
         if (data is Map) {
           _safeAdd(_messagesReadStreamController, Map<String, dynamic>.from(data));
         }
       });
-
-=======
->>>>>>> a1f0e939a4b114e77e70d7849ace34850146d5bc
       socket?.on('data_sync', (data) {
         debugPrint('📡 Data Sync Requested: $data');
         if (data is Map) {

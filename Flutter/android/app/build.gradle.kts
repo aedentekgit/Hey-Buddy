@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -30,7 +33,7 @@ android {
 
         // Fetch Google Maps API Key from local.properties or use empty string
         val localProperties = File(rootProject.projectDir, "local.properties")
-        val properties = java.util.Properties()
+        val properties = Properties()
         if (localProperties.exists()) {
             properties.load(localProperties.inputStream())
         }
@@ -42,7 +45,7 @@ android {
         create("release") {
             // Load keystore configuration from local.properties for security
             val localProperties = File(rootProject.projectDir, "local.properties")
-            val properties = java.util.Properties()
+            val properties = Properties()
             if (localProperties.exists()) {
                 properties.load(localProperties.inputStream())
             }

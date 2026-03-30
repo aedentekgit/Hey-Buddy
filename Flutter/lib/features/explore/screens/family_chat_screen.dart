@@ -46,7 +46,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     });
   }
 
-<<<<<<< HEAD
   void _onFocusChange() {
     setState(() {});
   }
@@ -54,9 +53,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   void _onTextChanged() {
     setState(() {});
   }
-
-=======
->>>>>>> a1f0e939a4b114e77e70d7849ace34850146d5bc
   @override
   void dispose() {
     _messageController.dispose();
