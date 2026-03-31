@@ -57,7 +57,7 @@ exports.processVoice = async (req, res) => {
 
         const userPrefs = user?.voicePreferences || {};
         const gender = userPrefs.gender || 'male';
-        const tone = userPrefs.tone || 'soft';
+        const tone = userPrefs.tone || 'normal';
 
         // 1.5. Build Reminders Context for AI
         let reminderString = "Upcoming Reminders: \n";

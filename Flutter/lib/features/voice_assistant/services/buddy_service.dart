@@ -7,8 +7,14 @@ import 'package:buddy_mobile/core/config/app_config.dart';
 
 class BuddyService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final http.Client client = http.Client(); // Persistent client for connection pooling
 
   String get _baseUrl => AppConfig.baseUrl;
+
+  // Cleanup to avoid leaks
+  void dispose() {
+    client.close();
+  }
 
   Future<String?> _getToken() async {
     return await _storage.read(key: 'jwt');
@@ -18,6 +24,7 @@ class BuddyService {
     final token = await _getToken();
     final headers = {
       'Content-Type': 'application/json',
+      'Accept': 'text/event-stream', // Ready for SSE
       'x-platform': 'mobile',
     };
 

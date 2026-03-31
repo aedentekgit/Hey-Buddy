@@ -854,8 +854,6 @@ class BuddyProvider with ChangeNotifier {
 
     try {
       final token = await _storage.read(key: 'jwt');
-      // Bugfix: Web app defaults to General ('stream') for human-like conversational capability.
-      // App mistakenly tied Socket state to Realtime Web Search mode, making it robotic.
       String endpoint = 'stream'; 
       final url = Uri.parse('${AppConfig.baseUrl}ai/chat/$endpoint');
 
@@ -870,11 +868,11 @@ class BuddyProvider with ChangeNotifier {
       request.body = jsonEncode({
         'message': finalText,
         'session_id': _currentConversationId,
-        'tts': true, // Enforce cloud TTS to match web dashboard audio tone exactly
+        'tts': true,
       });
 
-      final client = http.Client();
-      final response = await client.send(request).timeout(const Duration(seconds: 60));
+      // optimization: Use the persistent client from _buddyService instead of creating a new one
+      final response = await _buddyService.client.send(request).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 401) {
         _needsLogin = true;
@@ -962,14 +960,12 @@ class BuddyProvider with ChangeNotifier {
           }
           _isThinking = false;
           notifyListeners();
-          client.close();
         },
         onError: (err) {
           debugPrint('API Stream Error: $err');
           _isThinking = false;
           
           notifyListeners();
-          client.close();
         },
       );
 

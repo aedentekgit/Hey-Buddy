@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema({
     voicePreferences: {
         voiceId: {
             type: String,
-            default: 'en-GB-RyanNeural'
+            default: 'Puck'
         },
         gender: {
             type: String,

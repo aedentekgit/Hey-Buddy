@@ -92,7 +92,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   userProvider.setGuestLocation(pos.latitude, pos.longitude);
                 })
                 .catchError((e) {
-                  // Silent fail
+                  // Silent fail on location
                 });
           }
         });
@@ -534,7 +534,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                       Text(
+                      Text(
                         "Buddy AI Assistant",
                         style: GoogleFonts.outfit(
                           fontSize: 20,
@@ -545,7 +545,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "How can I help you today? Feel free to ask me anything.",
+                        "Your intelligent companion for productivity, learning, and creativity. How can I help you today?",
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -559,6 +559,26 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               ],
             ),
           ),
+          const SizedBox(height: 60),
+          // Center-aligned invitation to speak
+          Opacity(
+            opacity: 0.5,
+            child: Column(
+              children: [
+                const Icon(LucideIcons.mic, size: 40, color: Colors.white),
+                const SizedBox(height: 16),
+                Text(
+                  "Tap the microphone or type to start chatting",
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+>>>>>>> d4c31ac (🚀 Full-Stack Speed Optimization: Perceived sub-second latency for AI and Voice (Python, Node, Flutter))
           const SizedBox(height: 100), // Space for input
         ],
       ),

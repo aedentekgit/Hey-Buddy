@@ -137,7 +137,7 @@ const settingsSchema = new mongoose.Schema({
             gpt4o: { type: String, default: 'openai/gpt-4o-mini' },
             claude: { type: String, default: 'anthropic/claude-3.5-sonnet' },
             deepseek: { type: String, default: 'deepseek/deepseek-chat' },
-            groq: { type: String, default: 'groq/llama-3.3-70b-versatile' }
+            groq: { type: String, default: 'groq/llama-3.1-8b-instant' }
         },
         geminiApiKey: { type: String, select: false },
         openaiApiKey: { type: String, select: false },
@@ -154,12 +154,12 @@ const settingsSchema = new mongoose.Schema({
                 isDefault: { type: Boolean, default: false }
             }],
             default: [
-                { name: 'Ryan (British Male)', voiceId: 'en-GB-RyanNeural', gender: 'male', isDefault: true },
-                { name: 'Christopher (US Male)', voiceId: 'en-US-ChristopherNeural', gender: 'male', isDefault: false },
-                { name: 'Guy (US Male)', voiceId: 'en-US-GuyNeural', gender: 'male', isDefault: false },
-                { name: 'Sonia (British Female)', voiceId: 'en-GB-SoniaNeural', gender: 'female', isDefault: false },
-                { name: 'Aria (US Female)', voiceId: 'en-US-AriaNeural', gender: 'female', isDefault: false },
-                { name: 'Jenny (US Female)', voiceId: 'en-US-JennyNeural', gender: 'female', isDefault: false }
+                { name: 'Puck (British Male)', voiceId: 'Puck', gender: 'male', isDefault: true },
+                { name: 'Charon (Deep Male)', voiceId: 'Charon', gender: 'male', isDefault: false },
+                { name: 'Fenrir (Strong Male)', voiceId: 'Fenrir', gender: 'male', isDefault: false },
+                { name: 'Aoede (Soft Female)', voiceId: 'Aoede', gender: 'female', isDefault: false },
+                { name: 'Kore (Bright Female)', voiceId: 'Kore', gender: 'female', isDefault: false },
+                { name: 'Ryan (Legacy/Edge)', voiceId: 'en-GB-RyanNeural', gender: 'male', isDefault: false }
             ]
         },
         aiAssistantApiUrl: { type: String, default: '' },

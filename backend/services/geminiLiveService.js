@@ -16,6 +16,18 @@ class GeminiLiveService extends EventEmitter {
 
 
     connect(systemInstruction = null, voice = 'Aoede', useTools = true, modelOverride = null) {
+        // Map unsupported voice names to Gemini-compatible ones
+        const VOICE_MAP = {
+            'en-GB-RyanNeural': 'Puck',
+            'Ryan': 'Puck',
+            'Sonia': 'Aoede',
+            'Aria': 'Aoede',
+            'en-US-ChristopherNeural': 'Charon',
+            'en-US-GuyNeural': 'Fenrir'
+        };
+
+        const resolvedVoice = VOICE_MAP[voice] || voice;
+
         // Use provided model or throw error—No more hardcoded fallbacks in backend
         if (modelOverride) this.model = modelOverride;
         if (!this.model) {
@@ -23,9 +35,9 @@ class GeminiLiveService extends EventEmitter {
             return;
         }
 
-        console.log(`[Gemini Live] 🔗 Dynamic Initialization: ${this.model} (Voice: ${voice})...`);
+        console.log(`[Gemini Live] 🔗 Dynamic Initialization: ${this.model} (Voice: ${resolvedVoice})...`);
         this.systemInstructionOverride = systemInstruction;
-        this.voiceOverride = voice;
+        this.voiceOverride = resolvedVoice;
         this.useTools = useTools;
         const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
 

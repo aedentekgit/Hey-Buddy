@@ -23,7 +23,7 @@ cd ..
 
 # 2. Update Dependencies (AI Service)
 echo "📦 Updating AI Service Dependencies..."
-cd ai-service
+cd python
 pip install -r requirements.txt || pip3 install -r requirements.txt
 cp .env.$ENV .env
 cd ..
@@ -45,7 +45,7 @@ cd ..
 
 # 5. Starting/Restarting Python AI Service with PM2
 echo "🔄 Restarting Python AI Service..."
-cd ai-service
+cd python
 pm2 restart "python3 run.py" --name Buddy-AI-Service-$ENV || pm2 start "python3 run.py" --name Buddy-AI-Service-$ENV
 cd ..
 

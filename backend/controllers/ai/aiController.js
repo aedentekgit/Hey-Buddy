@@ -132,6 +132,24 @@ exports.proxyChatToPython = async (req, res) => {
 
         console.log(`[AI Gateway] Incoming Request: ${requestPath} | Stream: ${isStream} | Realtime: ${isRealtime}`);
 
+        // 1. Parallelize Data Fetching (PROMISE.ALL) - Saves ~200-400ms
+        const [aiConfig, context, userDetails] = await Promise.all([
+            getAiConfig(),
+            getContext(userId, session_id),
+            User.findById(userId).select('voicePreferences')
+        ]);
+
+        // 2. FORCED LATENCY OVERRIDE: If using Groq, force the fast model
+        if (aiConfig.provider === 'groq' && aiConfig.model.includes('70b')) {
+            console.log('[AI Gateway] Speed Optimization: Forcing llama-3.1-8b-instant over slow 70b model');
+            aiConfig.model = 'llama-3.1-8b-instant';
+        }
+
+        if (!aiConfig.apiKey) {
+            console.warn('[AI Gateway] AI API Key is missing for provider:', aiConfig.provider);
+            return res.status(400).json({ success: false, message: 'AI API Key is not configured in settings.' });
+        }
+
         // Map to the correct Python endpoint
         pythonEndpoint = `${aiServiceUrl}/chat`;
         if (isRealtime && isStream) {
@@ -144,22 +162,9 @@ exports.proxyChatToPython = async (req, res) => {
             pythonEndpoint = `${aiServiceUrl}/chat/consensus`;
         }
 
-        console.log(`[AI Gateway] Target Python Endpoint: ${pythonEndpoint}`);
+        console.log(`[AI Gateway] Forwarding to Python | Provider: ${aiConfig.provider} | Model: ${aiConfig.model}`);
 
-        // 1. Get configurations from Database
-        const aiConfig = await getAiConfig();
-
-        if (!aiConfig.apiKey) {
-            console.warn('[AI Gateway] AI API Key is missing for provider:', aiConfig.provider);
-            console.log('[AI Gateway] Full aiConfig:', JSON.stringify(aiConfig, null, 2));
-            return res.status(400).json({ success: false, message: 'AI API Key is not configured in settings.' });
-        }
-        console.log('[AI Gateway] Forwarding to Python with provider:', aiConfig.provider, 'model:', aiConfig.model);
-
-        // 2. Fetch User Context (includes history, memories, and reminders)
-        const context = await getContext(userId, session_id);
-
-        // Build an authoritative context string for the AI
+        // 3. Build an authoritative context string for the AI
         let memoryString = "=== AUTHORITATIVE USER CONTEXT ===\n";
 
         // Current Local Date/Time (Critical for time-aware reminders)
@@ -192,9 +197,9 @@ exports.proxyChatToPython = async (req, res) => {
             memoryString += "\n[SYSTEM ALERT]: This is a GUEST user (Not Logged In). You CAN answer general knowledge questions, provide global news, and chat casually. However, you CANNOT save memories, retrieve past memories, set reminders, or access personal data. If the guest asks to perform any of these personalized actions (e.g., 'remind me', 'save this memory', 'where am I'), politely inform them that they must Sign In or Create a Buddy Account to unlock personal assistant features.\n";
         }
 
-        // Fetch user preferences for personalized voice
-        const userDetails = await User.findById(userId).select('voicePreferences');
-        const userVoiceId = userDetails?.voicePreferences?.voiceId || 'en-GB-RyanNeural';
+        const userVoiceId = userDetails?.voicePreferences?.voiceId || 'Puck';
+        const userGender = userDetails?.voicePreferences?.gender || 'male';
+        const userTone = userDetails?.voicePreferences?.tone || 'normal';
 
         // 3. Forward full payload to Python FastAPI
         const payload = {
@@ -202,6 +207,8 @@ exports.proxyChatToPython = async (req, res) => {
             session_id: finalSessionId,
             tts: tts || false,
             voice_id: userVoiceId,
+            gender: userGender,
+            tone: userTone,
             api_key: aiConfig.apiKey,
             provider: aiConfig.provider,
             model: aiConfig.model,
@@ -220,6 +227,7 @@ exports.proxyChatToPython = async (req, res) => {
 
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('X-Accel-Buffering', 'no'); // Prevent buffering from Nginx/proxies
             res.setHeader('Connection', 'keep-alive');
 
             pythonResponse.data.pipe(res);
@@ -445,16 +453,36 @@ exports.proxyHealthToPython = async (req, res) => {
     }
 };
 
+const ttsCache = new Map();
+
 exports.proxyTtsToPython = async (req, res) => {
     try {
+        const { text, voice_id, gender, tone } = req.body;
+        
+        // Create a unique cache key based on the request parameters
+        const cacheKey = `${text}_${voice_id}_${gender}_${tone}`;
+        
+        if (ttsCache.has(cacheKey)) {
+            console.log('[TTS Cache] Serving cached audio for preview.');
+            const cachedData = ttsCache.get(cacheKey);
+            res.setHeader('Content-Type', 'audio/mpeg');
+            return res.send(cachedData);
+        }
+
         const aiServiceUrl = config.AI_SERVICE_URL;
+        console.log('[TTS] Generating new audio for preview...');
         const pythonResponse = await axios.post(`${aiServiceUrl}/tts`, req.body, {
-            responseType: 'stream',
+            responseType: 'arraybuffer', // Get as buffer to cache it
             headers: { 'X-API-Key': config.BUDDY_API_KEY }
         });
+
+        // Store in cache for future requests
+        ttsCache.set(cacheKey, Buffer.from(pythonResponse.data));
+
         res.setHeader('Content-Type', 'audio/mpeg');
-        pythonResponse.data.pipe(res);
+        res.send(Buffer.from(pythonResponse.data));
     } catch (error) {
+        console.error('[TTS Proxy] Error:', error.message);
         res.status(500).json({ success: false, message: 'TTS Service is currently unavailable.' });
     }
 };

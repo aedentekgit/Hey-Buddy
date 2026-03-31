@@ -127,8 +127,11 @@ const sendPushNotificationBatch = async (tokens, title, body, data = {}) => {
     const results = { success: [], failed: [] };
     if (!tokens || tokens.length === 0) return results;
 
+    // UNIQUE-IFY: Ensure we don't send to the same token twice in one batch
+    const uniqueTokens = [...new Set(tokens)];
+
     await Promise.all(
-        tokens.map(token =>
+        uniqueTokens.map(token =>
             sendPushNotification(token, title, body, data)
                 .then(msgId => results.success.push({ token, msgId }))
                 .catch(err => results.failed.push({ token, error: err.message }))

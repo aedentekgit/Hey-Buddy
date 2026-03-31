@@ -785,15 +785,15 @@ async def chat_consensus(request: ChatRequest):
 # re.split() with this pattern breaks text into sentences at these boundaries.
 # The (?<=…) is a *lookbehind* — it asserts the punctuation is BEFORE the split
 # point, so the punctuation stays attached to the preceding sentence.
-_SPLIT_RE = re.compile(r"(?<=[.!?,;:])\s+")
+_SPLIT_RE = re.compile(r"(?<=[.!?,;:])")
 
 # Minimum word counts to avoid generating TTS for trivially short fragments.
 # _MIN_WORDS_FIRST: the very first sentence must have at least this many words.
 # _MIN_WORDS: subsequent sentences must have at least this many.
 # _MERGE_IF_WORDS: if a sentence has ≤ this many words, merge it into the next.
-_MIN_WORDS_FIRST = 2
-_MIN_WORDS = 3
-_MERGE_IF_WORDS = 2
+_MIN_WORDS_FIRST = 1
+_MIN_WORDS = 1
+_MERGE_IF_WORDS = 1
 
 
 def _split_sentences(buf: str):
@@ -915,7 +915,7 @@ def _generate_tts_sync(text: str, voice: str, rate: str) -> bytes:
 # Thread pool for parallel TTS generation.  4 workers means up to 4 sentences
 # can be synthesised simultaneously.  This is a module-level singleton —
 # created once when the module is imported, shared across all requests.
-_tts_pool = ThreadPoolExecutor(max_workers=4)
+_tts_pool = ThreadPoolExecutor(max_workers=12)
 
 
 def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enabled: bool = False, initial_language: str = "en", gender: str = "male", tone: str = "normal", voice_id: str = None):
@@ -1053,20 +1053,28 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
                 min_w = _MIN_WORDS_FIRST if is_first else _MIN_WORDS
                 if len(sent.split()) < min_w:
                     continue
+                
+                # --- OPTIMIZATION: IMMEDIATE FIRST RESPONSE ---
+                # If this is the very first sentence of the response, submit it instantly.
+                # Don't hold it back for extension checks, as the first 1-2 tokens are 
+                # almost always the full greeting or start of the logic.
+                if is_first:
+                    _submit(sent)
+                    is_first = False
+                    continue
+
                 is_last = (i == len(sentences) - 1)
                 # If we were holding a sentence, submit it now (a new sentence
                 # confirms the held one is truly complete).
                 if held:
                     _submit(held)
                     held = None
-                    is_first = False
+                
                 if is_last:
-                    # Don't submit the last sentence yet — hold it back in case
-                    # the next LLM chunk extends it (e.g. "Dr." + " Smith…").
+                    # Hold subsequent sentences briefly to ensure they are complete
                     held = sent
                 else:
                     _submit(sent)
-                    is_first = False
 
     except Exception as e:
         # If anything goes wrong mid-stream, cancel pending TTS jobs and send

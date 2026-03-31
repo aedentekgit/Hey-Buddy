@@ -71,11 +71,14 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
     }
   }
 
-  Future<void> _handleSelectVoice(String voiceId) async {
+  Future<void> _handleSelectVoice(String voiceId, String gender) async {
     setState(() => _processing = true);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     
-    final success = await userProvider.updateVoicePreferences({'voiceId': voiceId});
+    final success = await userProvider.updateVoicePreferences({
+      'voiceId': voiceId,
+      'gender': gender,
+    });
     
     if (mounted) {
       setState(() => _processing = false);
@@ -255,7 +258,7 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
                     final bool isPlaying = vId == _playingVoiceId;
 
                     return GestureDetector(
-                      onTap: _processing ? null : () => _handleSelectVoice(vId),
+                      onTap: _processing ? null : () => _handleSelectVoice(vId, gender),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         margin: const EdgeInsets.only(bottom: 12),

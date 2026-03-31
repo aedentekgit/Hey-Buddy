@@ -67,8 +67,11 @@ const triggerNotification = async (reminder, user, io) => {
     // 3. Send Push Notifications
     if (reminder.alerts?.push !== false && user.notificationPreferences?.push?.enabled !== false) {
         if (user.fcmTokens && user.fcmTokens.length > 0) {
+            // UNIQUE-IFY: Ensure we don't send to the same token twice
+            const uniqueTokens = [...new Set(user.fcmTokens.filter(t => t && typeof t === 'string'))];
             const tokensToRemove = [];
-            const notificationPromises = user.fcmTokens.map(token =>
+            
+            const notificationPromises = uniqueTokens.map(token =>
                 sendPushNotification(
                     token,
                     notification?.title || `Reminder: ${reminder.title}`,
