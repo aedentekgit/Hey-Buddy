@@ -218,47 +218,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     final text = _inputController.text.trim();
     if (text.isEmpty && _selectedImage == null) return;
 
-    // LOGIN GUARD: If the user is a guest and their message sounds like a save/reminder/memory action,
-    // intercept and show the login prompt instead of sending.
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.token == null) {
-      final lower = text.toLowerCase();
-      final actionKeywords = [
-        'remind',
-        'reminder',
-        'remember',
-        'memo',
-        'memory',
-        'save',
-        'note',
-        'schedule',
-        'alarm',
-        'alert',
-        'set a',
-        'add a',
-        'create a',
-        'store',
-        'don\'t forget',
-        'dont forget',
-        'keep track',
-        'task',
-        'todo',
-        'to-do',
-        'plan',
-        'appointment',
-        'meeting',
-        'event',
-        'at ',
-        'pm',
-        'am',
-      ];
-      final isActionRequest = actionKeywords.any((kw) => lower.contains(kw));
-      if (isActionRequest) {
-        _showAuthPrompt(reason: _detectActionReason(lower));
-        return;
-      }
-    }
-
     final provider = Provider.of<BuddyProvider>(context, listen: false);
 
     // Capture image path before clearing
@@ -1237,110 +1196,114 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(28, 20, 28, 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Icon
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    branding.primaryColor,
-                    branding.primaryColor.withValues(alpha: 0.7),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(28, 20, 28, 36),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                LucideIcons.logIn,
-                color: Colors.white,
-                size: 30,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Sign in to $reason',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'This action requires a Buddy account. Sign in or create a free account to $reason, get smart reminders, and unlock the full Buddy experience.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: const Color(0xFF64748B),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 28),
-            // Login button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
-                icon: const Icon(LucideIcons.logIn, size: 18),
-                label: Text(
-                  'Sign In to Continue',
+                const SizedBox(height: 24),
+                // Icon
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        branding.primaryColor,
+                        branding.primaryColor.withValues(alpha: 0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.logIn,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Sign in to $reason',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    color: const Color(0xFF1E293B),
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: branding.primaryColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Later button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  'Maybe Later',
+                const SizedBox(height: 10),
+                Text(
+                  'This action requires a Buddy account. Sign in or create a free account to $reason, get smart reminders, and unlock the full Buddy experience.',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
                     fontSize: 14,
-                    color: const Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF64748B),
+                    height: 1.5,
                   ),
                 ),
-              ),
+                const SizedBox(height: 28),
+                // Login button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                    icon: const Icon(LucideIcons.logIn, size: 18),
+                    label: Text(
+                      'Sign In to Continue',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: branding.primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Later button
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(
+                      'Maybe Later',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        color: const Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

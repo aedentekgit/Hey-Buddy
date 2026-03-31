@@ -147,6 +147,8 @@ from concurrent.futures import ThreadPoolExecutor
 # audio for a given text string.  Used in both the /tts endpoint and in the
 # inline TTS pipeline inside _stream_generator.
 import edge_tts
+from gtts import gTTS
+import io
 
 # Pydantic models defined in app/models.py.  They declare the shape of
 # request bodies and response bodies; FastAPI auto-validates against them.
@@ -875,29 +877,38 @@ def _merge_short(sentences):
 def _generate_tts_sync(text: str, voice: str, rate: str) -> bytes:
     """
     Generate MP3 audio bytes from text using edge_tts — synchronous wrapper.
-
-    edge_tts is an async library, but ThreadPoolExecutor runs sync functions.
-    This wrapper creates a brand-new one-shot event loop (asyncio.run),
-    streams the audio chunks, concatenates them, and returns raw MP3 bytes.
-
-    This function runs in a background thread (via _tts_pool), so calling
-    asyncio.run() here does NOT interfere with the main FastAPI event loop.
-
-    Args:
-        text:  The sentence to synthesise.
-        voice: The edge-tts voice ID (e.g. "en-US-ChristopherNeural").
-        rate:  Speed adjustment string (e.g. "+0%", "+10%").
-
-    Returns:
-        Raw MP3 bytes of the spoken sentence.
+    Falls back to gTTS if edge_tts fails (e.g. 403 Forbidden).
     """
     async def _inner():
-        communicate = edge_tts.Communicate(text=text, voice=voice, rate=rate)
-        parts = []
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                parts.append(chunk["data"])
-        return b"".join(parts)
+        try:
+            communicate = edge_tts.Communicate(text=text, voice=voice, rate=rate)
+            parts = []
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    parts.append(chunk["data"])
+            
+            audio_data = b"".join(parts)
+            if not audio_data:
+                raise ValueError("Edge TTS returned empty audio")
+            return audio_data
+            
+        except Exception as e:
+            logger.warning(f"[TTS-FALLBACK] Edge TTS failed ({e}), falling back to gTTS for: {text[:30]}...")
+            try:
+                # gTTS fallback (always works on VPS unless Google blocks IP)
+                # Mapping edge-tts lang prefix to gtts lang
+                lang = "en"
+                if "-" in voice:
+                    lang = voice.split("-")[0]
+                
+                tts = gTTS(text=text, lang=lang)
+                fp = io.BytesIO()
+                tts.write_to_fp(fp)
+                return fp.getvalue()
+            except Exception as ge:
+                logger.error(f"[TTS-FATAL] Both Edge and gTTS failed: {ge}")
+                return b""
+
     return asyncio.run(_inner())
 
 
