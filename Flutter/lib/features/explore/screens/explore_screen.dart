@@ -438,6 +438,7 @@ class _QuickActionsGrid extends StatelessWidget {
         AppColors.pink,
         familyStatus,
         onFamilyTap,
+        count: (pendingCount + unreadCount) > 0 ? (pendingCount + unreadCount).toString() : null,
       ),
     ];
 
@@ -459,7 +460,8 @@ class _Action {
   final Color color;
   final String sub;
   final VoidCallback onTap;
-  const _Action(this.label, this.icon, this.color, this.sub, this.onTap);
+  final String? count;
+  const _Action(this.label, this.icon, this.color, this.sub, this.onTap, {this.count});
 }
 
 class _ActionCard extends StatelessWidget {
@@ -537,45 +539,64 @@ class _ActionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 38,
-                      height: 38,
+                      width: 42,
+                      height: 42,
                       decoration: BoxDecoration(
-                        color: isLight ? null : action.color.withValues(alpha: 0.1),
-                        gradient: isLight ? LinearGradient(
+                        gradient: LinearGradient(
                           colors: [
-                            Colors.white.withValues(alpha: 0.9),
-                            Colors.white.withValues(alpha: 0.4),
+                            action.color.withValues(alpha: 0.15),
+                            action.color.withValues(alpha: 0.05),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                        ) : null,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isLight ? Colors.white : action.color.withValues(alpha: 0.2),
-                          width: isLight ? 1.5 : 1.0,
                         ),
-                        boxShadow: isLight ? [
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: action.color.withValues(alpha: 0.25),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
                           BoxShadow(
-                            color: action.color.withValues(alpha: 0.25),
-                            blurRadius: 8,
+                            color: action.color.withValues(alpha: 0.2),
+                            blurRadius: 12,
                             offset: const Offset(0, 4),
-                          )
-                        ] : null,
+                          ),
+                          BoxShadow(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            blurRadius: 4,
+                            offset: const Offset(-2, -2),
+                          ),
+                        ],
                       ),
                       child: Icon(
                         action.icon, 
-                        size: 20, 
-                        color: isLight ? action.color.withValues(alpha: 0.9) : action.color
+                        size: 22, 
+                        color: action.color.withValues(alpha: 0.9),
                       ),
                     ),
-                    if (action.sub.contains('new'))
+                    if (action.count != null)
                       Container(
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.only(top: 2, right: 2),
+                        width: 20,
+                        height: 20,
                         decoration: BoxDecoration(
                           color: AppColors.danger,
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.danger.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          action.count!,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                   ],

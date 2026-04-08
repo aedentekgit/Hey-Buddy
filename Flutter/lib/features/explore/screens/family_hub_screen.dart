@@ -132,11 +132,73 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<String>(
+                        initialValue: _selectedFilter,
+                        onSelected: (val) => setState(() => _selectedFilter = val),
+                        offset: const Offset(0, 45),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        color: AppColors.surface,
+                        elevation: 8,
+                        shadowColor: Colors.black.withValues(alpha: 0.2),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _selectedFilter,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(LucideIcons.listFilter, size: 14, color: AppColors.accent),
+                            ],
+                          ),
+                        ),
+                        itemBuilder: (context) => ['All', 'Active', 'Pending'].map((f) => PopupMenuItem(
+                          value: f,
+                          height: 44,
+                          child: Row(
+                            children: [
+                              Icon(
+                                f == 'All' ? LucideIcons.layoutGrid : (f == 'Active' ? LucideIcons.userCheck : LucideIcons.userPlus),
+                                size: 16,
+                                color: _selectedFilter == f ? AppColors.accent : AppColors.textDim,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                f,
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: _selectedFilter == f ? FontWeight.w700 : FontWeight.w500,
+                                  color: _selectedFilter == f ? AppColors.accent : AppColors.text,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )).toList(),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 10),
-                _buildFilterChips(),
                 const SizedBox(height: 6),
               ],
             ),
@@ -193,6 +255,22 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                     ),
                   ),
                   const SizedBox(height: 8),
+                ],
+
+                // ── Sent Invitations (Outgoing) ─────────────────────
+                if (provider.members.any((m) => m['status'] == 'pending')) ...[
+                  _SecLabel('Sent Invitations'),
+                  const SizedBox(height: 8),
+                  ...provider.members
+                      .where((m) => m['status'] == 'pending')
+                      .map((m) => _SentRequestCard(
+                        member: m,
+                        onCancel: () {
+                          final reqId = m['user_id'].toString().replaceFirst('pending_', '');
+                          provider.cancelRequest(reqId);
+                        },
+                      )),
+                  const SizedBox(height: 16),
                 ],
 
                 // ── Active connections header ───────────────────────
@@ -256,15 +334,15 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                   const SizedBox(height: 12),
                 ],
 
-                // ── Member cards ───────────────────────────────────
+                // ── Member cards (Connected Only) ───────────────────
                 if (_selectedFilter == 'All' || _selectedFilter == 'Active') ...[
-                  if (provider.members
-                      .where((m) => m['user_id'] != provider.currentUserId && !provider.archivedMemberIds.contains(m['user_id']))
-                      .isEmpty)
+                  if (provider.members.isEmpty)
                     _buildEmpty()
                   else
                     ...provider.members
-                        .where((m) => m['user_id'] != provider.currentUserId && !provider.archivedMemberIds.contains(m['user_id']))
+                        .where((m) => m['user_id'] != provider.currentUserId && 
+                                     m['status'] == 'connected' &&
+                                     !provider.archivedMemberIds.contains(m['user_id']))
                         .map(
                       (m) => Dismissible(
                         key: Key('conn_${m['user_id']}'),
@@ -386,7 +464,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
   // ── Empty state ────────────────────────────────────────────────────────
   Widget _buildEmpty() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
+      padding: const EdgeInsets.only(top: 20, bottom: 40),
       child: Column(
         children: [
           Container(
@@ -426,6 +504,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
     if (_emailCtrl.text.isEmpty) return;
     setState(() => _isInviting = true);
     final ok = await provider.sendRequest(_emailCtrl.text.trim());
+    if (ok) _emailCtrl.clear();
     setState(() => _isInviting = false);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -489,46 +568,66 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    provider.sendEmergencyAlert(
-                      'I need help! Immediate assistance required.',
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: AppColors.danger,
-                        behavior: SnackBarBehavior.floating,
-                        content: Text('Emergency alert broadcasted!'),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppColors.accent, AppColors.purple],
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.4),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDim,
+                          ),
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      'Understood',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.nunito(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          provider.sendEmergencyAlert(
+                            'I need help! Immediate assistance required.',
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: AppColors.danger,
+                              behavior: SnackBarBehavior.floating,
+                              content: Text('Emergency alert broadcasted!'),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.danger, AppColors.danger.withValues(alpha: 0.8)],
+                            ),
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.danger.withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            'Confirm',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
               ],
@@ -709,7 +808,21 @@ class _EmergencyCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(LucideIcons.chevronRight, color: isLight ? color.withValues(alpha: 0.9) : Colors.white, size: 20),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: isLight ? color.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isLight ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Icon(
+                      LucideIcons.chevronRight, 
+                      color: isLight ? color.withValues(alpha: 0.8) : Colors.white, 
+                      size: 16
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -738,10 +851,30 @@ class _InviteCard extends StatefulWidget {
 
 class _InviteCardState extends State<_InviteCard> {
   bool _isFocused = false;
+  List<dynamic> _suggestions = [];
+  bool _isSearching = false;
+
+  Future<void> _onSearch(String val, FamilyProvider provider) async {
+    if (val.length < 2) {
+      if (_suggestions.isNotEmpty) setState(() => _suggestions = []);
+      return;
+    }
+    setState(() => _isSearching = true);
+    try {
+      final results = await provider.searchUsers(val);
+      setState(() {
+        _suggestions = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      setState(() => _isSearching = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     Provider.of<BrandingProvider>(context);
+    final provider = context.read<FamilyProvider>();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -777,13 +910,13 @@ class _InviteCardState extends State<_InviteCard> {
                       color: _isFocused ? AppColors.surface : AppColors.bg,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _isFocused ? AppColors.accent : AppColors.border,
+                        color: _isFocused ? AppColors.accent : AppColors.border.withValues(alpha: 0.6),
                         width: _isFocused ? 1.5 : 1.0,
                       ),
                       boxShadow: _isFocused
                           ? [
                               BoxShadow(
-                                color: AppColors.accent.withValues(alpha: 0.12),
+                                color: AppColors.accent.withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -799,112 +932,37 @@ class _InviteCardState extends State<_InviteCard> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Consumer<FamilyProvider>(
-                            builder: (context, provider, _) => RawAutocomplete<Map<String, dynamic>>(
-                              textEditingController: widget.ctrl,
-                              focusNode: FocusNode(),
-                              optionsBuilder: (TextEditingValue textEditingValue) async {
-                                if (textEditingValue.text.isEmpty) {
-                                  return const Iterable<Map<String, dynamic>>.empty();
-                                }
-                                final results = await provider.searchUsers(textEditingValue.text);
-                                return List<Map<String, dynamic>>.from(results);
-                              },
-                              displayStringForOption: (Map<String, dynamic> option) => option['email'],
-                              onSelected: (Map<String, dynamic> selection) {
-                                widget.ctrl.text = selection['email'];
-                              },
-                              fieldViewBuilder: (
-                                BuildContext context,
-                                TextEditingController fieldTextEditingController,
-                                FocusNode fieldFocusNode,
-                                VoidCallback onFieldSubmitted,
-                              ) {
-                                return TextField(
-                                  controller: fieldTextEditingController,
-                                  focusNode: fieldFocusNode,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    color: AppColors.text,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  onSubmitted: (_) {
-                                    onFieldSubmitted();
-                                    widget.onSend();
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: 'Email or Apple ID',
-                                    hintStyle: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      color: AppColors.textDim,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    border: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    filled: false,
-                                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                                    isCollapsed: true,
-                                  ),
-                                );
-                              },
-                              optionsViewBuilder: (
-                                BuildContext context,
-                                AutocompleteOnSelected<Map<String, dynamic>> onSelected,
-                                Iterable<Map<String, dynamic>> options,
-                              ) {
-                                return Align(
-                                  alignment: Alignment.topLeft,
-                                  child: Material(
-                                    borderRadius: BorderRadius.circular(12),
-                                    elevation: 4,
-                                    color: AppColors.surface,
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(maxHeight: 200, maxWidth: 280),
-                                      child: ListView.separated(
-                                        padding: const EdgeInsets.all(0),
-                                        shrinkWrap: true,
-                                        itemCount: options.length,
-                                        separatorBuilder: (context, index) => Divider(
-                                          height: 1, color: AppColors.border, indent: 16, endIndent: 16
-                                        ),
-                                        itemBuilder: (BuildContext context, int index) {
-                                          final option = options.elementAt(index);
-                                          return InkWell(
-                                            onTap: () => onSelected(option),
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    option['name'],
-                                                    style: GoogleFonts.inter(
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 14,
-                                                      color: AppColors.text,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    option['email'],
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 12,
-                                                      color: AppColors.textMid,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
+                          child: TextField(
+                            controller: widget.ctrl,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: AppColors.text,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            onChanged: (val) => _onSearch(val, provider),
+                            onSubmitted: (_) => widget.onSend(),
+                            decoration: InputDecoration(
+                              hintText: 'Email or Apple ID',
+                              hintStyle: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: AppColors.textDim,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              filled: false,
+                              isCollapsed: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
                         ),
+                        if (_isSearching)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                       ],
                     ),
                   ),
@@ -915,36 +973,108 @@ class _InviteCardState extends State<_InviteCard> {
                 onTap: widget.isLoading ? null : widget.onSend,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 44,
-                  height: 44,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: widget.isLoading ? AppColors.accent.withValues(alpha: 0.5) : AppColors.accent,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(13),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.35),
-                        blurRadius: 15,
-                        offset: const Offset(0, 6),
+                        color: AppColors.accent.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: widget.isLoading
                       ? const Padding(
-                          padding: EdgeInsets.all(14),
+                          padding: EdgeInsets.all(10),
                           child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
+                            strokeWidth: 2,
                             color: Colors.white,
                           ),
                         )
                       : const Icon(
                           LucideIcons.send,
-                          size: 20,
+                          size: 18,
                           color: Colors.white,
                         ),
                 ),
               ),
             ],
           ),
+          
+          if (_suggestions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _suggestions.length,
+                  separatorBuilder: (ctx, i) => Divider(height: 1, color: AppColors.border.withValues(alpha: 0.3), indent: 16, endIndent: 16),
+                  itemBuilder: (ctx, i) {
+                    final user = _suggestions[i];
+                    return InkWell(
+                      onTap: () {
+                        widget.ctrl.text = user['email'];
+                        setState(() => _suggestions = []);
+                        FocusScope.of(context).unfocus();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: AppColors.accent.withValues(alpha: 0.1),
+                              backgroundImage: user['profilePicture'] != null 
+                                ? NetworkImage(AppConfig.formatImageUrl(user['profilePicture'])!) 
+                                : null,
+                              child: user['profilePicture'] == null 
+                                ? Text(user['name'][0].toUpperCase(), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accent)) 
+                                : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user['name'],
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.text,
+                                    ),
+                                  ),
+                                  Text(
+                                    user['email'],
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: AppColors.textMid,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(LucideIcons.plusCircle, size: 18, color: AppColors.accent.withValues(alpha: 0.6)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1262,6 +1392,74 @@ class _SecLabel extends StatelessWidget {
         fontWeight: FontWeight.w700,
         color: AppColors.textDim,
         letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+// ── Sent invitation card (Waiting State) ───────────────────────────────────
+class _SentRequestCard extends StatelessWidget {
+  final dynamic member;
+  final VoidCallback onCancel;
+
+  const _SentRequestCard({required this.member, required this.onCancel});
+
+  @override
+  Widget build(BuildContext context) {
+    Provider.of<BrandingProvider>(context);
+    final email = member['email'] ?? '';
+    final name = member['name'] ?? email.split('@')[0];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.textDim.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(LucideIcons.userPlus, color: AppColors.textDim, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.nunito(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
+                  ),
+                ),
+                Text(
+                  'Waiting for acceptance...',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textDim,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _ActionBtn(
+            icon: LucideIcons.x,
+            color: AppColors.danger,
+            onTap: onCancel,
+          ),
+        ],
       ),
     );
   }

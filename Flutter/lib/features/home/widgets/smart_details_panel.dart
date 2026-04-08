@@ -1202,7 +1202,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
             color: AppColors.surface,
             border: Border(bottom: BorderSide(color: AppColors.border)),
           ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1748,9 +1748,9 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
@@ -1768,8 +1768,8 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       child: Row(
                         children: [
                           Container(
-                            width: 48,
-                            height: 48,
+                            width: 38,
+                            height: 38,
                             decoration: BoxDecoration(
                               color: AppColors.accent.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(14),
@@ -1780,10 +1780,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                             child: Icon(
                               LucideIcons.bell,
                               color: AppColors.accent,
-                              size: 22,
+                              size: 18,
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1797,11 +1797,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                     letterSpacing: 0.8,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 2),
                                 _isLoadingAdjustedTime
                                     ? SizedBox(
-                                        height: 28,
-                                        width: 28,
+                                        height: 24,
+                                        width: 24,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           color: AppColors.accent,
@@ -1811,16 +1811,16 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                         _adjustedNotificationTime ??
                                             _getAdjustedTime(),
                                         style: GoogleFonts.nunito(
-                                          fontSize: 24,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w900,
                                           color: AppColors.text,
                                         ),
                                       ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 1),
                                 Text(
                                   "Calculated: Time − (Traffic + Buffer)",
                                   style: GoogleFonts.inter(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     color: AppColors.textMid,
                                   ),
                                 ),

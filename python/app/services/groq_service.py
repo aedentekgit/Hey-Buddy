@@ -842,15 +842,28 @@ class GroqService:
         context_sources = []
         t0 = time.perf_counter()
         
-        # ⚡️ SPEED OPTIMIZATION: Bypass CPU-heavy HuggingFace Embeddings for short greetings
+        # ⚡️ SPEED OPTIMIZATION: Bypass CPU-heavy HuggingFace Embeddings for conversational queries
         search_query = self.get_text_content(question).strip()
-        is_trivial_greeting = search_query.lower() in [
+        search_query_lower = search_query.lower()
+        
+        # Check for explicit triggers that REQUIRE the vector store (documents, memory, facts)
+        rag_triggers = [
+            "remember", "memory", "file", "document", "what is", "explain", "how to", "who is", 
+            "details", "summary", "pdf", "image", "fact", "past", "history", "reminder", 
+            "reminders", "schedule", "todo", "task", "event", "calendar", "which", "what", 
+            "who", "my", "me", "info", "plan", "cake", "pancake", "?"
+        ]
+        needs_rag = any(trigger in search_query_lower for trigger in rag_triggers)
+        word_count = len(search_query.split())
+
+        # Bypass RAG if it's a short query without explicit RAG triggers (e.g., "hi", "how are you", "yeah ok", "stop")
+        is_trivial_greeting = (word_count < 15 and not needs_rag) or search_query_lower in [
             "hi", "hello", "hey", "good morning", "good evening", 
             "good afternoon", "you there?", "are you there?", 
             "hey buddy", "hi buddy", "buddy", "yo", "sup"
         ] or len(search_query) <= 2
         
-        if not is_trivial_greeting:
+        if not is_trivial_greeting and self.vector_store_service:
             try:
                 # Pass user_id to ensure we only get chunks this user is allowed to see.
                 retriever = self.vector_store_service.get_retriever(k=4, user_id=user_id)

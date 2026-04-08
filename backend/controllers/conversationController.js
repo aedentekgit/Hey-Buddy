@@ -1,4 +1,5 @@
 const Conversation = require('../models/Conversation');
+const axios = require('axios');
 
 exports.getConversations = async (req, res) => {
     try {
@@ -53,13 +54,25 @@ exports.getConversationById = async (req, res) => {
 
 exports.deleteConversation = async (req, res) => {
     try {
+        const conversationId = req.params.id;
         const conversation = await Conversation.findOneAndDelete({
-            _id: req.params.id,
+            _id: conversationId,
             userId: req.user._id
         });
 
         if (!conversation) {
             return res.status(404).json({ success: false, message: 'Conversation not found' });
+        }
+
+        // Notify Python AI service to clear this session from memory
+        try {
+            const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+            await axios.delete(`${aiServiceUrl}/chat/history/${conversationId}`, {
+                headers: { 'X-API-Key': process.env.INTERNAL_SECRET || process.env.BUDDY_API_KEY || '' }
+            });
+            console.log(`[AI-SYNC] Cleared session ${conversationId} in Python service`);
+        } catch (aiError) {
+            console.error(`[AI-SYNC] Failed to notify Python service for session ${conversationId}:`, aiError.message);
         }
 
         res.status(200).json({ success: true, message: 'Conversation deleted' });
@@ -71,6 +84,29 @@ exports.deleteConversation = async (req, res) => {
 exports.deleteAllConversations = async (req, res) => {
     try {
         await Conversation.deleteMany({ userId: req.user._id });
+
+        // Notify Python AI service to clear ALL sessions for this user
+        try {
+            const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+            const userId = req.user._id.toString();
+            
+            // 1. Clear in-memory history
+            await axios.delete(`${aiServiceUrl}/chat/user/${userId}/history`, {
+                headers: { 'X-API-Key': process.env.INTERNAL_SECRET || process.env.BUDDY_API_KEY || '' }
+            });
+
+            // 2. Trigger vector store reload to remove deleted history from RAG context
+            // Note: This is fire-and-forget or awaited depending on latency preference.
+            // For "completely" fixing history deletion, we want the reload.
+            await axios.post(`${aiServiceUrl}/system/reload`, {}, {
+                headers: { 'X-API-Key': process.env.INTERNAL_SECRET || process.env.BUDDY_API_KEY || '' }
+            });
+
+            console.log(`[AI-SYNC] Cleared all sessions and reloaded vector store for user ${userId}`);
+        } catch (aiError) {
+            console.error(`[AI-SYNC] Failed to notify Python service for user ${req.user._id}:`, aiError.message);
+        }
+
         res.status(200).json({ success: true, message: 'All conversations deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

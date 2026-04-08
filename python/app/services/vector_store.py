@@ -257,7 +257,12 @@ class VectorStoreService:
                     uid = rem.get("userId", "unknown")
                     title = rem.get("title", "")
                     desc = rem.get("description", "") or rem.get("notes", "")
-                    reminder_text = f"Reminder: {title}\nDetails: {desc}\nDate: {rem.get('date')}\nTime: {rem.get('time')}\nLocation: {rem.get('location', 'N/A')}\nStatus: {rem.get('status')}"
+                    rtype = rem.get("reminderType", "time")
+                    
+                    if rtype == 'location':
+                        reminder_text = f"Location Reminder: {title}\nDetails: {desc}\nLocation: {rem.get('location', 'N/A')}\nStatus: {rem.get('status')}"
+                    else:
+                        reminder_text = f"Reminder: {title}\nDetails: {desc}\nDate: {rem.get('date')}\nTime: {rem.get('time')}\nLocation: {rem.get('location', 'N/A')}\nStatus: {rem.get('status')}"
 
                     if title.strip():
                         documents.append(Document(

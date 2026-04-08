@@ -62,12 +62,17 @@ exports.sendFamilyRequest = async (req, res) => {
         } else {
             // Send Email Invitation
             const appUrl = process.env.FRONTEND_URL || 'https://buddy.ayuskart.com';
-            await sendEmail(
-                email,
-                "Invitation to join Buddy Family Hub",
-                `Hi, ${sender.name} has invited you to join their family on Buddy AI. Download the app to connect!`,
-                `<p>Hi,</p><p><strong>${sender.name}</strong> has invited you to join their family on Buddy AI.</p><p>Buddy AI helps families stay connected with shared reminders, location safety, and real-time chat.</p><p><a href="${appUrl}/signup">Click here to sign up and join</a></p>`
-            );
+            try {
+                await sendEmail(
+                    email,
+                    "Invitation to join Buddy Family Hub",
+                    `Hi, ${sender.name} has invited you to join their family on Buddy AI. Download the app to connect!`,
+                    `<p>Hi,</p><p><strong>${sender.name}</strong> has invited you to join their family on Buddy AI.</p><p>Buddy AI helps families stay connected with shared reminders, location safety, and real-time chat.</p><p><a href="${appUrl}/signup">Click here to sign up and join</a></p>`
+                );
+            } catch (emailError) {
+                console.error("Failed to send invitation email, but request was created:", emailError.message);
+                // We still want to return success because the request is in the database and the user can accept it in-app if they sign up later.
+            }
         }
 
         res.status(200).json({ success: true, message: "Request sent successfully", data: newRequest });
@@ -212,37 +217,57 @@ exports.respondToRequest = async (req, res) => {
 exports.getFamilyMembers = async (req, res) => {
     try {
         const user = await User.findById(req.user._id);
-        if (!user.familyId) {
-            // Even if no family, check for pending outgoing requests
-            const pendingRequests = await FamilyRequest.find({
-                senderId: req.user._id,
-                status: 'pending'
-            });
+        // 1. Get Pending Outgoing Requests
+        const pendingRequests = await FamilyRequest.find({
+            senderId: req.user._id,
+            status: 'pending'
+        });
 
-            const results = pendingRequests.map(pr => ({
-                user_id: null,
-                name: pr.email.split('@')[0], // Fallback name
-                email: pr.email,
-                status: 'pending',
-                profilePicture: null
-            }));
-
-            return res.status(200).json({ success: true, data: results });
-        }
-
-        const family = await Family.findById(user.familyId).populate('members', 'name email profilePicture');
-
-        const results = family.members.map(m => ({
-            user_id: m._id,
-            name: m._id === req.user._id ? "You" : m.name,
-            email: m.email,
-            status: 'connected',
-            profilePicture: m.profilePicture
+        const pendingResults = pendingRequests.map(pr => ({
+            user_id: `pending_${pr._id}`,
+            name: pr.email.split('@')[0], 
+            email: pr.email,
+            status: 'pending',
+            profilePicture: null
         }));
 
-        // Also include pending invitations sent by this user or others in family?
-        // Let's just stick to the members of the family group.
+        let connectedResults = [];
+        if (user.familyId) {
+            const family = await Family.findById(user.familyId).populate('members', 'name email profilePicture');
+            connectedResults = await Promise.all(family.members.map(async m => {
+                const isMe = m._id.toString() === req.user._id.toString();
+                let lastMessage = null;
+                let unreadCount = 0;
+                
+                if (!isMe) {
+                    const room = await ChatRoom.findOne({
+                        type: 'private',
+                        members: { $all: [req.user._id, m._id] }
+                    });
+                    
+                    if (room) {
+                        lastMessage = room.lastMessage;
+                        unreadCount = await ChatMessage.countDocuments({
+                            roomId: room._id,
+                            senderId: { $ne: req.user._id },
+                            readBy: { $ne: req.user._id }
+                        });
+                    }
+                }
 
+                return {
+                    user_id: m._id,
+                    name: isMe ? "You" : m.name,
+                    email: m.email,
+                    status: 'connected',
+                    profilePicture: m.profilePicture,
+                    lastMessage,
+                    unreadCount
+                };
+            }));
+        }
+
+        const results = [...connectedResults, ...pendingResults];
         res.status(200).json({ success: true, data: results });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to fetch members" });
@@ -295,6 +320,29 @@ exports.removeMember = async (req, res) => {
         emitDataSync(req, res, [currentUserId, targetUserId], 'family', 'delete', { memberId: targetUserId });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to remove member" });
+    }
+};
+
+// DELETE /family/request/:id (Cancel outgoing request)
+exports.cancelFamilyRequest = async (req, res) => {
+    try {
+        const requestId = req.params.id;
+        const userId = req.user._id;
+
+        const result = await FamilyRequest.findOneAndDelete({
+            _id: requestId,
+            senderId: userId,
+            status: 'pending'
+        });
+
+        if (!result) {
+            return res.status(404).json({ success: false, message: "Request not found or already processed" });
+        }
+
+        res.status(200).json({ success: true, message: "Invitation cancelled" });
+    } catch (error) {
+        console.error("Cancel family request error:", error);
+        res.status(500).json({ success: false, message: "Failed to cancel invitation" });
     }
 };
 

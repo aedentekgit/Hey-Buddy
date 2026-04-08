@@ -42,8 +42,7 @@ module.exports = (io) => {
                 // Get sender info for the frontend
                 const sender = await User.findById(senderId, 'name profilePicture');
 
-                // Broadcast message to everyone in the room
-                io.to(roomId).emit('new_message', {
+                const messagePayload = {
                     id: newMessage._id,
                     roomId,
                     sender_id: senderId,
@@ -57,11 +56,23 @@ module.exports = (io) => {
                     readBy: [],
                     deliveredTo: [],
                     timestamp: newMessage.createdAt
-                });
+                };
 
-                // Push Notifications for other members
+                // Broadcast to the specific roomId (for those inside the chat)
+                io.to(roomId).emit('new_message', messagePayload);
+
+                // ALSO: Broadcast to each member's private room (for those outside the chat, in the hub/list)
                 const room = await ChatRoom.findById(roomId).populate('members', 'fcmTokens');
                 if (room) {
+                    room.members.forEach(member => {
+                        // send to member's personal room (userId)
+                        // This allows global state to update (unread badges, last message previews)
+                        if (member._id.toString() !== senderId.toString()) {
+                           io.to(member._id.toString()).emit('new_message', messagePayload);
+                        }
+                    });
+
+                    // Push Notifications for other members
                     const otherMembers = room.members.filter(m => m._id.toString() !== senderId.toString());
                     const fcmTokens = otherMembers.flatMap(m => m.fcmTokens || []);
 
@@ -201,20 +212,38 @@ module.exports = (io) => {
                 const { roomId, userId } = data;
                 if (!roomId || !userId) return;
 
-                const messages = await ChatMessage.find({ roomId, readBy: { $ne: userId } });
-                if (messages.length > 0) {
-                    await ChatMessage.updateMany(
-                        { roomId, readBy: { $ne: userId } },
-                        { $addToSet: { readBy: userId, deliveredTo: userId } }
-                    );
+                await ChatMessage.updateMany(
+                    { roomId, readBy: { $ne: userId } },
+                    { $addToSet: { readBy: userId, deliveredTo: userId } }
+                );
 
-                    io.to(roomId).emit('messages_read', {
-                        roomId,
-                        userId
-                    });
-                }
+                io.to(roomId).emit('message_updated', {
+                    roomId,
+                    userId,
+                    type: 'read'
+                });
             } catch (error) {
                 console.error("[Socket] Mark read error:", error);
+            }
+        });
+
+        socket.on('mark_delivered', async (data) => {
+            try {
+                const { roomId, userId } = data;
+                if (!roomId || !userId) return;
+
+                await ChatMessage.updateMany(
+                    { roomId, deliveredTo: { $ne: userId } },
+                    { $addToSet: { deliveredTo: userId } }
+                );
+
+                io.to(roomId).emit('message_updated', {
+                    roomId,
+                    userId,
+                    type: 'delivered'
+                });
+            } catch (error) {
+                console.error("[Socket] Mark delivered error:", error);
             }
         });
 

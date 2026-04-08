@@ -22,6 +22,7 @@ class FamilyProvider extends ChangeNotifier {
   FamilyProvider(this._socketService) {
     _initUser();
     _socketService.chatStream.listen((data) {
+      // 1. Update active chat messages
       if (data['roomId'] == currentChatId) {
         messages.insert(0, data);
         notifyListeners();
@@ -29,36 +30,60 @@ class FamilyProvider extends ChangeNotifier {
         if (currentUserId != null && data['sender_id'] != currentUserId) {
            _socketService.markMessagesRead(currentChatId!, currentUserId!);
         }
+      } else {
+        // 2. Global notification: Update unread status
+        final roomId = data['roomId'];
+        
+        // Notify server that message was delivered to THIS device
+        if (currentUserId != null && data['sender_id'] != currentUserId && roomId != null) {
+           _socketService.markMessagesDelivered(roomId, currentUserId!);
+        }
+
+        final isGroup = roomId?.contains('group') ?? false; // RoomId usually contains 'group' for family groups
+        
+        if (isGroup) {
+          unreadMessagesCount++;
+        } else {
+          final senderId = data['sender_id']?.toString();
+          if (senderId != null && senderId != currentUserId) {
+            unreadMemberIds.add(senderId);
+            _storage.write(key: 'unread_members', value: unreadMemberIds.join(','));
+          }
+        }
+        notifyListeners();
       }
     });
 
     _socketService.messageUpdatedStream.listen((data) {
       if (data['roomId'] == currentChatId) {
-        final mid = data['messageId'];
-        final idx = messages.indexWhere((m) => m is Map && (m['id'] ?? m['_id']) == mid);
-        if (idx != -1) {
-          // Merge updated fields
-          messages[idx] = {...messages[idx], ...data};
-          notifyListeners();
-        }
-      }
-    });
-
-    _socketService.messagesReadStream.listen((data) {
-      if (data['roomId'] == currentChatId) {
-        final readUserId = data['userId'];
+        final updateUserId = data['userId'];
+        final updateType = data['type']; // 'read' or 'delivered'
         bool updated = false;
-        
+
         for (int i = 0; i < messages.length; i++) {
           if (messages[i] is Map) {
             final msg = messages[i] as Map<String, dynamic>;
-            if (msg['sender_id'] != readUserId) {
+            // Only update counts if the message was NOT sent by the person who just read/received it
+            if (msg['sender_id'] != updateUserId) {
+              if (updateType == 'read') {
                 final readBy = List<dynamic>.from(msg['readBy'] ?? []);
-                if (!readBy.contains(readUserId)) {
-                    readBy.add(readUserId);
-                    messages[i] = {...msg, 'readBy': readBy};
-                    updated = true;
+                if (!readBy.contains(updateUserId)) {
+                  readBy.add(updateUserId);
+                  // Read implies delivered too
+                  final deliveredTo = List<dynamic>.from(msg['deliveredTo'] ?? []);
+                  if (!deliveredTo.contains(updateUserId)) deliveredTo.add(updateUserId);
+                  
+                  messages[i] = {...msg, 'readBy': readBy, 'deliveredTo': deliveredTo};
+                  updated = true;
                 }
+              } else if (updateType == 'delivered') {
+                final deliveredTo = List<dynamic>.from(msg['deliveredTo'] ?? []);
+                if (!deliveredTo.contains(updateUserId)) {
+                  deliveredTo.add(updateUserId);
+                  messages[i] = {...msg, 'deliveredTo': deliveredTo};
+                  updated = true;
+                }
+              }
             }
           }
         }
@@ -155,6 +180,13 @@ class FamilyProvider extends ChangeNotifier {
     try {
       await loadLocalStatuses();
       members = await _service.getMembers();
+      // Initialize unread IDs from backend data
+      for (var m in members) {
+        if (m is Map && m['unreadCount'] != null && m['unreadCount'] > 0) {
+          unreadMemberIds.add(m['user_id'].toString());
+        }
+      }
+      _storage.write(key: 'unread_members', value: unreadMemberIds.join(','));
       requests = await _service.getRequests();
     } catch (e) {
       debugPrint('Load Family Data Error: $e');
@@ -195,6 +227,15 @@ class FamilyProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> cancelRequest(String requestId) async {
+    final res = await _service.cancelRequest(requestId);
+    if (res['success'] == true) {
+      await loadData();
+      return true;
+    }
+    return false;
+  }
+
   Future<bool> sendEmergencyAlert(String message) async {
     final res = await _service.sendEmergencyAlert(message);
     return res['success'] == true;
@@ -225,31 +266,54 @@ class FamilyProvider extends ChangeNotifier {
 
   Future<void> openPrivateChat(String memberId) async {
     messages = []; // Clear immediately to prevent flicker
+    isLoading = true; // Use the existing isLoading property
     notifyListeners();
-    final res = await _service.startPrivateChat(memberId);
-    if (res['success'] == true) {
-      currentChatId = res['data']['chat_id'];
-      _socketService.joinChatRoom(currentChatId!);
-      messages = await _service.getMessages(currentChatId!);
-      notifyListeners();
-      if (currentUserId != null) {
-        _socketService.markMessagesRead(currentChatId!, currentUserId!);
+    try {
+      final res = await _service.startPrivateChat(memberId);
+      if (res['success'] == true) {
+        currentChatId = res['data']['chat_id'];
+        _socketService.joinChatRoom(currentChatId!);
+        final fetchedMessages = await _service.getMessages(currentChatId!);
+        // Reverse messages so index 0 is the newest for WhatsApp-style reverse ListView
+        // Standardize list creation to prevent typing/iterable issues
+        messages = List<dynamic>.from(fetchedMessages.reversed);
+        notifyListeners();
+        if (currentUserId != null) {
+          _socketService.markMessagesRead(currentChatId!, currentUserId!);
+        }
       }
+    } catch (e) {
+      debugPrint('Error opening private chat: $e');
+      messages = [];
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<void> openGroupChat() async {
     messages = []; // Clear immediately to prevent flicker
+    isLoading = true;
     notifyListeners();
-    final res = await _service.getGroupChat();
-    if (res['success'] == true) {
-      currentChatId = res['data']['chat_id'];
-      _socketService.joinChatRoom(currentChatId!);
-      messages = await _service.getMessages(currentChatId!);
-      notifyListeners();
-      if (currentUserId != null) {
-        _socketService.markMessagesRead(currentChatId!, currentUserId!);
+    try {
+      final res = await _service.getGroupChat();
+      if (res['success'] == true) {
+        currentChatId = res['data']['chat_id'];
+        _socketService.joinChatRoom(currentChatId!);
+        final fetchedMessages = await _service.getMessages(currentChatId!);
+        // Reverse messages so index 0 is the newest for WhatsApp-style reverse ListView
+        messages = List<dynamic>.from(fetchedMessages.reversed);
+        notifyListeners();
+        if (currentUserId != null) {
+          _socketService.markMessagesRead(currentChatId!, currentUserId!);
+        }
       }
+    } catch (e) {
+      debugPrint('Error opening group chat: $e');
+      messages = [];
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 

@@ -1,6 +1,23 @@
 const Reminder = require('../models/Reminder');
 const paginate = require('../utils/paginate');
 const { emitDataSync } = require('../utils/socketEmitter');
+const axios = require('axios');
+
+// ─── AI SYNC HELPER ───────────────────────────────────────────────────────────
+/**
+ * Notify the Python AI service to reload its vector store after knowledge changes.
+ */
+async function triggerVectorReload() {
+    try {
+        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+        await axios.post(`${aiServiceUrl}/system/reload`, {}, {
+            headers: { 'X-API-Key': process.env.INTERNAL_SECRET || process.env.BUDDY_API_KEY || '' }
+        });
+        console.log('[AI-SYNC] Vector store reload triggered from Location Controller');
+    } catch (error) {
+        console.error('[AI-SYNC] Failed to trigger vector store reload:', error.message);
+    }
+}
 
 // ─── GET all location reminders for current user ──────────────────────────────
 exports.getLocationReminders = async (req, res) => {
@@ -97,10 +114,16 @@ exports.createLocationReminder = async (req, res) => {
         // EMIT REAL-TIME SYNC
         emitDataSync(req, res, req.user._id, 'location_reminder', 'create', { id: reminder._id });
 
+        // Trigger AI vector store reload
+        triggerVectorReload();
+
         res.status(201).json({ success: true, data: reminder });
     } catch (error) {
+        const fs = require('fs');
+        const logMsg = `[${new Date().toISOString()}] Create Error: ${error.message}\nStack: ${error.stack}\nBody: ${JSON.stringify(req.body)}\nUser: ${req.user?._id}\n---\n`;
+        fs.appendFileSync('error_debug.log', logMsg);
         console.error('[LocationReminder] create error:', error);
-        res.status(500).json({ success: false, message: 'Internal Server Error' });
+        res.status(500).json({ success: false, message: 'Internal Server Error', debug: error.message });
     }
 };
 
@@ -166,6 +189,9 @@ exports.updateLocationReminder = async (req, res) => {
         // EMIT REAL-TIME SYNC
         emitDataSync(req, res, req.user._id, 'location_reminder', 'update', { id: req.params.id });
 
+        // Trigger AI vector store reload
+        triggerVectorReload();
+
         res.status(200).json({ success: true, data: reminder });
     } catch (error) {
         console.error('[LocationReminder] update error:', error);
@@ -187,6 +213,9 @@ exports.deleteLocationReminder = async (req, res) => {
 
         // EMIT REAL-TIME SYNC
         emitDataSync(req, res, req.user._id, 'location_reminder', 'delete', { id: req.params.id });
+
+        // Trigger AI vector store reload
+        triggerVectorReload();
 
         res.status(200).json({ success: true, message: 'Location reminder deleted' });
     } catch (error) {
@@ -223,6 +252,9 @@ exports.setEarlyWarning = async (req, res) => {
         // EMIT REAL-TIME SYNC
         emitDataSync(req, res, req.user._id, 'location_reminder', 'update', { id: req.params.id });
 
+        // Trigger AI vector store reload
+        triggerVectorReload();
+
         res.status(200).json({ success: true, data: reminder, message: 'Early warning saved' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -243,6 +275,9 @@ exports.setFamilyBackup = async (req, res) => {
 
         // EMIT REAL-TIME SYNC
         emitDataSync(req, res, req.user._id, 'location_reminder', 'update', { id: req.params.id });
+
+        // Trigger AI vector store reload
+        triggerVectorReload();
 
         res.status(200).json({ success: true, data: reminder, message: 'Family backup activated' });
     } catch (error) {

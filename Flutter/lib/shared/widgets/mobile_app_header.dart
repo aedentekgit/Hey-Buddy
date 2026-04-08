@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// Top navigation header — redesigned as a modern floating pill.
 /// Index mapping: 0 = Buddy, 1 = Explore, 2 = Settings
@@ -48,31 +51,13 @@ class MobileAppHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (_settingsActive)
-            GestureDetector(
-              onTap: () => Navigator.maybePop(context),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 38,
-                height: 38,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.text.withValues(alpha: 0.04),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.chevronLeft,
-                  color: AppColors.text,
-                  size: 18,
-                ),
-              ),
-            ),
           // ── Left tabs ────────────────────────────────────────────
           _NavTab(
             icon: LucideIcons.user,
             label: 'Buddy',
             active: _buddyActive,
             onTap: () => onTabTapped(0),
+            isBuddyLogo: true,
           ),
           const SizedBox(width: 8),
           _NavTab(
@@ -117,16 +102,57 @@ class _NavTab extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
+  final bool isBuddyLogo;
 
   const _NavTab({
     required this.icon,
     required this.label,
     required this.active,
     required this.onTap,
+    this.isBuddyLogo = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (isBuddyLogo) {
+      final branding = Provider.of<BrandingProvider>(context);
+      
+      return GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(shape: BoxShape.circle),
+            clipBehavior: Clip.antiAlias,
+            child: branding.logoUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: branding.logoUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(
+                      LucideIcons.image,
+                      size: 20,
+                    ),
+                  )
+                : const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+          ),
+        ),
+      );
+    }
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -180,3 +206,4 @@ class _NavTab extends StatelessWidget {
     );
   }
 }
+

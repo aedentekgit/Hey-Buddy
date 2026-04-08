@@ -76,6 +76,13 @@ Flutter/android/key.properties
 *.p12
 *.pem
 
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+
 # Debug
 ai_debug.txt
 
@@ -90,6 +97,10 @@ ai_debug.txt
 __pycache__/
 *.py[cod]
 *$py.class
+venv/
+.venv/
+env/
+.env/
 
 # Python AI Service env files
 python/.env

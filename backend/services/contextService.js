@@ -44,12 +44,13 @@ const contextService = {
                 userDate = now.toLocaleDateString('en-CA', { timeZone: 'UTC' });
             }
 
-            // Fetch reminders (unified)
+            // Fetch reminders (unified context for AI)
             const remindersPromise = userId ? Reminder.find({
                 userId,
                 $or: [
-                    { date: { $gte: userDate } },
-                    { reminderType: 'location', status: 'on_track' }
+                    { date: { $gte: userDate } }, // Future or today's time-based reminders
+                    { reminderType: 'location', status: { $in: ['on_track', 'pending'] } }, // Active location reminders
+                    { date: null } // Reminders with no set date (whenever)
                 ]
             }).sort({ date: 1, time: 1 }).limit(20) : Promise.resolve([]);
 

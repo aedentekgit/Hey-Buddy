@@ -190,7 +190,9 @@ exports.saveReminder = async (req, res) => {
         // Create reminder in database
         const reminder = await Reminder.create({
             userId,
-            ...reminderData
+            ...reminderData,
+            // Categorize as 'location' if location name is present
+            reminderType: reminderData.location ? 'location' : 'time'
         });
 
         // Background Google Calendar Sync

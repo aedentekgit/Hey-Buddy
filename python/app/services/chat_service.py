@@ -226,33 +226,16 @@ class ChatService:
             logger.warning(f"Failed to fetch session {session_id} from backend: {ex}")
             return None
 
-    def load_session_from_backend(self, session_id: str) -> bool:
+    async def load_session_from_backend(self, session_id: str) -> bool:
         """
-        Attempt to load a previously saved session from the MongoDB database
-        via the Node.js backend proxy using async HTTP (non-blocking).
-
-        HOW IT WORKS:
-          1. Send an async GET request to the Node.js internal conversation endpoint.
-          2. If found, deserialize the messages and store them in memory.
-
-        WHY ASYNC:
-          Uses aiohttp instead of requests to prevent blocking the event loop.
-          This is critical for FastAPI's async request handling.
+        Fetch conversation history from MongoDB via the Node.js backend.
+        Used to restore sessions after a server restart or when memory is cleared.
         """
         try:
-            backend_url = os.getenv("NODE_BACKEND_URL", "http://localhost:5001")
+            from config import NODE_BACKEND_URL
             logger.info(f"Session {session_id} not in memory, restoring from MongoDB...")
 
-            # Run async fetch using event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            data = loop.run_until_complete(
-                self._fetch_session_async(backend_url, session_id)
-            )
+            data = await self._fetch_session_async(NODE_BACKEND_URL, session_id)
 
             if data and data.get("success") and data.get("data"):
                 conv = data["data"]
@@ -261,6 +244,11 @@ class ChatService:
                     for msg in conv.get("messages", [])
                 ]
                 self.sessions[session_id] = messages
+                
+                # Critical: Associate the session with the user ID retrieved from DB.
+                if conv.get("userId"):
+                    self.session_user_map[session_id] = conv.get("userId")
+                    
                 logger.info(f"Successfully restored history for session {session_id} from MongoDB")
                 return True
         except Exception as ex:
@@ -302,73 +290,29 @@ class ChatService:
             return False
         return True
 
-    def get_or_create_session(self, session_id: Optional[str] = None) -> str:
+    async def get_or_create_session(self, session_id: Optional[str] = None) -> str:
         """
         The main entry point for session management. Ensures a session exists
         in memory and returns its ID.
-
-        LOGIC FLOW:
-          ┌─ session_id is None?
-          │   YES → generate a new UUID, create empty session, return it.
-          │   NO  ↓
-          ├─ validate_session_id(session_id) fails?
-          │   YES → raise ValueError (reject malicious/invalid IDs).
-          │   NO  ↓
-          ├─ session_id already in self.sessions? (memory hit)
-          │   YES → return it immediately (fastest path).
-          │   NO  ↓
-          ├─ load_session_from_disk(session_id) succeeds? (disk hit)
-          │   YES → session is now in memory, return it.
-          │   NO  ↓
-          └─ Create a new empty session with this ID, return it.
-              (Client sent an ID we've never seen — that's fine, just start fresh.)
-
-        TIMING LABELS IN LOGS:
-          The [TIMING] logs help identify which path was taken:
-            - "(new)": No ID was provided, generated a UUID.
-            - "(memory)": Session was already in the in-memory dict (fastest).
-            - "(disk)": Session was loaded from a JSON file (a few ms for parsing).
-            - "(new_id)": Client sent an unknown ID, created fresh session.
-          This is invaluable for performance debugging in production.
-
-        Args:
-            session_id: Optional client-provided ID. If None, a UUID is generated.
-
-        Returns:
-            The session_id (either the provided one or a newly generated UUID).
-
-        Raises:
-            ValueError: If the provided session_id is invalid (empty, contains
-                        path traversal characters, or exceeds 255 chars).
         """
         t0 = time.perf_counter()
         if not session_id:
-            # No ID provided — generate a fresh UUID (e.g. "a1b2c3d4-e5f6-...")
-            # uuid4() generates a random UUID, which is effectively guaranteed unique.
             new_session_id = str(uuid.uuid4())
             self.sessions[new_session_id] = []
             logger.info("[TIMING] session_get_or_create: %.3fs (new)", time.perf_counter() - t0)
             return new_session_id
 
-        # Validate before doing anything else — reject malicious IDs early.
         if not self.validate_session_id(session_id):
-            raise ValueError(
-                f"Invalid session_id format: {session_id}. Session ID must be non-empty, "
-                "not contain path traversal characters, and be under 255 characters."
-            )
+            raise ValueError(f"Invalid session_id format: {session_id}")
 
-        # Fast path: session already in memory from a previous request this run.
         if session_id in self.sessions:
             logger.info("[TIMING] session_get_or_create: %.3fs (memory)", time.perf_counter() - t0)
             return session_id
 
-        # Medium path: session was saved to the database in a previous server run.
-        # load_session_from_backend() fetches from Node.js and populates self.sessions.
-        if self.load_session_from_backend(session_id):
+        if await self.load_session_from_backend(session_id):
             logger.info("[TIMING] session_get_or_create: %.3fs (mongodb)", time.perf_counter() - t0)
             return session_id
 
-        # New session with this ID (e.g. client sent an ID that was never saved).
         self.sessions[session_id] = []
         logger.info("[TIMING] session_get_or_create: %.3fs (new_id)", time.perf_counter() - t0)
         return session_id

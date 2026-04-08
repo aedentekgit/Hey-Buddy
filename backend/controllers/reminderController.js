@@ -14,6 +14,23 @@ const {
 } = require('../services/googleCalendarService');
 
 const { emitDataSync } = require('../utils/socketEmitter');
+const axios = require('axios');
+
+// ─── AI SYNC HELPER ───────────────────────────────────────────────────────────
+/**
+ * Notify the Python AI service to reload its vector store after knowledge changes.
+ */
+async function triggerVectorReload() {
+    try {
+        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+        await axios.post(`${aiServiceUrl}/system/reload`, {}, {
+            headers: { 'X-API-Key': process.env.INTERNAL_SECRET || process.env.BUDDY_API_KEY || '' }
+        });
+        console.log('[AI-SYNC] Vector store reload triggered successfully');
+    } catch (error) {
+        console.error('[AI-SYNC] Failed to trigger vector store reload:', error.message);
+    }
+}
 
 // ─── Shared Helper ────────────────────────────────────────────────────────────
 /**
@@ -154,7 +171,9 @@ exports.getReminders = async (req, res) => {
                 { userId: req.user._id },
                 { 'sharedWith.user': req.user._id },
                 { assignedTo: req.user._id }
-            ]
+            ],
+            // Exclude location reminders from the general list
+            reminderType: { $ne: 'location' }
         };
 
         const { start, end } = req.query;
@@ -239,7 +258,7 @@ exports.createReminder = async (req, res) => {
             location,
             coordinates: finalCoordinates,
             geofenceRadius: geofenceRadius || 500,
-            reminderType: reminderType || (time ? 'time' : 'location'),
+            reminderType: reminderType || (location ? 'location' : 'time'),
             intent: intent || 'generic',
             priority: priority || 'medium',
             bufferTime: bufferTime || 0,
@@ -319,11 +338,17 @@ exports.createReminder = async (req, res) => {
         const syncUserIds = [userId, ...(reminder.sharedWith.map(s => s.user.toString()))];
         emitDataSync(req, res, syncUserIds, 'task', 'create', { id: reminder._id });
 
+        // TRigger AI vector store reload to index the new reminder
+        triggerVectorReload();
+
         res.status(201).json({
             success: true,
             data: appendOverdueStatus(fullyPopulated)
         });
     } catch (error) {
+        const fs = require('fs');
+        const logMsg = `[${new Date().toISOString()}] Standard Create Error: ${error.message}\nStack: ${error.stack}\nBody: ${JSON.stringify(req.body)}\nUser: ${req.user?._id}\n---\n`;
+        fs.appendFileSync('error_debug.log', logMsg);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -378,6 +403,13 @@ exports.updateReminder = async (req, res) => {
             } catch (err) {
                 console.warn("[DEBUG_REMINDER] Geocode failed:", err.message);
             }
+        }
+
+        // AUTO-ADJUST REMINDER TYPE: If location is added/changed, ensure it's categorized as 'location'
+        if (updateData.location !== undefined) {
+             updateData.reminderType = updateData.location ? 'location' : 'time';
+        } else if (reminder.location) {
+             updateData.reminderType = 'location';
         }
 
         // Explicitly handle sharedWith assignment to ensure Mongoose detects change
@@ -453,6 +485,9 @@ exports.updateReminder = async (req, res) => {
         const syncUserIds = [userId, ...oldSharedWithIds, ...newSharedWithIds];
         emitDataSync(req, res, syncUserIds, 'task', 'update', { id });
 
+        // Trigger AI vector store reload to index the updated reminder
+        triggerVectorReload();
+
         res.status(200).json({ success: true, data: appendOverdueStatus(fullyPopulated) });
 
     } catch (error) {
@@ -487,6 +522,9 @@ exports.deleteReminder = async (req, res) => {
 
         await Reminder.findByIdAndDelete(id);
 
+        // Trigger AI vector store reload
+        triggerVectorReload();
+
         res.status(200).json({ success: true, message: 'Reminder deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -516,6 +554,9 @@ exports.batchDeleteReminders = async (req, res) => {
             _id: { $in: ids },
             userId
         });
+
+        // Trigger AI vector store reload
+        triggerVectorReload();
 
         res.status(200).json({ success: true, message: 'Reminders deleted successfully' });
     } catch (error) {
@@ -597,6 +638,9 @@ exports.shareReminder = async (req, res) => {
             // Don't fail the whole request if email fails, as push/db already worked
         }
 
+        // Trigger AI vector store reload to update collaborator access
+        triggerVectorReload();
+
         res.status(200).json({ success: true, message: 'Reminder shared successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -638,6 +682,9 @@ exports.unshareReminder = async (req, res) => {
                 onModel: 'Reminder'
             });
         }
+
+        // Trigger AI vector store reload to update collaborator access
+        triggerVectorReload();
 
         res.status(200).json({ success: true, message: 'User removed from shared list' });
     } catch (error) {

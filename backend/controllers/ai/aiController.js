@@ -139,8 +139,13 @@ exports.proxyChatToPython = async (req, res) => {
             User.findById(userId).select('voicePreferences')
         ]);
 
-        // 2. FORCED LATENCY OVERRIDE: If using Groq, force the fast model
-        if (aiConfig.provider === 'groq' && aiConfig.model.includes('70b')) {
+        // 2. FORCED LATENCY OVERRIDE: If using Groq or if it's a TTS stream, force the fastest model
+        if (tts && aiConfig.allKeys && aiConfig.allKeys.groq) {
+            console.log('[AI Gateway] Speed Optimization: Forcing Groq llama-3.1-8b-instant for Voice/TTS Stream');
+            aiConfig.provider = 'groq';
+            aiConfig.model = 'llama-3.1-8b-instant';
+            aiConfig.apiKey = aiConfig.allKeys.groq;
+        } else if (aiConfig.provider === 'groq' && aiConfig.model.includes('70b')) {
             console.log('[AI Gateway] Speed Optimization: Forcing llama-3.1-8b-instant over slow 70b model');
             aiConfig.model = 'llama-3.1-8b-instant';
         }
@@ -220,6 +225,7 @@ exports.proxyChatToPython = async (req, res) => {
         };
 
         if (isStream) {
+            const streamStartTime = Date.now();
             const pythonResponse = await axios.post(pythonEndpoint, payload, {
                 responseType: 'stream',
                 headers: { 'X-API-Key': config.BUDDY_API_KEY }
@@ -230,7 +236,20 @@ exports.proxyChatToPython = async (req, res) => {
             res.setHeader('X-Accel-Buffering', 'no'); // Prevent buffering from Nginx/proxies
             res.setHeader('Connection', 'keep-alive');
 
-            pythonResponse.data.pipe(res);
+            let firstTokenSent = false;
+            pythonResponse.data.on('data', (chunk) => {
+                if (!firstTokenSent) {
+                    firstTokenSent = true;
+                    console.log(`[LATENCY-TTFT] Total TTFT (Node.js -> Flutter): ${Date.now() - streamStartTime}ms`);
+                }
+                res.write(chunk);
+            });
+            
+            pythonResponse.data.on('end', () => res.end());
+            pythonResponse.data.on('error', (err) => {
+                console.error('[AI Gateway] Python stream error:', err);
+                res.end();
+            });
         } else {
             const pythonResponse = await axios.post(pythonEndpoint, payload, {
                 headers: { 'X-API-Key': config.BUDDY_API_KEY }
@@ -253,11 +272,18 @@ exports.proxyChatToPython = async (req, res) => {
 exports.proxyActionToPython = async (req, res) => {
     try {
         const { action, payload, type, value, userId: bodyUserId } = req.body;
-        const userId = req.user ? req.user._id : bodyUserId;
+        
+        // 1. Determine the effective User ID
+        // If 'protect' middleware passed, we have req.user. 
+        // If 'protectInternal' passed, we might only have bodyUserId.
+        let userId = req.user ? req.user._id : bodyUserId;
 
         if (!userId) {
             return res.status(401).json({ success: false, message: 'User not authenticated for action execution.' });
         }
+
+        // Ensure userId is a string for schema consistency
+        const userIdStr = userId.toString();
 
         const act = type || action;
         const val = value || payload;
@@ -269,13 +295,18 @@ exports.proxyActionToPython = async (req, res) => {
                 try { reminderData = JSON.parse(val); } catch (e) { }
             }
 
+            let result = { success: false, message: 'Unknown error' };
             const mockReq = {
                 body: reminderData,
-                user: { _id: userId, googleRefreshToken: null },
+                user: { _id: userIdStr, googleRefreshToken: null },
                 app: req.app // Pass the app context for Socket emission
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                status: (code) => ({ 
+                    json: (data) => {
+                        result = { success: code < 400, ...data, status: code };
+                    } 
+                }),
                 locals: {} // Some controllers use locals
             };
 
@@ -284,7 +315,7 @@ exports.proxyActionToPython = async (req, res) => {
                 if (reminderData.date && reminderData.time) {
                     const Reminder = require('../../models/Reminder');
                     const existing = await Reminder.findOne({ 
-                        userId, 
+                        userId: userIdStr, 
                         date: reminderData.date, 
                         time: reminderData.time,
                         status: { $nin: ['completed', 'cancelled'] }
@@ -296,7 +327,8 @@ exports.proxyActionToPython = async (req, res) => {
             } catch(e) { console.error('Conflict check error:', e); }
 
             await reminderController.createReminder(mockReq, mockRes);
-            return res.status(200).json({ success: true, message: 'Reminder action executed.' + conflictWarning });
+            if (result.success && conflictWarning) result.message += conflictWarning;
+            return res.status(result.status || 200).json(result);
         }
 
         if (act === 'CREATE_LOCATION_REMINDER') {
@@ -309,7 +341,7 @@ exports.proxyActionToPython = async (req, res) => {
                 try {
                     const { geocodeAddress } = require('../../services/smartReminderService');
                     const User = require('../../models/User');
-                    const user = await User.findById(userId);
+                    const user = await User.findById(userIdStr);
                     const coords = await geocodeAddress(reminderData.location, user?.currentLocation);
                     if (coords) {
                         reminderData.coordinates = coords;
@@ -327,18 +359,24 @@ exports.proxyActionToPython = async (req, res) => {
                 reminderData.time = "whenever I arrive";
             }
 
+            let result = { success: false, message: 'Unknown error' };
             const mockReq = {
                 body: reminderData,
-                user: { _id: userId },
+                user: { _id: userIdStr },
                 app: req.app
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                status: (code) => ({ 
+                    json: (data) => {
+                        result = { success: code < 400, ...data, status: code };
+                        console.log('Action Proxy -> Result:', data);
+                    } 
+                }),
                 locals: {}
             };
 
             await locationReminderController.createLocationReminder(mockReq, mockRes);
-            return res.status(200).json({ success: true, message: 'Location reminder action executed' });
+            return res.status(result.status || 200).json(result);
         }
 
         if (act === 'UPDATE_REMINDER') {
@@ -353,7 +391,7 @@ exports.proxyActionToPython = async (req, res) => {
             const mockReq = {
                 params: { id: reminderId },
                 body: reminderData,
-                user: { _id: userId, googleRefreshToken: null },
+                user: { _id: userIdStr, googleRefreshToken: null },
                 app: req.app
             };
             const mockRes = {
@@ -373,7 +411,7 @@ exports.proxyActionToPython = async (req, res) => {
 
             const mockReq = {
                 body: memoryData,
-                user: { _id: userId },
+                user: { _id: userIdStr },
                 app: req.app
             };
             const mockRes = {
@@ -392,7 +430,7 @@ exports.proxyActionToPython = async (req, res) => {
             }
             const Document = require('../../models/Document');
             await Document.create({
-                userId: userId,
+                userId: userIdStr,
                 fileName: docData.title || 'AI Generated Document',
                 content: docData.content || docData.summary || 'No content provided',
                 summary: docData.summary || '',
@@ -413,7 +451,7 @@ exports.proxyActionToPython = async (req, res) => {
             const mockReq = {
                 params: { id: memoryId },
                 body: memoryData,
-                user: { _id: userId },
+                user: { _id: userIdStr },
                 app: req.app
             };
             const mockRes = {

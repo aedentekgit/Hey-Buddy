@@ -177,13 +177,27 @@ class BuddyAgent extends EventEmitter {
                 });
             }
 
+            let forceProvider = this.aiConfig.provider;
+            let forceModel = this.aiConfig.model;
+            let forceApiKey = this.aiConfig.apiKey;
+
+            // FORCED LATENCY OVERRIDE: Ensure Voice uses the fastest possible model
+            if (this.aiConfig.allKeys && this.aiConfig.allKeys.groq) {
+                console.log('[BuddyAgent] Speed Optimization: Forcing Groq llama-3.1-8b-instant for low-latency Voice');
+                forceProvider = 'groq';
+                forceModel = 'llama-3.1-8b-instant';
+                forceApiKey = this.aiConfig.allKeys.groq;
+            } else if (forceProvider === 'groq' && forceModel.includes('70b')) {
+                forceModel = 'llama-3.1-8b-instant';
+            }
+
             const payload = {
                 message: text,
                 session_id: this.userId.toString(), // Unified session across web and mobile
                 tts: true,
-                api_key: this.aiConfig.apiKey,
-                provider: this.aiConfig.provider,
-                model: this.aiConfig.model,
+                api_key: forceApiKey,
+                provider: forceProvider,
+                model: forceModel,
                 userId: this.userId.toString(),
                 memory_context: memoryString
             };

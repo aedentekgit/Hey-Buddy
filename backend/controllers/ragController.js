@@ -1,6 +1,7 @@
 const Document = require('../models/Document');
 const Memory = require('../models/Memory');
 const Reminder = require('../models/Reminder');
+const LocationReminder = require('../models/LocationReminder');
 const Prescription = require('../models/Prescription');
 const Settings = require('../models/Settings');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -128,17 +129,24 @@ exports.deleteDocument = async (req, res) => {
 exports.getAllKnowledge = async (req, res) => {
     try {
         // We fetch everything. The Python side will handle chunking and multi-tenant isolation via metadata.
-        const [docs, memories, reminders, prescriptions] = await Promise.all([
+        const [docs, memories, reminders, locationReminders, prescriptions] = await Promise.all([
             Document.find({}).lean(),
             Memory.find({}).lean(),
             Reminder.find({}).lean(),
+            LocationReminder.find({}).lean(),
             Prescription.find({}).lean()
         ]);
+
+        // Merge standard and location reminders into a single list for the AI
+        const allReminders = [...reminders, ...locationReminders.map(lr => ({
+            ...lr,
+            reminderType: 'location' // Ensure it's tagged properly
+        }))];
 
         const consolidated = {
             documents: docs,
             memories: memories,
-            reminders: reminders,
+            reminders: allReminders,
             prescriptions: prescriptions
         };
 

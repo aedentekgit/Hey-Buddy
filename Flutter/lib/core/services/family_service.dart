@@ -24,6 +24,14 @@ class FamilyService {
     return jsonDecode(response.body);
   }
 
+  Future<Map<String, dynamic>> cancelRequest(String requestId) async {
+    final response = await http.delete(
+      Uri.parse('${AppConfig.baseUrl}family/request/$requestId'),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(response.body);
+  }
+
   Future<List<dynamic>> searchUsers(String query) async {
     final response = await http.get(
       Uri.parse('${AppConfig.baseUrl}users/search?q=$query'),

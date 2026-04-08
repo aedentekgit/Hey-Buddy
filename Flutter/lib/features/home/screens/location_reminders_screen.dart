@@ -418,6 +418,11 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                     return d != null && d.isBefore(todayThreshold);
                   }).toList();
 
+                  final anytimeList = filtered.where((r) {
+                    final d = parseDate(r);
+                    return d == null;
+                  }).toList();
+
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
                     children: [
@@ -429,6 +434,11 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                       if (upcomingList.isNotEmpty) ...[
                         _GroupLabel('Upcoming', count: upcomingList.length),
                         ...upcomingList.map((r) => _buildReminderItem(r)),
+                        const SizedBox(height: 12),
+                      ],
+                      if (anytimeList.isNotEmpty) ...[
+                        _GroupLabel('Whenever', count: anytimeList.length),
+                        ...anytimeList.map((r) => _buildReminderItem(r)),
                         const SizedBox(height: 12),
                       ],
                       if (pastList.isNotEmpty) ...[

@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, unused_element, unused_local_variable, use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
@@ -99,6 +100,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       }
     });
   }
+
   void _onAuthChanged() {
     if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -246,7 +248,6 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     _scrollToBottom();
   }
 
-
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
@@ -356,9 +357,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   Expanded(
                     child: Stack(
                       children: [
-                        provider.messages.isEmpty
-                            ? _buildEmptyState(provider, branding)
-                            : _buildChatList(provider, branding),
+                        provider.isLoading && provider.messages.isEmpty
+                            ? const Center(child: CircularProgressIndicator())
+                            : provider.messages.isEmpty
+                                ? _buildEmptyState(provider, branding)
+                                : _buildChatList(provider, branding),
                       ],
                     ),
                   ),
@@ -497,69 +500,28 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Column(
         children: [
-          const SizedBox(height: 20),
-          // ── Buddy Hero Section ────────────────────────────
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [branding.primaryColor, AppColors.accent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: branding.primaryColor.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/app_icon.png',
+          SizedBox(height: MediaQuery.of(context).size.height * 0.22),
+
+          // The GIF (App logo)
+          Center(
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: const BoxDecoration(shape: BoxShape.circle),
+              clipBehavior: Clip.antiAlias,
+              child: branding.logoUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: branding.logoUrl!,
                       fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Buddy AI Assistant",
-                        style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Your intelligent companion for productivity, learning, and creativity. How can I help you today?",
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.9),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                      placeholder: (context, url) => const SizedBox(),
+                      errorWidget: (context, url, error) => const SizedBox(),
+                    )
+                  : const SizedBox(),
             ),
           ),
-          const SizedBox(height: 60),
+
+          const SizedBox(height: 40),
+
           // Center-aligned invitation to speak
           Opacity(
             opacity: 0.5,
@@ -578,14 +540,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               ],
             ),
           ),
->>>>>>> d4c31ac (🚀 Full-Stack Speed Optimization: Perceived sub-second latency for AI and Voice (Python, Node, Flutter))
           const SizedBox(height: 100), // Space for input
         ],
       ),
     );
   }
-
-
 
   Widget _buildPixelAnimation(BrandingProvider branding) {
     return Container(
@@ -659,10 +618,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     BrandingProvider branding,
   ) {
     final isUser = msg['type'] == 'user';
-    final userProvider = Provider.of<UserProvider>(
-      context,
-      listen: false,
-    ); // already defined in build, but _buildMessageItem is a separate method
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    
     final ts = DateFormatter.formatTime(
       DateTime.fromMillisecondsSinceEpoch(
         msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
@@ -673,208 +630,223 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Row(
-        mainAxisAlignment: isUser
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          // Assistant Avatar on the Left
           if (!isUser) ...[
             _buildAssistantAvatar(branding),
             const SizedBox(width: 10),
           ],
+          
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.76,
+              maxWidth: MediaQuery.of(context).size.width * 0.74,
             ),
             child: Column(
-              crossAxisAlignment: isUser
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
+              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                Container(
-                  clipBehavior: Clip.antiAlias,
-                  padding: msg['image'] != null
-                      ? EdgeInsets.zero
-                      : const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
+                GestureDetector(
+                  onLongPress: () {
+                    final textToCopy = msg['text']?.toString() ?? '';
+                    if (textToCopy.isNotEmpty) {
+                      Clipboard.setData(ClipboardData(text: textToCopy));
+                      HapticFeedback.lightImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "Copied to clipboard",
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          backgroundColor: const Color(0xFF1E293B),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          duration: const Duration(seconds: 2),
                         ),
-                  decoration: BoxDecoration(
-                    gradient: isUser
-                        ? LinearGradient(
-                            colors: [branding.primaryColor, AppColors.accent],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isUser ? null : AppColors.surface,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(22),
-                      topRight: const Radius.circular(22),
-                      bottomLeft: Radius.circular(isUser ? 22 : 4),
-                      bottomRight: Radius.circular(isUser ? 4 : 22),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isUser
-                            ? branding.primaryColor.withValues(alpha: 0.18)
-                            : Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 15,
-                        offset: const Offset(0, 4),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: msg['image'] != null
+                        ? EdgeInsets.zero
+                        : const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                    decoration: BoxDecoration(
+                      gradient: isUser
+                          ? LinearGradient(
+                              colors: [branding.primaryColor, branding.primaryColor.withValues(alpha: 0.8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: isUser ? null : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(12),
+                        topRight: const Radius.circular(12),
+                        bottomLeft: Radius.circular(isUser ? 12 : 4),
+                        bottomRight: Radius.circular(isUser ? 4 : 12),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (msg['image'] != null) ...[
-                        (msg['image'].toString().startsWith('http') ||
-                                msg['image'].toString().startsWith('https'))
-                            ? CachedNetworkImage(
-                                imageUrl: msg['image'],
-                                width: 240,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  height: 180,
-                                  color: Colors.grey[100],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                ),
-                                errorWidget: (context, url, error) =>
-                                    Image.file(
-                                      File(msg['image']),
-                                      width: 240,
-                                      fit: BoxFit.cover,
-                                    ),
-                              )
-                            : Image.file(
-                                File(msg['image']),
-                                width: 240,
-                                fit: BoxFit.cover,
-                              ),
-                        if (msg['text'] != null &&
-                            msg['text'].toString().isNotEmpty)
-                          const SizedBox(height: 10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
                       ],
-                      Padding(
-                        padding:
-                            msg['image'] != null &&
-                                ((msg['text'] != null &&
-                                        msg['text'].toString().isNotEmpty) ||
-                                    !isUser)
-                            ? const EdgeInsets.only(
-                                left: 14,
-                                right: 14,
-                                bottom: 14,
-                              )
-                            : EdgeInsets.zero,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (isUser)
-                              if (msg['text'] != null &&
-                                  msg['text'].toString().isNotEmpty)
-                                Text(
-                                  msg['text'],
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.5,
-                                  ),
-                                )
-                              else
-                                const SizedBox.shrink()
-                            else if (msg['text'].isEmpty)
-                              msg['isPartial'] == true
-                                  ? Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                        horizontal: 4,
+                    ),
+                    child: IntrinsicWidth(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                        if (msg['image'] != null) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: (msg['image'].toString().startsWith('http') ||
+                                    msg['image'].toString().startsWith('https'))
+                                ? CachedNetworkImage(
+                                    imageUrl: msg['image'],
+                                    width: 240,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      height: 180,
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          _buildDot(0, branding),
-                                          const SizedBox(width: 5),
-                                          _buildDot(1, branding),
-                                          const SizedBox(width: 5),
-                                          _buildDot(2, branding),
-                                        ],
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          LucideIcons.checkCircle2,
-                                          color: branding.primaryColor,
-                                          size: 16,
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        Image.file(
+                                          File(msg['image']),
+                                          width: 240,
+                                          fit: BoxFit.cover,
                                         ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          "Information is currently unavailable.",
-                                          style: GoogleFonts.inter(
-                                            color: AppColors.text,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                            else
-                              MarkdownBody(
-                                data: msg['text'],
-                                styleSheet: MarkdownStyleSheet(
-                                  p: GoogleFonts.inter(
-                                    color: AppColors.text,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.5,
+                                  )
+                                : Image.file(
+                                    File(msg['image']),
+                                    width: 240,
+                                    fit: BoxFit.cover,
                                   ),
-                                  strong: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.text,
-                                  ),
-                                  listBullet: GoogleFonts.inter(
-                                    color: AppColors.textMid,
-                                  ),
-                                  code: GoogleFonts.firaCode(
-                                    fontSize: 13,
-                                    backgroundColor: AppColors.bg,
-                                    color: branding.primaryColor,
-                                  ),
-                                ),
+                          ),
+                          if (msg['text'] != null &&
+                              msg['text'].toString().isNotEmpty)
+                            const SizedBox(height: 12),
+                        ],
+                        
+                        if (msg['text'] != null && msg['text'].toString().isNotEmpty)
+                          MarkdownBody(
+                            data: msg['text'],
+                            styleSheet: MarkdownStyleSheet(
+                              p: GoogleFonts.inter(
+                                color: isUser ? Colors.white : const Color(0xFF1E293B),
+                                fontSize: 15,
+                                fontWeight: FontWeight.normal,
+                                height: 1.5,
                               ),
-                          ],
-                        ),
-                      ),
-                    ],
+                              code: GoogleFonts.firaCode(
+                                backgroundColor: isUser ? Colors.white24 : Colors.grey[200],
+                                color: isUser ? Colors.white : Colors.black87,
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        else if (!isUser && msg['isPartial'] == true)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildDot(0, branding),
+                              const SizedBox(width: 5),
+                              _buildDot(1, branding),
+                              const SizedBox(width: 5),
+                              _buildDot(2, branding),
+                            ],
+                          ),
+
+
+                      ],
+                    ),
                   ),
                 ),
+              ),
+                
+                const SizedBox(height: 4),
                 Padding(
-                  padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
-                  child: Text(
-                    ts,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF94A3B8),
-                    ),
+                  padding: EdgeInsets.only(
+                    left: isUser ? 0 : 4,
+                    right: isUser ? 4 : 0,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Copy icon on the left of timestamp for User bubble
+                      if (isUser) ...[
+                        GestureDetector(
+                          onTap: () {
+                            final textToCopy = msg['text']?.toString() ?? '';
+                            Clipboard.setData(ClipboardData(text: textToCopy));
+                            HapticFeedback.lightImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Content copied to clipboard"),
+                                behavior: SnackBarBehavior.floating,
+                                margin: const EdgeInsets.all(20),
+                              ),
+                            );
+                          },
+                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
+                        ),
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
+                        ts,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.black45,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      // Copy icon on the right of timestamp for Assistant bubble
+                      if (!isUser) ...[
+                        const SizedBox(width: 5),
+                        GestureDetector(
+                          onTap: () {
+                            final textToCopy = msg['text']?.toString() ?? '';
+                            Clipboard.setData(ClipboardData(text: textToCopy));
+                            HapticFeedback.lightImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Assistant response copied"),
+                                behavior: SnackBarBehavior.floating,
+                                margin: const EdgeInsets.all(20),
+                              ),
+                            );
+                          },
+                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          if (isUser) ...[const SizedBox(width: 10), _buildUserAvatar()],
+          
+          // User Avatar on the Right (Optional, usually omitted in WhatsApp but let's see)
+          // if (isUser) ...[
+          //   const SizedBox(width: 10),
+          //   _buildUserAvatar(userProvider),
+          // ],
         ],
       ),
     );
   }
-
   Widget _buildThinkingBubble(BrandingProvider branding) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -887,21 +859,20 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: const Color(0xFFF8FAFC),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(22),
-                topRight: Radius.circular(22),
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
                 bottomLeft: Radius.circular(4),
-                bottomRight: Radius.circular(22),
+                bottomRight: Radius.circular(20),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
               ],
-              border: Border.all(color: AppColors.border, width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1098,6 +1069,34 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildShortcutChip(
+                    "Check reminder",
+                    LucideIcons.bell,
+                    provider,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildShortcutChip(
+                    "Translate a phrase",
+                    LucideIcons.languages,
+                    provider,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildShortcutChip(
+                    "Write an email",
+                    LucideIcons.mail,
+                    provider,
+                  ),
+                ],
+              ),
+            ),
+          ),
           if (_selectedImage != null) ...[
             Stack(
               clipBehavior: Clip.none,
@@ -1160,6 +1159,48 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             onSendPressed: _handleSend,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildShortcutChip(
+    String text,
+    IconData icon,
+    BuddyProvider provider,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        _inputController.text = text;
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppColors.textMid),
+            const SizedBox(width: 6),
+            Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.text,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

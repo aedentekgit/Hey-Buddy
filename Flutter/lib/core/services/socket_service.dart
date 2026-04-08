@@ -336,6 +336,13 @@ class SocketService {
     });
   }
 
+  void markMessagesDelivered(String roomId, String userId) {
+    socket?.emit('mark_delivered', {
+      'roomId': roomId,
+      'userId': userId,
+    });
+  }
+
   void disconnect() {
     socket?.disconnect();
   }

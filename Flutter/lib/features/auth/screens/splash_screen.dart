@@ -113,54 +113,27 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
 
               Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Hero(
-                      tag: 'app_logo',
-                      child: Container(
-                        child: branding.splashUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: branding.splashUrl!,
-                                height: 120,
-                                placeholder: (context, url) =>
-                                    const SizedBox(height: 120, width: 120),
-                                errorWidget: (context, url, error) => Icon(
-                                  Icons.auto_awesome,
-                                  size: 64,
-                                  color: branding.primaryColor,
-                                ),
-                              )
-                            : Icon(
-                                Icons.auto_awesome,
-                                size: 64,
-                                color: branding.primaryColor,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Text(
-                      branding.appName,
-                      style: GoogleFonts.outfit(
-                        fontSize: 48,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF1E293B),
-                        letterSpacing: -1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: 40,
-                      child: LinearProgressIndicator(
-                        backgroundColor: branding.primaryColor.withValues(alpha: 0.1),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          branding.primaryColor,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        minHeight: 4,
-                      ),
-                    ),
-                  ],
+                child: Hero(
+                  tag: 'app_logo',
+                  child: Container(
+                    child: branding.splashUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: branding.splashUrl!,
+                            height: 320,
+                            placeholder: (context, url) =>
+                                const SizedBox(height: 320, width: 320),
+                            errorWidget: (context, url, error) => Icon(
+                              Icons.auto_awesome,
+                              size: 100,
+                              color: branding.primaryColor,
+                            ),
+                          )
+                        : Icon(
+                            Icons.auto_awesome,
+                            size: 100,
+                            color: branding.primaryColor,
+                          ),
+                  ),
                 ),
               ),
             ],

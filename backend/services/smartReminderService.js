@@ -50,7 +50,7 @@ async function geocodeAddress(address, biasLocation = null) {
     let apiKey = GOOGLE_MAPS_API_KEY;
 
     if (!apiKey) {
-        const settings = await Settings.findOne();
+        const settings = await Settings.findOne().select('+googleMaps.apiKey');
         if (settings?.googleMaps?.apiKey) {
             apiKey = settings.googleMaps.apiKey;
         }
@@ -134,7 +134,7 @@ async function getTrafficAwareTravelTime(origin, destination) {
     let apiKey = GOOGLE_MAPS_API_KEY;
 
     if (!apiKey) {
-        const settings = await Settings.findOne();
+        const settings = await Settings.findOne().select('+googleMaps.apiKey');
         if (settings?.googleMaps?.enabled && settings?.googleMaps?.apiKey) {
             apiKey = settings.googleMaps.apiKey;
         }

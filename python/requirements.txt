@@ -28,7 +28,7 @@ transformers==4.46.3
 
 # Search & Tools
 tavily-python==0.5.0
-ddgs
+duckduckgo-search
 
 # Utilities
 requests==2.32.3

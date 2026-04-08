@@ -41,7 +41,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
       context.read<FamilyProvider>().clearUnreadCount();
     });
   }
@@ -62,13 +61,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    // No longer needed with reverse: true
   }
 
   @override
@@ -267,14 +260,16 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
           Expanded(
             child: Consumer<FamilyProvider>(
               builder: (context, provider, _) {
-                WidgetsBinding.instance.addPostFrameCallback(
-                  (_) => _scrollToBottom(),
-                );
+                // scroll to bottom no longer needed for reversed list
+                if (provider.isLoading && provider.messages.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
                 if (provider.messages.isEmpty) {
                   return _buildEmptyState();
                 }
                 return ListView.builder(
                   controller: _scrollController,
+                  reverse: true,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 20,
@@ -286,7 +281,8 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                     final msg = msgData as Map<String, dynamic>;
 
                     final bool isMe =
-                        msg['sender_id'] == provider.currentUserId;
+                        provider.currentUserId != null &&
+                        msg['sender_id']?.toString() == provider.currentUserId!.toString();
 
                     String? avatar;
                     if (isMe) {
@@ -374,7 +370,10 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
           ],
 
           // Bubble
-          ConstrainedBox(
+          Column(
+            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.72,
             ),
@@ -535,28 +534,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                               ),
                             ),
 
-                          const SizedBox(height: 5),
-                          Align(
-                            alignment: Alignment.bottomRight,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  time,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10,
-                                    color: isMe
-                                        ? Colors.white.withValues(alpha: 0.65)
-                                        : AppColors.textDim,
-                                  ),
-                                ),
-                                if (isMe) ...[
-                                  const SizedBox(width: 4),
-                                  _buildReadReceipt(msg),
-                                ]
-                              ],
-                            ),
-                          ),
+
                         ],
                       ),
                     ),
@@ -584,6 +562,56 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                 ),
               ),
             ),
+              ),
+              // External Timestamp and Copy Row
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isMe) ...[
+                      GestureDetector(
+                        onTap: () {
+                          final textToCopy = msg['content']?.toString() ?? '';
+                          Clipboard.setData(ClipboardData(text: textToCopy));
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Copied to clipboard'), behavior: SnackBarBehavior.floating),
+                          );
+                        },
+                        child: Icon(LucideIcons.copy, size: 10, color: AppColors.textDim),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      time,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: AppColors.textDim,
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 4),
+                      _buildReadReceipt(msg),
+                    ],
+                    if (!isMe) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          final textToCopy = msg['content']?.toString() ?? '';
+                          Clipboard.setData(ClipboardData(text: textToCopy));
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Copied to clipboard'), behavior: SnackBarBehavior.floating),
+                          );
+                        },
+                        child: Icon(LucideIcons.copy, size: 10, color: AppColors.textDim),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
 
           // Right avatar (me)

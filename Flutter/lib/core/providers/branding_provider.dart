@@ -122,8 +122,7 @@ class BrandingProvider extends ChangeNotifier {
 
             // Capture Google Maps Key
             String? newGoogleMapsApiKey;
-            if (data['googleMaps'] != null &&
-                data['googleMaps']['enabled'] == true) {
+            if (data['googleMaps'] != null) {
               newGoogleMapsApiKey = data['googleMaps']['apiKey'];
             }
 

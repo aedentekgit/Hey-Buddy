@@ -337,7 +337,7 @@ const toolHandlers = {
         else return { status: 'error', message: 'ID or snippet required.' };
 
         await Memory.deleteOne(query);
-        return { status: 'success', message: 'Memory deleted.' };
+        return { status: 'success', message: 'Delete successful.' };
     },
     update_memory: async (userId, args) => {
         const { id, query: contentSnippet, newContent } = args;
@@ -528,7 +528,7 @@ const buddyTools = [
             },
             {
                 name: 'delete_memory',
-                description: 'Delete a specific memory by its ID or content fragment.',
+                description: 'Permanently delete a specific memory by its ID or content fragment. Use this when the user explicitly asks to remove, forget, or delete a piece of information.',
                 parameters: {
                     type: 'OBJECT',
                     properties: {
@@ -539,7 +539,7 @@ const buddyTools = [
             },
             {
                 name: 'update_memory',
-                description: 'Update a specific stored memory by its ID or content fragment with new information.',
+                description: 'Update a specific stored memory with new information. Use this ONLY when the user wants to change existing information, NOT for deleting it.',
                 parameters: {
                     type: 'OBJECT',
                     properties: {
