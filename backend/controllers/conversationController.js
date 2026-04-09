@@ -115,32 +115,37 @@ exports.deleteAllConversations = async (req, res) => {
 
 exports.syncConversation = async (req, res) => {
     try {
-        const { userId, messages } = req.body;
+        const { userId, messages, conversationId } = req.body;
 
         if (!userId) {
             return res.status(400).json({ success: false, message: 'userId is required' });
         }
 
-        // ENFORCE MASTER THREAD: Use userId as the primary _id for the conversation.
-        // This ensures that for ANY device the user logs into, they hit the EXACT same MongoDB document.
-        // History will "travel" seamlessly between Web and Mobile.
-        let conversation = await Conversation.findOne({ 
-            $or: [
-                { _id: userId },
-                { userId: userId }
-            ]
-        }).sort({ updatedAt: -1 });
+        // SAFE PER-USER SYNC: Find the specific conversation by conversationId + userId.
+        // This prevents cross-user data leakage. Each user has their own isolated conversation docs.
+        let conversation = null;
+
+        if (conversationId) {
+            // Load a specific conversation, strictly scoped to this user
+            conversation = await Conversation.findOne({
+                _id: conversationId,
+                userId: userId
+            });
+        }
+
+        if (!conversation) {
+            // No specific conversation found — find the most recent one for this user
+            conversation = await Conversation.findOne({ userId: userId })
+                .sort({ updatedAt: -1 });
+        }
 
         if (conversation) {
-            // Update the existing master thread
+            // Update the existing conversation (strict userId ownership enforced above)
             conversation.messages = messages;
-            // Ensure userId is set (migration for old docs)
-            conversation.userId = userId;
             await conversation.save();
         } else {
-            // Create a new master thread with userId as _id
+            // Create a brand new conversation for this user (auto-generated _id)
             conversation = await Conversation.create({
-                _id: userId,
                 userId: userId,
                 messages: messages,
                 title: 'Buddy Conversation'
@@ -162,6 +167,28 @@ exports.getLatestConversationByUserId = async (req, res) => {
         const conversation = await Conversation.findOne({ userId })
             .lean()
             .sort({ updatedAt: -1 });
+
+        if (!conversation) {
+            return res.status(404).json({ success: false, message: 'Conversation not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: conversation
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getConversationInternalById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ success: false, message: 'id is required' });
+        }
+
+        const conversation = await Conversation.findById(id).lean();
 
         if (!conversation) {
             return res.status(404).json({ success: false, message: 'Conversation not found' });

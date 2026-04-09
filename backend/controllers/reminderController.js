@@ -1,5 +1,6 @@
 const config = require('../config/env');
 const Reminder = require('../models/Reminder');
+const LocationReminder = require('../models/LocationReminder');
 const Notification = require('../models/Notification');
 const { google } = require('googleapis');
 const User = require('../models/User');
@@ -166,51 +167,72 @@ function appendOverdueStatus(data) {
 
 exports.getReminders = async (req, res) => {
     try {
-        const query = {
+        const userId = req.user._id.toString();
+        const baseQuery = {
             $or: [
-                { userId: req.user._id },
-                { 'sharedWith.user': req.user._id },
-                { assignedTo: req.user._id }
-            ],
-            // Exclude location reminders from the general list
-            reminderType: { $ne: 'location' }
+                { userId },
+                { 'sharedWith.user': userId },
+                { assignedTo: userId }
+            ]
         };
 
         const { start, end } = req.query;
+        const dateQuery = {};
         if (start && end) {
-            query.date = { $gte: start, $lte: end };
+            dateQuery.date = { $gte: start, $lte: end };
         }
 
-        // Paginate with populated fields to avoid N+1 queries
+        // Apply filters to both collections
+        const reminderQuery = { ...baseQuery, ...dateQuery };
+        // We *don't* exclude 'location' type here anymore to ensure all Reminder docs are included
+        
+        const locReminderQuery = { ...baseQuery, ...dateQuery };
+
+        // Fetch from both in parallel
+        const [stdReminders, locReminders] = await Promise.all([
+            Reminder.find(reminderQuery)
+                .populate('userId', 'name email profilePicture')
+                .populate('sharedWith.user', 'name email profilePicture')
+                .lean()
+                .sort({ updatedAt: -1 }),
+            LocationReminder.find(locReminderQuery)
+                .populate('userId', 'name email profilePicture')
+                .lean()
+                .sort({ updatedAt: -1 })
+        ]);
+
+        // Merge and tag them so UI can identify the model if needed
+        const combined = [
+            ...stdReminders.map(r => ({ ...r, _model: 'Reminder' })),
+            ...locReminders.map(r => ({ ...r, _model: 'LocationReminder', reminderType: 'location' }))
+        ];
+
+        // Sort combined list by updatedAt desc (or date/time if preferred)
+        combined.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+        // Paginate manually if needed, but for mobile limits are high (100)
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
-
-        const total = await Reminder.countDocuments(query);
-        const data = await Reminder.find(query)
-            .populate('userId', 'name email profilePicture')
-            .populate('sharedWith.user', 'name email profilePicture')
-            .lean()
-            .skip(skip)
-            .limit(limit)
-            .sort({ updatedAt: -1 });
+        const paginated = combined.slice(skip, skip + limit);
 
         // Process records to append `isOverdue` dynamically
-        const augmentedData = appendOverdueStatus(data);
+        const augmentedData = appendOverdueStatus(paginated);
 
         res.status(200).json({
             success: true,
             data: augmentedData,
             pagination: {
-                total,
-                totalPages: Math.ceil(total / limit),
+                total: combined.length,
+                totalPages: Math.ceil(combined.length / limit),
                 currentPage: page,
                 limit,
-                hasNextPage: page < Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(combined.length / limit),
                 hasPrevPage: page > 1
             }
         });
     } catch (error) {
+        console.error('[ReminderController] getReminders Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -902,8 +924,8 @@ exports.getTravelStats = async (req, res) => {
  */
 exports.getCalendarStats = async (req, res) => {
     try {
-        const userId = req.user._id.toString(); // Ensure string for aggregation match
-        const { start, end } = req.query; // Expecting YYYY-MM-DD
+        const userId = req.user._id.toString();
+        const { start, end } = req.query;
 
         const query = {
             $or: [
@@ -917,21 +939,28 @@ exports.getCalendarStats = async (req, res) => {
             query.date = { $gte: start, $lte: end };
         }
 
-        const stats = await Reminder.aggregate([
-            { $match: query },
-            {
-                $group: {
-                    _id: "$date",
-                    count: { $sum: 1 }
-                }
-            }
+        // Aggregate from both collections
+        const [stdStats, locStats] = await Promise.all([
+            Reminder.aggregate([
+                { $match: query },
+                { $group: { _id: "$date", count: { $sum: 1 } } }
+            ]),
+            LocationReminder.aggregate([
+                { $match: query },
+                { $group: { _id: "$date", count: { $sum: 1 } } }
+            ])
         ]);
 
         const formattedData = {};
-        stats.forEach(item => {
-            if (item._id) {
-                formattedData[item._id] = item.count;
-            }
+        
+        // Merge standard reminders
+        stdStats.forEach(item => {
+            if (item._id) formattedData[item._id] = (formattedData[item._id] || 0) + item.count;
+        });
+
+        // Merge location reminders
+        locStats.forEach(item => {
+            if (item._id) formattedData[item._id] = (formattedData[item._id] || 0) + item.count;
         });
 
         res.status(200).json({

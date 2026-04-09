@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Family = require('../models/Family');
 const FamilyRequest = require('../models/FamilyRequest');
 const ChatRoom = require('../models/ChatRoom');
+const ChatMessage = require('../models/ChatMessage');
 const Notification = require('../models/Notification');
 const { sendPushNotificationBatch } = require('../services/notificationService');
 const { sendEmail } = require('../services/emailService');
@@ -18,7 +19,15 @@ exports.sendFamilyRequest = async (req, res) => {
         }
 
         const sender = await User.findById(senderId);
+        if (sender.email.toLowerCase() === email.toLowerCase()) {
+            return res.status(400).json({ success: false, message: "You cannot invite yourself" });
+        }
+
         const recipient = await User.findOne({ email: email.toLowerCase() });
+        
+        if (recipient && sender.familyId && recipient.familyId && sender.familyId.toString() === recipient.familyId.toString()) {
+            return res.status(400).json({ success: false, message: "User is already in your family hub" });
+        }
 
         // Check if a request already exists
         const existingRequest = await FamilyRequest.findOne({
@@ -59,6 +68,9 @@ exports.sendFamilyRequest = async (req, res) => {
                 actionUrl: '/family-hub'
             });
             await notification.save();
+
+            // EMIT REAL-TIME SYNC: Notify recipient to refresh their pending requests
+            emitDataSync(req, res, recipient._id, 'family', 'request', { requestId: newRequest._id });
         } else {
             // Send Email Invitation
             const appUrl = process.env.FRONTEND_URL || 'https://buddy.ayuskart.com';
@@ -221,14 +233,14 @@ exports.getFamilyMembers = async (req, res) => {
         const pendingRequests = await FamilyRequest.find({
             senderId: req.user._id,
             status: 'pending'
-        });
+        }).populate('recipientId', 'name profilePicture');
 
         const pendingResults = pendingRequests.map(pr => ({
             user_id: `pending_${pr._id}`,
-            name: pr.email.split('@')[0], 
+            name: pr.recipientId ? pr.recipientId.name : pr.email.split('@')[0], 
             email: pr.email,
             status: 'pending',
-            profilePicture: null
+            profilePicture: pr.recipientId ? pr.recipientId.profilePicture : null
         }));
 
         let connectedResults = [];

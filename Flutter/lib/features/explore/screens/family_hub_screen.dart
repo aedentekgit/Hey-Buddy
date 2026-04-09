@@ -410,56 +410,7 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
   }
 
 
-  Widget _buildFilterChips() {
-    final filters = ['All', 'Active', 'Pending'];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 18), // Added padding here for the correct gap matching the other screens
-      child: Row(
-        children: filters.map((filter) {
-          final isSelected = _selectedFilter == filter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedFilter = filter),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.accent : AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? AppColors.accent : AppColors.border,
-                  ),
-                  boxShadow: !isSelected ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 6,
-                      offset: const Offset(0, 1),
-                    ),
-                  ] : [
-                    BoxShadow(
-                      color: AppColors.accent.withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  filter,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? Colors.white : AppColors.textMid,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
+
 
   // ── Empty state ────────────────────────────────────────────────────────
   Widget _buildEmpty() {
@@ -503,17 +454,24 @@ class _FamilyHubScreenState extends State<FamilyHubScreen>
   Future<void> _sendInvite(FamilyProvider provider) async {
     if (_emailCtrl.text.isEmpty) return;
     setState(() => _isInviting = true);
-    final ok = await provider.sendRequest(_emailCtrl.text.trim());
+    
+    // We'll need the response to show the message, but FamilyProvider wraps it in a bool.
+    // Let's call the service directly or update the provider to return the full result.
+    // For now, let's just make the provider return a result or handle it better.
+    // Actually, I'll update the provider to return the full response map for better error handling.
+
+    final res = await provider.sendRequestWithResponse(_emailCtrl.text.trim());
+    final ok = res['success'] == true;
+    
     if (ok) _emailCtrl.clear();
     setState(() => _isInviting = false);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? 'Invitation sent!' : 'Check email or connection.'),
+        content: Text(ok ? 'Invitation sent!' : (res['message'] ?? 'Check email or connection.')),
         behavior: SnackBarBehavior.floating,
       ),
     );
-    if (ok) _emailCtrl.clear();
   }
 
   void _confirmEmergency(FamilyProvider provider) {

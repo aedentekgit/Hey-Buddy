@@ -766,7 +766,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [AppColors.accent, const Color(0xFF6366F1)],
+                          colors: [
+                            Theme.of(context).primaryColor,
+                            Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -1384,12 +1387,12 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                       decoration: BoxDecoration(
                                         color: _isGettingLocation
                                             ? Colors.grey[200]
-                                            : AppColors.accent.withValues(alpha: 0.1),
+                                            : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                           color: _isGettingLocation
                                               ? Colors.grey[300]!
-                                              : AppColors.accent.withValues(alpha: 0.3),
+                                              : Theme.of(context).primaryColor.withValues(alpha: 0.3),
                                         ),
                                       ),
                                       child: Row(
@@ -1402,7 +1405,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                                   child:
                                                       CircularProgressIndicator(
                                                         strokeWidth: 1.5,
-                                                        color: AppColors.accent,
+                                                        color: Theme.of(context).primaryColor,
                                                       ),
                                                 )
                                               : Icon(
@@ -1420,7 +1423,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                               fontWeight: FontWeight.w600,
                                               color: _isGettingLocation
                                                   ? Colors.grey[600]
-                                                  : AppColors.accent,
+                                                  : Theme.of(context).primaryColor,
                                             ),
                                           ),
                                         ],
@@ -1444,7 +1447,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                       ),
                                     ],
                                     border: Border.all(
-                                      color: AppColors.accent.withValues(alpha: 0.15),
+                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
                                     ),
                                   ),
                                   child: ClipRRect(
@@ -1481,13 +1484,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                                   width: 28,
                                                   height: 28,
                                                   decoration: BoxDecoration(
-                                                    color: AppColors.accent.withValues(alpha: 0.08),
+                                                    color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: Icon(
                                                     LucideIcons.mapPin,
                                                     size: 13,
-                                                    color: AppColors.accent,
+                                                    color: Theme.of(context).primaryColor,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 10),
@@ -1700,13 +1703,13 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.accentLight,
+                            color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             "${bufferTime.toInt()} min",
                             style: GoogleFonts.nunito(
-                              color: AppColors.accent,
+                              color: Theme.of(context).primaryColor,
                               fontWeight: FontWeight.w800,
                               fontSize: 13,
                             ),
@@ -1718,10 +1721,10 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         trackHeight: 6,
-                        activeTrackColor: AppColors.accent,
+                        activeTrackColor: Theme.of(context).primaryColor,
                         inactiveTrackColor: AppColors.border,
                         thumbColor: AppColors.surface,
-                        overlayColor: AppColors.accent.withValues(alpha: 0.12),
+                        overlayColor: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                         thumbShape: const RoundSliderThumbShape(
                           enabledThumbRadius: 10,
                           elevation: 3,
@@ -1754,15 +1757,15 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppColors.accent.withValues(alpha: 0.08),
-                            AppColors.purple.withValues(alpha: 0.12),
+                            Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                            Theme.of(context).primaryColor.withValues(alpha: 0.12),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.15),
+                          color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
                         ),
                       ),
                       child: Row(
@@ -1771,15 +1774,15 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: AppColors.accent.withValues(alpha: 0.12),
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: AppColors.accent.withValues(alpha: 0.2),
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
                               ),
                             ),
                             child: Icon(
                               LucideIcons.bell,
-                              color: AppColors.accent,
+                              color: Theme.of(context).primaryColor,
                               size: 18,
                             ),
                           ),
@@ -1793,7 +1796,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                   style: GoogleFonts.nunito(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
-                                    color: AppColors.accent,
+                                    color: Theme.of(context).primaryColor,
                                     letterSpacing: 0.8,
                                   ),
                                 ),
@@ -2156,11 +2159,11 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 4,
                           activeTrackColor: isEditing
-                              ? AppColors.accent
+                              ? Theme.of(context).primaryColor
                               : AppColors.border,
                           inactiveTrackColor: AppColors.border.withValues(alpha: 0.5),
                           thumbColor: isEditing
-                              ? AppColors.accent
+                              ? Theme.of(context).primaryColor
                               : AppColors.border,
                           overlayColor: Colors.transparent,
                           thumbShape: const RoundSliderThumbShape(
@@ -2322,7 +2325,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         QuickActionItem(
                           label: 'Reschedule',
                           icon: LucideIcons.clock,
-                          color: AppColors.accent,
+                          color: Theme.of(context).primaryColor,
                           onTap: _handleReschedule,
                         ),
                       QuickActionItem(
@@ -2401,7 +2404,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                               title: Text(user['name'] ?? 'Unknown', style: GoogleFonts.outfit(fontSize: 14)),
                               subtitle: Text(user['email'] ?? '', style: GoogleFonts.outfit(fontSize: 12)),
                               trailing: IconButton(
-                                icon: Icon(LucideIcons.plusCircle, color: AppColors.accent),
+                                icon: Icon(LucideIcons.plusCircle, color: Theme.of(context).primaryColor),
                                 onPressed: () {
                                    setState(() {
                                       if (!sharedWith.any((s) => s is Map && s['user'] is Map && s['user']['_id'] == user['_id'])) {
@@ -2642,7 +2645,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                               ? _formatFullDateTime(widget.reminder['createdAt'])
                               : "Just now",
                           icon: LucideIcons.plusCircle,
-                          color: AppColors.accent,
+                          color: Theme.of(context).primaryColor,
                           isLast: true,
                         )
                       else
@@ -2672,8 +2675,22 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                       margin: const EdgeInsets.only(top: 24),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(14),
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).primaryColor,
+                            Theme.of(context).primaryColor.withValues(alpha: 0.9),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: Text(
                         "Save Settings",
@@ -2755,7 +2772,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
 
   Color _getTimelineColor(String action) {
     final a = action.toLowerCase();
-    if (a.contains('created')) return AppColors.accent;
+    if (a.contains('created')) return Theme.of(context).primaryColor;
     if (a.contains('completed')) return AppColors.green;
     if (a.contains('snoozed')) return AppColors.orange;
     if (a.contains('alert') || a.contains('risk') || a.contains('guard')) {
@@ -2867,7 +2884,7 @@ class _InfoRow extends StatelessWidget {
             color: AppColors.bg,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 18, color: AppColors.accent),
+          child: Icon(icon, size: 18, color: Theme.of(context).primaryColor),
         ),
         const SizedBox(width: 12),
         Expanded(

@@ -83,35 +83,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(LucideIcons.chevronLeft, color: Color(0xFF1E293B)),
-        ),
-      ),
+      // No AppBar to remove back button and header
       body: Stack(
         children: [
-          // ── Decorative Background ──────────────────────────
-          Positioned(
-            top: -50,
-            right: -50,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: branding.primaryColor.withValues(alpha: 0.05),
-              ),
-            ),
-          ),
+          // ── No Decorative Background ──────────────────────────
 
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 20),
                   Text(
@@ -120,6 +102,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         : _currentStep == 1
                         ? "Verify OTP"
                         : "New Password",
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
@@ -134,6 +117,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         : _currentStep == 1
                         ? "We've sent a 6-digit code to your email."
                         : "At least 6 characters to keep your account secure.",
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       color: const Color(0xFF64748B),

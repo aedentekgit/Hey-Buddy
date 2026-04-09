@@ -75,6 +75,10 @@ const userSchema = new mongoose.Schema({
             type: String,
             enum: ['soft', 'normal', 'energetic'],
             default: 'normal'
+        },
+        voiceEnabled: {
+            type: Boolean,
+            default: true   // true = voice ON (normal behaviour)
         }
     },
     timezone: {

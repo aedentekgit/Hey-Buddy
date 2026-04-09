@@ -111,16 +111,14 @@ class _SignupScreenState extends State<SignupScreen> {
                           ? CachedNetworkImage(
                               imageUrl: branding.logoUrl!,
                               height: 40,
-                              errorWidget: (context, url, error) => Icon(
-                                Icons.auto_awesome,
-                                size: 30,
-                                color: branding.primaryColor,
+                              errorWidget: (context, url, error) => Image.asset(
+                                'assets/images/buddy_logo.png',
+                                height: 60,
                               ),
                             )
-                          : Icon(
-                              Icons.auto_awesome,
-                              size: 30,
-                              color: branding.primaryColor,
+                          : Image.asset(
+                              'assets/images/buddy_logo.png',
+                              height: 60,
                             ),
                     ),
                   ),

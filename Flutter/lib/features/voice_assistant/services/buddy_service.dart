@@ -242,4 +242,25 @@ class BuddyService {
     }
   }
 
+  Future<Map<String, dynamic>> executeAiAction(
+    String action,
+    dynamic payload, {
+    String? id,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('${_baseUrl}ai/action'),
+        headers: headers,
+        body: jsonEncode({
+          'action': action.toUpperCase(),
+          'payload': payload,
+          'id': id,
+        }),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

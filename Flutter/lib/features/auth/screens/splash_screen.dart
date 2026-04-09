@@ -34,11 +34,14 @@ class _SplashScreenState extends State<SplashScreen> {
       await Future.delayed(const Duration(milliseconds: 100));
     }
 
-    if (branding.hasError) return; // Stop here if there's a backend error
+    if (!mounted) return;
+    
+    // PRIME ALL IMAGES (GIFs) TO LOAD IMMEDIATELY
+    await branding.precacheAllImages(context);
 
-    await Future.delayed(
-      const Duration(seconds: 1),
-    ); // Extra total splash time for branding
+    if (branding.hasError) return;
+
+    await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -69,10 +72,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // Always go to MainScreen; it will handle showing the Assistant by default for guest users
+    // Always go to MainScreen; default to Explore tab (index 1) for logged-in users
+    final auth2 = Provider.of<AuthProvider>(context, listen: false);
     Navigator.of(
       context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
+    ).pushReplacement(MaterialPageRoute(
+      builder: (_) => MainScreen(initialIndex: auth2.token != null ? 1 : 0),
+    ));
   }
 
   @override
@@ -116,22 +122,23 @@ class _SplashScreenState extends State<SplashScreen> {
                 child: Hero(
                   tag: 'app_logo',
                   child: Container(
-                    child: branding.splashUrl != null
+                    child: branding.splashUrl != null && branding.splashUrl!.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: branding.splashUrl!,
                             height: 320,
-                            placeholder: (context, url) =>
-                                const SizedBox(height: 320, width: 320),
-                            errorWidget: (context, url, error) => Icon(
-                              Icons.auto_awesome,
-                              size: 100,
-                              color: branding.primaryColor,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => Image.asset(
+                              'assets/images/buddy_logo.gif',
+                              height: 120,
+                            ),
+                            errorWidget: (context, url, error) => Image.asset(
+                              'assets/images/buddy_logo.gif',
+                              height: 120,
                             ),
                           )
-                        : Icon(
-                            Icons.auto_awesome,
-                            size: 100,
-                            color: branding.primaryColor,
+                        : Image.asset(
+                            'assets/images/buddy_logo.gif',
+                            height: 120,
                           ),
                   ),
                 ),

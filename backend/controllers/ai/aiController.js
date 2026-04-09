@@ -127,7 +127,9 @@ exports.proxyChatToPython = async (req, res) => {
             }
         }
 
-        const finalSessionId = session_id || userId.toString();
+        // Use a namespaced session key: never use raw userId as session_id, as this
+        // can cause cross-user session collisions in the Python AI service.
+        const finalSessionId = session_id || `user_${userId.toString()}`;
         const aiServiceUrl = config.AI_SERVICE_URL;
 
         console.log(`[AI Gateway] Incoming Request: ${requestPath} | Stream: ${isStream} | Realtime: ${isRealtime}`);
@@ -180,9 +182,13 @@ exports.proxyChatToPython = async (req, res) => {
 
         // Reminders Section
         if (context.reminders && context.reminders.length > 0) {
-            memoryString += "Upcoming Reminders:\n";
+            memoryString += "Upcoming Reminders (Time & Location based):\n";
             context.reminders.forEach(r => {
-                memoryString += `- [ID: ${r.id}] [${r.date} ${r.time}] ${r.title}\n`;
+                const label = r.type === 'location' ? 'Location-based Task' : 'Time-based Task';
+                const locInfo = r.location ? ` (at ${r.location})` : '';
+                const dateTime = (r.date || r.time) ? `${r.date || ''} ${r.time || ''}` : '[Whenever I arrive]';
+                // Include ID at the end for technical use only
+                memoryString += `- ${label}: ${r.title}${locInfo} scheduled for ${dateTime} [ID: ${r.id}]\n`;
             });
             memoryString += "\n";
         } else {
@@ -375,7 +381,24 @@ exports.proxyActionToPython = async (req, res) => {
                 locals: {}
             };
 
+            let conflictWarning = '';
+            try {
+                if (reminderData.date && reminderData.time && reminderData.time !== "whenever I arrive") {
+                    const LocationReminder = require('../../models/LocationReminder');
+                    const existing = await LocationReminder.findOne({ 
+                        userId: userIdStr, 
+                        date: reminderData.date, 
+                        time: reminderData.time,
+                        status: { $nin: ['completed', 'cancelled'] }
+                    });
+                    if (existing) {
+                        conflictWarning = ` Note: The user already has a location reminder scheduled at this exact time ("${existing.title} at ${existing.location}"). Please inform them.`;
+                    }
+                }
+            } catch(e) { console.error('Conflict check error:', e); }
+
             await locationReminderController.createLocationReminder(mockReq, mockRes);
+            if (result.success && conflictWarning) result.message += conflictWarning;
             return res.status(result.status || 200).json(result);
         }
 

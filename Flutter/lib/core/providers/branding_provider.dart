@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class BrandingProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
@@ -189,6 +190,34 @@ class BrandingProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// High-performance optimization: Pre-caches branding images to the GPU
+  /// so they appear immediately without flickering or loading lag.
+  Future<void> precacheAllImages(BuildContext context) async {
+    if (!context.mounted) return;
+    
+    final List<Future<void>> preloads = [];
+    
+    // 1. Pre-cache Local Asset (the fallback logo)
+    preloads.add(precacheImage(const AssetImage('assets/images/buddy_logo.png'), context));
+    
+    // 2. Pre-cache Network Logo
+    if (_logoUrl != null && _logoUrl!.isNotEmpty) {
+      preloads.add(precacheImage(CachedNetworkImageProvider(_logoUrl!), context));
+    }
+    
+    // 3. Pre-cache Network Splash
+    if (_splashUrl != null && _splashUrl!.isNotEmpty) {
+      preloads.add(precacheImage(CachedNetworkImageProvider(_splashUrl!), context));
+    }
+    
+    try {
+      await Future.wait(preloads).timeout(const Duration(seconds: 5));
+      debugPrint('[BRANDING] ✅ All UI assets (GIF/Images) pre-cached successfully for immediate load.');
+    } catch (e) {
+      debugPrint('[BRANDING] ⚠️ Pre-caching timeout or error (non-critical): $e');
     }
   }
 

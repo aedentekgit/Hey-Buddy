@@ -16,19 +16,23 @@ import 'package:geolocator/geolocator.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
 import 'package:buddy_mobile/shared/dialogs/biometric_prompt_dialog.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final int initialIndex;
+  const MainScreen({super.key, this.initialIndex = 1}); // Default to Explore
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0; // Default to Buddy Assistant (now at index 0)
+  late int _currentIndex;
   late PageController _pageController;
-  final List<int> _tabHistory = [0];
+  late final List<int> _tabHistory;
   bool _isSettingsSubPage = false;
+  OverlayEntry? _fabOverlay;
+  final ValueNotifier<int> _tabIndexNotifier = ValueNotifier<int>(1);
 
   late final List<Widget> _pages;
 
@@ -47,8 +51,10 @@ class _MainScreenState extends State<MainScreen> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+    // Notify the overlay so it can show/hide
+    _tabIndexNotifier.value = index;
 
-    if (index == 1) { // Now Explore is index 1
+    if (index == 1) { // Explore is index 1
       Future.microtask(() {
         if (mounted) {
           Provider.of<TasksProvider>(
@@ -67,6 +73,9 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
+    _tabIndexNotifier.value = widget.initialIndex;
+    _tabHistory = [widget.initialIndex];
     _pageController = PageController(initialPage: _currentIndex);
     _requestLocationPermission();
     _checkBiometrics();
@@ -85,7 +94,7 @@ class _MainScreenState extends State<MainScreen> {
             );
           }
         },
-        onExplore: () => _onTabTapped(1), // Go to Explore (now index 1)
+        onExplore: () => _onTabTapped(1), // Go to Explore (index 1)
       ),
       ExploreScreen(
         onMemoryTap: () => Navigator.push(
@@ -107,17 +116,84 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     // Initial profile load for auto-login
-    // Use Future.microtask to avoid setState during build
     Future.microtask(() {
       if (!mounted) return;
       final auth = Provider.of<AuthProvider>(context, listen: false);
       if (auth.token != null) {
         Provider.of<UserProvider>(context, listen: false).loadProfile();
       }
-
-      // Listen for auth changes to load/clear profile
       auth.addListener(_onAuthChanged);
+      _insertFab();
     });
+  }
+
+  void _insertFab() {
+    _fabOverlay?.remove();
+    _fabOverlay = OverlayEntry(
+      builder: (ctx) {
+        final branding = Provider.of<BrandingProvider>(ctx);
+        final auth = Provider.of<AuthProvider>(ctx);
+        return Positioned(
+          bottom: 28,
+          right: 16,
+          child: ValueListenableBuilder<int>(
+            valueListenable: _tabIndexNotifier,
+            builder: (_, tabIndex, __) {
+              // Hide on AI Assistant page (index 0) or if user is logged out
+              if (tabIndex == 0 || auth.token == null) return const SizedBox.shrink();
+              return GestureDetector(
+                onTap: () => _updateTab(0),
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: branding.primaryColor.withValues(alpha: 0.35),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 6),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: branding.logoUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              color: branding.primaryColor.withValues(alpha: 0.1),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: branding.primaryColor,
+                                ),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Image.asset(
+                              'assets/images/buddy_logo.gif',
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Image.asset(
+                            'assets/images/buddy_logo.gif',
+                            fit: BoxFit.cover,
+                          ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+    Overlay.of(context).insert(_fabOverlay!);
   }
 
   void _onAuthChanged() {
@@ -134,6 +210,9 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    _tabIndexNotifier.dispose();
+    _fabOverlay?.remove();
+    _fabOverlay = null;
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       auth.removeListener(_onAuthChanged);
@@ -144,7 +223,7 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onTabTapped(int index) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.token == null && index != 0) { // Index 0 is Buddy (Assistant)
+    if (auth.token == null && index != 0) { // Index 0 is Buddy (guest allowed)
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -167,6 +246,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to branding for reactive overlay rebuilds
     Provider.of<BrandingProvider>(context);
     bool showHeader = !(_currentIndex == 2 && _isSettingsSubPage);
 
@@ -189,72 +269,69 @@ class _MainScreenState extends State<MainScreen> {
       child: Scaffold(
         backgroundColor: AppColors.bg,
         body: SafeArea(
-            left: false,
-            right: false,
-            bottom: false,
-            child: Column(
-              children: [
-                if (showHeader)
-                  MobileAppHeader(
-                    currentIndex: _currentIndex,
-                    onTabTapped: _onTabTapped,
-                    onProfileTapped: () {
-                      final auth = Provider.of<AuthProvider>(
+          left: false,
+          right: false,
+          bottom: false,
+          child: Column(
+            children: [
+              if (showHeader)
+                MobileAppHeader(
+                  currentIndex: _currentIndex,
+                  onTabTapped: _onTabTapped,
+                  onProfileTapped: () {
+                    final auth = Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    );
+                    if (auth.token != null) {
+                      _updateTab(2);
+                    } else {
+                      Navigator.push(
                         context,
-                        listen: false,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
                       );
-                      if (auth.token != null) {
-                        _updateTab(2);
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: (index) {
-                      final auth = Provider.of<AuthProvider>(context, listen: false);
-                      if (auth.token == null && index != 0) {
-                        // User is logged out and swiped to a protected tab.
-                        // Snap back to 0 without animation (so it doesn't linger)
-                        _pageController.jumpToPage(0);
-                        
-                        // Push them to the Login block
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
-                        );
-                        return;
-                      }
-
-                      setState(() {
-                        _currentIndex = index;
-                        if (_tabHistory.isEmpty || _tabHistory.last != index) {
-                          _tabHistory.add(index);
-                        }
-                      });
-                    },
-                    physics: Provider.of<AuthProvider>(context).token == null 
-                        ? const NeverScrollableScrollPhysics() 
-                        : const BouncingScrollPhysics(),
-                    children: _pages,
-                  ),
+                    }
+                  },
                 ),
-              ],
-            ),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    final auth = Provider.of<AuthProvider>(context, listen: false);
+                    if (auth.token == null && index != 0) {
+                      // User is logged out and swiped to a protected tab.
+                      _pageController.jumpToPage(0);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      );
+                      return;
+                    }
+
+                    setState(() {
+                      _currentIndex = index;
+                      if (_tabHistory.isEmpty || _tabHistory.last != index) {
+                        _tabHistory.add(index);
+                      }
+                    });
+                  },
+                  physics: Provider.of<AuthProvider>(context).token == null 
+                      ? const NeverScrollableScrollPhysics() 
+                      : const BouncingScrollPhysics(),
+                  children: _pages,
+                ),
+              ),
+            ],
           ),
+        ),
       ),
     );
   }
 
+
   Future<void> _checkBiometrics() async {
-    // Only prompt if logged in
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (auth.token == null) return;
 
@@ -262,7 +339,6 @@ class _MainScreenState extends State<MainScreen> {
     if (security.isHardwareAvailable && !security.isBiometricEnabled) {
       final prompted = await security.hasBeenPrompted();
       if (!prompted) {
-        // Wait a bit for the UI to settle
         await Future.delayed(const Duration(seconds: 2));
         if (!mounted) return;
 

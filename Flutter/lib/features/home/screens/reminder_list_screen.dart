@@ -504,29 +504,8 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
           .toList();
     }
 
-    // Globally filter out pure location reminders unless we have arrived (distance <= 150m)
-    list = list.where((t) {
-      final String? loc = t['location'] as String?;
-      final String? time = t['time'] as String?;
-      final bool hasLocation = loc != null && loc.isNotEmpty && loc != 'No Location';
-
-      // Check if it's purely triggered by location (no fixed time)
-      final bool isPureLocation = time == null || 
-                                  time.isEmpty || 
-                                  time.toLowerCase().contains('whenever') || 
-                                  time.toLowerCase().contains('arrive');
-
-      if (hasLocation && isPureLocation) {
-        final distM = t['_distanceM'] as num?;
-        if (distM != null) {
-          if (distM > 150) return false; // Not arrived
-        } else {
-          return false; // Wait for GPS confirmation
-        }
-      }
-      return true;
-    }).toList();
-
+    // Pure location reminders are now included in the calendar and main list
+    // to ensure comprehensive visibility. Filtering logic that hid them has been removed.
     return list;
   }
 
@@ -1665,7 +1644,6 @@ class _SlidableAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Provider.of<BrandingProvider>(context);
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),

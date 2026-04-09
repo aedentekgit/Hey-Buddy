@@ -29,8 +29,8 @@ class AppConfig {
       return localhostHost;
     }
     
-    // Priority 3: Default to Staging
-    return stagingHost;
+    // Priority 3: Default to Production (Live)
+    return productionHost;
   }
 
   static String get protocol {
@@ -52,7 +52,7 @@ class AppConfig {
 
   // Default branding (to be updated from API)
   static String appName = 'HeyBuddy';
-  static String primaryColor = '#6366F1';
+  static String primaryColor = '#6C3AFF'; // Professional Vivid Purple
   static String secondaryColor = '#FFFFFF';
   static String? logoUrl;
   static String? splashUrl;

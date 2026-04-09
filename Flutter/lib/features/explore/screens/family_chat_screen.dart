@@ -45,13 +45,6 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     });
   }
 
-  void _onFocusChange() {
-    setState(() {});
-  }
-
-  void _onTextChanged() {
-    setState(() {});
-  }
   @override
   void dispose() {
     _messageController.dispose();
@@ -284,6 +277,8 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                         provider.currentUserId != null &&
                         msg['sender_id']?.toString() == provider.currentUserId!.toString();
 
+                    debugPrint('MESSAGE: ${msg['content']}, SENDER: ${msg['sender_id']}, ME: ${provider.currentUserId}, IS_ME: $isMe');
+
                     String? avatar;
                     if (isMe) {
                       avatar = context
@@ -356,7 +351,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   ) {
     final time = _formatTime(msg['timestamp']);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: isMe
             ? MainAxisAlignment.end
@@ -378,7 +373,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
               maxWidth: MediaQuery.of(context).size.width * 0.72,
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 gradient: isMe
                     ? const LinearGradient(
@@ -389,10 +384,10 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                     : null,
                 color: isMe ? null : AppColors.surface,
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isMe ? 18 : 4),
-                  bottomRight: Radius.circular(isMe ? 4 : 18),
+                  topLeft: const Radius.circular(8),
+                  topRight: const Radius.circular(8),
+                  bottomLeft: Radius.circular(isMe ? 8 : 4),
+                  bottomRight: Radius.circular(isMe ? 4 : 8),
                 ),
                 boxShadow: isMe
                     ? null
@@ -538,26 +533,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                         ],
                       ),
                     ),
-                    Positioned(
-                      top: -10,
-                      right: isMe ? null : -12,
-                      left: isMe ? -12 : null,
-                      child: GestureDetector(
-                        onTapDown: (details) {
-                          HapticFeedback.lightImpact();
-                          _showLocalizedMenu(msg, details.globalPosition, isMe: isMe);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          color: Colors.transparent,
-                          child: Icon(
-                            LucideIcons.chevronDown,
-                            size: 14,
-                            color: isMe ? Colors.white70 : AppColors.textDim,
-                          ),
-                        ),
-                      ),
-                    ),
+                    // Removed Positioned chevronDown from here as it's moved outside
                   ],
                 ),
               ),
@@ -570,6 +546,14 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (isMe) ...[
+                      GestureDetector(
+                        onTapDown: (details) {
+                          HapticFeedback.lightImpact();
+                          _showLocalizedMenu(msg, details.globalPosition, isMe: isMe);
+                        },
+                        child: Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textDim),
+                      ),
+                      const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () {
                           final textToCopy = msg['content']?.toString() ?? '';
@@ -606,6 +590,14 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                           );
                         },
                         child: Icon(LucideIcons.copy, size: 10, color: AppColors.textDim),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTapDown: (details) {
+                          HapticFeedback.lightImpact();
+                          _showLocalizedMenu(msg, details.globalPosition, isMe: isMe);
+                        },
+                        child: Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textDim),
                       ),
                     ],
                   ],

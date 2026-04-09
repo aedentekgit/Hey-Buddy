@@ -25,6 +25,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 import 'package:buddy_mobile/shared/widgets/glass_container.dart';
 import 'package:buddy_mobile/features/home/screens/main_screen.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
 
 class BuddyAssistantPage extends StatefulWidget {
   final bool isIntegrated;
@@ -66,6 +67,10 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         _scrollToBottom(false);
       });
       _initTts();
+      
+      // Load current logo into GPU cache immediately
+      final branding = Provider.of<BrandingProvider>(context, listen: false);
+      branding.precacheAllImages(context);
 
       // Enable Realtime Socket and track auth changes for reconnection
       _lastKnownToken = auth.token;
@@ -181,6 +186,12 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       await tts.setSpeechRate(speechRate);
       await tts.setVolume(1.0);
       await tts.setPitch(pitch);
+
+      // ── Sync Voice Response toggle from user preferences ──
+      final voicePrefs =
+          (userProvider.user['voicePreferences'] as Map<String, dynamic>?) ?? {};
+      final bool voiceEnabled = (voicePrefs['voiceEnabled'] as bool?) ?? true;
+      provider.setVoiceEnabled(voiceEnabled);
     } catch (e) {
       if (kDebugMode) debugPrint('Error initializing TTS: $e');
     }
@@ -246,6 +257,83 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     // }
 
     _scrollToBottom();
+  }
+
+  void _showAttachOptions() {
+    final branding = Provider.of<BrandingProvider>(context, listen: false);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _AttachOptionsSheet(
+        branding: branding,
+        onPickGallery: () async {
+          Navigator.pop(ctx);
+          final XFile? image = await _picker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 85,
+          );
+          if (image != null) {
+            setState(() => _selectedImage = File(image.path));
+          }
+        },
+        onPickCamera: () async {
+          Navigator.pop(ctx);
+          final XFile? image = await _picker.pickImage(
+            source: ImageSource.camera,
+            imageQuality: 85,
+          );
+          if (image != null) {
+            setState(() => _selectedImage = File(image.path));
+          }
+        },
+        onWhatsApp: () {
+          Navigator.pop(ctx);
+          _inputController.text = 'Share via WhatsApp: ';
+        },
+        onLink: () {
+          Navigator.pop(ctx);
+          _showLinkDialog();
+        },
+      ),
+    );
+  }
+
+  void _showLinkDialog() {
+    final linkController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Paste a Link',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w800),
+        ),
+        content: TextField(
+          controller: linkController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'https://...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (linkController.text.isNotEmpty) {
+                _inputController.text = linkController.text;
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickImage() async {
@@ -509,14 +597,23 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               height: 250,
               decoration: const BoxDecoration(shape: BoxShape.circle),
               clipBehavior: Clip.antiAlias,
-              child: branding.logoUrl != null
+              child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
                   ? CachedNetworkImage(
                       imageUrl: branding.logoUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => const SizedBox(),
-                      errorWidget: (context, url, error) => const SizedBox(),
+                      placeholder: (context, url) => Image.asset(
+                        'assets/images/buddy_logo.gif',
+                        fit: BoxFit.cover,
+                      ),
+                      errorWidget: (context, url, error) => Image.asset(
+                        'assets/images/buddy_logo.gif',
+                        fit: BoxFit.cover,
+                      ),
                     )
-                  : const SizedBox(),
+                  : Image.asset(
+                      'assets/images/buddy_logo.gif',
+                      fit: BoxFit.cover,
+                    ),
             ),
           ),
 
@@ -628,14 +725,36 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // Assistant Avatar on the Left
           if (!isUser) ...[
-            _buildAssistantAvatar(branding),
+            Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(shape: BoxShape.circle),
+                clipBehavior: Clip.antiAlias,
+                child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: branding.logoUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Image.asset(
+                          'assets/images/buddy_logo.gif',
+                          fit: BoxFit.cover,
+                        ),
+                        errorWidget: (context, url, error) => Image.asset(
+                          'assets/images/buddy_logo.gif',
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Image.asset(
+                        'assets/images/buddy_logo.gif',
+                        fit: BoxFit.cover,
+                      ),
+              ),
             const SizedBox(width: 10),
           ],
           
@@ -675,8 +794,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     padding: msg['image'] != null
                         ? EdgeInsets.zero
                         : const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
+                            horizontal: 16,
+                            vertical: 8,
                           ),
                     decoration: BoxDecoration(
                       gradient: isUser
@@ -687,12 +806,14 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                             )
                           : null,
                       color: isUser ? null : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft: Radius.circular(isUser ? 12 : 4),
-                        bottomRight: Radius.circular(isUser ? 4 : 12),
-                      ),
+                      borderRadius: msg['image'] != null
+                          ? BorderRadius.circular(8)
+                          : BorderRadius.only(
+                              topLeft: const Radius.circular(8),
+                              topRight: const Radius.circular(8),
+                              bottomLeft: Radius.circular(isUser ? 8 : 4),
+                              bottomRight: Radius.circular(isUser ? 4 : 8),
+                            ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
@@ -741,19 +862,24 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         ],
                         
                         if (msg['text'] != null && msg['text'].toString().isNotEmpty)
-                          MarkdownBody(
-                            data: msg['text'],
-                            styleSheet: MarkdownStyleSheet(
-                              p: GoogleFonts.inter(
-                                color: isUser ? Colors.white : const Color(0xFF1E293B),
-                                fontSize: 15,
-                                fontWeight: FontWeight.normal,
-                                height: 1.5,
-                              ),
-                              code: GoogleFonts.firaCode(
-                                backgroundColor: isUser ? Colors.white24 : Colors.grey[200],
-                                color: isUser ? Colors.white : Colors.black87,
-                                fontSize: 13,
+                          Padding(
+                            padding: msg['image'] != null
+                                ? const EdgeInsets.only(left: 14, right: 14, bottom: 14)
+                                : EdgeInsets.zero,
+                            child: MarkdownBody(
+                              data: msg['text'],
+                              styleSheet: MarkdownStyleSheet(
+                                p: GoogleFonts.inter(
+                                  color: isUser ? Colors.white : const Color(0xFF1E293B),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.normal,
+                                  height: 1.5,
+                                ),
+                                code: GoogleFonts.firaCode(
+                                  backgroundColor: isUser ? Colors.white24 : Colors.grey[200],
+                                  color: isUser ? Colors.white : Colors.black87,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                           )
@@ -838,11 +964,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             ),
           ),
           
-          // User Avatar on the Right (Optional, usually omitted in WhatsApp but let's see)
-          // if (isUser) ...[
-          //   const SizedBox(width: 10),
-          //   _buildUserAvatar(userProvider),
-          // ],
+          // User Avatar on the Right
+          if (isUser) ...[
+            const SizedBox(width: 8),
+            _buildUserAvatar(),
+          ],
         ],
       ),
     );
@@ -960,7 +1086,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       child: ClipOval(
         child: avatarUrl != null && avatarUrl.isNotEmpty
             ? CachedNetworkImage(
-                imageUrl: avatarUrl,
+                imageUrl: AppConfig.formatImageUrl(avatarUrl) ?? avatarUrl,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => _buildUserFallback(name),
                 errorWidget: (context, url, error) => _buildUserFallback(name),
@@ -1155,7 +1281,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             isSpeaking: provider.isSpeaking,
             isEnabled: true,
             onMicPressed: _isListening ? _stopListening : _startListening,
-            onAttachPressed: _pickImage,
+            onAttachPressed: _showAttachOptions,
             onSendPressed: _handleSend,
           ),
         ],
@@ -1487,3 +1613,197 @@ class PixelPainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
+
+/// Professional attach options bottom sheet with multiple media/link options
+class _AttachOptionsSheet extends StatelessWidget {
+  final BrandingProvider branding;
+  final VoidCallback onPickGallery;
+  final VoidCallback onPickCamera;
+  final VoidCallback onWhatsApp;
+  final VoidCallback onLink;
+
+  const _AttachOptionsSheet({
+    required this.branding,
+    required this.onPickGallery,
+    required this.onPickCamera,
+    required this.onWhatsApp,
+    required this.onLink,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 8, bottom: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+
+              // Title
+              Text(
+                'Share Something',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Choose how to share with Buddy',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Options Grid
+              Row(
+                children: [
+                  _AttachOption(
+                    icon: LucideIcons.image,
+                    label: 'Photos',
+                    color: const Color(0xFF6366F1),
+                    bgColor: const Color(0xFFEEF2FF),
+                    onTap: onPickGallery,
+                  ),
+                  const SizedBox(width: 12),
+                  _AttachOption(
+                    icon: LucideIcons.camera,
+                    label: 'Camera',
+                    color: const Color(0xFF0EA5E9),
+                    bgColor: const Color(0xFFE0F2FE),
+                    onTap: onPickCamera,
+                  ),
+                  const SizedBox(width: 12),
+                  _AttachOption(
+                    // Using messageCircle as WhatsApp icon substitute
+                    icon: LucideIcons.messageCircle,
+                    label: 'WhatsApp',
+                    color: const Color(0xFF25D366),
+                    bgColor: const Color(0xFFDCFCE7),
+                    onTap: onWhatsApp,
+                  ),
+                  const SizedBox(width: 12),
+                  _AttachOption(
+                    icon: LucideIcons.link,
+                    label: 'Link',
+                    color: const Color(0xFFF59E0B),
+                    bgColor: const Color(0xFFFEF3C7),
+                    onTap: onLink,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Cancel button
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: const Color(0xFFE2E8F0)),
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color bgColor;
+  final VoidCallback onTap;
+
+  const _AttachOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.bgColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: color.withValues(alpha: 0.15),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

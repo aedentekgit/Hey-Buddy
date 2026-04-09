@@ -1,4 +1,5 @@
 // ignore_for_file: unused_element
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -421,29 +422,80 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
               _SecLabel(label: 'AI Assistant'),
               _Card(
                 padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    _SettingsRow(
-                      icon: LucideIcons.bot,
-                      iconColor: AppColors.accent,
-                      label: 'AI Voice Preference',
-                      sub: 'Choose how Buddy sounds',
-                      trailing: Icon(
-                        LucideIcons.chevronRight,
-                        size: 15,
-                        color: AppColors.textDim,
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const VoicePreferenceScreen(),
+                child: Consumer<UserProvider>(
+                  builder: (context, userProvider, _) {
+                    final voicePrefs =
+                        (userProvider.user['voicePreferences']
+                            as Map<String, dynamic>?) ??
+                        {};
+                    final bool voiceEnabled =
+                        (voicePrefs['voiceEnabled'] as bool?) ?? true;
+
+                    return Column(
+                      children: [
+                        _SettingsRow(
+                          icon: LucideIcons.bot,
+                          iconColor: AppColors.accent,
+                          label: 'AI Voice Preference',
+                          sub: 'Choose how Buddy sounds',
+                          trailing: Icon(
+                            LucideIcons.chevronRight,
+                            size: 15,
+                            color: AppColors.textDim,
+                          ),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const VoicePreferenceScreen(),
+                            ),
+                          ),
                         ),
-                      ),
-                      isLast: true,
-                    ),
-                  ],
+                        Divider(
+                          height: 1,
+                          color: AppColors.border.withValues(alpha: 0.5),
+                          indent: 58,
+                        ),
+                        _SettingsRow(
+                          icon: LucideIcons.volume2,
+                          iconColor: const Color(0xFF10B981),
+                          label: 'Voice Response',
+                          sub: voiceEnabled
+                              ? 'Buddy speaks replies aloud'
+                              : 'Buddy replies as text only',
+                          trailing: _Toggle(
+                            value: voiceEnabled,
+                            onChanged: (val) async {
+                              // ① Optimistically update UserProvider FIRST
+                              final newPrefs = Map<String, dynamic>.from(
+                                (userProvider.user['voicePreferences']
+                                        as Map<String, dynamic>?) ??
+                                    {},
+                              );
+                              newPrefs['voiceEnabled'] = val;
+                              unawaited(
+                                userProvider.updateVoicePreferences(newPrefs),
+                              );
+
+                              // ② Silence/restore audio in BuddyProvider
+                              context
+                                  .read<buddy.BuddyProvider>()
+                                  .setVoiceEnabled(val);
+
+                              ToastUtils.showSuccessToast(
+                                val
+                                    ? 'Voice responses enabled'
+                                    : 'Text-only mode enabled',
+                              );
+                            },
+                          ),
+                          isLast: true,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
+
 
               const SizedBox(height: 18),
 

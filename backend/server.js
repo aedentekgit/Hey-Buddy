@@ -95,8 +95,8 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-platform']
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 // Express 5-compatible XSS sanitization middleware
 // xss-clean is broken on Express 5 because it tries to overwrite req.query which is now read-only.
 // We use the 'xss' library and sanitize req.body + req.params only (query strings shouldn't contain HTML).

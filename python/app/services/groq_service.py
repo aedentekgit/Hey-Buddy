@@ -866,7 +866,7 @@ class GroqService:
         if not is_trivial_greeting and self.vector_store_service:
             try:
                 # Pass user_id to ensure we only get chunks this user is allowed to see.
-                retriever = self.vector_store_service.get_retriever(k=4, user_id=user_id)
+                retriever = self.vector_store_service.get_retriever(k=10, user_id=user_id)
                 context_docs = retriever.invoke(search_query)
                 if context_docs:
                     # Concatenate all chunk texts. Each doc.page_content is a text chunk

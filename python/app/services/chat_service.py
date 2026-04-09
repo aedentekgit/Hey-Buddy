@@ -210,7 +210,7 @@ class ChatService:
             session = await self._get_http_session()
             headers = {"Authorization": f"Bearer {BUDDY_INTERNAL_SECRET}"}
             async with session.get(
-                f"{backend_url}/api/conversations/internal/{session_id}",
+                f"{backend_url}/api/conversations/internal/session/{session_id}",
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=5)
             ) as resp:
@@ -828,6 +828,7 @@ class ChatService:
 
                 payload = {
                     "userId": sync_user_id,
+                    "conversationId": session_id,
                     "messages": messages_to_sync
                 }
 

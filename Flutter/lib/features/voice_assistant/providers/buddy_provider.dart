@@ -56,6 +56,27 @@ class BuddyProvider with ChangeNotifier {
   String _currentGender = 'male';
   String _currentTone = 'normal';
 
+  // ── Voice Response toggle ──────────────────────────────────────────────────
+  // When false: AI replies text-only, all TTS & audio is suppressed.
+  bool _voiceEnabled = true;
+  bool get voiceEnabled => _voiceEnabled;
+
+  void setVoiceEnabled(bool enabled) {
+    _voiceEnabled = enabled;
+    if (!enabled) {
+      // Immediately silence any in-progress audio
+      _ttsQueue.clear();
+      _ttsBuffer = '';
+      _isSpeakingQueue = false;
+      _audioChunkQueue.clear();
+      _isPlayingAudioChunkQueue = false;
+      _isSpeaking = false;
+      _flutterTts.stop();
+      _audioPlayer.stop();
+    }
+    notifyListeners();
+  }
+
   void syncVoicePreferences(String gender, String tone) {
     _currentGender = gender;
     _currentTone = tone;
@@ -130,6 +151,7 @@ class BuddyProvider with ChangeNotifier {
   bool _hasShownTtsFallbackMessage = false;
 
   Future<void> _processAudioChunkQueue() async {
+    if (!_voiceEnabled) return; // ← Text-only mode: skip audio
     if (_isPlayingAudioChunkQueue || _audioChunkQueue.isEmpty) return;
     _isPlayingAudioChunkQueue = true;
     _isSpeaking = true;
@@ -292,6 +314,7 @@ class BuddyProvider with ChangeNotifier {
   }
 
   Future<void> _processTtsQueue() async {
+    if (!_voiceEnabled) return; // ← Text-only mode: skip TTS
     if (_isSpeakingQueue || _ttsQueue.isEmpty) return;
     _isSpeakingQueue = true;
 
@@ -420,18 +443,20 @@ class BuddyProvider with ChangeNotifier {
         _isThinking = false;
       }
 
-      // ONLY parse for local TTS if NOT in realtime mode with server audio
-      // In the new Python-powered mode, we prefer the server's premium edge-tts voice.
-      if (!_isRealtimeEnabled) {
-        // Sentence parsing for local TTS fallback
-        String sanitizedText = text
-            .replaceAll('*', '')
-            .replaceAll('`', '')
-            .replaceAll('#', '')
-            .replaceAll(
-              RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false),
-              '',
-            )
+        // ONLY parse for local TTS if NOT in realtime mode with server audio
+        // AND voice is enabled (text-only mode skips TTS entirely)
+        if (!_isRealtimeEnabled && _voiceEnabled) {
+          // 1. Sanitize for TTS (remove markdown and function tags)
+          String sanitizedText = text
+              .replaceAll('*', '')
+              .replaceAll('`', '')
+              .replaceAll('#', '')
+              .replaceAll(RegExp(r'<[^>]+>.*?</[^>]+>', dotAll: true), '') // Strip paired tags
+              .replaceAll(RegExp(r'<[^>]+>', dotAll: true), '') // Strip single tags
+              .replaceAll(
+                RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false),
+                '',
+              )
             .replaceAll(
               RegExp(
                 r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]',
@@ -504,6 +529,9 @@ class BuddyProvider with ChangeNotifier {
         _processTtsQueue();
       }
 
+      // 1. SCAN AND EXECUTE AI ACTIONS (HIDDEN FROM UI)
+      _processExecutedFunctions();
+
       // Always clear the thinking state when the response is definitively done,
       // preventing infinite loading if the stream was totally empty due to an AI crash.
       _isThinking = false;
@@ -511,6 +539,9 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.audioStream.listen((base64Audio) async {
+      // Text-only mode: skip all audio playback
+      if (!_voiceEnabled) return;
+
       // PREMIUM EXPERIENCE: Play high-quality MP3 from the Python Brain
       if (base64Audio.isNotEmpty) {
         bool audioPlaybackFailed = false;
@@ -726,6 +757,55 @@ class BuddyProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isThinking => _isThinking;
 
+  Future<void> _processExecutedFunctions() async {
+    if (_messages.isEmpty) return;
+
+    // Find the last AI message
+    final aiMsgs = _messages.where((m) => m['type'] == 'ai').toList();
+    if (aiMsgs.isEmpty) return;
+    final lastAiMsg = aiMsgs.last;
+
+    final String text = lastAiMsg['text'] ?? '';
+    // Extract <function=NAME>PAYLOAD</function>
+    final toolRegex =
+        RegExp(r'<function=([^>]+)>(.*?)</function>', dotAll: true);
+    final matches = toolRegex.allMatches(text);
+
+    if (matches.isEmpty) return;
+
+    String updatedText = text;
+    for (final match in matches) {
+      final actionName = match.group(1);
+      final payloadStr = match.group(2);
+
+      // Filter the tag out of the UI text so user doesn't see raw code
+      updatedText = updatedText.replaceFirst(match.group(0)!, '').trim();
+
+      if (actionName != null && payloadStr != null) {
+        try {
+          final payload = json.decode(payloadStr);
+          final id = payload['reminder_id'] ?? payload['id'];
+          debugPrint('🚀 AI ACTION DETECTED: $actionName');
+
+          // Execute the background action via Node.js Gateway
+          _buddyService.executeAiAction(actionName, payload, id: id);
+        } catch (e) {
+          debugPrint('Error parsing AI action payload: $e');
+        }
+      }
+    }
+
+    // ALWAYS apply aggressive cleanup for ANY leftover XML-like tags that hallucinate
+    updatedText = updatedText
+        .replaceAll(RegExp(r'<[^>]+>.*?</[^>]+>', dotAll: true), '')
+        .replaceAll(RegExp(r'<[^>]+>', dotAll: true), '')
+        .trim();
+
+    // Update the message text to be clean
+    lastAiMsg['text'] = updatedText;
+    notifyListeners();
+  }
+
   void setMessages(List<Map<String, dynamic>> msgs) {
     _messages = msgs;
     notifyListeners();
@@ -868,7 +948,9 @@ class BuddyProvider with ChangeNotifier {
       request.body = jsonEncode({
         'message': finalText,
         'session_id': _currentConversationId,
-        'tts': true,
+        // Tell the backend to generate audio ONLY when voice is enabled.
+        // When false, the Python server skips edge-tts entirely → faster + silent.
+        'tts': _voiceEnabled,
       });
 
       // optimization: Use the persistent client from _buddyService instead of creating a new one
@@ -927,7 +1009,7 @@ class BuddyProvider with ChangeNotifier {
                    continue;
                 }
 
-                if (parsed['audio'] != null) {
+                 if (parsed['audio'] != null && _voiceEnabled) {
                   _audioChunkQueue.add(parsed['audio']);
                   _processAudioChunkQueue();
                 }
@@ -952,8 +1034,8 @@ class BuddyProvider with ChangeNotifier {
           if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
             _messages.last['isPartial'] = false;
           }
-          // Flush TTS
-          if (_ttsBuffer.trim().isNotEmpty) {
+          // Flush remaining TTS buffer — only if voice is enabled
+          if (_voiceEnabled && _ttsBuffer.trim().isNotEmpty) {
             _ttsQueue.add(_ttsBuffer.trim());
             _ttsBuffer = '';
             _processTtsQueue();
@@ -981,6 +1063,7 @@ class BuddyProvider with ChangeNotifier {
   Future<void> startNewChat() async {
     _currentConversationId = null;
     _messages = [];
+    _historyList = []; // Also clear history list to prevent cross-user leakage
     notifyListeners();
   }
 

@@ -173,26 +173,34 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // Update Voice Preferences
+  // Update Voice Preferences — optimistic update for instant UI response
   Future<bool> updateVoicePreferences(Map<String, dynamic> prefs) async {
-    notifyListeners();
-    try {
-      final currentPrefs =
-          _user['voicePreferences'] as Map<String, dynamic>? ?? {};
-      final newPrefs = {...currentPrefs, ...prefs};
+    final previousPrefs =
+        Map<String, dynamic>.from(
+          (_user['voicePreferences'] as Map<String, dynamic>?) ?? {},
+        );
+    final newPrefs = {...previousPrefs, ...prefs};
 
+    // ① Apply immediately so the UI updates without waiting for the API
+    _user['voicePreferences'] = newPrefs;
+    notifyListeners();
+
+    try {
       final success = await _userService.updateProfile({
         'voicePreferences': newPrefs,
       });
 
-      if (success) {
-        _user['voicePreferences'] = newPrefs;
+      if (!success) {
+        // ② Rollback if saving failed
+        _user['voicePreferences'] = previousPrefs;
         notifyListeners();
-        return true;
       }
-      return false;
+      return success;
     } catch (e) {
+      // ③ Rollback on error
+      _user['voicePreferences'] = previousPrefs;
       _error = e.toString();
+      notifyListeners();
       return false;
     }
   }

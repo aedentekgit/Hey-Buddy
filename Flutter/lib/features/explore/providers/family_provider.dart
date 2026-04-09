@@ -20,7 +20,7 @@ class FamilyProvider extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
 
   FamilyProvider(this._socketService) {
-    _initUser();
+    initUser();
     _socketService.chatStream.listen((data) {
       // 1. Update active chat messages
       if (data['roomId'] == currentChatId) {
@@ -121,12 +121,19 @@ class FamilyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _initUser() async {
+  Future<void> initUser() async {
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: 'jwt');
     if (token != null) {
-      final decoded = JwtDecoder.decode(token);
-      currentUserId = decoded['id'] ?? decoded['sub'];
+      try {
+        final decoded = JwtDecoder.decode(token);
+        currentUserId = (decoded['id'] ?? decoded['sub'])?.toString();
+        debugPrint('FamilyProvider: Initialized currentUserId: $currentUserId');
+      } catch (e) {
+        debugPrint('FamilyProvider: Error decoding token: $e');
+      }
+    } else {
+      currentUserId = null;
     }
   }
 
@@ -178,6 +185,7 @@ class FamilyProvider extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
+      await initUser(); // Ensure user is fresh
       await loadLocalStatuses();
       members = await _service.getMembers();
       // Initialize unread IDs from backend data
@@ -203,6 +211,14 @@ class FamilyProvider extends ChangeNotifier {
       return true;
     }
     return false;
+  }
+
+  Future<Map<String, dynamic>> sendRequestWithResponse(String email) async {
+    final res = await _service.sendRequest(email);
+    if (res['success'] == true) {
+      await loadData();
+    }
+    return res;
   }
 
   Future<List<dynamic>> searchUsers(String query) async {
@@ -269,6 +285,7 @@ class FamilyProvider extends ChangeNotifier {
     isLoading = true; // Use the existing isLoading property
     notifyListeners();
     try {
+      await initUser(); // Ensure user ID is fresh
       final res = await _service.startPrivateChat(memberId);
       if (res['success'] == true) {
         currentChatId = res['data']['chat_id'];
@@ -296,6 +313,7 @@ class FamilyProvider extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
+      await initUser(); // Ensure user ID is fresh
       final res = await _service.getGroupChat();
       if (res['success'] == true) {
         currentChatId = res['data']['chat_id'];

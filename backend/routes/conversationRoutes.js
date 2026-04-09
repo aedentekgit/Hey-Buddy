@@ -8,7 +8,8 @@ const {
     deleteAllConversations,
     syncConversation,
     getLatestConversationByUserId,
-    getAllConversationsInternal
+    getAllConversationsInternal,
+    getConversationInternalById
 } = require('../controllers/conversationController');
 
 // SECURITY: Internal endpoints are now protected by INTERNAL_SECRET bearer token.
@@ -16,6 +17,7 @@ const {
 // Previously these had NO authentication — anyone could read all conversations or inject data.
 router.post('/sync', protectInternal, syncConversation);
 router.get('/internal/all', protectInternal, getAllConversationsInternal);
+router.get('/internal/session/:id', protectInternal, getConversationInternalById);
 router.get('/internal/:userId', protectInternal, getLatestConversationByUserId);
 
 router.use(protect);

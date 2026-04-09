@@ -320,7 +320,7 @@ const AdminSettings = () => {
             }
         } catch (error) {
             console.error('Logo upload error:', error);
-            toast.error('Logo upload failed', { id: loadToast });
+            toast.error(error.response?.data?.message || error.message || 'Logo upload failed', { id: loadToast });
         }
     };
 
@@ -370,7 +370,7 @@ const AdminSettings = () => {
             }
         } catch (error) {
             console.error(`${label} upload error:`, error);
-            toast.error(`${label} upload failed`, { id: loadToast });
+            toast.error(error.response?.data?.message || error.message || `${label} upload failed`, { id: loadToast });
         }
     };
 
@@ -597,7 +597,7 @@ const AdminSettings = () => {
                                                                 <button onClick={handleRemoveLogo} style={{ padding: '8px 16px', borderRadius: '8px', background: 'transparent', color: 'var(--danger-color)', border: '1px solid var(--danger-color)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}>Remove</button>
                                                             )}
                                                         </div>
-                                                        <input ref={logoInputRef} type="file" hidden onChange={handleLogoUpload} accept="image/*" />
+                                                        <input ref={logoInputRef} type="file" hidden onChange={handleLogoUpload} accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" />
                                                     </div>
                                                 </div>
 
@@ -3452,7 +3452,7 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                             <Image color="var(--text-sub)" size={20} style={{ opacity: 0.5 }} />
-                            <span style={{ fontSize: '0.6rem', color: 'var(--text-sub)', fontWeight: '800' }}>SVG/PNG</span>
+                            <span style={{ fontSize: '0.6rem', color: 'var(--text-sub)', fontWeight: '800' }}>SVG/PNG/GIF</span>
                         </div>
                     )}
                 </div>
@@ -3503,7 +3503,7 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
                         type="file"
                         hidden
                         onChange={(e) => handleAssetUpload(e, fieldForUpload)}
-                        accept="image/*"
+                        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
                     />
                 </div>
             </div>
@@ -3533,7 +3533,7 @@ const MobileAppSettings = ({ settings, setSettings, handleAssetUpload, handleRem
                             onRemove={() => handleRemoveAsset('appLogo')}
                             inputRef={mobileLogoInputRef}
                             fieldForUpload="mobileLogo"
-                            hint="Recommended: 1024x1024 px PNG/SVG"
+                            hint="Recommended: 1024x1024 px PNG/SVG/GIF"
                         />
                         <AssetUploadBox
                             label="Splash Screen Icon"

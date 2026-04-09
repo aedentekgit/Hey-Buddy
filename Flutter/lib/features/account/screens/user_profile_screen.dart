@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +9,7 @@ import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:image_picker/image_picker.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final VoidCallback? onPickImage;
@@ -26,6 +28,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _timeFormat = '12';
   String _timezone = 'UTC';
   bool _saving = false;
+  File? _pendingAvatarFile; // Deferred until Save is tapped
+  bool _removeAvatar = false; // Sentinel: user wants to remove profile photo
 
   @override
   void initState() {
@@ -49,10 +53,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _save(UserProvider provider) async {
     setState(() => _saving = true);
+
+    // Handle avatar removal
+    if (_removeAvatar) {
+      await provider.removeAvatar();
+      _removeAvatar = false;
+    }
+
+    // Upload pending avatar first (if user chose a new one)
+    if (_pendingAvatarFile != null) {
+      final avatarOk = await provider.updateAvatar(_pendingAvatarFile!);
+      if (!avatarOk && mounted) {
+        ToastUtils.showErrorToast('Failed to upload profile picture');
+      }
+      _pendingAvatarFile = null;
+    }
+
     final ok = await provider.updateProfile(
       _nameCtrl.text.trim(),
       _phoneCtrl.text.trim(),
-      provider.user['address'] ?? '', // Preserve existing address if not edited here
+      provider.user['address'] ?? '',
       dateFormat: _dateFormat,
       timeFormat: _timeFormat,
       timezone: _timezone,
@@ -64,16 +84,123 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (ok) {
       ToastUtils.showSuccessToast('Profile updated');
     } else {
-      final String msg = provider.error.isNotEmpty 
-          ? provider.error 
+      final String msg = provider.error.isNotEmpty
+          ? provider.error
           : 'Failed to update profile';
       ToastUtils.showErrorToast(msg);
     }
   }
 
+  void _showPhotoOptions(BrandingProvider branding) {
+    final hasPhoto = _pendingAvatarFile != null ||
+        (Provider.of<UserProvider>(context, listen: false)
+                    .user['profilePicture'] as String?)
+                ?.isNotEmpty ==
+            true;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 8, bottom: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Text(
+                'Profile Photo',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Choose from gallery
+              _PhotoOption(
+                icon: LucideIcons.image,
+                label: 'Choose from Gallery',
+                color: branding.primaryColor,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final picker = ImagePicker();
+                  final picked = await picker.pickImage(
+                    source: ImageSource.gallery,
+                    imageQuality: 85,
+                  );
+                  if (picked != null && mounted) {
+                    setState(() {
+                      _pendingAvatarFile = File(picked.path);
+                      _removeAvatar = false;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              // Take a photo
+              _PhotoOption(
+                icon: LucideIcons.camera,
+                label: 'Take a Photo',
+                color: branding.primaryColor,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final picker = ImagePicker();
+                  final picked = await picker.pickImage(
+                    source: ImageSource.camera,
+                    imageQuality: 85,
+                  );
+                  if (picked != null && mounted) {
+                    setState(() {
+                      _pendingAvatarFile = File(picked.path);
+                      _removeAvatar = false;
+                    });
+                  }
+                },
+              ),
+              // Remove Photo — only when user has an existing photo
+              if (hasPhoto) ...[
+                const SizedBox(height: 8),
+                _PhotoOption(
+                  icon: LucideIcons.trash2,
+                  label: 'Remove Photo',
+                  color: Colors.red,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _pendingAvatarFile = null;
+                      _removeAvatar = true;
+                    });
+                    // Show immediate visual feedback
+                    ToastUtils.showSuccessToast(
+                      'Photo will be removed when you save',
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    Provider.of<BrandingProvider>(context);
+    final branding = Provider.of<BrandingProvider>(context);
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Consumer<UserProvider>(
@@ -221,30 +348,50 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               child: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
-                                  _buildAvatar(avatarUrl, name, 96),
+                                  // Pending new file → preview it
+                                  // Pending removal → show fallback initials immediately
+                                  // Default → show existing avatar from server
+                                  _pendingAvatarFile != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(40),
+                                          child: Image.file(
+                                            _pendingAvatarFile!,
+                                            width: 96,
+                                            height: 96,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : _removeAvatar
+                                          ? _fallbackAvatar(name, 96)
+                                          : _buildAvatar(avatarUrl, name, 96),
                                   if (_editMode)
                                     Positioned(
                                       bottom: 0,
                                       right: 0,
                                       child: GestureDetector(
-                                        onTap: widget.onPickImage,
+                                        onTap: () => _showPhotoOptions(branding),
                                         child: Container(
-                                          width: 32,
-                                          height: 32,
+                                          width: 34,
+                                          height: 34,
                                           decoration: BoxDecoration(
-                                            gradient: AppColors.headerGradient,
-                                            borderRadius: BorderRadius.circular(10),
+                                            color: branding.primaryColor,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2.5,
+                                            ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: AppColors.accent.withValues(alpha: 0.4),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 2),
+                                                color: branding.primaryColor
+                                                    .withValues(alpha: 0.4),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 4),
                                               ),
                                             ],
                                           ),
                                           child: const Icon(
                                             LucideIcons.camera,
-                                            size: 15,
+                                            size: 16,
                                             color: Colors.white,
                                           ),
                                         ),
@@ -416,11 +563,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             decoration: BoxDecoration(
-                              gradient: AppColors.headerGradient,
+                              gradient: LinearGradient(
+                                colors: [
+                                  branding.primaryColor,
+                                  branding.primaryColor.withValues(alpha: 0.8),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.accent.withValues(alpha: 0.35),
+                                  color: branding.primaryColor.withValues(alpha: 0.4),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
@@ -833,5 +987,64 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _formatJoinDate(dynamic raw) {
     if (raw == null) return 'Unknown';
     return DateFormatter.displayDateString(context, raw.toString());
+  }
+}
+
+/// Themed list-style option row for the photo selection bottom sheet
+class _PhotoOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final bool isBordered;
+
+  const _PhotoOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.isBordered = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: isBordered ? Colors.transparent : color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isBordered
+                ? AppColors.border
+                : color.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

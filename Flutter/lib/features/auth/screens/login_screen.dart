@@ -12,6 +12,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:buddy_mobile/shared/dialogs/biometric_prompt_dialog.dart';
 import 'package:buddy_mobile/shared/utils/text_formatters.dart';
 import 'package:flutter/services.dart';
@@ -79,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.of(
         context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)));
     } else {
       ToastUtils.showErrorToast('Invalid email or password');
     }
@@ -116,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.of(
         context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)));
     } else {
       if (auth.isLoading == false && auth.token == null) {
         // AuthProvider handles logging errors
@@ -176,16 +177,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? CachedNetworkImage(
                                     imageUrl: branding.logoUrl!,
                                     height: 50,
-                                    errorWidget: (context, url, error) => Icon(
-                                      Icons.auto_awesome,
-                                      size: 40,
-                                      color: branding.primaryColor,
+                                    errorWidget: (context, url, error) => Image.asset(
+                                      'assets/images/buddy_logo.png',
+                                      height: 60,
                                     ),
                                   )
-                                : Icon(
-                                    Icons.auto_awesome,
-                                    size: 40,
-                                    color: branding.primaryColor,
+                                : Image.asset(
+                                    'assets/images/buddy_logo.png',
+                                    height: 60,
                                   ),
                           ),
                         ),
@@ -382,17 +381,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             _socialButton(
-                              LucideIcons.mail,
+                              FontAwesomeIcons.google,
                               const Color(0xFFEA4335),
                               onTap: _handleGoogleLogin,
                             ),
                             const SizedBox(width: 20),
                             _socialButton(
-                              LucideIcons.facebook,
+                              FontAwesomeIcons.facebook,
                               const Color(0xFF1877F2),
                             ),
                             const SizedBox(width: 20),
-                            _socialButton(LucideIcons.apple, AppColors.text),
+                            _socialButton(FontAwesomeIcons.apple, AppColors.text),
                           ],
                         ),
                         const Spacer(flex: 2),
@@ -540,7 +539,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _socialButton(IconData icon, Color color, {VoidCallback? onTap}) {
+  Widget _socialButton(FaIconData icon, Color color, {VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
@@ -559,7 +558,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-        child: Icon(icon, color: color, size: 24),
+        child: Center(
+          child: FaIcon(icon, color: color, size: 24),
+        ),
       ),
     );
   }
