@@ -9,6 +9,7 @@ import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
+import 'package:buddy_mobile/shared/utils/avatar_utils.dart';
 import 'package:image_picker/image_picker.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -92,11 +93,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _showPhotoOptions(BrandingProvider branding) {
-    final hasPhoto = _pendingAvatarFile != null ||
-        (Provider.of<UserProvider>(context, listen: false)
-                    .user['profilePicture'] as String?)
-                ?.isNotEmpty ==
-            true;
+    final existingAvatarUrl = imageUrlFrom(
+      Provider.of<UserProvider>(context, listen: false).user['profilePicture'],
+    );
+    final hasPhoto = _pendingAvatarFile != null || existingAvatarUrl != null;
 
     showModalBottomSheet(
       context: context,
@@ -207,7 +207,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         builder: (context, provider, _) {
           final user = provider.user;
           final String name = user['name'] ?? 'User';
-          final String? avatarUrl = user['profilePicture'] as String?;
+          final String? avatarUrl = imageUrlFrom(user['profilePicture']);
 
           return Column(
             children: [
@@ -634,12 +634,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _fallbackAvatar(String name, double size) {
-    final parts = name.trim().split(' ');
-    final initials = parts.length >= 2
-        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-        : name.isNotEmpty
-        ? name[0].toUpperCase()
-        : 'U';
+    final initials = safeInitials(name);
     return Container(
       width: size,
       height: size,
@@ -996,14 +991,12 @@ class _PhotoOption extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  final bool isBordered;
 
   const _PhotoOption({
     required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
-    this.isBordered = false,
   });
 
   @override
@@ -1014,13 +1007,9 @@ class _PhotoOption extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: isBordered ? Colors.transparent : color.withValues(alpha: 0.06),
+          color: color.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isBordered
-                ? AppColors.border
-                : color.withValues(alpha: 0.15),
-          ),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
         ),
         child: Row(
           children: [

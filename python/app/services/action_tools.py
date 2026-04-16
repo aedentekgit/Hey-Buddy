@@ -46,21 +46,33 @@ def get_action_tools(user_id: str):
             return f"Error: {e}"
 
     @tool
-    def update_reminder(reminder_id: str, title: str = None, date: str = None, time: str = None, description: str = "", location: str = ""):
+    def update_reminder(
+        reminder_id: str,
+        title: str = None,
+        date: str = None,
+        time: str = None,
+        description: str = None,
+        location: str = None,
+    ):
         """Update an existing reminder. Provide the reminder_id found in context and any fields to change. DO NOT use this tool to answer questions about a reminder. ONLY use it if the user asks to CHANGE or UPDATE it."""
         logger.info(f"Executing tool: update_reminder for {reminder_id}")
         headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
+        value = {}
+        if title is not None:
+            value["title"] = title
+        if date is not None:
+            value["date"] = date
+        if time is not None:
+            value["time"] = time
+        if description is not None:
+            value["description"] = description
+        if location is not None:
+            value["location"] = location
         payload = {
             "action": "UPDATE_REMINDER",
             "userId": user_id,
             "id": reminder_id,
-            "value": {
-                "title": title,
-                "date": date,
-                "time": time,
-                "description": description,
-                "location": location
-            }
+            "value": value
         }
         try:
             res = requests.post(NODE_ACTION_URL, json=payload, headers=headers)
@@ -152,4 +164,55 @@ def get_action_tools(user_id: str):
         except Exception as e:
             return f"Error: {e}"
 
-    return [schedule_reminder, save_memory, update_reminder, update_memory, schedule_location_reminder, save_document]
+    @tool
+    def delete_location_reminder(reminder_id: str):
+        """Delete an existing location-based reminder. Provide the reminder_id found in context. ONLY use this when the user explicitly asks to DELETE or CANCEL a location reminder."""
+        logger.info(f"Executing tool: delete_location_reminder: {reminder_id}")
+        headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
+        payload = {
+            "action": "DELETE_LOCATION_REMINDER",
+            "userId": user_id,
+            "id": reminder_id,
+            "value": {"id": reminder_id}
+        }
+        try:
+            res = requests.post(NODE_ACTION_URL, json=payload, headers=headers)
+            return "Successfully deleted location reminder" if res.status_code == 200 else f"Failed: {res.text}"
+        except Exception as e:
+            return f"Error: {e}"
+
+    @tool
+    def delete_reminder(reminder_id: str):
+        """Delete an existing reminder. Provide the reminder_id found in context. ONLY use this when the user explicitly asks to DELETE or CANCEL a reminder."""
+        logger.info(f"Executing tool: delete_reminder: {reminder_id}")
+        headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
+        payload = {
+            "action": "DELETE_REMINDER",
+            "userId": user_id,
+            "id": reminder_id,
+            "value": {"id": reminder_id}
+        }
+        try:
+            res = requests.post(NODE_ACTION_URL, json=payload, headers=headers)
+            return "Successfully deleted reminder" if res.status_code == 200 else f"Failed: {res.text}"
+        except Exception as e:
+            return f"Error: {e}"
+
+    @tool
+    def delete_memory(memory_id: str):
+        """Delete an existing memory/fact. Provide the memory_id found in context. ONLY use this when the user explicitly asks to DELETE or FORGET a memory."""
+        logger.info(f"Executing tool: delete_memory: {memory_id}")
+        headers = {"Authorization": f"Bearer {_INTERNAL_SECRET}"}
+        payload = {
+            "action": "DELETE_MEMORY",
+            "userId": user_id,
+            "id": memory_id,
+            "value": {"id": memory_id}
+        }
+        try:
+            res = requests.post(NODE_ACTION_URL, json=payload, headers=headers)
+            return "Successfully deleted memory" if res.status_code == 200 else f"Failed: {res.text}"
+        except Exception as e:
+            return f"Error: {e}"
+
+    return [schedule_reminder, save_memory, update_reminder, update_memory, schedule_location_reminder, save_document, delete_reminder, delete_location_reminder, delete_memory]

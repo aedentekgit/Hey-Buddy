@@ -2,18 +2,47 @@ import "package:flutter/foundation.dart";
 
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:record/record.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
 
 class AudioStreamService {
+  static const MethodChannel _foregroundServiceChannel = MethodChannel(
+    'buddy/foreground_service',
+  );
+
   final AudioRecorder _recorder = AudioRecorder();
   final SocketService _socketService;
   StreamSubscription? _audioSubscription;
   bool _isStreaming = false;
+  bool _isForegroundServiceActive = false;
 
   AudioStreamService(this._socketService);
 
   bool get isStreaming => _isStreaming;
+
+  Future<void> _startAndroidForegroundService() async {
+    if (!Platform.isAndroid || _isForegroundServiceActive) return;
+    try {
+      await _foregroundServiceChannel.invokeMethod('start_wake_word_service');
+      _isForegroundServiceActive = true;
+      debugPrint('✅ Android wake-word foreground service started');
+    } catch (e) {
+      debugPrint('❌ Failed to start Android wake-word service: $e');
+    }
+  }
+
+  Future<void> _stopAndroidForegroundService() async {
+    if (!Platform.isAndroid || !_isForegroundServiceActive) return;
+    try {
+      await _foregroundServiceChannel.invokeMethod('stop_wake_word_service');
+      debugPrint('🛑 Android wake-word foreground service stopped');
+    } catch (e) {
+      debugPrint('❌ Failed to stop Android wake-word service: $e');
+    } finally {
+      _isForegroundServiceActive = false;
+    }
+  }
 
   Future<void> startStreaming() async {
     if (_isStreaming) return;
@@ -25,7 +54,9 @@ class AudioStreamService {
 
       if (!hasPermission) {
         if (Platform.isIOS && kDebugMode) {
-          debugPrint('⚠️ Microphone permission not available (this is expected on iOS Simulator)');
+          debugPrint(
+            '⚠️ Microphone permission not available (this is expected on iOS Simulator)',
+          );
           debugPrint('💡 Voice recording requires a real iOS device');
           return;
         }
@@ -39,10 +70,11 @@ class AudioStreamService {
         numChannels: 1,
       );
 
+      await _startAndroidForegroundService();
       final stream = await _recorder.startStream(config);
 
       _audioSubscription = stream.listen((data) {
-        debugPrint('🎵 Audio chunk sent: ${data.length} bytes');
+        // debugPrint('🎵 Audio chunk sent: ${data.length} bytes');
         _socketService.sendAudioChunk(data);
       });
 
@@ -55,16 +87,19 @@ class AudioStreamService {
       } else {
         debugPrint('❌ Error starting audio stream: $e');
       }
+      await _stopAndroidForegroundService();
     }
   }
 
   Future<void> stopStreaming() async {
-    if (!_isStreaming) return;
-
-    await _audioSubscription?.cancel();
-    await _recorder.stop();
-    _isStreaming = false;
-    debugPrint('🛑 Audio streaming stopped');
+    if (_isStreaming) {
+      await _audioSubscription?.cancel();
+      _audioSubscription = null;
+      await _recorder.stop();
+      _isStreaming = false;
+      debugPrint('🛑 Audio streaming stopped');
+    }
+    await _stopAndroidForegroundService();
   }
 
   void dispose() {

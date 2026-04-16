@@ -470,12 +470,14 @@ class GroqService:
         tools = get_action_tools(user_id) if user_id else []
         tools_map = {t.name: t for t in tools}
 
+        t0_call = time.perf_counter()
         keys_tried = []
         for i in range(n):
             keys_tried.append(i)
             llm = self.llms[i]
-            provider = type(llm).__name__
-            logger.info(f"Trying LLM endpoint #{i + 1}/{n} ({provider})")
+            # Use getattr to safely get model/provider name
+            model_name = getattr(llm, "model_name", "unknown")
+            logger.info(f"Trying LLM endpoint #{i + 1}/{n} | Model: {model_name}")
             
             llm_with_tools = llm.bind_tools(tools) if tools else llm
 
@@ -520,7 +522,10 @@ class GroqService:
                         llm_with_tools = llm
                     else:
                         if i > 0:
-                            logger.info(f"Fallback successful: endpoint #{i + 1}/{n} ({provider}) succeeded")
+                            logger.info(f"Fallback successful: endpoint #{i + 1}/{n} succeeded")
+                        
+                        latency = time.perf_counter() - t0_call
+                        logger.info(f"[LATENCY-PROFILER] LLM Response (Blocking): {latency:.3f}s")
                         return self.get_text_content(response.content)
             except Exception as e:
                 last_exc = e
@@ -863,7 +868,16 @@ class GroqService:
             "hey buddy", "hi buddy", "buddy", "yo", "sup"
         ] or len(search_query) <= 2
         
-        if not is_trivial_greeting and self.vector_store_service:
+        skip_rag = is_trivial_greeting
+        
+        # Additional optimization: If Node backend already provided context and query is very short, maybe skip RAG
+        if not skip_rag and memory_context and word_count < 5:
+             # Basic heuristic: if we have facts from Node and the query is short,
+             # it's likely a conversational follow-up. We can skip the VDB search.
+             skip_rag = True
+             logger.info("[CONTEXT] Bypassing Vector DB RAG for short conversational follow-up (Node context already available).")
+
+        if not skip_rag and self.vector_store_service:
             try:
                 # Pass user_id to ensure we only get chunks this user is allowed to see.
                 retriever = self.vector_store_service.get_retriever(k=10, user_id=user_id)
@@ -894,7 +908,7 @@ class GroqService:
         system_message = BUDDY_SYSTEM_PROMPT  # Layer 1: base personality
 
         system_message += f"\n\nCurrent time and date: {time_info}"  # Layer 2: time awareness
-        system_message += "\nIMPORTANT FORMATTING: When mentioning dates or times to the user (e.g., for reminders or events), format them in a natural, conversational, and user-friendly way (e.g., 'March 20, 2026 at 10:00 AM' or 'tomorrow at 5:00 PM'). Do NOT use raw database formats like '2026-03-20' or '10:00'."
+        system_message += "\nIMPORTANT FORMATTING: When mentioning dates or times to the user (e.g., for reminders or events), format them in a natural, conversational way (e.g., 'March 20 at 10 AM' or 'tomorrow at 5 PM'). For whole hours, DO NOT include ':00'. Use minutes ONLY if they are non-zero (e.g., '5:30 PM'). Do NOT use raw database formats like '2026-03-20' or '17:00'."
 
         if memory_context:
             logger.info("[MEMORY] Passing context to LLM: %d chars", len(memory_context))

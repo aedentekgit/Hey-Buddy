@@ -134,12 +134,15 @@ exports.proxyChatToPython = async (req, res) => {
 
         console.log(`[AI Gateway] Incoming Request: ${requestPath} | Stream: ${isStream} | Realtime: ${isRealtime}`);
 
+        const gatewayStart = Date.now();
         // 1. Parallelize Data Fetching (PROMISE.ALL) - Saves ~200-400ms
         const [aiConfig, context, userDetails] = await Promise.all([
             getAiConfig(),
             getContext(userId, session_id),
             User.findById(userId).select('voicePreferences')
         ]);
+        const dataFetchTime = Date.now() - gatewayStart;
+        console.log(`[LATENCY-PROFILER] Data Fetching (DB/Config): ${dataFetchTime}ms`);
 
         // 2. FORCED LATENCY OVERRIDE: If using Groq or if it's a TTS stream, force the fastest model
         if (tts && aiConfig.allKeys && aiConfig.allKeys.groq) {
@@ -229,6 +232,8 @@ exports.proxyChatToPython = async (req, res) => {
             fallback_groq_key: aiConfig.provider !== 'groq' ? (aiConfig.groqApiKey || null) : null,
             api_keys: aiConfig.allKeys // Pass all keys for Omni-Fallback
         };
+        const payloadSize = JSON.stringify(payload).length;
+        console.log(`[LATENCY-PROFILER] Payload Construction: ${Date.now() - gatewayStart - dataFetchTime}ms | Size: ${payloadSize} chars`);
 
         if (isStream) {
             const streamStartTime = Date.now();
@@ -294,11 +299,272 @@ exports.proxyActionToPython = async (req, res) => {
         const act = type || action;
         const val = value || payload;
 
+        const normalizeTitle = (t) =>
+            String(t || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        const isTitleSimilar = (a, b) => {
+            const na = normalizeTitle(a);
+            const nb = normalizeTitle(b);
+            if (!na || !nb) return false;
+            if (na === nb) return true;
+            // Common update patterns: small suffix/prefix changes
+            return na.includes(nb) || nb.includes(na);
+        };
+
+        const cleanUpdatePayload = (obj) => {
+            if (!obj || typeof obj !== 'object') return {};
+            const cleaned = {};
+            for (const [k, v] of Object.entries(obj)) {
+                if (v === null || v === undefined) continue;
+                if (typeof v === 'string' && v.trim() === '') {
+                    // Avoid accidental field wipes (Python tool defaults used to send "")
+                    continue;
+                }
+                cleaned[k] = v;
+            }
+            return cleaned;
+        };
+
+        const triggerVectorReload = async () => {
+            try {
+                const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+                await axios.post(`${aiServiceUrl}/system/reload`, {}, {
+                    headers: { 'X-API-Key': process.env.INTERNAL_SECRET || process.env.BUDDY_API_KEY || '' }
+                });
+            } catch (error) {
+                console.error('[AI-SYNC] Failed to trigger vector store reload (AI Controller):', error.message);
+            }
+        };
+
+        const convertReminderToLocationReminder = async (reminderDoc, updatePayload = {}) => {
+            const Reminder = require('../../models/Reminder');
+            const LocationReminder = require('../../models/LocationReminder');
+
+            const reminderId = reminderDoc._id;
+
+            const incomingLocation =
+                typeof updatePayload.location === 'string' ? updatePayload.location.trim() : '';
+
+            const merged = {
+                title: updatePayload.title ?? reminderDoc.title,
+                description:
+                    updatePayload.description ??
+                    reminderDoc.description ??
+                    reminderDoc.notes ??
+                    '',
+                location: incomingLocation || (reminderDoc.location || '').toString(),
+                coordinates: updatePayload.coordinates ?? reminderDoc.coordinates ?? { lat: null, lng: null },
+                date: updatePayload.date ?? reminderDoc.date ?? '',
+                time: updatePayload.time ?? reminderDoc.time ?? '',
+                status: updatePayload.status ?? reminderDoc.status ?? 'on_track',
+                bufferTime: updatePayload.bufferTime ?? reminderDoc.bufferTime ?? 15,
+                geofenceRadius: updatePayload.geofenceRadius ?? reminderDoc.geofenceRadius ?? 500,
+                warningLevel: updatePayload.warningLevel,
+                notifyPhone: updatePayload.notifyPhone,
+                notifyFamily: updatePayload.notifyFamily,
+                notifyEmergency: updatePayload.notifyEmergency,
+                earlyWarningSet: updatePayload.earlyWarningSet,
+                trafficAware: updatePayload.trafficAware,
+                itemExitGuards: updatePayload.itemExitGuards
+            };
+
+            // Auto-geocode if location is present but coordinates are missing
+            if (merged.location && (!merged.coordinates?.lat || !merged.coordinates?.lng)) {
+                try {
+                    const { geocodeAddress } = require('../../services/smartReminderService');
+                    const User = require('../../models/User');
+                    const user = await User.findById(userIdStr);
+                    const coords = await geocodeAddress(merged.location, user?.currentLocation);
+                    if (coords) merged.coordinates = coords;
+                } catch (err) {
+                    console.warn('[Action Proxy] Geocoding failed during conversion:', err.message);
+                }
+            }
+
+            const mapStatus = (s) => {
+                const v = String(s || '').toLowerCase();
+                if (v === 'completed') return 'completed';
+                if (v === 'cancelled') return 'cancelled';
+                if (v === 'risk_alert') return 'risk_alert';
+                return 'on_track';
+            };
+
+            const mapWarningLevel = () => {
+                const priority = String(reminderDoc.priority || '').toLowerCase();
+                if (priority === 'high') return 'high';
+                if (priority === 'low') return 'low';
+                return 'medium';
+            };
+
+            const upsertDoc = await LocationReminder.findOneAndUpdate(
+                { _id: reminderId, userId: userIdStr },
+                {
+                    $set: {
+                        userId: userIdStr,
+                        title: merged.title,
+                        description: merged.description,
+                        location: merged.location,
+                        coordinates: merged.coordinates,
+                        date: merged.date || '',
+                        time: merged.time || '',
+                        status: mapStatus(merged.status),
+                        warningLevel: merged.warningLevel || mapWarningLevel(),
+                        bufferTime: merged.bufferTime ?? 15,
+                        notifyPhone: merged.notifyPhone ?? reminderDoc.alerts?.push ?? true,
+                        notifyFamily: merged.notifyFamily ?? reminderDoc.alerts?.notifyFamily ?? false,
+                        notifyEmergency: merged.notifyEmergency ?? reminderDoc.alerts?.notifyEmergency ?? false,
+                        notifyEmail: true,
+                        earlyWarningSet: merged.earlyWarningSet ?? reminderDoc.smartFeatures?.earlyWarning ?? true,
+                        trafficAware: merged.trafficAware ?? reminderDoc.smartFeatures?.trafficAware ?? true,
+                        itemExitGuards: merged.itemExitGuards ?? reminderDoc.smartFeatures?.itemExitGuards ?? true,
+                        geofenceRadius: merged.geofenceRadius ?? 500
+                    }
+                },
+                { upsert: true, returnDocument: 'after', runValidators: true, setDefaultsOnInsert: true }
+            );
+
+            await Reminder.deleteOne({ _id: reminderId });
+
+            // Best-effort realtime sync + AI index refresh
+            try {
+                const { emitDataSync } = require('../../utils/socketEmitter');
+                emitDataSync(req, res, userIdStr, 'task', 'delete', { id: reminderId });
+                emitDataSync(req, res, userIdStr, 'location_reminder', 'create', { id: reminderId });
+            } catch (e) {
+                console.warn('[Action Proxy] emitDataSync failed during conversion:', e.message);
+            }
+
+            await triggerVectorReload();
+
+            return upsertDoc;
+        };
+
         // --- 1. Node-Native Actions (Buddy Core) ---
         if (act === 'CREATE_REMINDER' || act === 'REMINDER') {
             let reminderData = val;
             if (typeof val === 'string') {
                 try { reminderData = JSON.parse(val); } catch (e) { }
+            }
+
+            // If the AI accidentally routes a geo-trigger request into CREATE_REMINDER,
+            // transparently persist it as a dedicated LocationReminder so it shows up
+            // in the Location Reminders UI (and doesn't pollute the normal reminder list).
+            const reminderType = String(reminderData?.reminderType || '').toLowerCase();
+            const timeStr = String(reminderData?.time || '');
+            const looksLikeArrivalTrigger = /whenever|arrive/i.test(timeStr);
+            const hasLocation =
+                typeof reminderData?.location === 'string' &&
+                reminderData.location.trim().length > 0;
+
+            if (reminderType === 'location' || looksLikeArrivalTrigger || hasLocation) {
+                if (reminderData.location && (!reminderData.coordinates?.lat || !reminderData.coordinates?.lng)) {
+                    try {
+                        const { geocodeAddress } = require('../../services/smartReminderService');
+                        const User = require('../../models/User');
+                        const user = await User.findById(userIdStr);
+                        const coords = await geocodeAddress(reminderData.location, user?.currentLocation);
+                        if (coords) {
+                            reminderData.coordinates = coords;
+                        }
+                    } catch (err) {
+                        console.warn('[Action Proxy] Geocoding failed:', err.message);
+                    }
+                }
+
+                if (!reminderData.date) {
+                    const now = new Date();
+                    reminderData.date = now.toISOString().split('T')[0];
+                }
+                if (!reminderData.time) {
+                    reminderData.time = "whenever I arrive";
+                }
+
+                let result = { success: false, message: 'Unknown error' };
+                const mockReq = {
+                    body: reminderData,
+                    user: { _id: userIdStr },
+                    app: req.app
+                };
+                const mockRes = {
+                    status: (code) => ({
+                        json: (data) => {
+                            result = { success: code < 400, ...data, status: code };
+                            console.log('Action Proxy -> Result:', data);
+                        }
+                    }),
+                    locals: {}
+                };
+
+                let conflictWarning = '';
+                try {
+                    if (reminderData.date && reminderData.time && reminderData.time !== "whenever I arrive") {
+                        const LocationReminder = require('../../models/LocationReminder');
+                        const existing = await LocationReminder.findOne({
+                            userId: userIdStr,
+                            date: reminderData.date,
+                            time: reminderData.time,
+                            status: { $nin: ['completed', 'cancelled'] }
+                        });
+                        if (existing) {
+                            conflictWarning = ` Note: The user already has a location reminder scheduled at this exact time ("${existing.title} at ${existing.location}"). Please inform them.`;
+                            // If it looks like the same reminder, treat this CREATE as an UPDATE
+                            if (isTitleSimilar(existing.title, reminderData.title)) {
+                                let updateResult = { success: false, message: 'Unknown error' };
+                                const updateReq = {
+                                    params: { id: existing._id },
+                                    body: cleanUpdatePayload(reminderData),
+                                    user: { _id: userIdStr },
+                                    app: req.app
+                                };
+                                const updateRes = {
+                                    status: (code) => ({
+                                        json: (data) => {
+                                            updateResult = { success: code < 400, ...data, status: code };
+                                        }
+                                    }),
+                                    locals: {}
+                                };
+                                await locationReminderController.updateLocationReminder(updateReq, updateRes);
+                                if (updateResult.success) {
+                                    updateResult.message = updateResult.message || 'Location reminder updated.';
+                                }
+                                return res.status(updateResult.status || 200).json(updateResult);
+                            }
+                        }
+                    }
+                } catch (e) { console.error('Conflict check error:', e); }
+
+                // Cross-collection update: if the user already has a standard reminder at this time,
+                // treat this as an update and auto-move it into Location Reminders.
+                try {
+                    if (reminderData.date && reminderData.time && reminderData.location) {
+                        const Reminder = require('../../models/Reminder');
+                        const existingStd = await Reminder.findOne({
+                            userId: userIdStr,
+                            date: reminderData.date,
+                            time: reminderData.time,
+                            status: { $nin: ['completed', 'cancelled'] }
+                        });
+                        if (existingStd && isTitleSimilar(existingStd.title, reminderData.title)) {
+                            const moved = await convertReminderToLocationReminder(existingStd, cleanUpdatePayload(reminderData));
+                            return res.status(200).json({
+                                success: true,
+                                message: 'Reminder updated and moved to Location Reminders.',
+                                data: moved
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Action Proxy] Cross-collection update check failed:', e.message);
+                }
+
+                await locationReminderController.createLocationReminder(mockReq, mockRes);
+                if (result.success && conflictWarning) result.message += conflictWarning;
+                return res.status(result.status || 200).json(result);
             }
 
             let result = { success: false, message: 'Unknown error' };
@@ -328,6 +594,29 @@ exports.proxyActionToPython = async (req, res) => {
                     });
                     if (existing) {
                         conflictWarning = ` Note: The user already has a reminder scheduled at this exact time ("${existing.title}"). Please inform them about this scheduling conflict.`;
+                        // If it looks like the same reminder, treat this CREATE as an UPDATE
+                        if (isTitleSimilar(existing.title, reminderData.title)) {
+                            let updateResult = { success: false, message: 'Unknown error' };
+                            const updateReq = {
+                                params: { id: existing._id },
+                                body: cleanUpdatePayload(reminderData),
+                                user: { _id: userIdStr, googleRefreshToken: null },
+                                app: req.app
+                            };
+                            const updateRes = {
+                                status: (code) => ({
+                                    json: (data) => {
+                                        updateResult = { success: code < 400, ...data, status: code };
+                                    }
+                                }),
+                                locals: {}
+                            };
+                            await reminderController.updateReminder(updateReq, updateRes);
+                            if (updateResult.success) {
+                                updateResult.message = updateResult.message || 'Reminder updated.';
+                            }
+                            return res.status(updateResult.status || 200).json(updateResult);
+                        }
                     }
                 }
             } catch(e) { console.error('Conflict check error:', e); }
@@ -409,21 +698,134 @@ exports.proxyActionToPython = async (req, res) => {
                 try { reminderData = JSON.parse(val); } catch (e) { }
             }
 
-            Object.keys(reminderData).forEach(key => reminderData[key] === null && delete reminderData[key]);
+            if (!reminderId) {
+                return res.status(400).json({ success: false, message: 'Missing reminder id for update.' });
+            }
 
+            const cleanedUpdate = cleanUpdatePayload(reminderData);
+
+            // 1) If the ID belongs to a LocationReminder, update it there.
+            try {
+                const LocationReminder = require('../../models/LocationReminder');
+                const existingLoc = await LocationReminder.findOne({ _id: reminderId, userId: userIdStr });
+                if (existingLoc) {
+                    let result = { success: false, message: 'Unknown error' };
+                    const mockReq = {
+                        params: { id: reminderId },
+                        body: cleanedUpdate,
+                        user: { _id: userIdStr },
+                        app: req.app
+                    };
+                    const mockRes = {
+                        status: (code) => ({
+                            json: (data) => {
+                                result = { success: code < 400, ...data, status: code };
+                            }
+                        }),
+                        locals: {}
+                    };
+
+                    await locationReminderController.updateLocationReminder(mockReq, mockRes);
+                    return res.status(result.status || 200).json(result);
+                }
+            } catch (e) {
+                console.error('[Action Proxy] LocationReminder update check failed:', e.message);
+            }
+
+            // 2) Otherwise, update a standard Reminder. If a location is provided, auto-convert.
+            try {
+                const Reminder = require('../../models/Reminder');
+                const LocationReminder = require('../../models/LocationReminder');
+                const existingReminder = await Reminder.findOne({
+                    _id: reminderId,
+                    $or: [{ userId: userIdStr }, { 'sharedWith.user': userIdStr }]
+                });
+
+                if (!existingReminder) {
+                    return res.status(404).json({ success: false, message: 'Reminder not found or access denied' });
+                }
+
+                const isOwner = existingReminder.userId?.toString?.() === userIdStr;
+                const incomingLocation =
+                    typeof cleanedUpdate.location === 'string' ? cleanedUpdate.location.trim() : '';
+                const incomingTime =
+                    typeof cleanedUpdate.time === 'string' ? cleanedUpdate.time.trim() : '';
+                const looksLikeArrival = /whenever|arrive/i.test(incomingTime);
+                const hasOrWillHaveLocation =
+                    incomingLocation.length > 0 ||
+                    (typeof existingReminder.location === 'string' && existingReminder.location.trim().length > 0);
+
+                const shouldConvertToLocationReminder = isOwner && hasOrWillHaveLocation && (incomingLocation.length > 0 || looksLikeArrival);
+
+                if (shouldConvertToLocationReminder) {
+                    const upsertDoc = await convertReminderToLocationReminder(existingReminder, cleanedUpdate);
+
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Reminder updated and moved to Location Reminders.',
+                        data: upsertDoc
+                    });
+                }
+            } catch (e) {
+                console.error('[Action Proxy] Conversion logic failed:', e.message);
+            }
+
+            let result = { success: false, message: 'Unknown error' };
             const mockReq = {
                 params: { id: reminderId },
-                body: reminderData,
+                body: cleanedUpdate,
                 user: { _id: userIdStr, googleRefreshToken: null },
                 app: req.app
             };
             const mockRes = {
-                status: (code) => ({ json: (data) => console.log('Action Proxy -> Result:', data) }),
+                status: (code) => ({
+                    json: (data) => {
+                        result = { success: code < 400, ...data, status: code };
+                    }
+                }),
                 locals: {}
             };
 
             await reminderController.updateReminder(mockReq, mockRes);
-            return res.status(200).json({ success: true, message: 'Update reminder action executed' });
+            return res.status(result.status || 200).json(result);
+        }
+
+        if (act === 'DELETE_REMINDER' || act === 'DELETE_LOCATION_REMINDER') {
+            let idVal = val;
+            if (typeof val === 'string') {
+                try { idVal = JSON.parse(val); } catch (e) { }
+            }
+            const reminderId = typeof idVal === 'object' ? (idVal.id || idVal.reminder_id) : idVal;
+
+            if (!reminderId) {
+                return res.status(400).json({ success: false, message: 'Missing reminder id for deletion.' });
+            }
+
+            try {
+                const LocationReminder = require('../../models/LocationReminder');
+                const existingLoc = await LocationReminder.findOne({ _id: reminderId, userId: userIdStr });
+                if (existingLoc || act === 'DELETE_LOCATION_REMINDER') {
+                    let result = { success: false, message: 'Unknown error' };
+                    const mockReq = { params: { id: reminderId }, user: { _id: userIdStr }, app: req.app };
+                    const mockRes = {
+                        status: (code) => ({ json: (data) => { result = { success: code < 400, ...data, status: code }; } }),
+                        locals: {}
+                    };
+                    await locationReminderController.deleteLocationReminder(mockReq, mockRes);
+                    return res.status(result.status || 200).json(result);
+                }
+            } catch (e) {
+                console.error('[Action Proxy] LocationReminder delete check failed:', e.message);
+            }
+
+            let result = { success: false, message: 'Unknown error' };
+            const mockReq = { params: { id: reminderId }, user: { _id: userIdStr }, app: req.app };
+            const mockRes = {
+                status: (code) => ({ json: (data) => { result = { success: code < 400, ...data, status: code }; } }),
+                locals: {}
+            };
+            await reminderController.deleteReminder(mockReq, mockRes);
+            return res.status(result.status || 200).json(result);
         }
 
         if (act === 'SAVE_MEMORY' || act === 'CREATE_MEMORY') {
@@ -484,6 +886,27 @@ exports.proxyActionToPython = async (req, res) => {
 
             await recordController.updateMemory(mockReq, mockRes);
             return res.status(200).json({ success: true, message: 'Update memory action executed' });
+        }
+
+        if (act === 'DELETE_MEMORY') {
+            let idVal = val;
+            if (typeof val === 'string') {
+                try { idVal = JSON.parse(val); } catch (e) { }
+            }
+            const memoryId = typeof idVal === 'object' ? (idVal.id || idVal.memory_id) : idVal;
+            
+            if (!memoryId) {
+                return res.status(400).json({ success: false, message: 'Missing memory id for deletion.' });
+            }
+
+            let result = { success: false, message: 'Unknown error' };
+            const mockReq = { params: { id: memoryId }, user: { _id: userIdStr }, app: req.app };
+            const mockRes = {
+                status: (code) => ({ json: (data) => { result = { success: code < 400, ...data, status: code }; } }),
+                locals: {}
+            };
+            await recordController.deleteMemory(mockReq, mockRes);
+            return res.status(result.status || 200).json(result);
         }
 
         if (['OPEN_URL', 'OPEN_APP', 'SEARCH'].includes(act)) {

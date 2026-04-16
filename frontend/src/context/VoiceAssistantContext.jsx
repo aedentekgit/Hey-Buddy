@@ -142,7 +142,11 @@ export const VoiceAssistantProvider = ({ children }) => {
         if (preventProcessing || !user) {
             console.log(`[VoiceContext] ✋ Inhibiting global recognition (${!user ? 'No user' : 'Inhibited'})`);
             isIntentionalStop.current = true;
-            try { recognitionRef.current.stop(); } catch (e) { }
+            try {
+                recognitionRef.current.stop();
+            } catch {
+                // Ignore if recognition is already stopped.
+            }
         } else {
             // DO NOT auto-start on mount. Wait for user to enable it once or stick to intentional starts.
             if (isIntentionalStop.current) return;
@@ -191,21 +195,21 @@ export const VoiceAssistantProvider = ({ children }) => {
     };
 
     const handleApiAudio = async (base64) => {
-        return new Promise(async (resolve) => {
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-                const bytes = decode(base64);
-                const buffer = await decodeAudioData(bytes, audioContext, 24000, 1);
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            const bytes = decode(base64);
+            const buffer = await decodeAudioData(bytes, audioContext, 24000, 1);
+
+            await new Promise((resolve) => {
                 const source = audioContext.createBufferSource();
                 source.buffer = buffer;
                 source.connect(audioContext.destination);
-                source.onended = () => resolve();
+                source.onended = resolve;
                 source.start(0);
-            } catch (err) {
-                console.error("API Audio playback failed:", err);
-                resolve();
-            }
-        });
+            });
+        } catch (err) {
+            console.error("API Audio playback failed:", err);
+        }
     };
 
     // Step 7 & 8: Convert text to speech and Play

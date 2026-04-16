@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:buddy_mobile/shared/utils/avatar_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -57,9 +58,18 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     // No longer needed with reverse: true
   }
 
+  void _handleVoiceMessageTap() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Voice messages are coming soon'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Provider.of<BrandingProvider>(context);
+    final headerAvatarUrl = imageUrlFrom(widget.avatarUrl);
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Column(
@@ -111,16 +121,18 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      gradient: widget.avatarUrl == null ? AppColors.headerGradient : null,
-                      borderRadius: BorderRadius.circular(12),
-                      image: widget.avatarUrl != null && widget.avatarUrl!.isNotEmpty
+                      gradient: headerAvatarUrl == null
+                          ? AppColors.headerGradient
+                          : null,
+                      shape: BoxShape.circle,
+                      image: headerAvatarUrl != null
                           ? DecorationImage(
-                              image: CachedNetworkImageProvider(AppConfig.formatImageUrl(widget.avatarUrl)!),
+                              image: CachedNetworkImageProvider(headerAvatarUrl),
                               fit: BoxFit.cover,
                             )
                           : null,
                     ),
-                    child: (widget.avatarUrl == null || widget.avatarUrl!.isEmpty)
+                    child: headerAvatarUrl == null
                         ? Icon(
                             widget.isGroup ? LucideIcons.users : LucideIcons.user,
                             size: 18,
@@ -281,11 +293,11 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
 
                     String? avatar;
                     if (isMe) {
-                      avatar = context
-                          .read<UserProvider>()
-                          .user['profilePicture'];
+                      avatar = imageUrlFrom(
+                        context.read<UserProvider>().user['profilePicture'],
+                      );
                     } else {
-                      avatar = AppConfig.formatImageUrl(msg['sender_avatar']);
+                      avatar = imageUrlFrom(msg['sender_avatar']);
                     }
 
                     return GestureDetector(
@@ -368,6 +380,70 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
           Column(
             crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
+              // External Timestamp and Copy Row - MOVED TO TOP
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isMe) ...[
+                      GestureDetector(
+                        onTapDown: (details) {
+                          HapticFeedback.lightImpact();
+                          _showLocalizedMenu(msg, details.globalPosition, isMe: isMe);
+                        },
+                        child: Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textDim),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          final textToCopy = msg['content']?.toString() ?? '';
+                          Clipboard.setData(ClipboardData(text: textToCopy));
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Copied to clipboard'), behavior: SnackBarBehavior.floating),
+                          );
+                        },
+                        child: Icon(LucideIcons.copy, size: 10, color: AppColors.textDim),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      time,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: AppColors.textDim,
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 4),
+                      _buildReadReceipt(msg),
+                    ],
+                    if (!isMe) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          final textToCopy = msg['content']?.toString() ?? '';
+                          Clipboard.setData(ClipboardData(text: textToCopy));
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Copied to clipboard'), behavior: SnackBarBehavior.floating),
+                          );
+                        },
+                        child: Icon(LucideIcons.copy, size: 10, color: AppColors.textDim),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTapDown: (details) {
+                          HapticFeedback.lightImpact();
+                          _showLocalizedMenu(msg, details.globalPosition, isMe: isMe);
+                        },
+                        child: Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textDim),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.72,
@@ -384,10 +460,10 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                     : null,
                 color: isMe ? null : AppColors.surface,
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(8),
-                  topRight: const Radius.circular(8),
                   bottomLeft: Radius.circular(isMe ? 8 : 4),
                   bottomRight: Radius.circular(isMe ? 4 : 8),
+                  topLeft: const Radius.circular(8),
+                  topRight: const Radius.circular(8),
                 ),
                 boxShadow: isMe
                     ? null
@@ -533,75 +609,10 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
                         ],
                       ),
                     ),
-                    // Removed Positioned chevronDown from here as it's moved outside
                   ],
                 ),
               ),
             ),
-              ),
-              // External Timestamp and Copy Row
-              Padding(
-                padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isMe) ...[
-                      GestureDetector(
-                        onTapDown: (details) {
-                          HapticFeedback.lightImpact();
-                          _showLocalizedMenu(msg, details.globalPosition, isMe: isMe);
-                        },
-                        child: Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textDim),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          final textToCopy = msg['content']?.toString() ?? '';
-                          Clipboard.setData(ClipboardData(text: textToCopy));
-                          HapticFeedback.lightImpact();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Copied to clipboard'), behavior: SnackBarBehavior.floating),
-                          );
-                        },
-                        child: Icon(LucideIcons.copy, size: 10, color: AppColors.textDim),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(
-                      time,
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: AppColors.textDim,
-                      ),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      _buildReadReceipt(msg),
-                    ],
-                    if (!isMe) ...[
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          final textToCopy = msg['content']?.toString() ?? '';
-                          Clipboard.setData(ClipboardData(text: textToCopy));
-                          HapticFeedback.lightImpact();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Copied to clipboard'), behavior: SnackBarBehavior.floating),
-                          );
-                        },
-                        child: Icon(LucideIcons.copy, size: 10, color: AppColors.textDim),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTapDown: (details) {
-                          HapticFeedback.lightImpact();
-                          _showLocalizedMenu(msg, details.globalPosition, isMe: isMe);
-                        },
-                        child: Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textDim),
-                      ),
-                    ],
-                  ],
-                ),
               ),
             ],
           ),
@@ -642,18 +653,10 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        gradient: isMe
-            ? AppColors.headerGradient
-            : LinearGradient(
-                colors: [AppColors.teal, AppColors.accent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-        borderRadius: BorderRadius.circular(10),
+        shape: BoxShape.circle,
       ),
       child: avatarUrl != null && avatarUrl.isNotEmpty
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+          ? ClipOval(
               child: CachedNetworkImage(
                 imageUrl: avatarUrl,
                 fit: BoxFit.cover,
@@ -669,7 +672,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
   Widget _fallbackAvatarPlaceholder(String? name, bool isMe) {
     return Center(
       child: Text(
-        isMe ? 'Me' : (name?.isNotEmpty == true ? name![0].toUpperCase() : '?'),
+        isMe ? 'Me' : safeInitial(name, fallback: '?'),
         style: GoogleFonts.nunito(
           fontSize: isMe ? 9 : 13,
           fontWeight: FontWeight.w900,
@@ -831,9 +834,7 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
 
               AnimatedAIInputField(
                 controller: _messageController,
-                onMicPressed: () {
-                  // TODO: Voice message logic
-                },
+                onMicPressed: _handleVoiceMessageTap,
                 onAttachPressed: _showAttachmentOptions,
                 onSendPressed: _sendMessage,
               ),
@@ -1214,4 +1215,3 @@ class _FamilyChatScreenState extends State<FamilyChatScreen> {
     }
   }
 }
-

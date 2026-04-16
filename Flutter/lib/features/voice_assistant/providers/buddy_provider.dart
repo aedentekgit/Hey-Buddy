@@ -18,7 +18,7 @@ class BuddyProvider with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _storage = const FlutterSecureStorage();
   final FlutterTts _flutterTts = FlutterTts();
-  
+
   // Expose these for potential direct use (but provider methods are preferred)  AudioPlayer get audioPlayer => _audioPlayer;
   FlutterTts get tts => _flutterTts;
 
@@ -124,14 +124,12 @@ class BuddyProvider with ChangeNotifier {
   void dispose() {
     _audioPlayer.dispose();
     _audioStreamService.dispose();
-    
+
     socketService.dispose();
     super.dispose();
   }
 
   bool get isRealtimeEnabled => _isRealtimeEnabled;
-
-
 
   Future<void> stopAllAudio() async {
     _ttsQueue.clear();
@@ -173,7 +171,9 @@ class BuddyProvider with ChangeNotifier {
           if (!completer.isCompleted) completer.complete();
         });
         stateSub = _audioPlayer.onPlayerStateChanged.listen((state) {
-          if (state == PlayerState.stopped && !completer.isCompleted) completer.complete();
+          if (state == PlayerState.stopped && !completer.isCompleted) {
+            completer.complete();
+          }
         });
 
         try {
@@ -203,11 +203,16 @@ class BuddyProvider with ChangeNotifier {
     }
 
     // If all audio failed and we're on iOS, use TTS as fallback
-    if (anyAudioFailed && Platform.isIOS && _messages.isNotEmpty && _messages.last['type'] == 'ai') {
+    if (anyAudioFailed &&
+        Platform.isIOS &&
+        _messages.isNotEmpty &&
+        _messages.last['type'] == 'ai') {
       String textToSpeak = _messages.last['text'] ?? '';
       if (textToSpeak.isNotEmpty) {
         debugPrint("🔊 Using TTS fallback for iOS");
-        debugPrint("💡 Note: iOS Simulator doesn't output audio - use a real device to hear voice");
+        debugPrint(
+          "💡 Note: iOS Simulator doesn't output audio - use a real device to hear voice",
+        );
 
         try {
           // Set up completion handler before speaking
@@ -222,16 +227,20 @@ class BuddyProvider with ChangeNotifier {
           // On iOS Simulator, TTS doesn't actually play, so we manually reset after a timeout
           // Estimate: ~100ms per word
           int wordCount = textToSpeak.split(' ').length;
-          int estimatedDuration = (wordCount * 0.4 * 1000).toInt(); // 400ms per word
+          int estimatedDuration = (wordCount * 0.4 * 1000)
+              .toInt(); // 400ms per word
 
-          Future.delayed(Duration(milliseconds: estimatedDuration.clamp(1000, 10000)), () {
-            if (_isSpeaking) {
-              debugPrint("🔊 TTS simulation complete (iOS Simulator)");
-              _isSpeaking = false;
-              _isPlayingAudioChunkQueue = false;
-              notifyListeners();
-            }
-          });
+          Future.delayed(
+            Duration(milliseconds: estimatedDuration.clamp(1000, 10000)),
+            () {
+              if (_isSpeaking) {
+                debugPrint("🔊 TTS simulation complete (iOS Simulator)");
+                _isSpeaking = false;
+                _isPlayingAudioChunkQueue = false;
+                notifyListeners();
+              }
+            },
+          );
 
           return; // Exit early
         } catch (e) {
@@ -443,20 +452,26 @@ class BuddyProvider with ChangeNotifier {
         _isThinking = false;
       }
 
-        // ONLY parse for local TTS if NOT in realtime mode with server audio
-        // AND voice is enabled (text-only mode skips TTS entirely)
-        if (!_isRealtimeEnabled && _voiceEnabled) {
-          // 1. Sanitize for TTS (remove markdown and function tags)
-          String sanitizedText = text
-              .replaceAll('*', '')
-              .replaceAll('`', '')
-              .replaceAll('#', '')
-              .replaceAll(RegExp(r'<[^>]+>.*?</[^>]+>', dotAll: true), '') // Strip paired tags
-              .replaceAll(RegExp(r'<[^>]+>', dotAll: true), '') // Strip single tags
-              .replaceAll(
-                RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false),
-                '',
-              )
+      // ONLY parse for local TTS if NOT in realtime mode with server audio
+      // AND voice is enabled (text-only mode skips TTS entirely)
+      if (!_isRealtimeEnabled && _voiceEnabled) {
+        // 1. Sanitize for TTS (remove markdown and function tags)
+        String sanitizedText = text
+            .replaceAll('*', '')
+            .replaceAll('`', '')
+            .replaceAll('#', '')
+            .replaceAll(
+              RegExp(r'<[^>]+>.*?</[^>]+>', dotAll: true),
+              '',
+            ) // Strip paired tags
+            .replaceAll(
+              RegExp(r'<[^>]+>', dotAll: true),
+              '',
+            ) // Strip single tags
+            .replaceAll(
+              RegExp(r'json|markdown|\[|\]|\(|\)', caseSensitive: false),
+              '',
+            )
             .replaceAll(
               RegExp(
                 r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}]',
@@ -565,14 +580,18 @@ class BuddyProvider with ChangeNotifier {
             });
           } catch (playError) {
             // Audio playback failed (common on iOS Simulator)
-            debugPrint("⚠️ Audio playback failed, falling back to TTS: $playError");
+            debugPrint(
+              "⚠️ Audio playback failed, falling back to TTS: $playError",
+            );
             audioPlaybackFailed = true;
           }
 
           // Fallback to TTS if audio playback failed
           if (audioPlaybackFailed && Platform.isIOS) {
             debugPrint("🔊 Using TTS fallback for iOS");
-            debugPrint("💡 Note: iOS Simulator doesn't output audio - use a real device to hear voice");
+            debugPrint(
+              "💡 Note: iOS Simulator doesn't output audio - use a real device to hear voice",
+            );
 
             // Get the last AI message text to speak
             if (_messages.isNotEmpty && _messages.last['type'] == 'ai') {
@@ -587,15 +606,19 @@ class BuddyProvider with ChangeNotifier {
 
                 // On iOS Simulator, TTS doesn't actually play, so we manually reset after a timeout
                 int wordCount = textToSpeak.split(' ').length;
-                int estimatedDuration = (wordCount * 0.4 * 1000).toInt(); // 400ms per word
+                int estimatedDuration = (wordCount * 0.4 * 1000)
+                    .toInt(); // 400ms per word
 
-                Future.delayed(Duration(milliseconds: estimatedDuration.clamp(1000, 10000)), () {
-                  if (_isSpeaking) {
-                    debugPrint("🔊 TTS simulation complete (iOS Simulator)");
-                    _isSpeaking = false;
-                    notifyListeners();
-                  }
-                });
+                Future.delayed(
+                  Duration(milliseconds: estimatedDuration.clamp(1000, 10000)),
+                  () {
+                    if (_isSpeaking) {
+                      debugPrint("🔊 TTS simulation complete (iOS Simulator)");
+                      _isSpeaking = false;
+                      notifyListeners();
+                    }
+                  },
+                );
               } else {
                 _isSpeaking = false;
                 notifyListeners();
@@ -621,12 +644,16 @@ class BuddyProvider with ChangeNotifier {
       _connectionError = ''; // Clear any connection errors
       if (!isConnected) {
         _isThinking = false;
+        _isListening = false;
         _audioStreamService.stopStreaming();
         debugPrint('🛑 Audio streaming stopped (socket disconnected)');
       } else {
-        // Automatically start streaming when socket connects for wake-word detection
-        // DISABLED per user request: _audioStreamService.startStreaming();
-        debugPrint('🎙️ Audio streaming auto-start DISABLED (socket connected)');
+        // Automatically start streaming when socket connects so wake-word
+        // detection is active while the app is open.
+        if (!_audioStreamService.isStreaming) {
+          unawaited(startWakeWordDetection());
+          debugPrint('🎙️ Auto wake-word streaming started (socket connected)');
+        }
       }
       notifyListeners();
     });
@@ -647,7 +674,7 @@ class BuddyProvider with ChangeNotifier {
       if (_isSpeaking || _isSpeakingQueue) {
         debugPrint('Barge-in detected: Silencing Buddy');
         _audioPlayer.stop();
-        
+
         _isSpeaking = false;
         _isSpeakingQueue = false;
         _ttsQueue.clear();
@@ -716,11 +743,13 @@ class BuddyProvider with ChangeNotifier {
   }
 
   Future<void> startWakeWordDetection() async {
+    _isListening = false;
     await _audioStreamService.startStreaming();
     notifyListeners();
   }
 
   Future<void> stopWakeWordDetection() async {
+    _isListening = false;
     await _audioStreamService.stopStreaming();
     notifyListeners();
   }
@@ -735,6 +764,7 @@ class BuddyProvider with ChangeNotifier {
       stopWakeWordDetection();
       socketService.disconnect();
       _isRealtimeEnabled = false;
+      _isListening = false;
     }
     notifyListeners();
   }
@@ -767,8 +797,10 @@ class BuddyProvider with ChangeNotifier {
 
     final String text = lastAiMsg['text'] ?? '';
     // Extract <function=NAME>PAYLOAD</function>
-    final toolRegex =
-        RegExp(r'<function=([^>]+)>(.*?)</function>', dotAll: true);
+    final toolRegex = RegExp(
+      r'<function=([^>]+)>(.*?)</function>',
+      dotAll: true,
+    );
     final matches = toolRegex.allMatches(text);
 
     if (matches.isEmpty) return;
@@ -871,18 +903,21 @@ class BuddyProvider with ChangeNotifier {
             // fallback
           }
         }
-        
+
         String contentStr = m['content']?.toString() ?? '';
         String? parsedImageUrl;
-        
+
         final RegExp regExp = RegExp(r"\[Attached Image: (.*?)\]");
         final match = regExp.firstMatch(contentStr);
         if (match != null) {
-           parsedImageUrl = AppConfig.formatImageUrl(match.group(1));
-           contentStr = contentStr.replaceAll(regExp, "").trim();
+          parsedImageUrl = AppConfig.formatImageUrl(match.group(1));
+          contentStr = contentStr.replaceAll(regExp, "").trim();
         }
 
-        final RegExp sysInstExp = RegExp(r"<system_instruction>.*?</system_instruction>", dotAll: true);
+        final RegExp sysInstExp = RegExp(
+          r"<system_instruction>.*?</system_instruction>",
+          dotAll: true,
+        );
         contentStr = contentStr.replaceAll(sysInstExp, "").trim();
 
         return {
@@ -916,13 +951,16 @@ class BuddyProvider with ChangeNotifier {
       try {
         final uploadRes = await _buddyService.uploadChatFile(File(imagePath));
         if (uploadRes['success'] == true && uploadRes['data'] != null) {
-          final imageUrl = uploadRes['data']['fileUrl'] ?? uploadRes['data'].toString();
+          final imageUrl =
+              uploadRes['data']['fileUrl'] ?? uploadRes['data'].toString();
           if (imageUrl is String && imageUrl.isNotEmpty) {
-             if (finalText.trim().isEmpty) {
-                finalText = "<system_instruction>\nSystem Alert: The user has uploaded an image ($imageUrl) but didn't write anything. You must first analyze this image and comprehensively tell the user the details. After explaining it, ask the user if they want you to save this image/document details to their Memory. Do NOT save it immediately.\n</system_instruction>";
-             } else {
-                finalText = "$finalText\n\n[Attached Image: $imageUrl]\n\n<system_instruction>\nSystem Alert: The user has uploaded an image ($imageUrl). Please analyze the image or document and comprehensively tell the user the details based on their message. After answering, gently ask the user if they want to save this to their Memory. Do NOT call the memory save tool immediately unless the user's message explicitly asked to save it.\n</system_instruction>";
-             }
+            if (finalText.trim().isEmpty) {
+              finalText =
+                  "<system_instruction>\nSystem Alert: The user has uploaded an image ($imageUrl) but didn't write anything. You must first analyze this image and comprehensively tell the user the details. After explaining it, ask the user if they want you to save this image/document details to their Memory. Do NOT save it immediately.\n</system_instruction>";
+            } else {
+              finalText =
+                  "$finalText\n\n[Attached Image: $imageUrl]\n\n<system_instruction>\nSystem Alert: The user has uploaded an image ($imageUrl). Please analyze the image or document and comprehensively tell the user the details based on their message. After answering, gently ask the user if they want to save this to their Memory. Do NOT call the memory save tool immediately unless the user's message explicitly asked to save it.\n</system_instruction>";
+            }
           }
         }
       } catch (e) {
@@ -934,8 +972,11 @@ class BuddyProvider with ChangeNotifier {
 
     try {
       final token = await _storage.read(key: 'jwt');
-      String endpoint = 'stream'; 
+      String endpoint = 'stream';
       final url = Uri.parse('${AppConfig.baseUrl}ai/chat/$endpoint');
+      final normalizedLanguage = language.trim().isEmpty
+          ? 'auto'
+          : language.trim();
 
       final request = http.Request('POST', url)
         ..headers['Content-Type'] = 'application/json'
@@ -948,13 +989,16 @@ class BuddyProvider with ChangeNotifier {
       request.body = jsonEncode({
         'message': finalText,
         'session_id': _currentConversationId,
+        'language': normalizedLanguage,
         // Tell the backend to generate audio ONLY when voice is enabled.
         // When false, the Python server skips edge-tts entirely → faster + silent.
         'tts': _voiceEnabled,
       });
 
       // optimization: Use the persistent client from _buddyService instead of creating a new one
-      final response = await _buddyService.client.send(request).timeout(const Duration(seconds: 60));
+      final response = await _buddyService.client
+          .send(request)
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 401) {
         _needsLogin = true;
@@ -964,7 +1008,7 @@ class BuddyProvider with ChangeNotifier {
       }
 
       _isThinking = false;
-      
+
       // Clear previous partial indicator
       for (var m in _messages) {
         m['isPartial'] = false;
@@ -973,12 +1017,12 @@ class BuddyProvider with ChangeNotifier {
 
       // Pre-add the empty Assistant message
       _messages.add({
-         'id': 'api_${DateTime.now().millisecondsSinceEpoch}',
-         'type': 'ai',
-         'text': '',
-         'isPartial': true,
-         'shouldType': false,
-         'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'id': 'api_${DateTime.now().millisecondsSinceEpoch}',
+        'type': 'ai',
+        'text': '',
+        'isPartial': true,
+        'shouldType': false,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
       notifyListeners();
 
@@ -986,76 +1030,85 @@ class BuddyProvider with ChangeNotifier {
       String streamBuffer = '';
 
       // Start reading the HTTP Stream chunk by chunk!
-      response.stream.transform(utf8.decoder).listen(
-        (chunkData) {
-          streamBuffer += chunkData;
+      response.stream
+          .transform(utf8.decoder)
+          .listen(
+            (chunkData) {
+              streamBuffer += chunkData;
 
-          // SSE chunks are separated by double newlines (\n\n)
-          while (streamBuffer.contains('\n\n')) {
-            int index = streamBuffer.indexOf('\n\n');
-            String eventChunk = streamBuffer.substring(0, index).trim();
-            streamBuffer = streamBuffer.substring(index + 2);
+              // SSE chunks are separated by double newlines (\n\n)
+              while (streamBuffer.contains('\n\n')) {
+                int index = streamBuffer.indexOf('\n\n');
+                String eventChunk = streamBuffer.substring(0, index).trim();
+                streamBuffer = streamBuffer.substring(index + 2);
 
-            if (eventChunk.startsWith('data: ')) {
-              String jsonStr = eventChunk.substring(6);
-              try {
-                final parsed = jsonDecode(jsonStr);
-                
-                // If there's an error from Python, display it securely.
-                if (parsed['error'] != null) {
-                   if (_messages.isNotEmpty && _messages.last['type'] == 'ai') {
-                      _messages.last['text'] += "\n\nError: ${parsed['error']}";
-                   }
-                   continue;
+                if (eventChunk.startsWith('data: ')) {
+                  String jsonStr = eventChunk.substring(6);
+                  try {
+                    final parsed = jsonDecode(jsonStr);
+
+                    // If there's an error from Python, display it securely.
+                    if (parsed['error'] != null) {
+                      if (_messages.isNotEmpty &&
+                          _messages.last['type'] == 'ai') {
+                        _messages.last['text'] +=
+                            "\n\nError: ${parsed['error']}";
+                      }
+                      continue;
+                    }
+
+                    if (parsed['audio'] != null && _voiceEnabled) {
+                      _audioChunkQueue.add(parsed['audio']);
+                      _processAudioChunkQueue();
+                    }
+
+                    if (parsed['session_id'] != null &&
+                        _currentConversationId == null) {
+                      _currentConversationId = parsed['session_id'].toString();
+                      debugPrint(
+                        '📌 Conversation session locked to: $_currentConversationId',
+                      );
+                    }
+
+                    if (parsed['chunk'] != null &&
+                        _messages.isNotEmpty &&
+                        _messages.last['type'] == 'ai' &&
+                        _messages.last['isPartial'] == true) {
+                      String actualText = parsed['chunk'];
+                      _messages.last['text'] += actualText;
+                    }
+                  } catch (e) {
+                    // Ignore incomplete json fragments or malformed lines
+                  }
                 }
-
-                 if (parsed['audio'] != null && _voiceEnabled) {
-                  _audioChunkQueue.add(parsed['audio']);
-                  _processAudioChunkQueue();
-                }
-
-                if (parsed['session_id'] != null && _currentConversationId == null) {
-                   _currentConversationId = parsed['session_id'].toString();
-                   debugPrint('📌 Conversation session locked to: $_currentConversationId');
-                }
-
-                if (parsed['chunk'] != null && _messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
-                  String actualText = parsed['chunk'];
-                  _messages.last['text'] += actualText;
-                }
-              } catch (e) {
-                // Ignore incomplete json fragments or malformed lines
               }
-            }
-          }
-          notifyListeners();
-        },
-        onDone: () {
-          if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
-            _messages.last['isPartial'] = false;
-          }
-          // Flush remaining TTS buffer — only if voice is enabled
-          if (_voiceEnabled && _ttsBuffer.trim().isNotEmpty) {
-            _ttsQueue.add(_ttsBuffer.trim());
-            _ttsBuffer = '';
-            _processTtsQueue();
-          }
-          _isThinking = false;
-          notifyListeners();
-        },
-        onError: (err) {
-          debugPrint('API Stream Error: $err');
-          _isThinking = false;
-          
-          notifyListeners();
-        },
-      );
+              notifyListeners();
+            },
+            onDone: () {
+              if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
+                _messages.last['isPartial'] = false;
+              }
+              // Flush remaining TTS buffer — only if voice is enabled
+              if (_voiceEnabled && _ttsBuffer.trim().isNotEmpty) {
+                _ttsQueue.add(_ttsBuffer.trim());
+                _ttsBuffer = '';
+                _processTtsQueue();
+              }
+              _isThinking = false;
+              notifyListeners();
+            },
+            onError: (err) {
+              debugPrint('API Stream Error: $err');
+              _isThinking = false;
 
+              notifyListeners();
+            },
+          );
     } catch (e) {
       debugPrint("HTTP Stream Request Error: $e");
       addMessage('ai', "Error connecting to AI: $e");
       _isThinking = false;
-      
+
       notifyListeners();
     }
   }

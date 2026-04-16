@@ -78,7 +78,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final branding = Provider.of<BrandingProvider>(context);
     final isLoading = Provider.of<AuthProvider>(context).isLoading;
 
     return Scaffold(

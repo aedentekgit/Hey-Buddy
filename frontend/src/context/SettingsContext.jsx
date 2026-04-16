@@ -26,7 +26,9 @@ export const SettingsProvider = ({ children }) => {
                     setLoading(false);
                     return;
                 }
-            } catch (e) { }
+            } catch {
+                // Ignore malformed cached user payload and continue.
+            }
         }
 
         if (window.location.pathname === '/login' || window.location.pathname === '/signup') {

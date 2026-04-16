@@ -24,7 +24,7 @@ if (process.env.NODE_ENV === 'development') {
 // General API rate limit
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'development' ? 2000 : 100, // Allow more requests in dev for testing
+    max: process.env.NODE_ENV === 'development' ? 2000 : 1000, // Increased from 100 to 1000 for production
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' }

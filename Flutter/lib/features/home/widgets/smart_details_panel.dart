@@ -17,6 +17,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:buddy_mobile/shared/utils/avatar_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -2394,29 +2395,43 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                             border: Border.all(color: AppColors.border),
                           ),
                           child: Column(
-                            children: _familySearchResults.map((user) => ListTile(
-                              leading: CircleAvatar(
-                                backgroundImage: user['profilePicture'] != null 
-                                    ? CachedNetworkImageProvider(AppConfig.formatImageUrl(user['profilePicture'])!) 
-                                    : null,
-                                child: user['profilePicture'] == null ? Text(user['name']?[0] ?? 'U') : null,
-                              ),
-                              title: Text(user['name'] ?? 'Unknown', style: GoogleFonts.outfit(fontSize: 14)),
-                              subtitle: Text(user['email'] ?? '', style: GoogleFonts.outfit(fontSize: 12)),
-                              trailing: IconButton(
-                                icon: Icon(LucideIcons.plusCircle, color: Theme.of(context).primaryColor),
-                                onPressed: () {
-                                   setState(() {
-                                      if (!sharedWith.any((s) => s is Map && s['user'] is Map && s['user']['_id'] == user['_id'])) {
-                                        sharedWith.add({'user': user, 'permissions': 'view'});
-                                      }
-                                      _familySearchController.clear();
-                                      _familySearchResults = [];
-                                      FocusScope.of(context).unfocus();
-                                   });
-                                },
-                              ),
-                            )).toList(),
+                            children: _familySearchResults.map((user) {
+                              final profilePictureUrl = imageUrlFrom(user['profilePicture']);
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: profilePictureUrl != null
+                                      ? CachedNetworkImageProvider(profilePictureUrl)
+                                      : null,
+                                  child: profilePictureUrl == null
+                                      ? Text(safeInitial(user['name']))
+                                      : null,
+                                ),
+                                title: Text(
+                                  user['name'] ?? 'Unknown',
+                                  style: GoogleFonts.outfit(fontSize: 14),
+                                ),
+                                subtitle: Text(
+                                  user['email'] ?? '',
+                                  style: GoogleFonts.outfit(fontSize: 12),
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    LucideIcons.plusCircle,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                  onPressed: () {
+                                     setState(() {
+                                        if (!sharedWith.any((s) => s is Map && s['user'] is Map && s['user']['_id'] == user['_id'])) {
+                                          sharedWith.add({'user': user, 'permissions': 'view'});
+                                        }
+                                        _familySearchController.clear();
+                                        _familySearchResults = [];
+                                        FocusScope.of(context).unfocus();
+                                     });
+                                  },
+                                ),
+                              );
+                            }).toList(),
                           )
                         ),
                       const SizedBox(height: 8),
@@ -2434,6 +2449,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                         (item) {
                           final s = item is Map ? item : {'user': {'name': 'User', '_id': item.toString()}};
                           final user = (s['user'] is Map) ? (s['user'] as Map) : {};
+                          final profilePictureUrl = imageUrlFrom(user['profilePicture']);
                           
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -2459,18 +2475,14 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                     ),
                                   ),
                                   child: ClipOval(
-                                    child: user['profilePicture'] != null
+                                    child: profilePictureUrl != null
                                         ? CachedNetworkImage(
-                                            imageUrl: AppConfig.formatImageUrl(
-                                              user['profilePicture'],
-                                            )!,
+                                            imageUrl: profilePictureUrl,
                                             fit: BoxFit.cover,
                                             errorWidget: (context, url, error) =>
                                                 Center(
                                                   child: Text(
-                                                    user['name']?[0]
-                                                            ?.toUpperCase() ??
-                                                        'U',
+                                                    safeInitial(user['name']),
                                                     style: TextStyle(
                                                       color: Theme.of(
                                                         context,
@@ -2483,9 +2495,7 @@ class _SmartDetailsPanelState extends State<SmartDetailsPanel> {
                                           )
                                         : Center(
                                             child: Text(
-                                              user['name']?[0]
-                                                      ?.toUpperCase() ??
-                                                  'U',
+                                              safeInitial(user['name']),
                                               style: TextStyle(
                                                 color: Theme.of(
                                                   context,

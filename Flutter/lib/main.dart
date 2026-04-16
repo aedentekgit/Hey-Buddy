@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart'; // hr 11
 import 'package:provider/provider.dart';
 import 'package:buddy_mobile/core/providers/branding_provider.dart';
@@ -65,17 +66,28 @@ void main() async {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BuddyProvider()),
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
-        // Proxy provider logic to connect Socket events to Providers
-        ProxyProvider<BuddyProvider, RealtimeSyncManager>(
-          update: (context, buddy, _) => 
-              RealtimeSyncManager(context, buddy.socketService),
-          lazy: false,
-        ),
         ChangeNotifierProxyProvider<BuddyProvider, FamilyProvider>(
           create: (context) =>
               FamilyProvider(context.read<BuddyProvider>().socketService),
           update: (context, buddy, family) =>
               family ?? FamilyProvider(buddy.socketService),
+        ),
+        // Keep a single sync manager instance and update its dependencies.
+        ChangeNotifierProxyProvider<BuddyProvider, RealtimeSyncManager>(
+          create: (_) => RealtimeSyncManager(),
+          update: (context, buddy, manager) {
+            final syncManager = manager ?? RealtimeSyncManager();
+            syncManager.bind(
+              socketService: buddy.socketService,
+              tasksProvider: context.read<TasksProvider>(),
+              locationRemindersProvider: context.read<LocationRemindersProvider>(),
+              memoriesProvider: context.read<MemoriesProvider>(),
+              userProvider: context.read<UserProvider>(),
+              familyProvider: context.read<FamilyProvider>(),
+            );
+            return syncManager;
+          },
+          lazy: false,
         ),
       ],
       child: const BuddyApp(),
@@ -83,36 +95,95 @@ void main() async {
   );
 }
 
-class RealtimeSyncManager {
-  final BuildContext context;
-  final SocketService socketService;
+class RealtimeSyncManager extends ChangeNotifier {
+  StreamSubscription<Map<String, dynamic>>? _subscription;
+  SocketService? _socketService;
+  TasksProvider? _tasksProvider;
+  LocationRemindersProvider? _locationRemindersProvider;
+  MemoriesProvider? _memoriesProvider;
+  UserProvider? _userProvider;
+  FamilyProvider? _familyProvider;
 
-  RealtimeSyncManager(this.context, this.socketService) {
-    _init();
+  void bind({
+    required SocketService socketService,
+    required TasksProvider tasksProvider,
+    required LocationRemindersProvider locationRemindersProvider,
+    required MemoriesProvider memoriesProvider,
+    required UserProvider userProvider,
+    required FamilyProvider familyProvider,
+  }) {
+    _tasksProvider = tasksProvider;
+    _locationRemindersProvider = locationRemindersProvider;
+    _memoriesProvider = memoriesProvider;
+    _userProvider = userProvider;
+    _familyProvider = familyProvider;
+
+    if (identical(_socketService, socketService) && _subscription != null) {
+      return;
+    }
+
+    _subscription?.cancel();
+    _socketService = socketService;
+    _subscription = socketService.dataSyncStream.listen(_handleSync);
   }
 
-  void _init() {
-    socketService.dataSyncStream.listen((data) {
-      final type = data['type'];
-      debugPrint('RealtimeSyncManager: Received sync for $type');
+  void _handleSync(Map<String, dynamic> data) {
+    final type = data['type'];
+    debugPrint('RealtimeSyncManager: Received sync for $type');
 
-      // Use try-catch to safely access providers even if context is no longer mounted
-      try {
-        if (type == 'task' || type == 'reminder') {
-          context.read<TasksProvider>().loadTasks(silent: true);
-        } else if (type == 'location_reminder') {
-          context.read<LocationRemindersProvider>().loadReminders();
-        } else if (type == 'memory') {
-          context.read<MemoriesProvider>().loadMemories(silent: true);
-        } else if (type == 'profile') {
-          context.read<UserProvider>().loadProfile();
-        } else if (type == 'family') {
-          context.read<FamilyProvider>().loadData();
+    try {
+      if (type == 'task' || type == 'reminder') {
+        final tasksProvider = _tasksProvider;
+        if (tasksProvider != null) {
+          _runSafely(
+            tasksProvider.loadTasks(silent: true),
+            'task/reminder',
+          );
         }
-      } catch (e) {
-        debugPrint('RealtimeSyncManager: Error accessing context - $e');
+      } else if (type == 'location_reminder') {
+        final locationRemindersProvider = _locationRemindersProvider;
+        if (locationRemindersProvider != null) {
+          _runSafely(
+            locationRemindersProvider.loadReminders(),
+            'location_reminder',
+          );
+        }
+      } else if (type == 'memory') {
+        final memoriesProvider = _memoriesProvider;
+        if (memoriesProvider != null) {
+          _runSafely(
+            memoriesProvider.loadMemories(silent: true),
+            'memory',
+          );
+        }
+      } else if (type == 'profile') {
+        final userProvider = _userProvider;
+        if (userProvider != null) {
+          _runSafely(userProvider.loadProfile(), 'profile');
+        }
+      } else if (type == 'family') {
+        final familyProvider = _familyProvider;
+        if (familyProvider != null) {
+          _runSafely(familyProvider.loadData(), 'family');
+        }
       }
-    });
+    } catch (e) {
+      debugPrint('RealtimeSyncManager: Error handling sync - $e');
+    }
+  }
+
+  void _runSafely(Future<void> future, String label) {
+    unawaited(
+      future.catchError((e) {
+        debugPrint('RealtimeSyncManager: $label sync failed - $e');
+      }),
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 }
 

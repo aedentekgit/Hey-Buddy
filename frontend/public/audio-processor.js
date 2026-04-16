@@ -11,7 +11,7 @@ class BuddyAudioProcessor extends AudioWorkletProcessor {
         this.ptr = 0;
     }
 
-    process(inputs, outputs, parameters) {
+    process(inputs, _outputs, _parameters) {
         const input = inputs[0];
         if (input.length > 0) {
             const channelData = input[0]; // Use mono channel

@@ -2,6 +2,7 @@ const axios = require('axios');
 const contextService = require('../services/contextService');
 const aiController = require('./ai/aiController');
 const Reminder = require('../models/Reminder');
+const LocationReminder = require('../models/LocationReminder');
 const { createGoogleCalendarEvent } = require('../services/googleCalendarService');
 const GeminiLiveService = require('../services/geminiLiveService');
 const ttsService = require('../services/ttsService');
@@ -50,9 +51,20 @@ exports.processVoice = async (req, res) => {
 
         const user = req.user;
 
-        let memoryString = "User Memories: \n";
-        if (context.memories) {
-            context.memories.forEach(m => { memoryString += `- ${m}\n` });
+        // Build an authoritative context string for the AI (used for tool calls like UPDATE_REMINDER)
+        let memoryString = "=== AUTHORITATIVE USER CONTEXT ===\n";
+
+        if (context.userContext && context.userContext.localDate) {
+            memoryString += `Current User Date: ${context.userContext.localDate}\n`;
+            memoryString += `Time Zone: ${context.userContext.timeZone}\n\n`;
+        }
+
+        if (context.memories && context.memories.length > 0) {
+            memoryString += "Saved Memories & Facts:\n";
+            context.memories.forEach(m => {
+                memoryString += `- [ID: ${m.id}] [Category: ${m.category}] ${m.content}\n`;
+            });
+            memoryString += "\n";
         }
 
         const userPrefs = user?.voicePreferences || {};
@@ -60,13 +72,18 @@ exports.processVoice = async (req, res) => {
         const tone = userPrefs.tone || 'normal';
 
         // 1.5. Build Reminders Context for AI
-        let reminderString = "Upcoming Reminders: \n";
+        let reminderString = "";
         if (context.reminders && context.reminders.length > 0) {
+            reminderString += "Upcoming Reminders (Time & Location based):\n";
             context.reminders.forEach(r => {
-                reminderString += `- [${r.date}] ${r.time}: ${r.title} ${r.location ? `at ${r.location}` : ''}\n`;
+                const label = r.type === 'location' ? 'Location-based Task' : 'Time-based Task';
+                const locInfo = r.location ? ` (at ${r.location})` : '';
+                const dateTime = (r.date || r.time) ? `${r.date || ''} ${r.time || ''}` : '[Whenever I arrive]';
+                reminderString += `- ${label}: ${r.title}${locInfo} scheduled for ${dateTime} [ID: ${r.id}]\n`;
             });
+            reminderString += "\n";
         } else {
-            reminderString += "No upcoming reminders found.\n";
+            reminderString += "No upcoming reminders scheduled.\n\n";
         }
 
         // 2. Generate AI Response via Python Gateway
@@ -85,7 +102,7 @@ exports.processVoice = async (req, res) => {
                 provider: aiConfig.provider,
                 model: aiConfig.model,
                 userId: userId ? userId.toString() : null,
-                memory_context: memoryString + '\n' + reminderString, // Include reminders in context!
+                memory_context: memoryString + reminderString, // Include reminders + IDs in context!
                 gender: gender,
                 tone: tone
             }, {
@@ -187,12 +204,63 @@ exports.saveReminder = async (req, res) => {
             }
         }
 
-        // Create reminder in database
+        const reminderType = String(reminderData?.reminderType || '').toLowerCase();
+        const timeStr = String(reminderData?.time || '');
+        const looksLikeArrivalTrigger = /whenever|arrive/i.test(timeStr);
+        const shouldSaveAsLocationReminder =
+            reminderType === 'location' || looksLikeArrivalTrigger;
+
+        if (shouldSaveAsLocationReminder) {
+            if (!reminderData?.title || !reminderData?.location) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Location reminders require at least a title and a location."
+                });
+            }
+
+            const allowedStatuses = new Set(['on_track', 'risk_alert', 'completed', 'cancelled']);
+            const incomingStatus = String(reminderData?.status || '').toLowerCase();
+
+            // Save geo-trigger rules in the dedicated LocationReminder collection so
+            // they show up under the Location Reminders UI (web + mobile).
+            const reminder = await LocationReminder.create({
+                userId,
+                title: reminderData.title,
+                description: reminderData.description || reminderData.notes || '',
+                location: reminderData.location,
+                coordinates: reminderData.coordinates || { lat: null, lng: null },
+                date: reminderData.date || '',
+                time: reminderData.time || '',
+                status: allowedStatuses.has(incomingStatus) ? incomingStatus : 'on_track',
+                warningLevel: reminderData.warningLevel || 'medium',
+                bufferTime: reminderData.bufferTime ?? 15,
+                notifyPhone: reminderData.notifyPhone ?? true,
+                notifyFamily:
+                    reminderData.notifyFamily ?? reminderData.alerts?.notifyFamily ?? false,
+                notifyEmergency:
+                    reminderData.notifyEmergency ?? reminderData.alerts?.notifyEmergency ?? false,
+                notifyEmail: true,
+                earlyWarningSet:
+                    reminderData.earlyWarningSet ?? reminderData.smartFeatures?.earlyWarning ?? true,
+                trafficAware:
+                    reminderData.trafficAware ?? reminderData.smartFeatures?.trafficAware ?? true,
+                itemExitGuards:
+                    reminderData.itemExitGuards ?? reminderData.smartFeatures?.itemExitGuards ?? true,
+                geofenceRadius: reminderData.geofenceRadius ?? 500
+            });
+
+            console.log('[SaveReminder] Saved location reminder to DB:', reminder._id);
+            return res.status(201).json({ success: true, data: reminder });
+        }
+
+        // Default: time-based reminders live in the Reminder collection.
+        const normalizedReminderType =
+            reminderType === 'contact' ? 'contact' : 'time';
+
         const reminder = await Reminder.create({
             userId,
             ...reminderData,
-            // Categorize as 'location' if location name is present
-            reminderType: reminderData.location ? 'location' : 'time'
+            reminderType: normalizedReminderType
         });
 
         // Background Google Calendar Sync

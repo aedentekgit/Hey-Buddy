@@ -1443,7 +1443,7 @@ async def get_chat_history(session_id: str):
     try:
         # Step 1: Ensure session is loaded (from memory or disk).
         # This handles loading historical conversations that weren't in memory.
-        chat_service.get_or_create_session(session_id)
+        await chat_service.get_or_create_session(session_id)
         
         # Link session to itself as the userId for sync if not already known
         if session_id not in chat_service.session_user_map:

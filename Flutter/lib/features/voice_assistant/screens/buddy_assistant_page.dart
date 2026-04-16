@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use, unused_element, unused_local_variable, use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +22,7 @@ import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:buddy_mobile/shared/widgets/keyboard_guided_hover.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
+import 'package:buddy_mobile/shared/utils/avatar_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/shared/utils/date_formatter.dart';
 import 'package:buddy_mobile/shared/widgets/glass_container.dart';
@@ -49,9 +51,15 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   final SpeechToText _speechToText = SpeechToText();
 
   bool _isListening = false;
-  final String _selectedLanguage = "en-GB";
+  String _selectedLanguage = "en-US";
+  String? _speechLocaleId;
+  Timer? _voiceEndpointTimer;
+  bool _isFinalizingVoiceInput = false;
+  bool _hasRecognizedSpeechInSession = false;
+  String _lastRecognizedSnapshot = '';
+  int _voiceSessionId = 0;
   File? _selectedImage;
-  int _messageLimit = 15;
+  int _messageLimit = 10;
 
   String? _lastKnownToken;
 
@@ -67,7 +75,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         _scrollToBottom(false);
       });
       _initTts();
-      
+
       // Load current logo into GPU cache immediately
       final branding = Provider.of<BrandingProvider>(context, listen: false);
       branding.precacheAllImages(context);
@@ -155,14 +163,103 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       bool available = await _speechToText.initialize(
         onStatus: (status) {
           if (kDebugMode) debugPrint('STT Status: $status');
+          if (!mounted) return;
+          if ((status == 'done' || status == 'notListening') &&
+              _isListening &&
+              !_isFinalizingVoiceInput) {
+            final hasTranscript =
+                _inputController.text.trim().isNotEmpty ||
+                _hasRecognizedSpeechInSession;
+            final activeSessionId = _voiceSessionId;
+            unawaited(
+              _finalizeVoiceInput(
+                send: hasTranscript,
+                reason: 'stt-status-$status',
+                expectedSessionId: activeSessionId,
+              ),
+            );
+          }
         },
         onError: (error) {
           if (kDebugMode) debugPrint('STT Error: $error');
         },
       );
+      if (available) {
+        await _resolveSpeechLocale();
+      }
       if (kDebugMode) debugPrint('STT Available: $available');
     } catch (e) {
       if (kDebugMode) debugPrint('Error initializing speech: $e');
+    }
+  }
+
+  String _normalizeLocaleId(String localeId) =>
+      localeId.trim().replaceAll('_', '-').toLowerCase();
+
+  String? _findLocaleId(List<LocaleName> locales, String? candidate) {
+    if (candidate == null || candidate.trim().isEmpty) return null;
+    final normalizedCandidate = _normalizeLocaleId(candidate);
+    for (final locale in locales) {
+      if (_normalizeLocaleId(locale.localeId) == normalizedCandidate) {
+        return locale.localeId;
+      }
+    }
+    return null;
+  }
+
+  String? _findFirstLocaleByPrefix(List<LocaleName> locales, String prefix) {
+    final normalizedPrefix = _normalizeLocaleId(prefix);
+    for (final locale in locales) {
+      if (_normalizeLocaleId(locale.localeId).startsWith(normalizedPrefix)) {
+        return locale.localeId;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _resolveSpeechLocale() async {
+    try {
+      final locales = await _speechToText.locales();
+      final systemLocale = await _speechToText.systemLocale();
+      if (locales.isEmpty) {
+        _speechLocaleId = _selectedLanguage;
+        return;
+      }
+
+      final preferredLocaleOrder = <String>[
+        'en-001',
+        'en-US',
+        'en-GB',
+        'en-IN',
+        'en-AU',
+        'en-CA',
+        'en-IE',
+        _selectedLanguage,
+        if (systemLocale != null) systemLocale.localeId,
+      ];
+
+      String? resolvedLocaleId;
+      for (final locale in preferredLocaleOrder) {
+        resolvedLocaleId = _findLocaleId(locales, locale);
+        if (resolvedLocaleId != null) {
+          break;
+        }
+      }
+
+      resolvedLocaleId ??= _findFirstLocaleByPrefix(locales, 'en-');
+
+      resolvedLocaleId ??=
+          _findLocaleId(locales, systemLocale?.localeId) ??
+          locales.first.localeId;
+
+      _speechLocaleId = resolvedLocaleId;
+      _selectedLanguage = resolvedLocaleId;
+      if (kDebugMode) {
+        debugPrint('Resolved STT locale: $_speechLocaleId');
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error resolving STT locale: $e');
+      _speechLocaleId = _selectedLanguage;
     }
   }
 
@@ -171,7 +268,12 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       final provider = Provider.of<BuddyProvider>(context, listen: false);
       final tts = provider.tts;
 
-      await tts.setLanguage(_selectedLanguage);
+      try {
+        await tts.setLanguage(_selectedLanguage);
+      } catch (_) {
+        _selectedLanguage = 'en-US';
+        await tts.setLanguage(_selectedLanguage);
+      }
 
       // Use pre-resolved voice configurations from backend payload
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -189,7 +291,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
       // ── Sync Voice Response toggle from user preferences ──
       final voicePrefs =
-          (userProvider.user['voicePreferences'] as Map<String, dynamic>?) ?? {};
+          (userProvider.user['voicePreferences'] as Map<String, dynamic>?) ??
+          {};
       final bool voiceEnabled = (voicePrefs['voiceEnabled'] as bool?) ?? true;
       provider.setVoiceEnabled(voiceEnabled);
     } catch (e) {
@@ -204,6 +307,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       auth.removeListener(_onAuthChanged);
     } catch (_) {}
+    _voiceEndpointTimer?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     _speechToText.stop();
@@ -252,9 +356,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     );
 
     // Restart wake word detection after manual response processed
-    // DISABLED: if (!provider.isStreaming) {
-    //   provider.startWakeWordDetection();
-    // }
+    if (!provider.isStreaming) {
+      await provider.startWakeWordDetection();
+    }
 
     _scrollToBottom();
   }
@@ -345,8 +449,142 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     }
   }
 
+  bool _looksLikePhraseEnd(String text) {
+    final normalized = text.trim();
+    if (normalized.isEmpty) return false;
+    return RegExp(r'[.!?…]$').hasMatch(normalized);
+  }
+
+  bool _endsWithContinuationWord(String text) {
+    final words = text
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return false;
+    const continuationWords = {
+      'and',
+      'or',
+      'to',
+      'for',
+      'with',
+      'at',
+      'in',
+      'on',
+      'from',
+      'of',
+      'the',
+      'a',
+      'an',
+      'my',
+      'your',
+    };
+    return continuationWords.contains(words.last);
+  }
+
+  Duration _endpointDelayForText(String text) {
+    final words = text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return const Duration(milliseconds: 1700);
+    if (_endsWithContinuationWord(text)) {
+      return const Duration(milliseconds: 2300);
+    }
+    if (_looksLikePhraseEnd(text)) return const Duration(milliseconds: 850);
+    if (words.length >= 10) return const Duration(milliseconds: 1200);
+    if (words.length >= 5) return const Duration(milliseconds: 1450);
+    return const Duration(milliseconds: 1700);
+  }
+
+  void _scheduleSmartVoiceEndpoint(String recognizedText, int sessionId) {
+    final trimmed = recognizedText.trim();
+    if (trimmed.isEmpty) return;
+    _voiceEndpointTimer?.cancel();
+    _lastRecognizedSnapshot = trimmed;
+    final delay = _endpointDelayForText(trimmed);
+    _voiceEndpointTimer = Timer(delay, () {
+      if (!mounted ||
+          !_isListening ||
+          _isFinalizingVoiceInput ||
+          sessionId != _voiceSessionId) {
+        return;
+      }
+      if (_inputController.text.trim() != _lastRecognizedSnapshot) return;
+      unawaited(
+        _finalizeVoiceInput(
+          send: true,
+          reason: 'smart-idle',
+          expectedSessionId: sessionId,
+        ),
+      );
+    });
+  }
+
+  Future<void> _resetSpeechRecognizerForNextListen() async {
+    try {
+      await _speechToText.cancel();
+    } catch (_) {
+      // Best-effort cleanup before opening a fresh listen session.
+    }
+    await Future.delayed(const Duration(milliseconds: 150));
+  }
+
+  Future<void> _finalizeVoiceInput({
+    required bool send,
+    String reason = 'manual',
+    int? expectedSessionId,
+  }) async {
+    if (expectedSessionId != null && expectedSessionId != _voiceSessionId) {
+      return;
+    }
+    if (_isFinalizingVoiceInput) return;
+    _isFinalizingVoiceInput = true;
+    _voiceEndpointTimer?.cancel();
+    final finalizingSessionId = _voiceSessionId;
+    try {
+      final shouldSend = send && _inputController.text.trim().isNotEmpty;
+      try {
+        if (shouldSend) {
+          await _speechToText.stop();
+        } else {
+          await _speechToText.cancel();
+        }
+      } catch (_) {
+        // Safe no-op: recognizer may already be closed by the platform.
+      }
+      if (mounted) {
+        setState(() => _isListening = false);
+      }
+      if (kDebugMode) {
+        debugPrint('Voice finalized ($reason), shouldSend=$shouldSend');
+      }
+      if (shouldSend) {
+        await _handleSend();
+      } else if (mounted) {
+        final provider = Provider.of<BuddyProvider>(context, listen: false);
+        if (!provider.isStreaming) {
+          await provider.startWakeWordDetection();
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Voice finalize error ($reason): $e');
+    } finally {
+      if (_voiceSessionId == finalizingSessionId) {
+        _voiceSessionId += 1;
+      }
+      _hasRecognizedSpeechInSession = false;
+      _lastRecognizedSnapshot = '';
+      _isFinalizingVoiceInput = false;
+    }
+  }
+
   void _startListening() async {
     try {
+      if (_isListening || _isFinalizingVoiceInput) return;
+      await _resetSpeechRecognizerForNextListen();
       if (!_speechToText.isAvailable) {
         await _initSpeech();
       }
@@ -372,28 +610,47 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       // Stop background wake word streaming to free up mic for local STT
       await provider.stopWakeWordDetection();
 
+      _voiceSessionId += 1;
+      final sessionId = _voiceSessionId;
+      _voiceEndpointTimer?.cancel();
+      _hasRecognizedSpeechInSession = false;
+      _lastRecognizedSnapshot = '';
       setState(() => _isListening = true);
       await _speechToText.listen(
         onResult: (result) {
+          if (_isFinalizingVoiceInput || sessionId != _voiceSessionId) return;
+          final recognizedText = result.recognizedWords.trim();
           if (kDebugMode) {
             debugPrint(
               'STT Result: "${result.recognizedWords}" (Final: ${result.finalResult})',
             );
           }
-          setState(() {
-            _inputController.text = result.recognizedWords;
-          });
+          if (recognizedText.isNotEmpty) {
+            _hasRecognizedSpeechInSession = true;
+            setState(() {
+              _inputController.text = recognizedText;
+            });
+          }
           if (result.finalResult) {
             if (kDebugMode) {
               debugPrint('STT Final Result arrived. Sending message...');
             }
-            setState(() => _isListening = false);
-            _handleSend();
+            unawaited(
+              _finalizeVoiceInput(
+                send: true,
+                reason: 'stt-final',
+                expectedSessionId: sessionId,
+              ),
+            );
+            return;
           }
+          _scheduleSmartVoiceEndpoint(recognizedText, sessionId);
         },
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 2),
-        listenMode: ListenMode.confirmation,
+        localeId: _speechLocaleId ?? _selectedLanguage,
+        listenFor: const Duration(seconds: 60),
+        pauseFor: const Duration(seconds: 5),
+        partialResults: true,
+        listenMode: ListenMode.dictation,
         cancelOnError: false,
         onSoundLevelChange: (level) {
           // Optional: Update animation based on level
@@ -401,13 +658,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       );
     } catch (e) {
       if (kDebugMode) debugPrint('STT Exception during listen: $e');
+      _voiceEndpointTimer?.cancel();
       setState(() => _isListening = false);
     }
   }
 
   void _stopListening() async {
-    await _speechToText.stop();
-    setState(() => _isListening = false);
+    await _finalizeVoiceInput(
+      send:
+          _inputController.text.trim().isNotEmpty ||
+          _hasRecognizedSpeechInSession,
+      reason: 'manual-stop',
+      expectedSessionId: _voiceSessionId,
+    );
   }
 
   @override
@@ -601,19 +864,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                   ? CachedNetworkImage(
                       imageUrl: branding.logoUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => Image.asset(
-                        'assets/images/buddy_logo.gif',
-                        fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 64, color: branding.primaryColor)),
                       ),
-                      errorWidget: (context, url, error) => Image.asset(
-                        'assets/images/buddy_logo.gif',
-                        fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 64, color: branding.primaryColor)),
                       ),
                     )
-                  : Image.asset(
-                      'assets/images/buddy_logo.gif',
-                      fit: BoxFit.cover,
-                    ),
+                  : Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 64, color: branding.primaryColor)),
+                      ),
             ),
           ),
 
@@ -680,7 +943,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
         if (msgIndex == displayCount) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 24.0, top: 8),
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -689,7 +952,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     icon: LucideIcons.refreshCw,
                     label: "Load More",
                     color: branding.primaryColor,
-                    onTap: () => setState(() => _messageLimit += 15),
+                    onTap: () => setState(() => _messageLimit += 10),
                   ),
                   const SizedBox(width: 12),
                 ],
@@ -716,7 +979,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   ) {
     final isUser = msg['type'] == 'user';
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    
+
     final ts = DateFormatter.formatTime(
       DateTime.fromMillisecondsSinceEpoch(
         msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
@@ -727,44 +990,104 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // Assistant Avatar on the Left
           if (!isUser) ...[
             Container(
-                width: 34,
-                height: 34,
-                decoration: const BoxDecoration(shape: BoxShape.circle),
-                clipBehavior: Clip.antiAlias,
-                child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: branding.logoUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Image.asset(
-                          'assets/images/buddy_logo.gif',
-                          fit: BoxFit.cover,
-                        ),
-                        errorWidget: (context, url, error) => Image.asset(
-                          'assets/images/buddy_logo.gif',
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : Image.asset(
-                        'assets/images/buddy_logo.gif',
-                        fit: BoxFit.cover,
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(shape: BoxShape.circle),
+              clipBehavior: Clip.antiAlias,
+              child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: branding.logoUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 20, color: branding.primaryColor)),
                       ),
-              ),
+                      errorWidget: (context, url, error) => Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 20, color: branding.primaryColor)),
+                      ),
+                    )
+                  : Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 20, color: branding.primaryColor)),
+                      ),
+            ),
             const SizedBox(width: 10),
           ],
-          
+
           ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.74,
             ),
             child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
+                // METADATA AT TOP
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: 4,
+                    left: isUser ? 0 : 4,
+                    right: isUser ? 4 : 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isUser) ...[
+                        GestureDetector(
+                          onTap: () {
+                            final textToCopy = msg['text']?.toString() ?? '';
+                            Clipboard.setData(ClipboardData(text: textToCopy));
+                            HapticFeedback.lightImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Content copied to clipboard"),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
+                        ),
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
+                        ts,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: Colors.black45,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (!isUser) ...[
+                        const SizedBox(width: 5),
+                        GestureDetector(
+                          onTap: () {
+                            final textToCopy = msg['text']?.toString() ?? '';
+                            Clipboard.setData(ClipboardData(text: textToCopy));
+                            HapticFeedback.lightImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Response copied"),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 GestureDetector(
                   onLongPress: () {
                     final textToCopy = msg['text']?.toString() ?? '';
@@ -800,7 +1123,10 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     decoration: BoxDecoration(
                       gradient: isUser
                           ? LinearGradient(
-                              colors: [branding.primaryColor, branding.primaryColor.withValues(alpha: 0.8)],
+                              colors: [
+                                branding.primaryColor,
+                                branding.primaryColor.withValues(alpha: 0.8),
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             )
@@ -811,8 +1137,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                           : BorderRadius.only(
                               topLeft: const Radius.circular(8),
                               topRight: const Radius.circular(8),
-                              bottomLeft: Radius.circular(isUser ? 8 : 4),
-                              bottomRight: Radius.circular(isUser ? 4 : 8),
+                              bottomLeft: Radius.circular(isUser ? 8 : 0),
+                              bottomRight: Radius.circular(isUser ? 0 : 8),
                             ),
                       boxShadow: [
                         BoxShadow(
@@ -827,152 +1153,104 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                        if (msg['image'] != null) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: (msg['image'].toString().startsWith('http') ||
-                                    msg['image'].toString().startsWith('https'))
-                                ? CachedNetworkImage(
-                                    imageUrl: msg['image'],
-                                    width: 240,
-                                    fit: BoxFit.cover,
-                                    placeholder: (context, url) => Container(
-                                      height: 180,
-                                      color: Colors.grey[200],
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    ),
-                                    errorWidget: (context, url, error) =>
-                                        Image.file(
-                                          File(msg['image']),
-                                          width: 240,
-                                          fit: BoxFit.cover,
+                          if (msg['image'] != null) ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child:
+                                  (msg['image'].toString().startsWith('http') ||
+                                      msg['image'].toString().startsWith(
+                                        'https',
+                                      ))
+                                  ? CachedNetworkImage(
+                                      imageUrl: msg['image'],
+                                      width: 240,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        height: 180,
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: CircularProgressIndicator(),
                                         ),
-                                  )
-                                : Image.file(
-                                    File(msg['image']),
-                                    width: 240,
-                                    fit: BoxFit.cover,
-                                  ),
-                          ),
+                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          Image.file(
+                                            File(msg['image']),
+                                            width: 240,
+                                            fit: BoxFit.cover,
+                                          ),
+                                    )
+                                  : Image.file(
+                                      File(msg['image']),
+                                      width: 240,
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                            if (msg['text'] != null &&
+                                msg['text'].toString().isNotEmpty)
+                              const SizedBox(height: 12),
+                          ],
+
                           if (msg['text'] != null &&
                               msg['text'].toString().isNotEmpty)
-                            const SizedBox(height: 12),
-                        ],
-                        
-                        if (msg['text'] != null && msg['text'].toString().isNotEmpty)
-                          Padding(
-                            padding: msg['image'] != null
-                                ? const EdgeInsets.only(left: 14, right: 14, bottom: 14)
-                                : EdgeInsets.zero,
-                            child: MarkdownBody(
-                              data: msg['text'],
-                              styleSheet: MarkdownStyleSheet(
-                                p: GoogleFonts.inter(
-                                  color: isUser ? Colors.white : const Color(0xFF1E293B),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.normal,
-                                  height: 1.5,
-                                ),
-                                code: GoogleFonts.firaCode(
-                                  backgroundColor: isUser ? Colors.white24 : Colors.grey[200],
-                                  color: isUser ? Colors.white : Colors.black87,
-                                  fontSize: 13,
+                            Padding(
+                              padding: msg['image'] != null
+                                  ? const EdgeInsets.only(
+                                      left: 14,
+                                      right: 14,
+                                      bottom: 14,
+                                    )
+                                  : EdgeInsets.zero,
+                              child: MarkdownBody(
+                                data: msg['text'],
+                                styleSheet: MarkdownStyleSheet(
+                                  p: GoogleFonts.inter(
+                                    color: isUser
+                                        ? Colors.white
+                                        : const Color(0xFF1E293B),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.normal,
+                                    height: 1.5,
+                                  ),
+                                  code: GoogleFonts.firaCode(
+                                    backgroundColor: isUser
+                                        ? Colors.white24
+                                        : Colors.grey[200],
+                                    color: isUser
+                                        ? Colors.white
+                                        : Colors.black87,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
+                            )
+                          else if (!isUser && msg['isPartial'] == true)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildDot(0, branding),
+                                const SizedBox(width: 5),
+                                _buildDot(1, branding),
+                                const SizedBox(width: 5),
+                                _buildDot(2, branding),
+                              ],
                             ),
-                          )
-                        else if (!isUser && msg['isPartial'] == true)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildDot(0, branding),
-                              const SizedBox(width: 5),
-                              _buildDot(1, branding),
-                              const SizedBox(width: 5),
-                              _buildDot(2, branding),
-                            ],
-                          ),
-
-
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-                
-                const SizedBox(height: 4),
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: isUser ? 0 : 4,
-                    right: isUser ? 4 : 0,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Copy icon on the left of timestamp for User bubble
-                      if (isUser) ...[
-                        GestureDetector(
-                          onTap: () {
-                            final textToCopy = msg['text']?.toString() ?? '';
-                            Clipboard.setData(ClipboardData(text: textToCopy));
-                            HapticFeedback.lightImpact();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Content copied to clipboard"),
-                                behavior: SnackBarBehavior.floating,
-                                margin: const EdgeInsets.all(20),
-                              ),
-                            );
-                          },
-                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
-                        ),
-                        const SizedBox(width: 5),
-                      ],
-                      Text(
-                        ts,
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: Colors.black45,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        ],
                       ),
-                      // Copy icon on the right of timestamp for Assistant bubble
-                      if (!isUser) ...[
-                        const SizedBox(width: 5),
-                        GestureDetector(
-                          onTap: () {
-                            final textToCopy = msg['text']?.toString() ?? '';
-                            Clipboard.setData(ClipboardData(text: textToCopy));
-                            HapticFeedback.lightImpact();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Assistant response copied"),
-                                behavior: SnackBarBehavior.floating,
-                                margin: const EdgeInsets.all(20),
-                              ),
-                            );
-                          },
-                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          
+
           // User Avatar on the Right
-          if (isUser) ...[
-            const SizedBox(width: 8),
-            _buildUserAvatar(),
-          ],
+          if (isUser) ...[const SizedBox(width: 8), _buildUserAvatar()],
         ],
       ),
     );
   }
+
+
   Widget _buildThinkingBubble(BrandingProvider branding) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -989,7 +1267,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
                 topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(4),
+                bottomLeft: Radius.circular(0),
                 bottomRight: Radius.circular(20),
               ),
               boxShadow: [
@@ -1063,12 +1341,19 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             ? CachedNetworkImage(
                 imageUrl: branding.logoUrl!,
                 fit: BoxFit.cover,
-                placeholder: (context, url) =>
-                    Image.asset('assets/app_icon.png', fit: BoxFit.cover),
-                errorWidget: (context, url, error) =>
-                    Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+                placeholder: (context, url) => Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 20, color: branding.primaryColor)),
+                      ),
+                errorWidget: (context, url, error) => Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 20, color: branding.primaryColor)),
+                      ),
               )
-            : Image.asset('assets/app_icon.png', fit: BoxFit.cover),
+            : Container(
+                        color: branding.primaryColor.withValues(alpha: 0.1),
+                        child: Center(child: Icon(Icons.auto_awesome, size: 20, color: branding.primaryColor)),
+                      ),
       ),
     );
   }
@@ -1097,7 +1382,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   }
 
   Widget _buildUserFallback(String name) {
-    final initials = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    final initials = safeInitial(name);
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -1277,7 +1562,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ],
           AnimatedAIInputField(
             controller: _inputController,
-            isListening: _isListening || provider.isListening,
+            // Reflect the local tap-to-talk state only to prevent stale wake-word
+            // flags from locking the input in "listening" UI.
+            isListening: _isListening,
             isSpeaking: provider.isSpeaking,
             isEnabled: true,
             onMicPressed: _isListening ? _stopListening : _startListening,
@@ -1806,4 +2093,3 @@ class _AttachOption extends StatelessWidget {
     );
   }
 }
-

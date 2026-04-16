@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:buddy_mobile/core/services/family_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
@@ -18,10 +19,12 @@ class FamilyProvider extends ChangeNotifier {
   Set<String> archivedMemberIds = {};
   Set<String> unreadMemberIds = {};
   final _storage = const FlutterSecureStorage();
+  StreamSubscription<Map<String, dynamic>>? _chatSubscription;
+  StreamSubscription<Map<String, dynamic>>? _messageUpdatedSubscription;
 
   FamilyProvider(this._socketService) {
     initUser();
-    _socketService.chatStream.listen((data) {
+    _chatSubscription = _socketService.chatStream.listen((data) {
       // 1. Update active chat messages
       if (data['roomId'] == currentChatId) {
         messages.insert(0, data);
@@ -54,7 +57,7 @@ class FamilyProvider extends ChangeNotifier {
       }
     });
 
-    _socketService.messageUpdatedStream.listen((data) {
+    _messageUpdatedSubscription = _socketService.messageUpdatedStream.listen((data) {
       if (data['roomId'] == currentChatId) {
         final updateUserId = data['userId'];
         final updateType = data['type']; // 'read' or 'delivered'
@@ -90,6 +93,13 @@ class FamilyProvider extends ChangeNotifier {
         if (updated) notifyListeners();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _chatSubscription?.cancel();
+    _messageUpdatedSubscription?.cancel();
+    super.dispose();
   }
 
   void reactToMessage(String messageId, String emoji) {
@@ -138,6 +148,9 @@ class FamilyProvider extends ChangeNotifier {
   }
 
   Future<void> loadLocalStatuses() async {
+    archivedMemberIds.clear();
+    unreadMemberIds.clear();
+
     final archivedStr = await _storage.read(key: 'archived_members');
     final unreadStr = await _storage.read(key: 'unread_members');
     if (archivedStr != null) {
@@ -190,8 +203,15 @@ class FamilyProvider extends ChangeNotifier {
       members = await _service.getMembers();
       // Initialize unread IDs from backend data
       for (var m in members) {
-        if (m is Map && m['unreadCount'] != null && m['unreadCount'] > 0) {
-          unreadMemberIds.add(m['user_id'].toString());
+        if (m is Map) {
+          final unreadCount = m['unreadCount'];
+          final userId = m['user_id']?.toString();
+          if (unreadCount is num &&
+              unreadCount > 0 &&
+              userId != null &&
+              userId.isNotEmpty) {
+            unreadMemberIds.add(userId);
+          }
         }
       }
       _storage.write(key: 'unread_members', value: unreadMemberIds.join(','));

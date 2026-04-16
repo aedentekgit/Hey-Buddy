@@ -3,8 +3,13 @@ import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import '../styles/Layout.css';
-import { initNotifications, onMessageListener } from '../services/notificationService';
-import toast, { Toaster } from 'react-hot-toast';
+import {
+    initNotifications,
+    onMessageListener,
+    requestNotificationPermission,
+    saveTokenToServer
+} from '../services/notificationService';
+import toast from 'react-hot-toast';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 
 import MobileNavbar from './MobileNavbar';
@@ -56,7 +61,6 @@ const DashboardLayout = ({ children }) => {
             if (config) {
                 // Request Permission and Sync Token
                 try {
-                    const { requestNotificationPermission, saveTokenToServer } = await import('../services/notificationService');
                     const token = await requestNotificationPermission();
                     if (token) {
                         await saveTokenToServer(token);

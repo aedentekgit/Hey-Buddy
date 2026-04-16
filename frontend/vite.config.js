@@ -21,6 +21,19 @@ export default defineConfig(({ mode }) => {
                     changeOrigin: true,
                 }
             }
-        }
+        },
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks: {
+                        'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+                        'vendor-motion': ['framer-motion'],
+                        'vendor-maps': ['@react-google-maps/api'],
+                        'vendor-charts': ['recharts'],
+                        'vendor-icons': ['lucide-react', 'react-icons'],
+                    }
+                }
+            }
+        },
     }
 })

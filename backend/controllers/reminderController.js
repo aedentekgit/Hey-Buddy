@@ -182,30 +182,39 @@ exports.getReminders = async (req, res) => {
             dateQuery.date = { $gte: start, $lte: end };
         }
 
-        // Apply filters to both collections
+        // Default behaviour: return ONLY standard reminders.
+        // Location-based rules live under `/api/location-reminders` and should not
+        // pollute the normal reminder list unless explicitly requested.
+        const includeLocationReminders = ['true', '1', 'yes'].includes(
+            String(req.query.includeLocationReminders || req.query.includeLocation || '').toLowerCase()
+        );
+
         const reminderQuery = { ...baseQuery, ...dateQuery };
-        // We *don't* exclude 'location' type here anymore to ensure all Reminder docs are included
-        
-        const locReminderQuery = { ...baseQuery, ...dateQuery };
+        const stdReminders = await Reminder.find(reminderQuery)
+            .populate('userId', 'name email profilePicture')
+            .populate('sharedWith.user', 'name email profilePicture')
+            .lean()
+            .sort({ updatedAt: -1 });
 
-        // Fetch from both in parallel
-        const [stdReminders, locReminders] = await Promise.all([
-            Reminder.find(reminderQuery)
-                .populate('userId', 'name email profilePicture')
-                .populate('sharedWith.user', 'name email profilePicture')
-                .lean()
-                .sort({ updatedAt: -1 }),
-            LocationReminder.find(locReminderQuery)
-                .populate('userId', 'name email profilePicture')
-                .lean()
-                .sort({ updatedAt: -1 })
-        ]);
-
-        // Merge and tag them so UI can identify the model if needed
         const combined = [
-            ...stdReminders.map(r => ({ ...r, _model: 'Reminder' })),
-            ...locReminders.map(r => ({ ...r, _model: 'LocationReminder', reminderType: 'location' }))
+            ...stdReminders.map(r => ({ ...r, _model: 'Reminder' }))
         ];
+
+        if (includeLocationReminders) {
+            const locReminderQuery = { ...baseQuery, ...dateQuery };
+            const locReminders = await LocationReminder.find(locReminderQuery)
+                .populate('userId', 'name email profilePicture')
+                .lean()
+                .sort({ updatedAt: -1 });
+
+            combined.push(
+                ...locReminders.map(r => ({
+                    ...r,
+                    _model: 'LocationReminder',
+                    reminderType: 'location'
+                }))
+            );
+        }
 
         // Sort combined list by updatedAt desc (or date/time if preferred)
         combined.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
@@ -280,8 +289,8 @@ exports.createReminder = async (req, res) => {
             location,
             coordinates: finalCoordinates,
             geofenceRadius: geofenceRadius || 500,
-            reminderType: reminderType || (location ? 'location' : 'time'),
-            intent: intent || 'generic',
+            reminderType: reminderType || 'time',
+            intent: ['meeting', 'medicine', 'pickup', 'bill', 'personal', 'generic', 'manual_creation', 'api_test'].includes(intent) ? intent : 'generic',
             priority: priority || 'medium',
             bufferTime: bufferTime || 0,
             alerts: alerts || { push: true, email: true, notifyFamily: false, notifyEmergency: false },
@@ -427,11 +436,10 @@ exports.updateReminder = async (req, res) => {
             }
         }
 
-        // AUTO-ADJUST REMINDER TYPE: If location is added/changed, ensure it's categorized as 'location'
-        if (updateData.location !== undefined) {
-             updateData.reminderType = updateData.location ? 'location' : 'time';
-        } else if (reminder.location) {
-             updateData.reminderType = 'location';
+        // Manual category adjustments follow if explicitly requested
+        if (updateData.reminderType === 'location') {
+             // In current design, we maintain separation. If it's truly a geofence rule, it should be in LocationReminder collection.
+             // We allow existing ones to remain or explicit overrides if needed, but discourage auto-switching.
         }
 
         // Explicitly handle sharedWith assignment to ensure Mongoose detects change

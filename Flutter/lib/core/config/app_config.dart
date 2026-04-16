@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'dart:io';
 
 class AppConfig {
   // FINAL PRODUCTION HOST
@@ -22,7 +22,11 @@ class AppConfig {
   static String get host {
     // Priority 1: Manual override via --dart-define=API_URL=...
     const String envUrl = String.fromEnvironment('API_URL');
-    if (envUrl.isNotEmpty) return envUrl;
+    if (envUrl.isNotEmpty) {
+      return envUrl
+          .replaceFirst(RegExp(r'^https?://'), '')
+          .replaceFirst(RegExp(r'/$'), '');
+    }
 
     // Priority 2: Use Localhost in Debug mode
     if (kDebugMode) {
@@ -35,7 +39,11 @@ class AppConfig {
 
   static String get protocol {
     // We use HTTP for Localhost, HTTPS for Staging/Production
-    return (host == localhostHost || host == webLocalhostHost) ? 'http' : 'https';
+    return host.contains('localhost') ||
+            host.contains('10.0.2.2') ||
+            host.contains('127.0.0.1')
+        ? 'http'
+        : 'https';
   }
 
   static String get baseUrl {
@@ -60,30 +68,46 @@ class AppConfig {
   static String googleMapsApiKey = "";
 
   static String? formatImageUrl(String? path) {
-    if (path == null || path.isEmpty || path == "null" || path == "undefined") {
+    if (path == null) {
       return null;
     }
 
-    String finalPath = path;
+    String finalPath = path.trim();
+    if (finalPath.isEmpty ||
+        finalPath == "null" ||
+        finalPath == "undefined") {
+      return null;
+    }
 
     // 1. If it's already a full URL
     if (finalPath.startsWith('http')) {
       // Fix potential localhost/127.0.0.1 leakage from local DBs
       if (finalPath.contains('localhost:5001') ||
           finalPath.contains('127.0.0.1:5001') ||
+          finalPath.contains('10.0.2.2:5001') ||
           finalPath.contains('localhost:5002') ||
-          finalPath.contains('127.0.0.1:5002')) {
+          finalPath.contains('127.0.0.1:5002') ||
+          finalPath.contains('10.0.2.2:5002')) {
         finalPath = finalPath
             .replaceAll('localhost:5001', host)
             .replaceAll('127.0.0.1:5001', host)
+            .replaceAll('10.0.2.2:5001', host)
             .replaceAll('localhost:5002', host)
-            .replaceAll('127.0.0.1:5002', host);
+            .replaceAll('127.0.0.1:5002', host)
+            .replaceAll('10.0.2.2:5002', host);
 
         // Crucial: After replacement, ensure protocol matches our current protocol
         // (Force HTTPS if we are on staging/production to avoid Cleartext blocks)
-        if (!host.contains('localhost') && !host.contains('10.0.2.2') && finalPath.startsWith('http://')) {
+        final parsed = Uri.tryParse(finalPath);
+        final isLocalUrl = parsed != null &&
+            (parsed.host == 'localhost' ||
+                parsed.host == '127.0.0.1' ||
+                parsed.host == '10.0.2.2');
+        if (!isLocalUrl && finalPath.startsWith('http://')) {
           finalPath = finalPath.replaceFirst('http://', 'https://');
         }
+      } else if (finalPath.startsWith('http://')) {
+        finalPath = finalPath.replaceFirst('http://', 'https://');
       }
       return finalPath;
     }
@@ -98,7 +122,12 @@ class AppConfig {
     }
 
     // Force secure protocol for anything not on the local loopback
-    String effectiveProtocol = (host.contains('localhost') || host.contains('10.0.2.2')) ? 'http' : 'https';
+    String effectiveProtocol =
+        (host.contains('localhost') ||
+                host.contains('10.0.2.2') ||
+                host.contains('127.0.0.1'))
+            ? 'http'
+            : 'https';
     return '$effectiveProtocol://$host/$finalPath';
   }
 }

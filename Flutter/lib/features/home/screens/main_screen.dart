@@ -38,7 +38,7 @@ class _MainScreenState extends State<MainScreen> {
 
   void _updateTab(int index) {
     if (_currentIndex == index) return;
-    
+
     setState(() {
       _currentIndex = index;
       if (_tabHistory.isEmpty || _tabHistory.last != index) {
@@ -54,7 +54,8 @@ class _MainScreenState extends State<MainScreen> {
     // Notify the overlay so it can show/hide
     _tabIndexNotifier.value = index;
 
-    if (index == 1) { // Explore is index 1
+    if (index == 1) {
+      // Explore is index 1
       Future.microtask(() {
         if (mounted) {
           Provider.of<TasksProvider>(
@@ -138,37 +139,26 @@ class _MainScreenState extends State<MainScreen> {
           right: 16,
           child: ValueListenableBuilder<int>(
             valueListenable: _tabIndexNotifier,
-            builder: (_, tabIndex, __) {
+            builder: (context, tabIndex, child) {
               // Hide on AI Assistant page (index 0) or if user is logged out
-              if (tabIndex == 0 || auth.token == null) return const SizedBox.shrink();
+              if (tabIndex == 0 || auth.token == null) {
+                return const SizedBox.shrink();
+              }
               return GestureDetector(
                 onTap: () => _updateTab(0),
-                child: Container(
+                child: SizedBox(
                   width: 60,
                   height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: branding.primaryColor.withValues(alpha: 0.35),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 6),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.14),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
                   child: ClipOval(
-                    child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
+                    child:
+                        branding.logoUrl != null && branding.logoUrl!.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: branding.logoUrl!,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
-                              color: branding.primaryColor.withValues(alpha: 0.1),
+                            placeholder: (context, url) => Container(
+                              color: branding.primaryColor.withValues(
+                                alpha: 0.1,
+                              ),
                               child: Center(
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
@@ -176,14 +166,18 @@ class _MainScreenState extends State<MainScreen> {
                                 ),
                               ),
                             ),
-                            errorWidget: (_, __, ___) => Image.asset(
-                              'assets/images/buddy_logo.gif',
-                              fit: BoxFit.cover,
+                            errorWidget: (context, url, error) => Container(
+                              color: branding.primaryColor.withValues(alpha: 0.1),
+                              child: Center(
+                                child: Icon(Icons.auto_awesome, color: branding.primaryColor),
+                              ),
                             ),
                           )
-                        : Image.asset(
-                            'assets/images/buddy_logo.gif',
-                            fit: BoxFit.cover,
+                        : Container(
+                            color: branding.primaryColor.withValues(alpha: 0.1),
+                            child: Center(
+                              child: Icon(Icons.auto_awesome, color: branding.primaryColor),
+                            ),
                           ),
                   ),
                 ),
@@ -200,7 +194,7 @@ class _MainScreenState extends State<MainScreen> {
     if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    
+
     if (auth.token != null && userProvider.user.isEmpty) {
       userProvider.loadProfile();
     } else if (auth.token == null && userProvider.user.isNotEmpty) {
@@ -223,7 +217,8 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onTabTapped(int index) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (auth.token == null && index != 0) { // Index 0 is Buddy (guest allowed)
+    if (auth.token == null && index != 0) {
+      // Index 0 is Buddy (guest allowed)
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -299,13 +294,18 @@ class _MainScreenState extends State<MainScreen> {
                 child: PageView(
                   controller: _pageController,
                   onPageChanged: (index) {
-                    final auth = Provider.of<AuthProvider>(context, listen: false);
+                    final auth = Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    );
                     if (auth.token == null && index != 0) {
                       // User is logged out and swiped to a protected tab.
                       _pageController.jumpToPage(0);
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
                       );
                       return;
                     }
@@ -317,8 +317,8 @@ class _MainScreenState extends State<MainScreen> {
                       }
                     });
                   },
-                  physics: Provider.of<AuthProvider>(context).token == null 
-                      ? const NeverScrollableScrollPhysics() 
+                  physics: Provider.of<AuthProvider>(context).token == null
+                      ? const NeverScrollableScrollPhysics()
                       : const BouncingScrollPhysics(),
                   children: _pages,
                 ),
@@ -329,7 +329,6 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-
 
   Future<void> _checkBiometrics() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);

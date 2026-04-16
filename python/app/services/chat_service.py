@@ -100,9 +100,9 @@ SAVE_EVERY_N_CHUNKS = 5
 MAX_SESSION_MESSAGES = 50
 
 # Thread pool for background DB sync operations.
-# Max 4 workers prevents unbounded thread creation under high request load.
+# Max 8 workers prevents unbounded thread creation while handling concurrent syncs.
 # Queue size tracking: we manually check pending task count before submitting.
-_db_sync_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="db-sync")
+_db_sync_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="db-sync")
 _db_sync_queue_limit = 20  # Max tasks in queue; above this we skip to prevent memory bloat
 
 

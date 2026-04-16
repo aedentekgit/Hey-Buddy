@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class BrandingProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
@@ -205,12 +204,12 @@ class BrandingProvider extends ChangeNotifier {
     
     // 2. Pre-cache Network Logo
     if (_logoUrl != null && _logoUrl!.isNotEmpty) {
-      preloads.add(precacheImage(CachedNetworkImageProvider(_logoUrl!), context));
+      preloads.add(precacheImage(NetworkImage(_logoUrl!), context));
     }
-    
+
     // 3. Pre-cache Network Splash
     if (_splashUrl != null && _splashUrl!.isNotEmpty) {
-      preloads.add(precacheImage(CachedNetworkImageProvider(_splashUrl!), context));
+      preloads.add(precacheImage(NetworkImage(_splashUrl!), context));
     }
     
     try {

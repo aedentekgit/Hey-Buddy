@@ -7,7 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/features/explore/screens/family_chat_screen.dart';
-import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:buddy_mobile/shared/utils/avatar_utils.dart';
 
 class ArchivedChatsScreen extends StatelessWidget {
   const ArchivedChatsScreen({super.key});
@@ -109,7 +109,7 @@ class _ArchivedMemberCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = member['name']?.toString() ?? '?';
     final role = member['role']?.toString() ?? member['email']?.toString() ?? '';
-    final profilePic = AppConfig.formatImageUrl(member['profilePicture'] as String?);
+    final profilePic = imageUrlFrom(member['profilePicture']);
 
     final avatarColors = [
       AppColors.accent, AppColors.teal, AppColors.orange,
@@ -214,7 +214,7 @@ class _ArchivedMemberCard extends StatelessWidget {
   Widget _fallbackAvatar(String name) {
     return Center(
       child: Text(
-        name[0].toUpperCase(),
+        safeInitial(name),
         style: GoogleFonts.nunito(
           fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white,
         ),

@@ -72,13 +72,19 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // Always go to MainScreen; default to Explore tab (index 1) for logged-in users
     final auth2 = Provider.of<AuthProvider>(context, listen: false);
+    if (auth2.token == null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      return;
+    }
+
     Navigator.of(
       context,
-    ).pushReplacement(MaterialPageRoute(
-      builder: (_) => MainScreen(initialIndex: auth2.token != null ? 1 : 0),
-    ));
+    ).pushReplacement(
+      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
+    );
   }
 
   @override
@@ -127,19 +133,10 @@ class _SplashScreenState extends State<SplashScreen> {
                             imageUrl: branding.splashUrl!,
                             height: 320,
                             fit: BoxFit.contain,
-                            placeholder: (context, url) => Image.asset(
-                              'assets/images/buddy_logo.gif',
-                              height: 120,
-                            ),
-                            errorWidget: (context, url, error) => Image.asset(
-                              'assets/images/buddy_logo.gif',
-                              height: 120,
-                            ),
+                            placeholder: (context, url) => _buildPlaceholderLogo(branding),
+                            errorWidget: (context, url, error) => _buildPlaceholderLogo(branding),
                           )
-                        : Image.asset(
-                            'assets/images/buddy_logo.gif',
-                            height: 120,
-                          ),
+                        : _buildPlaceholderLogo(branding),
                   ),
                 ),
               ),
@@ -247,7 +244,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Widget _buildPlaceholderLogo(BrandingProvider branding) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: 120,
+      height: 120,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
@@ -259,7 +257,9 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         ],
       ),
-      child: Icon(Icons.auto_awesome, size: 48, color: branding.primaryColor),
+      child: Center(
+        child: Icon(Icons.auto_awesome, size: 48, color: branding.primaryColor),
+      ),
     );
   }
 }

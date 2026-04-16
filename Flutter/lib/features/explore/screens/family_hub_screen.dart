@@ -8,7 +8,7 @@ import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/explore/providers/family_provider.dart';
 import 'package:buddy_mobile/features/explore/screens/family_chat_screen.dart';
 import 'package:buddy_mobile/features/explore/screens/archived_chats_screen.dart';
-import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:buddy_mobile/shared/utils/avatar_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class FamilyHubScreen extends StatefulWidget {
@@ -980,6 +980,7 @@ class _InviteCardState extends State<_InviteCard> {
                   separatorBuilder: (ctx, i) => Divider(height: 1, color: AppColors.border.withValues(alpha: 0.3), indent: 16, endIndent: 16),
                   itemBuilder: (ctx, i) {
                     final user = _suggestions[i];
+                    final profilePictureUrl = imageUrlFrom(user['profilePicture']);
                     return InkWell(
                       onTap: () {
                         widget.ctrl.text = user['email'];
@@ -993,12 +994,19 @@ class _InviteCardState extends State<_InviteCard> {
                             CircleAvatar(
                               radius: 16,
                               backgroundColor: AppColors.accent.withValues(alpha: 0.1),
-                              backgroundImage: user['profilePicture'] != null 
-                                ? NetworkImage(AppConfig.formatImageUrl(user['profilePicture'])!) 
-                                : null,
-                              child: user['profilePicture'] == null 
-                                ? Text(user['name'][0].toUpperCase(), style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accent)) 
-                                : null,
+                              backgroundImage: profilePictureUrl != null
+                                  ? NetworkImage(profilePictureUrl)
+                                  : null,
+                              child: profilePictureUrl == null
+                                  ? Text(
+                                      safeInitial(user['name']),
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.accent,
+                                      ),
+                                    )
+                                  : null,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1133,9 +1141,7 @@ class _MemberCard extends StatelessWidget {
     final name = member['name']?.toString() ?? '?';
     final role =
         member['role']?.toString() ?? member['email']?.toString() ?? '';
-    final profilePic = AppConfig.formatImageUrl(
-      member['profilePicture'] as String?,
-    );
+    final profilePic = imageUrlFrom(member['profilePicture']);
 
     // Rotating avatar bg colors
     final avatarColors = [
@@ -1293,7 +1299,7 @@ class _MemberCard extends StatelessWidget {
   Widget _fallbackAvatar(String name) {
     return Center(
       child: Text(
-        name[0].toUpperCase(),
+        safeInitial(name),
         style: GoogleFonts.nunito(
           fontSize: 19,
           fontWeight: FontWeight.w800,

@@ -16,6 +16,7 @@ import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/voice_assistant/providers/buddy_provider.dart'
     as buddy;
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
+import 'package:buddy_mobile/shared/utils/avatar_utils.dart';
 import 'package:buddy_mobile/features/account/screens/user_profile_screen.dart';
 import 'package:buddy_mobile/features/account/screens/change_password_screen.dart';
 import 'package:buddy_mobile/core/providers/security_provider.dart';
@@ -172,7 +173,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen>
           final user = userProvider.user;
           final String name = user['name'] ?? 'User';
           final String email = user['email'] ?? '';
-          final String? avatarUrl = user['profilePicture'] as String?;
+          final String? avatarUrl = imageUrlFrom(user['profilePicture']);
           final bool calConnected =
               user['googleCalendarConnected'] == true ||
               user['googleRefreshToken'] != null;
@@ -947,11 +948,7 @@ class _Avatar extends StatelessWidget {
   const _Avatar({required this.name, this.avatarUrl, required this.size});
 
   String get _initials {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    return safeInitials(name);
   }
 
   @override
