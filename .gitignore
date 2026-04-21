@@ -112,3 +112,4 @@ python/database/vector_store/*
 python/database/learning_data/*
 !python/database/vector_store/.gitkeep
 !python/database/learning_data/.gitkeep
+deploy_log.txt
