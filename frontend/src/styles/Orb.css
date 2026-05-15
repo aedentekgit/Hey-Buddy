@@ -1,0 +1,39 @@
+#orb-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(600px, 80vw);
+    height: min(600px, 80vw);
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#orb-container.active,
+#orb-container.speaking {
+    opacity: 1;
+    animation: orbPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes orbPulse {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.04);
+    }
+}
+
+body.light-theme #orb-container {
+    opacity: 0.45;
+}
+
+body.light-theme #orb-container.active,
+body.light-theme #orb-container.speaking {
+    opacity: 0.9;
+}

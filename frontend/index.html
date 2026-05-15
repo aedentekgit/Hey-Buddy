@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="referrer" content="origin" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HeyBuddy Admin Dashboard</title>
+  <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lexend:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Public+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;900&family=Sora:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #root:empty::before {
+      content: 'Loading...';
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      opacity: 0.6;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    }
+  </style>
+  <script>
+    (function () {
+      const themeMode = localStorage.getItem('themeMode') || 'auto';
+      const accentColor = localStorage.getItem('accentColor') || '#2563EB';
+      const root = document.documentElement;
+
+      const dayTheme = {
+        bg: '#F1F5F9',
+        card: '#FFFFFF',
+        text: '#0F172A',
+        border: '#CBD5E1'
+      };
+
+      const nightTheme = {
+        bg: '#020617',
+        card: '#0F172A',
+        text: '#F8FAFC',
+        border: 'rgba(255, 255, 255, 0.08)'
+      };
+
+      let mode = themeMode;
+      if (themeMode === 'auto') {
+        mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day';
+      }
+
+      const currentTheme = mode === 'night' ? nightTheme : dayTheme;
+      root.style.setProperty('--primary-color', accentColor);
+      root.style.setProperty('--bg-color', currentTheme.bg);
+      root.style.setProperty('--card-bg', currentTheme.card);
+      root.style.setProperty('--text-main', currentTheme.text);
+      root.style.setProperty('--border-color', currentTheme.border);
+      root.style.backgroundColor = currentTheme.bg;
+      root.style.color = currentTheme.text;
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

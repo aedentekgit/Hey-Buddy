@@ -1,0 +1,130 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment Variables — ALL env files with real secrets must be excluded
+.env
+.env.*
+!.env.example
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.*.local
+ai-service/.env
+ai-service/.env.production
+ai-service/.env.staging
+frontend/.env
+backend/.env
+backend/.env.*
+frontend/.env.production
+frontend/.env.staging
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
+*.db
+*.sqlite
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files (never commit editor/code backups)
+*.bak
+*.orig
+
+# ML / FAISS binary files
+*.faiss
+*.pkl
+
+# Service Account Keys (sensitive)
+backend/service-account.json
+backend/*.json
+!backend/package.json
+
+# Android Keystore & Configuration
+Flutter/android/local.properties
+Flutter/android/app/upload-keystore.jks
+Flutter/android/app/*.jks
+Flutter/android/key.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Debug
+ai_debug.txt
+Flutter/analyze_output*.txt
+backend/test.gif
+
+# Generated/prototype outputs
+backend/testsprite_tests/
+backend/tests/
+backend/scripts/
+backend/testApi.js
+backend/checkDB.js
+python/frontend/
+
+# Large Binaries
+*.gif
+*.apk
+*.ipa
+*.docx
+*.doc
+*.pdf
+
+# Python generated
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+
+# Python AI Service env files
+python/.env
+python/.env.production
+python/.env.staging
+
+# Vector store data (can be large)
+python/database/vector_store/*
+python/database/learning_data/*
+!python/database/vector_store/.gitkeep
+!python/database/learning_data/.gitkeep

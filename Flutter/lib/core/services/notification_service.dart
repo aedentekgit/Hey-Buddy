@@ -1,0 +1,251 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+// ─── Background handler (must be top-level) ───────────────────────────────────
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  debugPrint("[FCM Background] messageId: ${message.messageId}");
+  debugPrint("[FCM Background] title: ${message.notification?.title}");
+  debugPrint("[FCM Background] body: ${message.notification?.body}");
+  debugPrint("[FCM Background] data: ${message.data}");
+
+  // If the message has a notification payload, Android/iOS OS already shows the banner.
+  // We only need to show a local notification for DATA-ONLY messages (no notification payload).
+  final bool isDataOnly = message.notification == null;
+  final String title = message.data['title'] as String? ?? 'Buddy';
+  final String? text = isDataOnly
+      ? (message.data['body'] as String?)
+      : message.notification?.body;
+
+  if (isDataOnly && text != null && text.isNotEmpty) {
+    final localNotif = FlutterLocalNotificationsPlugin();
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+    await localNotif.initialize(
+      const InitializationSettings(android: androidInit),
+    );
+
+    await localNotif.show(
+      message.hashCode,
+      title,
+      text,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'buddy_alerts',
+          'Buddy Alerts',
+          channelDescription: 'Smart reminder & early warning alerts',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+        ),
+      ),
+    );
+  }
+
+  // Voice readout if there's any text (regardless of data-only or not)
+  if (text != null && text.isNotEmpty) {
+    try {
+      final FlutterTts tts = FlutterTts();
+      await tts.awaitSpeakCompletion(true);
+      await tts.setVolume(1.0);
+      await tts.setSpeechRate(0.5);
+      await tts.setPitch(1.0);
+      await tts.speak("Pardon the interruption. $text");
+    } catch (e) {
+      debugPrint("[FCM Background] TTS error: $e");
+    }
+  }
+}
+
+// ─── Notification Channel ─────────────────────────────────────────────────────
+const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+  'buddy_alerts',
+  'Buddy Alerts',
+  description: 'Smart reminder & early warning alerts from Buddy AI',
+  importance: Importance.max,
+  playSound: true,
+  enableVibration: true,
+);
+
+// ─── Notification Service ─────────────────────────────────────────────────────
+class NotificationService {
+  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  final Dio _dio = Dio();
+  final _storage = const FlutterSecureStorage();
+
+  final FlutterLocalNotificationsPlugin _localNotif =
+      FlutterLocalNotificationsPlugin();
+
+  Future<void> initialize() async {
+    // 1. Create Android notification channel
+    await _localNotif
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(_channel);
+
+    // 2. Initialize local notifications plugin
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const iosInit = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    await _localNotif.initialize(
+      const InitializationSettings(android: androidInit, iOS: iosInit),
+    );
+
+    // 3. Request FCM permission
+    final NotificationSettings settings = await _fcm.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+
+    debugPrint('[FCM] Permission status: ${settings.authorizationStatus}');
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional) {
+      // 4. Get & register token
+      final String? token = await _fcm.getToken();
+      if (token != null) {
+        debugPrint('[FCM] Token: $token');
+        await _saveTokenToServer(token);
+      }
+
+      // 5. Listen for token refresh
+      _fcm.onTokenRefresh.listen((newToken) {
+        debugPrint('[FCM] Token refreshed: $newToken');
+        _saveTokenToServer(newToken);
+      });
+    } else {
+      debugPrint('[FCM] Permission NOT granted: ${settings.authorizationStatus}');
+    }
+
+    // 6. Handle foreground messages
+    // IMPORTANT: Only show a local notification for DATA-ONLY messages.
+    // If the FCM payload has a 'notification' object, the OS (Android/iOS) already
+    // shows a system banner. Calling _localNotif.show() on top would create a duplicate.
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      debugPrint('[FCM Foreground] Received: ${message.notification?.title}');
+      debugPrint('[FCM Foreground] Body: ${message.notification?.body}');
+      debugPrint('[FCM Foreground] Data: ${message.data}');
+
+      final bool isDataOnly = message.notification == null;
+      final String? body = isDataOnly
+          ? (message.data['body'] as String?)
+          : message.notification?.body;
+      final String title = isDataOnly
+          ? (message.data['title'] as String? ?? 'Buddy')
+          : (message.notification?.title ?? 'Buddy');
+
+      if (isDataOnly && body != null && body.isNotEmpty) {
+        // Data-only: OS won't show a banner, so we must show one ourselves
+        await _localNotif.show(
+          message.hashCode,
+          title,
+          body,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'buddy_alerts',
+              'Buddy Alerts',
+              channelDescription: 'Smart reminder & early warning alerts',
+              importance: Importance.max,
+              priority: Priority.high,
+              playSound: true,
+              enableVibration: true,
+            ),
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          ),
+        );
+      }
+
+      // Voice readout for all foreground notifications
+      if (body != null && body.isNotEmpty) {
+        try {
+          final FlutterTts tts = FlutterTts();
+          await tts.setVolume(1.0);
+          await tts.setSpeechRate(0.5);
+          await tts.setPitch(1.0);
+          await tts.speak("Pardon the interruption. $body");
+        } catch (e) {
+          debugPrint('[FCM Foreground] TTS error: $e');
+        }
+      }
+    });
+
+    // 7. Handle notification tap when app is in background (but not killed)
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint(
+        '[FCM] App opened from notification: ${message.notification?.title}',
+      );
+    });
+
+    // 8. Check if app was opened from a terminated-state notification
+    final RemoteMessage? initialMessage = await _fcm.getInitialMessage();
+    if (initialMessage != null) {
+      debugPrint(
+        '[FCM] App launched from notification: ${initialMessage.notification?.title}',
+      );
+    }
+  }
+
+  Future<void> updateToken() async {
+    try {
+      final String? token = await _fcm.getToken();
+      if (token != null) {
+        debugPrint('[FCM] Updating token: $token');
+        await _saveTokenToServer(token);
+      } else {
+        debugPrint('[FCM] Token is null - likely on iOS Simulator (APNS not available)');
+      }
+    } catch (e) {
+      // Gracefully handle APNS errors on iOS Simulator
+      if (e.toString().contains('apns-token-not-set')) {
+        debugPrint('[FCM] ⚠️ APNS token not available (iOS Simulator limitation)');
+      } else {
+        debugPrint('[FCM] Error getting token: $e');
+      }
+    }
+  }
+
+  Future<void> _saveTokenToServer(String token) async {
+    try {
+      final authToken = await _storage.read(key: 'jwt');
+      if (authToken == null) {
+        debugPrint('[FCM] Skipping token registration: not logged in yet');
+        return;
+      }
+
+      await _dio.post(
+        '${AppConfig.baseUrl}users/fcm-token',
+        data: {'token': token},
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $authToken',
+            'x-platform': 'mobile',
+          },
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+      debugPrint('[FCM] ✅ Token saved to server successfully');
+    } catch (e) {
+      debugPrint('[FCM] ⚠️ Failed to save FCM token: $e');
+    }
+  }
+}

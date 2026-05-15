@@ -1,0 +1,27 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-google-maps/api": "^2.20.8",
+    "@vitejs/plugin-react": "^5.1.2",
+    "axios": "^1.13.2",
+    "firebase": "^12.8.0",
+    "framer-motion": "^12.27.5",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.12.0",
+    "recharts": "^3.7.0",
+    "socket.io-client": "^4.8.3",
+    "vite": "^7.3.1"
+  }
+}

@@ -1,0 +1,223 @@
+import "package:flutter/foundation.dart";
+
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:buddy_mobile/core/config/app_config.dart';
+
+class UserService {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  // Helper to get base URL
+  String get _baseUrl => AppConfig.baseUrl;
+
+  Future<String?> _getToken() async {
+    return await _storage.read(key: 'jwt');
+  }
+
+  // Get User Profile
+  Future<Map<String, dynamic>> getUserProfile() async {
+    try {
+      final token = await _getToken();
+      final url = '${_baseUrl}auth/me';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'x-platform': 'mobile',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+      debugPrint("[UserService] Failed to parse success");
+      return {};
+    } catch (e) {
+      debugPrint("[UserService] Error fetching profile: $e");
+      return {};
+    }
+  }
+
+  // Update Profile
+  Future<bool> updateProfile(Map<String, dynamic> data) async {
+    try {
+      final token = await _getToken();
+      final response = await http.put(
+        Uri.parse('${_baseUrl}users/profile'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'x-platform': 'mobile',
+        },
+        body: jsonEncode(data),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("[UserService] Error updating profile: $e");
+      return false;
+    }
+  }
+
+  // Upload Profile Picture
+  Future<String?> uploadProfilePicture(File file) async {
+    try {
+      final token = await _getToken();
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${_baseUrl}users/profile/avatar'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['x-platform'] = 'mobile';
+
+      // Check file extension for mime type
+      String extension = file.path.split('.').last.toLowerCase();
+      MediaType mediaType;
+      if (extension == 'png') {
+        mediaType = MediaType('image', 'png');
+      } else if (extension == 'jpg' || extension == 'jpeg') {
+        mediaType = MediaType('image', 'jpeg');
+      } else {
+        mediaType = MediaType('image', 'jpeg'); // Default
+      }
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'profilePicture',
+          file.path,
+          contentType: mediaType,
+        ),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data']['profilePicture'];
+        }
+      }
+      debugPrint(
+        "[UserService] Upload failed: ${response.statusCode} - ${response.body}",
+      );
+      return null;
+    } catch (e) {
+      debugPrint("[UserService] Error uploading avatar: $e");
+      return null;
+    }
+  }
+
+  // Delete Profile Picture
+  Future<bool> deleteProfilePicture() async {
+    try {
+      final token = await _getToken();
+      final response = await http.delete(
+        Uri.parse('${_baseUrl}users/profile/avatar'),
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("[UserService] Error deleting avatar: $e");
+      return false;
+    }
+  }
+
+  // Delete Account
+  Future<bool> deleteAccount() async {
+    try {
+      final token = await _getToken();
+      final response = await http.delete(
+        Uri.parse('${_baseUrl}users/profile'),
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("[UserService] Error deleting account: $e");
+      return false;
+    }
+  }
+
+  // Unlink Google Calendar
+  Future<bool> unlinkCalendar() async {
+    try {
+      final token = await _getToken();
+      final response = await http.post(
+        Uri.parse('${_baseUrl}users/unlink-calendar'),
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("[UserService] Error unlinking calendar: $e");
+      return false;
+    }
+  }
+
+  // Get Google Auth URL
+  Future<String?> getGoogleAuthUrl() async {
+    try {
+      final token = await _getToken();
+      final url = '${_baseUrl}voice/google/auth';
+      debugPrint('[UserService] Fetching Google Auth URL from: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token', 'x-platform': 'mobile'},
+      );
+
+      debugPrint('[UserService] Google Auth URL response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          debugPrint('[UserService] Auth URL obtained successfully');
+          return data['url'];
+        } else {
+          debugPrint(
+            '[UserService] Backend returned success:false — ${data['message']}',
+          );
+        }
+      } else {
+        debugPrint(
+          '[UserService] HTTP error ${response.statusCode}: ${response.body}',
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint("[UserService] Error fetching google auth URL: $e");
+      return null;
+    }
+  }
+
+  // Update Location
+  Future<bool> updateLocation(double lat, double lng) async {
+    try {
+      final token = await _getToken();
+      final response = await http.post(
+        Uri.parse('${_baseUrl}users/location'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'x-platform': 'mobile',
+        },
+        body: jsonEncode({'lat': lat, 'lng': lng}),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("[UserService] Error updating location: $e");
+      return false;
+    }
+  }
+}
