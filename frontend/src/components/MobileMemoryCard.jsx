@@ -1,4 +1,3 @@
-import React from 'react';
 import { Brain, FileText, Calendar, Edit2, Trash2, Eye } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';

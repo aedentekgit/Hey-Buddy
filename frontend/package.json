@@ -10,18 +10,30 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.2.0",
     "@react-google-maps/api": "^2.20.8",
-    "@vitejs/plugin-react": "^5.1.2",
-    "axios": "^1.13.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "axios": "^1.16.0",
+    "cobe": "^0.6.5",
     "firebase": "^12.8.0",
     "framer-motion": "^12.27.5",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",
+    "react-icons": "^5.5.0",
     "react-router-dom": "^7.12.0",
     "recharts": "^3.7.0",
     "socket.io-client": "^4.8.3",
-    "vite": "^7.3.1"
+    "vite": "^8.0.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "eslint-plugin-unused-imports": "^4.3.0",
+    "globals": "^16.5.0"
   }
 }

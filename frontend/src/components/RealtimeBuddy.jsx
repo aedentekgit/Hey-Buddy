@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Square, Wifi, WifiOff, MessageSquareText } from 'lucide-react';
+import { Mic, Square, Wifi, WifiOff, MessageSquareText, Loader2 } from 'lucide-react';
 import { useRealtimeVoice } from '../context/RealtimeVoiceContext';
 import '../styles/RealtimeBuddy.css';
 
@@ -9,16 +9,42 @@ const RealtimeBuddy = () => {
         isConnected,
         isActive,
         isAiSpeaking,
+        isRecording,
         transcript,
         startSession,
         stopSession
     } = useRealtimeVoice();
 
+    const [error, setError] = useState(null);
+
     React.useEffect(() => {
         if (isConnected) {
-            console.log("Realtime Link Established.");
+            console.log("[RealtimeBuddy] Realtime Link Established.");
         }
     }, [isConnected]);
+
+    const handleStartSession = async () => {
+        setError(null);
+        try {
+            await startSession();
+        } catch (err) {
+            console.error('Failed to start session:', err);
+            setError('Microphone access denied or service unavailable.');
+        }
+    };
+
+    const handleStopSession = () => {
+        setError(null);
+        stopSession();
+    };
+
+    const getStatusText = () => {
+        if (!isConnected) return 'Disconnected';
+        if (isAiSpeaking) return 'Buddy is speaking...';
+        if (isRecording) return 'Listening...';
+        if (isActive) return 'Session active';
+        return 'Ready for a real-time chat?';
+    };
 
     return (
         <div className="realtime-buddy-container">
@@ -42,7 +68,9 @@ const RealtimeBuddy = () => {
                     ease: "easeInOut"
                 }}
             >
-                {isAiSpeaking ? (
+                {!isConnected ? (
+                    <Loader2 size={40} color="white" className="animate-spin" />
+                ) : isAiSpeaking ? (
                     <motion.div
                         animate={{ opacity: [0.4, 1, 0.4] }}
                         transition={{ repeat: Infinity, duration: 2 }}
@@ -61,6 +89,7 @@ const RealtimeBuddy = () => {
                             key="transcript"
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
                             className="transcript-text"
                         >
                             {transcript}
@@ -70,13 +99,24 @@ const RealtimeBuddy = () => {
                             key="placeholder"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
                             className="placeholder-text"
                         >
-                            {isActive ? "Listening for your voice..." : "Ready for a real-time chat?"}
+                            {getStatusText()}
                         </motion.p>
                     )}
                 </AnimatePresence>
             </div>
+
+            {error && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="error-message"
+                >
+                    {error}
+                </motion.div>
+            )}
 
             <div className="controls">
                 {!isActive ? (
@@ -84,7 +124,8 @@ const RealtimeBuddy = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className="action-btn start-btn"
-                        onClick={startSession}
+                        onClick={handleStartSession}
+                        disabled={!isConnected}
                     >
                         <Mic size={20} />
                         Start Voice Session
@@ -94,7 +135,7 @@ const RealtimeBuddy = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className="action-btn stop-btn"
-                        onClick={stopSession}
+                        onClick={handleStopSession}
                     >
                         <Square size={20} />
                         End Session
@@ -110,7 +151,7 @@ const RealtimeBuddy = () => {
                     style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#64748b' }}
                 >
                     <MessageSquareText size={12} style={{ marginRight: '0.5rem' }} />
-                    Full-Duplex Node.js Agent Active
+                    {isRecording ? 'Microphone active - speak now!' : 'Session ending...'}
                 </motion.div>
             )}
         </div>

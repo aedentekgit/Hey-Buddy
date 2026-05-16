@@ -13,6 +13,7 @@ class AnimatedAIInputField extends StatefulWidget {
   final VoidCallback onSendPressed;
   final bool isListening;
   final bool isSpeaking;
+  final bool isVoiceSessionActive;
   final bool isEnabled;
 
   const AnimatedAIInputField({
@@ -23,6 +24,7 @@ class AnimatedAIInputField extends StatefulWidget {
     required this.onSendPressed,
     this.isListening = false,
     this.isSpeaking = false,
+    this.isVoiceSessionActive = false,
     this.isEnabled = true,
   });
 
@@ -205,7 +207,9 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
             const Color(
               0xFF6366F1,
             ).withValues(alpha: widget.isEnabled ? 1 : 0.3), // Indigo
-            const Color(0xFF3B82F6).withValues(alpha: widget.isEnabled ? 1 : 0.3),
+            const Color(
+              0xFF3B82F6,
+            ).withValues(alpha: widget.isEnabled ? 1 : 0.3),
           ];
 
           return Opacity(
@@ -219,8 +223,9 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                   boxShadow: widget.isEnabled
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF6366F1).withValues(alpha: 
-                              0.08 + (0.12 * hoverVal) + (0.05 * pulseVal),
+                            color: const Color(0xFF6366F1).withValues(
+                              alpha:
+                                  0.08 + (0.12 * hoverVal) + (0.05 * pulseVal),
                             ),
                             blurRadius: 20 + (10 * hoverVal) + (5 * pulseVal),
                             offset: const Offset(0, 8),
@@ -251,8 +256,8 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                         decoration: BoxDecoration(
                           color: _isFocused
                               ? AppColors.surface.withValues(alpha: 0.95)
-                              : AppColors.surface.withValues(alpha: 
-                                  0.85 + (0.05 * hoverVal),
+                              : AppColors.surface.withValues(
+                                  alpha: 0.85 + (0.05 * hoverVal),
                                 ),
                           borderRadius: BorderRadius.circular(100),
                         ),
@@ -275,9 +280,13 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                                         fontWeight: FontWeight.w500,
                                       ),
                                       decoration: InputDecoration(
-                                        hintText: _isFocused
-                                            ? "I'm listening..."
-                                            : "Feel free to ask me any questions...",
+                                        hintText: widget.isVoiceSessionActive
+                                            ? (widget.isListening
+                                                  ? "Listening..."
+                                                  : "Voice mode on — speak now")
+                                            : (_isFocused
+                                                  ? "I'm listening..."
+                                                  : "Feel free to ask me any questions..."),
                                         border: InputBorder.none,
                                         enabledBorder: InputBorder.none,
                                         focusedBorder: InputBorder.none,
@@ -299,16 +308,16 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
 
                             // Mic Button
                             _buildActionIconButton(
-                              icon: widget.isListening
-                                  ? LucideIcons.micOff
+                              icon: widget.isVoiceSessionActive
+                                  ? LucideIcons.stopCircle
                                   : LucideIcons.mic,
-                              color: widget.isListening
-                                  ? Colors.red
+                              color: widget.isVoiceSessionActive
+                                  ? const Color(0xFFEF4444)
                                   : AppColors.textMid,
                               onTap: widget.isEnabled
                                   ? widget.onMicPressed
                                   : null,
-                              isPulsing: widget.isListening,
+                              isPulsing: widget.isVoiceSessionActive,
                               pulseVal: pulseVal,
                             ),
 
@@ -436,9 +445,7 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
         ),
         child: Icon(
           icon,
-          color: (isPulsing || widget.isSpeaking)
-              ? AppColors.textMid
-              : color,
+          color: (isPulsing || widget.isSpeaking) ? AppColors.textMid : color,
           size: 20 + (isPulsing ? (2 * pulseVal) : 0),
         ),
       ),

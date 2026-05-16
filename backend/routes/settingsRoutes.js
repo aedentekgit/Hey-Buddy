@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { getSettings, updateSettings, getPublicSettings, getAppLogo, testSMTP, testSMS, testNotification, internalFileSync, internalFileDeleteSync } = require('../controllers/settingsController');
-const { protect, authorize } = require('../middlewares/auth');
+const { protect, authorize, protectInternal } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
 // Helper: Wraps multer middleware to catch multer-specific errors (file size, bad type)
@@ -13,12 +13,12 @@ const uploadWithErrorHandling = (fields) => (req, res, next) => {
             if (err instanceof multer.MulterError) {
                 // Multer-specific errors (e.g. LIMIT_FILE_SIZE)
                 if (err.code === 'LIMIT_FILE_SIZE') {
-                    return res.status(400).json({ success: false, message: 'File is too large. Maximum allowed size is 200MB.' });
+                    return res.status(400).json({ success: false, message: 'File is too large. Maximum allowed size is 10MB.' });
                 }
                 return res.status(400).json({ success: false, message: `Upload error: ${err.message}` });
             }
             // Custom fileFilter errors (wrong type)
-            return res.status(400).json({ success: false, message: err.message || 'Invalid file type. Only images (PNG, JPG, GIF, WebP, SVG) and JSON are allowed.' });
+            return res.status(400).json({ success: false, message: err.message || 'Invalid file type.' });
         }
         next();
     });
@@ -27,7 +27,7 @@ const uploadWithErrorHandling = (fields) => (req, res, next) => {
 router.get('/public', getPublicSettings);
 router.get('/logo', getAppLogo);
 router.head('/logo', getAppLogo);
-router.get('/', protect, getSettings);
+router.get('/', protect, authorize('admin'), getSettings);
 router.put('/', protect, authorize('admin'), uploadWithErrorHandling([
     { name: 'logo', maxCount: 1 },
     { name: 'mobileLogo', maxCount: 1 },
@@ -40,7 +40,7 @@ router.post('/test-sms', protect, authorize('admin'), testSMS);
 router.post('/test-notification', protect, authorize('admin'), testNotification);
 
 // Internal sync route for syncing files from local dev to VPS
-router.post('/internal-file-sync', uploadWithErrorHandling([{ name: 'file', maxCount: 1 }]), internalFileSync);
-router.delete('/internal-file-sync', internalFileDeleteSync);
+router.post('/internal-file-sync', protectInternal, uploadWithErrorHandling([{ name: 'file', maxCount: 1 }]), internalFileSync);
+router.delete('/internal-file-sync', protectInternal, internalFileDeleteSync);
 
 module.exports = router;

@@ -1,0 +1,879 @@
+[
+  {
+    "id": "TC001",
+    "title": "Register a new user with valid details and reach the post-registration landing page",
+    "description": "Verifies that a user can successfully register with valid inputs and is redirected to the next screen after registration.",
+    "category": "User Authentication",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /api/auth/register"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Register\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Test User\" into the name field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"test.user.unique+1@example.com\" into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"ValidPass123!\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Register\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Welcome\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"onboarding\""
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Registration validation: missing required name shows field error and blocks submission",
+    "description": "Verifies that leaving the name blank shows a field-specific validation error and does not proceed to the next page.",
+    "category": "User Authentication",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /api/auth/register"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Register\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"test.user.unique+2@example.com\" into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"ValidPass123!\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Register\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Name\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"required\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Registration validation: missing required email shows field error and blocks submission",
+    "description": "Verifies that leaving the email blank shows a field-specific validation error and does not proceed to the next page.",
+    "category": "User Authentication",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /api/auth/register"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Register\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Test User\" into the name field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"ValidPass123!\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Register\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Email\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"required\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Registration validation: missing required password shows field error and blocks submission",
+    "description": "Verifies that leaving the password blank shows a field-specific validation error and does not proceed to the next page.",
+    "category": "User Authentication",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /api/auth/register"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Register\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Test User\" into the name field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"test.user.unique+3@example.com\" into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Register\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Password\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"required\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Login validation: missing email shows field error and blocks submission",
+    "description": "Verifies that attempting to log in without an email shows a validation error and stays on the login screen.",
+    "category": "User Authentication",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /api/auth/login"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Login\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Login\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Email\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"required\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"login\""
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Login validation: missing password shows field error and blocks submission",
+    "description": "Verifies that attempting to log in without a password shows a validation error and stays on the login screen.",
+    "category": "User Authentication",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /api/auth/login"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Login\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Login\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Password\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"required\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"login\""
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Create a reminder with title, date/time, and optional notes",
+    "description": "Verifies an authenticated user can create a reminder and see it appear in the reminders list.",
+    "category": "Reminder System",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username/email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/reminders\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Create Reminder\" button"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Take medication\" into the title field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"2030-01-15 09:00\" into the date/time field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"With breakfast\" into the notes field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Save\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Take medication\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Validation error when creating a reminder without date/time",
+    "description": "Verifies the UI prevents saving a reminder without date/time and shows a clear validation message.",
+    "category": "Reminder System",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username/email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/reminders\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Create Reminder\" button"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Drink water\" into the title field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Save\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"date/time required\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Delete a reminder from the reminders list",
+    "description": "Verifies an authenticated user can delete a reminder and it no longer appears in the list.",
+    "category": "Reminder System",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username/email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/reminders\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Create Reminder\" button"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Temporary reminder to delete\" into the title field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"2030-02-01 10:00\" into the date/time field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Save\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Temporary reminder to delete\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Delete\" button for \"Temporary reminder to delete\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Temporary reminder to delete\" is not visible"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Reminders page shows content after login (authenticated access)",
+    "description": "Verifies that after a successful login the reminders page loads and displays the reminders UI.",
+    "category": "Reminder System",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username/email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Login\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/reminders\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Create Reminder\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Reminders\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "View Settings page and see current preferences",
+    "description": "Verifies an authenticated user can open the Settings page and see existing preference values displayed.",
+    "category": "Settings and Preferences",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/settings\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Settings\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Save\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Update a preference and save successfully",
+    "description": "Verifies an authenticated user can change a preference and save it, then sees the updated value reflected on the page.",
+    "category": "Settings and Preferences",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click on the Settings option in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Change one visible preference value to a different valid value"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Save\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Saved\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Attempt to save an invalid preference shows validation error",
+    "description": "Verifies invalid preference inputs display validation errors and do not apply changes.",
+    "category": "Settings and Preferences",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click on the Settings option in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Enter an invalid value into a preference field that has visible input constraints"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Save\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Invalid\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Invalid save attempt retains prior valid value in the UI",
+    "description": "Verifies that after a failed validation attempt, the previously valid setting remains displayed/applied.",
+    "category": "Settings and Preferences",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click on the Settings option in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Note a currently displayed preference value"
+      },
+      {
+        "type": "action",
+        "description": "Enter an invalid value into that same preference field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Save\" button"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Cancel/leave without saving does not show a success state",
+    "description": "Verifies navigating away from Settings after edits without saving does not show a save success message.",
+    "category": "Settings and Preferences",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "action",
+        "description": "Click on the Settings option in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Change one visible preference value to a different valid value"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Home\" option in the main navigation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Saved\" is not visible"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "RAG: Successful query shows an answer with source citations",
+    "description": "Verifies an authenticated user can ask a knowledge question and see an answer with visible source citations.",
+    "category": "Knowledge & RAG (Retrieval-Augmented Generation)",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/knowledge\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"What is Buddy and what can it do?\" into the knowledge query input"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Ask\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Sources\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "RAG: Answer content is visible after asking a valid query",
+    "description": "Verifies that after submitting a valid query, the page visibly renders an answer section or answer text.",
+    "category": "Knowledge & RAG (Retrieval-Augmented Generation)",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/knowledge\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"How do reminders work in Buddy?\" into the knowledge query input"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Ask\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Answer\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "RAG: Empty query prompts user to refine their question",
+    "description": "Verifies submitting an empty query results in a visible prompt asking the user to refine their question.",
+    "category": "Knowledge & RAG (Retrieval-Augmented Generation)",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/knowledge\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the knowledge query input"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Ask\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"please refine your question\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "RAG: Whitespace-only query prompts user to refine their question",
+    "description": "Verifies submitting a whitespace-only query results in a visible prompt asking the user to refine their question.",
+    "category": "Knowledge & RAG (Retrieval-Augmented Generation)",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/knowledge\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"   \" into the knowledge query input"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Ask\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"please refine your question\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "RAG: Ambiguous query prompts user to refine their question",
+    "description": "Verifies submitting an overly ambiguous query results in a visible refine prompt rather than an authoritative answer.",
+    "category": "Knowledge & RAG (Retrieval-Augmented Generation)",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/knowledge\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Tell me about that\" into the knowledge query input"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Ask\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"please refine your question\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "RAG: User can attempt a second query after a refine prompt",
+    "description": "Verifies the user can recover from a refine prompt by entering a clearer question and receiving an answer UI section.",
+    "category": "Knowledge & RAG (Retrieval-Augmented Generation)",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the username or email field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Log in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/api/knowledge\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"?\" into the knowledge query input"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Ask\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"please refine your question\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"What endpoints are available for reminders?\" into the knowledge query input"
+      },
+      {
+        "type": "action",
+        "description": "Click on the \"Ask\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Sources\" is visible"
+      }
+    ]
+  }
+]

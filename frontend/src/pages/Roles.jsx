@@ -2,15 +2,14 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import {
-    Plus, Edit2, Trash2, Search, X, Loader2, Eye, Save, Globe, Smartphone
+    Plus, Edit2, Trash2, Search, Loader2, Eye, Save, Globe, Smartphone
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Pagination from '../components/Pagination';
 import MobileRoleCard from '../components/MobileRoleCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';
-import {
-    ThStyle, TdStyle, TableContainerStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, TableRowStyle
+import { TableElementStyle
 } from '../styles/tableStyles';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';

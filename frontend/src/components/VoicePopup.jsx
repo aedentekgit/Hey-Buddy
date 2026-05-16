@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, Send, Loader2, Volume2, StopCircle } from 'lucide-react';
+import { X, Mic, Loader2, Volume2, StopCircle } from 'lucide-react';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
-import voiceService from '../services/voiceService';
-import toast from 'react-hot-toast';
 import '../styles/VoicePopup.css';
 
 const VoicePopup = ({ isOpen, onClose }) => {

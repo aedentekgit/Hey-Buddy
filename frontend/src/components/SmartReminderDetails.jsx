@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import {
-    MapPin, Clock, AlertCircle, CheckCircle2, XCircle, Bell, MessageSquare, Mail,
-    ChevronDown, ChevronUp, BellRing, Navigation, Activity, CalendarDays,
+    MapPin, Clock, AlertCircle, Bell, Navigation, Activity,
     Users, Plus, Trash2, Smartphone, Zap, ShieldAlert, Car, Share2, Edit2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';

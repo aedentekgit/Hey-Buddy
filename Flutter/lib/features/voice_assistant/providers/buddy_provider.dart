@@ -18,6 +18,9 @@ class BuddyProvider with ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final _storage = const FlutterSecureStorage();
   final FlutterTts _flutterTts = FlutterTts();
+  StreamSubscription<String>? _chatStreamSubscription;
+  int _activeAiTurn = 0;
+  bool _discardAiOutputUntilNextUserMessage = false;
   
   // Expose these for potential direct use (but provider methods are preferred)  AudioPlayer get audioPlayer => _audioPlayer;
   FlutterTts get tts => _flutterTts;
@@ -55,6 +58,34 @@ class BuddyProvider with ChangeNotifier {
 
   String _currentGender = 'male';
   String _currentTone = 'normal';
+
+  String _safeAiErrorMessage(Object? error) {
+    final text = error?.toString().trim() ?? '';
+    if (text.isEmpty) {
+      return 'The AI service is temporarily unavailable. Please try again in a moment.';
+    }
+
+    final lower = text.toLowerCase();
+    final hasTechnicalDetails = [
+      'error code',
+      'invalid_request_error',
+      'insufficient balance',
+      'traceback',
+      'stack',
+      'api key',
+      'httpexception',
+      'axios',
+      'python',
+      '{',
+      '}',
+    ].any(lower.contains);
+
+    if (hasTechnicalDetails) {
+      return 'The AI service is temporarily unavailable. Please try again in a moment.';
+    }
+
+    return text.replaceFirst(RegExp(r'^error:\s*', caseSensitive: false), '');
+  }
 
   // ── Voice Response toggle ──────────────────────────────────────────────────
   // When false: AI replies text-only, all TTS & audio is suppressed.
@@ -122,6 +153,7 @@ class BuddyProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    _chatStreamSubscription?.cancel();
     _audioPlayer.dispose();
     _audioStreamService.dispose();
     
@@ -145,6 +177,22 @@ class BuddyProvider with ChangeNotifier {
     socketService.interrupt(); // TELL BACKEND TO STOP STREAMING
     await _flutterTts.stop();
     await _audioPlayer.stop();
+    notifyListeners();
+  }
+
+  Future<void> _cancelActiveAiOutput() async {
+    _activeAiTurn++;
+    _discardAiOutputUntilNextUserMessage = true;
+    await _chatStreamSubscription?.cancel();
+    _chatStreamSubscription = null;
+    await _audioStreamService.stopStreaming();
+    await stopAllAudio();
+
+    for (final message in _messages) {
+      message['isPartial'] = false;
+      message['shouldType'] = false;
+    }
+    _isThinking = false;
     notifyListeners();
   }
 
@@ -418,6 +466,8 @@ class BuddyProvider with ChangeNotifier {
     _flutterTts.awaitSpeakCompletion(true);
 
     socketService.captionStream.listen((text) {
+      if (_discardAiOutputUntilNextUserMessage) return;
+
       if (_messages.isNotEmpty &&
           _messages.last['type'] == 'ai' &&
           _messages.last['isPartial'] == true) {
@@ -489,6 +539,7 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.turnStartedStream.listen((_) async {
+      if (_discardAiOutputUntilNextUserMessage) return;
       _isThinking = true;
       _isListening = false; // Reset listening UI as processing started
       notifyListeners();
@@ -518,6 +569,8 @@ class BuddyProvider with ChangeNotifier {
 
     // Handle end of stream
     socketService.responseDoneStream.listen((_) {
+      if (_discardAiOutputUntilNextUserMessage) return;
+
       if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
         _messages.last['isPartial'] = false;
       }
@@ -539,6 +592,8 @@ class BuddyProvider with ChangeNotifier {
     });
 
     socketService.audioStream.listen((base64Audio) async {
+      if (_discardAiOutputUntilNextUserMessage) return;
+
       // Text-only mode: skip all audio playback
       if (!_voiceEnabled) return;
 
@@ -907,6 +962,11 @@ class BuddyProvider with ChangeNotifier {
     String language = 'auto',
     bool isWakeWord = false,
   }) async {
+    _discardAiOutputUntilNextUserMessage = false;
+    await _chatStreamSubscription?.cancel();
+    _chatStreamSubscription = null;
+    final turnId = ++_activeAiTurn;
+
     _isThinking = true;
     notifyListeners();
 
@@ -963,6 +1023,26 @@ class BuddyProvider with ChangeNotifier {
         return;
       }
 
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await response.stream.bytesToString();
+        String message = 'AI service is unavailable right now. Please try again.';
+        try {
+          final parsed = jsonDecode(body);
+          final serverMessage = parsed['message'] ?? parsed['detail'] ?? parsed['error'];
+          if (serverMessage is String && serverMessage.trim().isNotEmpty) {
+            message = serverMessage.trim();
+          }
+        } catch (_) {
+          if (body.trim().isNotEmpty) {
+            message = body.trim();
+          }
+        }
+        addMessage('ai', _safeAiErrorMessage(message));
+        _isThinking = false;
+        notifyListeners();
+        return;
+      }
+
       _isThinking = false;
       
       // Clear previous partial indicator
@@ -984,10 +1064,13 @@ class BuddyProvider with ChangeNotifier {
 
       // Buffer for incomplete SSE network packets
       String streamBuffer = '';
+      bool receivedResponseText = false;
 
       // Start reading the HTTP Stream chunk by chunk!
-      response.stream.transform(utf8.decoder).listen(
+      _chatStreamSubscription = response.stream.transform(utf8.decoder).listen(
         (chunkData) {
+          if (turnId != _activeAiTurn || _discardAiOutputUntilNextUserMessage) return;
+
           streamBuffer += chunkData;
 
           // SSE chunks are separated by double newlines (\n\n)
@@ -1003,8 +1086,14 @@ class BuddyProvider with ChangeNotifier {
                 
                 // If there's an error from Python, display it securely.
                 if (parsed['error'] != null) {
+                   if (receivedResponseText) {
+                     continue;
+                   }
                    if (_messages.isNotEmpty && _messages.last['type'] == 'ai') {
-                      _messages.last['text'] += "\n\nError: ${parsed['error']}";
+                      final errorText = _safeAiErrorMessage(parsed['error']);
+                      _messages.last['text'] = _messages.last['text'].toString().trim().isEmpty
+                          ? errorText
+                          : "${_messages.last['text']}\n\n$errorText";
                    }
                    continue;
                 }
@@ -1022,6 +1111,9 @@ class BuddyProvider with ChangeNotifier {
                 if (parsed['chunk'] != null && _messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
                   String actualText = parsed['chunk'];
                   _messages.last['text'] += actualText;
+                  if (actualText.trim().isNotEmpty) {
+                    receivedResponseText = true;
+                  }
                 }
               } catch (e) {
                 // Ignore incomplete json fragments or malformed lines
@@ -1031,7 +1123,13 @@ class BuddyProvider with ChangeNotifier {
           notifyListeners();
         },
         onDone: () {
+          if (turnId != _activeAiTurn || _discardAiOutputUntilNextUserMessage) return;
+          _chatStreamSubscription = null;
+
           if (_messages.isNotEmpty && _messages.last['isPartial'] == true) {
+            if (!receivedResponseText && _messages.last['text'].toString().trim().isEmpty) {
+              _messages.last['text'] = 'I could not complete that response. Please try again in a moment.';
+            }
             _messages.last['isPartial'] = false;
           }
           // Flush remaining TTS buffer — only if voice is enabled
@@ -1044,7 +1142,16 @@ class BuddyProvider with ChangeNotifier {
           notifyListeners();
         },
         onError: (err) {
+          if (turnId != _activeAiTurn || _discardAiOutputUntilNextUserMessage) return;
+          _chatStreamSubscription = null;
+
           debugPrint('API Stream Error: $err');
+          if (_messages.isNotEmpty && _messages.last['type'] == 'ai' && _messages.last['isPartial'] == true) {
+            if (_messages.last['text'].toString().trim().isEmpty) {
+              _messages.last['text'] = 'The AI stream disconnected before finishing. Please try again.';
+            }
+            _messages.last['isPartial'] = false;
+          }
           _isThinking = false;
           
           notifyListeners();
@@ -1053,7 +1160,7 @@ class BuddyProvider with ChangeNotifier {
 
     } catch (e) {
       debugPrint("HTTP Stream Request Error: $e");
-      addMessage('ai', "Error connecting to AI: $e");
+      addMessage('ai', 'I could not connect to the AI service. Please try again in a moment.');
       _isThinking = false;
       
       notifyListeners();
@@ -1061,6 +1168,7 @@ class BuddyProvider with ChangeNotifier {
   }
 
   Future<void> startNewChat() async {
+    await _cancelActiveAiOutput();
     _currentConversationId = null;
     _messages = [];
     _historyList = []; // Also clear history list to prevent cross-user leakage
@@ -1069,9 +1177,11 @@ class BuddyProvider with ChangeNotifier {
 
   Future<void> deleteConversation(String id) async {
     // Optimistically clear local state
+    await _cancelActiveAiOutput();
     _historyList.removeWhere((c) => c['_id'] == id);
     if (_currentConversationId == id) {
-      startNewChat();
+      _currentConversationId = null;
+      _messages = [];
     }
     notifyListeners();
 
@@ -1081,8 +1191,10 @@ class BuddyProvider with ChangeNotifier {
 
   Future<void> deleteAllHistory() async {
     // Optimistically clear local state
+    await _cancelActiveAiOutput();
     _historyList = [];
-    startNewChat();
+    _currentConversationId = null;
+    _messages = [];
     notifyListeners();
 
     // Attempt to clear from server if logged in

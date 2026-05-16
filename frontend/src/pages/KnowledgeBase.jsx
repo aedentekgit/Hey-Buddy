@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Upload, Search, MessageSquare, FileText, Trash2, Loader2, Plus, Sparkles, Send, Brain } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Plus, Sparkles, Send, Brain } from 'lucide-react';
 import knowledgeService from '../services/knowledgeService';
 import toast from 'react-hot-toast';
 import { formatDate } from '../utils/dateUtils';

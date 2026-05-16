@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
+import 'dart:async';
 import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -49,6 +50,13 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   final SpeechToText _speechToText = SpeechToText();
 
   bool _isListening = false;
+  bool _voiceConversationActive = false;
+  bool _waitingForBuddyResponse = false;
+  bool _buddyResponseStarted = false;
+  bool _isStartingListen = false;
+  Timer? _resumeListeningTimer;
+  Timer? _speechRestartTimer;
+  BuddyProvider? _buddyProvider;
   final String _selectedLanguage = "en-GB";
   File? _selectedImage;
   int _messageLimit = 15;
@@ -61,13 +69,15 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     _initSpeech();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<BuddyProvider>(context, listen: false);
+      _buddyProvider = provider;
+      provider.addListener(_onBuddyProviderChanged);
       final auth = Provider.of<AuthProvider>(context, listen: false);
 
       provider.fetchHistory().then((_) {
         _scrollToBottom(false);
       });
       _initTts();
-      
+
       // Load current logo into GPU cache immediately
       final branding = Provider.of<BrandingProvider>(context, listen: false);
       branding.precacheAllImages(context);
@@ -104,6 +114,40 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
         });
       }
     });
+  }
+
+  void _onBuddyProviderChanged() {
+    if (!mounted || !_voiceConversationActive || !_waitingForBuddyResponse) {
+      return;
+    }
+
+    final provider = _buddyProvider;
+    if (provider == null) return;
+
+    // Wait until Buddy has actually started and fully finished its turn.
+    if (provider.isThinking || provider.isSpeaking) {
+      _buddyResponseStarted = true;
+      _resumeListeningTimer?.cancel();
+      _speechRestartTimer?.cancel();
+      return;
+    }
+
+    if (_buddyResponseStarted && !_isListening) {
+      _resumeListeningTimer?.cancel();
+      _speechRestartTimer?.cancel();
+      _resumeListeningTimer = Timer(const Duration(milliseconds: 900), () {
+        if (!mounted || !_voiceConversationActive || _isListening) return;
+        final latestProvider = _buddyProvider;
+        if (latestProvider == null ||
+            latestProvider.isThinking ||
+            latestProvider.isSpeaking) {
+          return;
+        }
+        _waitingForBuddyResponse = false;
+        _buddyResponseStarted = false;
+        _startListening(autoResume: true);
+      });
+    }
   }
 
   void _onAuthChanged() {
@@ -153,17 +197,85 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       }
 
       bool available = await _speechToText.initialize(
-        onStatus: (status) {
-          if (kDebugMode) debugPrint('STT Status: $status');
-        },
-        onError: (error) {
-          if (kDebugMode) debugPrint('STT Error: $error');
-        },
+        onStatus: _handleSpeechStatus,
+        onError: _handleSpeechError,
       );
       if (kDebugMode) debugPrint('STT Available: $available');
     } catch (e) {
       if (kDebugMode) debugPrint('Error initializing speech: $e');
     }
+  }
+
+  void _handleSpeechStatus(String status) {
+    if (kDebugMode) debugPrint('STT Status: $status');
+    if (!mounted) return;
+
+    final normalized = status.toLowerCase();
+    if (normalized == 'listening') {
+      if (!_isListening) {
+        setState(() => _isListening = true);
+      }
+      return;
+    }
+
+    if (normalized == 'notlistening' || normalized == 'done') {
+      if (_isListening) {
+        setState(() => _isListening = false);
+      }
+
+      // Android STT naturally ends after silence/no speech. In voice-chat mode,
+      // bring it back unless Buddy is already processing/speaking.
+      _scheduleSpeechRestart();
+    }
+  }
+
+  void _handleSpeechError(dynamic error) {
+    if (kDebugMode) debugPrint('STT Error: $error');
+    if (!mounted) return;
+
+    if (_isListening) {
+      setState(() => _isListening = false);
+    }
+
+    // error_no_match is common when the user is silent. Treat it as a soft
+    // end-of-listen, not a broken mic, while the voice session is active.
+    _scheduleSpeechRestart(delay: const Duration(milliseconds: 700));
+  }
+
+  void _scheduleSpeechRestart({
+    Duration delay = const Duration(milliseconds: 1200),
+  }) {
+    _speechRestartTimer?.cancel();
+
+    if (!_voiceConversationActive ||
+        _waitingForBuddyResponse ||
+        _isListening ||
+        _isStartingListen) {
+      return;
+    }
+
+    final provider = _buddyProvider;
+    if (provider != null && (provider.isThinking || provider.isSpeaking)) {
+      return;
+    }
+
+    _speechRestartTimer = Timer(delay, () {
+      if (!mounted ||
+          !_voiceConversationActive ||
+          _waitingForBuddyResponse ||
+          _isListening ||
+          _isStartingListen) {
+        return;
+      }
+
+      final latestProvider = _buddyProvider;
+      if (latestProvider != null &&
+          (latestProvider.isThinking || latestProvider.isSpeaking)) {
+        return;
+      }
+
+      _startListening(autoResume: true);
+    });
   }
 
   Future<void> _initTts() async {
@@ -189,7 +301,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
 
       // ── Sync Voice Response toggle from user preferences ──
       final voicePrefs =
-          (userProvider.user['voicePreferences'] as Map<String, dynamic>?) ?? {};
+          (userProvider.user['voicePreferences'] as Map<String, dynamic>?) ??
+          {};
       final bool voiceEnabled = (voicePrefs['voiceEnabled'] as bool?) ?? true;
       provider.setVoiceEnabled(voiceEnabled);
     } catch (e) {
@@ -204,6 +317,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       auth.removeListener(_onAuthChanged);
     } catch (_) {}
+    _resumeListeningTimer?.cancel();
+    _speechRestartTimer?.cancel();
+    _buddyProvider?.removeListener(_onBuddyProviderChanged);
     _inputController.dispose();
     _scrollController.dispose();
     _speechToText.stop();
@@ -243,6 +359,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
       _selectedImage = null;
     });
     _scrollToBottom();
+
+    if (_voiceConversationActive) {
+      _waitingForBuddyResponse = true;
+      _buddyResponseStarted = false;
+    }
 
     // Send to API
     await provider.sendMessage(
@@ -345,7 +466,10 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     }
   }
 
-  void _startListening() async {
+  void _startListening({bool autoResume = false}) async {
+    if (_isStartingListen || _speechToText.isListening) return;
+
+    _isStartingListen = true;
     try {
       if (!_speechToText.isAvailable) {
         await _initSpeech();
@@ -362,17 +486,22 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             ),
           );
         }
+        _isStartingListen = false;
         return;
       }
 
       final provider = Provider.of<BuddyProvider>(context, listen: false);
-      await provider
-          .stopAllAudio(); // STOP AI IMMEDIATELY WHEN USER WANTS TO TALK
+      if (!autoResume) {
+        await provider
+            .stopAllAudio(); // STOP AI IMMEDIATELY WHEN USER WANTS TO TALK
+      }
 
-      // Stop background wake word streaming to free up mic for local STT
-      await provider.stopWakeWordDetection();
-
-      setState(() => _isListening = true);
+      _resumeListeningTimer?.cancel();
+      _speechRestartTimer?.cancel();
+      setState(() {
+        _voiceConversationActive = true;
+        _isListening = true;
+      });
       await _speechToText.listen(
         onResult: (result) {
           if (kDebugMode) {
@@ -380,14 +509,24 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               'STT Result: "${result.recognizedWords}" (Final: ${result.finalResult})',
             );
           }
+          final recognizedWords = result.recognizedWords.trim();
           setState(() {
             _inputController.text = result.recognizedWords;
           });
           if (result.finalResult) {
+            setState(() => _isListening = false);
+
+            if (recognizedWords.isEmpty) {
+              if (kDebugMode) {
+                debugPrint('STT final result was empty. Restarting listener.');
+              }
+              _scheduleSpeechRestart();
+              return;
+            }
+
             if (kDebugMode) {
               debugPrint('STT Final Result arrived. Sending message...');
             }
-            setState(() => _isListening = false);
             _handleSend();
           }
         },
@@ -399,13 +538,27 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           // Optional: Update animation based on level
         },
       );
+      _isStartingListen = false;
     } catch (e) {
       if (kDebugMode) debugPrint('STT Exception during listen: $e');
-      setState(() => _isListening = false);
+      _isStartingListen = false;
+      setState(() {
+        _isListening = false;
+        if (!autoResume) {
+          _voiceConversationActive = false;
+          _isStartingListen = false;
+        }
+      });
     }
   }
 
   void _stopListening() async {
+    _resumeListeningTimer?.cancel();
+    _speechRestartTimer?.cancel();
+    _voiceConversationActive = false;
+    _isStartingListen = false;
+    _waitingForBuddyResponse = false;
+    _buddyResponseStarted = false;
     await _speechToText.stop();
     setState(() => _isListening = false);
   }
@@ -448,8 +601,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         provider.isLoading && provider.messages.isEmpty
                             ? const Center(child: CircularProgressIndicator())
                             : provider.messages.isEmpty
-                                ? _buildEmptyState(provider, branding)
-                                : _buildChatList(provider, branding),
+                            ? _buildEmptyState(provider, branding)
+                            : _buildChatList(provider, branding),
                       ],
                     ),
                   ),
@@ -716,7 +869,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
   ) {
     final isUser = msg['type'] == 'user';
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    
+
     final ts = DateFormatter.formatTime(
       DateTime.fromMillisecondsSinceEpoch(
         msg['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
@@ -727,43 +880,47 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // Assistant Avatar on the Left
           if (!isUser) ...[
             Container(
-                width: 34,
-                height: 34,
-                decoration: const BoxDecoration(shape: BoxShape.circle),
-                clipBehavior: Clip.antiAlias,
-                child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: branding.logoUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Image.asset(
-                          'assets/images/buddy_logo.gif',
-                          fit: BoxFit.cover,
-                        ),
-                        errorWidget: (context, url, error) => Image.asset(
-                          'assets/images/buddy_logo.gif',
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : Image.asset(
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(shape: BoxShape.circle),
+              clipBehavior: Clip.antiAlias,
+              child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: branding.logoUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Image.asset(
                         'assets/images/buddy_logo.gif',
                         fit: BoxFit.cover,
                       ),
-              ),
+                      errorWidget: (context, url, error) => Image.asset(
+                        'assets/images/buddy_logo.gif',
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Image.asset(
+                      'assets/images/buddy_logo.gif',
+                      fit: BoxFit.cover,
+                    ),
+            ),
             const SizedBox(width: 10),
           ],
-          
+
           ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.74,
             ),
             child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 GestureDetector(
                   onLongPress: () {
@@ -800,19 +957,22 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                     decoration: BoxDecoration(
                       gradient: isUser
                           ? LinearGradient(
-                              colors: [branding.primaryColor, branding.primaryColor.withValues(alpha: 0.8)],
+                              colors: [
+                                branding.primaryColor,
+                                branding.primaryColor.withValues(alpha: 0.8),
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             )
                           : null,
                       color: isUser ? null : const Color(0xFFF8FAFC),
                       borderRadius: msg['image'] != null
-                          ? BorderRadius.circular(8)
+                          ? BorderRadius.circular(16)
                           : BorderRadius.only(
-                              topLeft: const Radius.circular(8),
-                              topRight: const Radius.circular(8),
-                              bottomLeft: Radius.circular(isUser ? 8 : 4),
-                              bottomRight: Radius.circular(isUser ? 4 : 8),
+                              topLeft: const Radius.circular(18),
+                              topRight: const Radius.circular(18),
+                              bottomLeft: Radius.circular(isUser ? 18 : 0),
+                              bottomRight: Radius.circular(isUser ? 0 : 18),
                             ),
                       boxShadow: [
                         BoxShadow(
@@ -827,81 +987,93 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                        if (msg['image'] != null) ...[
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: (msg['image'].toString().startsWith('http') ||
-                                    msg['image'].toString().startsWith('https'))
-                                ? CachedNetworkImage(
-                                    imageUrl: msg['image'],
-                                    width: 240,
-                                    fit: BoxFit.cover,
-                                    placeholder: (context, url) => Container(
-                                      height: 180,
-                                      color: Colors.grey[200],
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    ),
-                                    errorWidget: (context, url, error) =>
-                                        Image.file(
-                                          File(msg['image']),
-                                          width: 240,
-                                          fit: BoxFit.cover,
+                          if (msg['image'] != null) ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child:
+                                  (msg['image'].toString().startsWith('http') ||
+                                      msg['image'].toString().startsWith(
+                                        'https',
+                                      ))
+                                  ? CachedNetworkImage(
+                                      imageUrl: msg['image'],
+                                      width: 240,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        height: 180,
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: CircularProgressIndicator(),
                                         ),
-                                  )
-                                : Image.file(
-                                    File(msg['image']),
-                                    width: 240,
-                                    fit: BoxFit.cover,
-                                  ),
-                          ),
+                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          Image.file(
+                                            File(msg['image']),
+                                            width: 240,
+                                            fit: BoxFit.cover,
+                                          ),
+                                    )
+                                  : Image.file(
+                                      File(msg['image']),
+                                      width: 240,
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                            if (msg['text'] != null &&
+                                msg['text'].toString().isNotEmpty)
+                              const SizedBox(height: 12),
+                          ],
+
                           if (msg['text'] != null &&
                               msg['text'].toString().isNotEmpty)
-                            const SizedBox(height: 12),
-                        ],
-                        
-                        if (msg['text'] != null && msg['text'].toString().isNotEmpty)
-                          Padding(
-                            padding: msg['image'] != null
-                                ? const EdgeInsets.only(left: 14, right: 14, bottom: 14)
-                                : EdgeInsets.zero,
-                            child: MarkdownBody(
-                              data: msg['text'],
-                              styleSheet: MarkdownStyleSheet(
-                                p: GoogleFonts.inter(
-                                  color: isUser ? Colors.white : const Color(0xFF1E293B),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.normal,
-                                  height: 1.5,
-                                ),
-                                code: GoogleFonts.firaCode(
-                                  backgroundColor: isUser ? Colors.white24 : Colors.grey[200],
-                                  color: isUser ? Colors.white : Colors.black87,
-                                  fontSize: 13,
+                            Padding(
+                              padding: msg['image'] != null
+                                  ? const EdgeInsets.only(
+                                      left: 14,
+                                      right: 14,
+                                      bottom: 14,
+                                    )
+                                  : EdgeInsets.zero,
+                              child: MarkdownBody(
+                                data: msg['text'],
+                                styleSheet: MarkdownStyleSheet(
+                                  p: GoogleFonts.inter(
+                                    color: isUser
+                                        ? Colors.white
+                                        : const Color(0xFF1E293B),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.normal,
+                                    height: 1.5,
+                                  ),
+                                  code: GoogleFonts.firaCode(
+                                    backgroundColor: isUser
+                                        ? Colors.white24
+                                        : Colors.grey[200],
+                                    color: isUser
+                                        ? Colors.white
+                                        : Colors.black87,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
+                            )
+                          else if (!isUser && msg['isPartial'] == true)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildDot(0, branding),
+                                const SizedBox(width: 5),
+                                _buildDot(1, branding),
+                                const SizedBox(width: 5),
+                                _buildDot(2, branding),
+                              ],
                             ),
-                          )
-                        else if (!isUser && msg['isPartial'] == true)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildDot(0, branding),
-                              const SizedBox(width: 5),
-                              _buildDot(1, branding),
-                              const SizedBox(width: 5),
-                              _buildDot(2, branding),
-                            ],
-                          ),
-
-
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-                
+
                 const SizedBox(height: 4),
                 Padding(
                   padding: EdgeInsets.only(
@@ -926,7 +1098,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                               ),
                             );
                           },
-                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
+                          child: const Icon(
+                            LucideIcons.copy,
+                            size: 10,
+                            color: Colors.black26,
+                          ),
                         ),
                         const SizedBox(width: 5),
                       ],
@@ -954,7 +1130,11 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
                               ),
                             );
                           },
-                          child: const Icon(LucideIcons.copy, size: 10, color: Colors.black26),
+                          child: const Icon(
+                            LucideIcons.copy,
+                            size: 10,
+                            color: Colors.black26,
+                          ),
                         ),
                       ],
                     ],
@@ -963,16 +1143,14 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
               ],
             ),
           ),
-          
+
           // User Avatar on the Right
-          if (isUser) ...[
-            const SizedBox(width: 8),
-            _buildUserAvatar(),
-          ],
+          if (isUser) ...[const SizedBox(width: 8), _buildUserAvatar()],
         ],
       ),
     );
   }
+
   Widget _buildThinkingBubble(BrandingProvider branding) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -987,10 +1165,10 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(4),
-                bottomRight: Radius.circular(20),
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(0),
+                bottomRight: Radius.circular(18),
               ),
               boxShadow: [
                 BoxShadow(
@@ -1277,10 +1455,16 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage> {
           ],
           AnimatedAIInputField(
             controller: _inputController,
-            isListening: _isListening || provider.isListening,
+            isListening:
+                _voiceConversationActive ||
+                _isListening ||
+                provider.isListening,
             isSpeaking: provider.isSpeaking,
+            isVoiceSessionActive: _voiceConversationActive,
             isEnabled: true,
-            onMicPressed: _isListening ? _stopListening : _startListening,
+            onMicPressed: _voiceConversationActive
+                ? _stopListening
+                : _startListening,
             onAttachPressed: _showAttachOptions,
             onSendPressed: _handleSend,
           ),
@@ -1806,4 +1990,3 @@ class _AttachOption extends StatelessWidget {
     );
   }
 }
-

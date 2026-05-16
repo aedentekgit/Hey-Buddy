@@ -4,17 +4,33 @@ const User = require('../models/User');
 const { sendPushNotificationBatch } = require('../services/notificationService');
 
 module.exports = (io) => {
+    const getAuthorizedRoom = async (roomId, userId) => {
+        if (!roomId || !userId || String(userId).startsWith('guest_')) return null;
+        const room = await ChatRoom.findById(roomId);
+        if (!room || !room.members.map(String).includes(userId.toString())) return null;
+        return room;
+    };
+
     io.on('connection', (socket) => {
         console.log(`[Socket] New connection: ${socket.id}`);
 
-        socket.on('join_room', (roomId) => {
+        socket.on('join_room', async (roomId) => {
+            const room = await getAuthorizedRoom(roomId, socket.userId);
+            if (!room) {
+                return socket.emit('error', { message: 'Access denied to this chat room' });
+            }
             socket.join(roomId);
             console.log(`[Socket] User ${socket.id} joined room: ${roomId}`);
         });
 
         socket.on('send_message', async (data) => {
             try {
-                const { roomId, senderId, content, replyTo, fileUrl, fileName, fileType } = data;
+                const { roomId, content, replyTo, fileUrl, fileName, fileType } = data;
+                const senderId = socket.userId;
+                const room = await getAuthorizedRoom(roomId, senderId);
+                if (!room) {
+                    return socket.emit('error', { message: 'Access denied to this chat room' });
+                }
 
                 if (!content && !fileUrl) {
                     return socket.emit('error', { message: "Message cannot be empty" });
@@ -62,9 +78,9 @@ module.exports = (io) => {
                 io.to(roomId).emit('new_message', messagePayload);
 
                 // ALSO: Broadcast to each member's private room (for those outside the chat, in the hub/list)
-                const room = await ChatRoom.findById(roomId).populate('members', 'fcmTokens');
-                if (room) {
-                    room.members.forEach(member => {
+                const populatedRoom = await ChatRoom.findById(roomId).populate('members', 'fcmTokens');
+                if (populatedRoom) {
+                    populatedRoom.members.forEach(member => {
                         // send to member's personal room (userId)
                         // This allows global state to update (unread badges, last message previews)
                         if (member._id.toString() !== senderId.toString()) {
@@ -73,7 +89,7 @@ module.exports = (io) => {
                     });
 
                     // Push Notifications for other members
-                    const otherMembers = room.members.filter(m => m._id.toString() !== senderId.toString());
+                    const otherMembers = populatedRoom.members.filter(m => m._id.toString() !== senderId.toString());
                     const fcmTokens = otherMembers.flatMap(m => m.fcmTokens || []);
 
                     if (fcmTokens.length > 0) {
@@ -94,8 +110,11 @@ module.exports = (io) => {
         socket.on('react_message', async (data) => {
             try {
                 const { messageId, roomId, senderId, emoji } = data;
+                if (senderId !== socket.userId) return;
+                const room = await getAuthorizedRoom(roomId, socket.userId);
+                if (!room) return socket.emit('error', { message: 'Access denied to this chat room' });
                 const message = await ChatMessage.findById(messageId);
-                if (!message) return;
+                if (!message || message.roomId !== roomId) return;
 
                 // Toggle reaction: remove if exists, else add
                 const existingIdx = message.reactions.findIndex(r => r.userId === senderId && r.emoji === emoji);
@@ -119,8 +138,11 @@ module.exports = (io) => {
         socket.on('star_message', async (data) => {
             try {
                 const { messageId, roomId, userId, isStarred } = data;
+                if (userId !== socket.userId) return;
+                const room = await getAuthorizedRoom(roomId, socket.userId);
+                if (!room) return socket.emit('error', { message: 'Access denied to this chat room' });
                 const message = await ChatMessage.findById(messageId);
-                if (!message) return;
+                if (!message || message.roomId !== roomId) return;
 
                 const starredIdx = message.isStarredBy.indexOf(userId);
                 if (isStarred && starredIdx === -1) {
@@ -143,8 +165,10 @@ module.exports = (io) => {
         socket.on('pin_message', async (data) => {
             try {
                 const { messageId, roomId, isPinned } = data;
+                const room = await getAuthorizedRoom(roomId, socket.userId);
+                if (!room) return socket.emit('error', { message: 'Access denied to this chat room' });
                 const message = await ChatMessage.findById(messageId);
-                if (!message) return;
+                if (!message || message.roomId !== roomId) return;
 
                 message.isPinned = isPinned;
                 await message.save();
@@ -161,7 +185,10 @@ module.exports = (io) => {
 
         socket.on('forward_message', async (data) => {
             try {
-                const { originalMessageId, targetRoomId, senderId } = data;
+                const { originalMessageId, targetRoomId } = data;
+                const senderId = socket.userId;
+                const targetRoom = await getAuthorizedRoom(targetRoomId, senderId);
+                if (!targetRoom) return socket.emit('error', { message: 'Access denied to this chat room' });
                 const original = await ChatMessage.findById(originalMessageId);
                 if (!original) return;
 
@@ -211,6 +238,9 @@ module.exports = (io) => {
             try {
                 const { roomId, userId } = data;
                 if (!roomId || !userId) return;
+                if (userId !== socket.userId) return;
+                const room = await getAuthorizedRoom(roomId, socket.userId);
+                if (!room) return socket.emit('error', { message: 'Access denied to this chat room' });
 
                 await ChatMessage.updateMany(
                     { roomId, readBy: { $ne: userId } },
@@ -231,6 +261,9 @@ module.exports = (io) => {
             try {
                 const { roomId, userId } = data;
                 if (!roomId || !userId) return;
+                if (userId !== socket.userId) return;
+                const room = await getAuthorizedRoom(roomId, socket.userId);
+                if (!room) return socket.emit('error', { message: 'Access denied to this chat room' });
 
                 await ChatMessage.updateMany(
                     { roomId, deliveredTo: { $ne: userId } },

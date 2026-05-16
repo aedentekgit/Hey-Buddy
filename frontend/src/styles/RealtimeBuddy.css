@@ -142,3 +142,29 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
 }
+
+.error-message {
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 12px;
+    color: #ef4444;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 1;
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}

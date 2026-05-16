@@ -11,6 +11,49 @@ const recordController = require('../recordController');
 let cachedAiConfig = null;
 let lastCacheTime = 0;
 const CACHE_DURATION_MS = 60 * 1000; // 60 seconds
+const REALTIME_KEYWORDS = [
+    'current', 'latest', 'today', 'now', 'recent', 'breaking', 'news', 'headline',
+    'headlines', 'live', 'update', 'updates', 'global', 'world', 'weather',
+    'price', 'prices', 'stock', 'stocks', 'market', 'markets', 'score', 'scores',
+    'trend', 'trends', 'happening', 'affairs'
+];
+
+const REALTIME_PATTERNS = [
+    /\bwho\s+is\s+(the\s+)?(cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\b/i,
+    /\b(?:cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\s+of\b/i,
+    /\b(?:current|new|present)\s+(?:cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\b/i,
+];
+
+const AI_UNAVAILABLE_MESSAGE = 'The AI service is temporarily unavailable. Please try again in a moment.';
+
+const sanitizeAiError = (message = '') => {
+    const text = String(message || '').trim();
+    if (!text) return AI_UNAVAILABLE_MESSAGE;
+
+    const lower = text.toLowerCase();
+    const hasTechnicalDetails = [
+        'error code',
+        'invalid_request_error',
+        'insufficient balance',
+        'traceback',
+        'stack',
+        '{',
+        '}',
+        'api key',
+        'httpexception',
+        'axios',
+        'python'
+    ].some(marker => lower.includes(marker));
+
+    if (hasTechnicalDetails) return AI_UNAVAILABLE_MESSAGE;
+    return text.replace(/^error:\s*/i, '').trim() || AI_UNAVAILABLE_MESSAGE;
+};
+
+const requiresRealtimeSearch = (message = '') => {
+    const lower = String(message || '').toLowerCase();
+    return REALTIME_KEYWORDS.some(keyword => new RegExp(`\\b${keyword}\\b`, 'i').test(lower))
+        || REALTIME_PATTERNS.some(pattern => pattern.test(lower));
+};
 
 const getAiConfig = async () => {
     const now = Date.now();
@@ -100,7 +143,11 @@ exports.proxyChatToPython = async (req, res) => {
 
         const requestPath = req.path;
         const isStream = requestPath.includes('stream');
-        const isRealtime = requestPath.includes('realtime');
+        let isRealtime = requestPath.includes('realtime');
+        if (!isRealtime && requiresRealtimeSearch(message)) {
+            isRealtime = true;
+            console.log('[AI Gateway] Auto-routing freshness-sensitive request to realtime search');
+        }
 
         // --- Guest Gate: Enforce Login for Memory/Location, allow news ---
         if (isGuest) {
@@ -254,6 +301,9 @@ exports.proxyChatToPython = async (req, res) => {
             pythonResponse.data.on('end', () => res.end());
             pythonResponse.data.on('error', (err) => {
                 console.error('[AI Gateway] Python stream error:', err);
+                if (!res.writableEnded && !firstTokenSent) {
+                    res.write(`data: ${JSON.stringify({ error: 'The AI stream disconnected before finishing. Please try again.' })}\n\n`);
+                }
                 res.end();
             });
         } else {
@@ -271,7 +321,7 @@ exports.proxyChatToPython = async (req, res) => {
             status: error.response?.status || 0,
             message: errorMessage
         });
-        res.status(error.response?.status || 500).json({ success: false, message: errorMessage });
+        res.status(error.response?.status || 500).json({ success: false, message: sanitizeAiError(errorMessage) });
     }
 };
 
@@ -551,6 +601,10 @@ exports.proxyTtsToPython = async (req, res) => {
 exports.proxyHistoryToPython = async (req, res) => {
     try {
         const { session_id } = req.params;
+        const expectedPrefix = `user_${req.user._id}`;
+        if (!session_id || !session_id.startsWith(expectedPrefix)) {
+            return res.status(403).json({ success: false, message: 'Access denied for this chat history.' });
+        }
         const aiServiceUrl = config.AI_SERVICE_URL;
         const pythonResponse = await axios.get(`${aiServiceUrl}/chat/history/${session_id}`, {
             headers: { 'X-API-Key': config.BUDDY_API_KEY }

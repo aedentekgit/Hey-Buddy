@@ -1,4 +1,3 @@
-import React from 'react';
 import { Shield, Eye, Edit2, Trash2, Calendar } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';

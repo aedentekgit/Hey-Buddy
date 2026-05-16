@@ -171,13 +171,13 @@ class TTSService {
     async _googleFallback(text, language) {
         try {
             console.log(`[TTS] Starting Google fallback for: "${text.substring(0, 30)}..." with lang: ${language}`);
-            const params = new URLSearchParams({
+            const query = new URLSearchParams({
                 ie: 'UTF-8',
-                q: text,
+                q: text.slice(0, 200),
                 tl: language,
-                client: 'tw-ob',
+                client: 'tw-ob'
             });
-            const url = `https://translate.google.com/translate_tts?${params.toString()}`;
+            const url = `https://translate.google.com/translate_tts?${query.toString()}`;
             const axios = require('axios');
             const resp = await axios.get(url, { responseType: 'arraybuffer' });
             return {

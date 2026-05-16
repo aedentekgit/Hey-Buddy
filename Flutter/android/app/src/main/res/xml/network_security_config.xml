@@ -5,7 +5,6 @@
         <domain includeSubdomains="true">ayuskart.com</domain>
         <domain includeSubdomains="true">staging.ayuskart.com</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
-        <domain includeSubdomains="true">82.29.167.22</domain>
         <domain includeSubdomains="true">localhost</domain>
     </domain-config>
     <base-config cleartextTrafficPermitted="true">

@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import api from '../services/api';
 
 const ThemeContext = createContext();
@@ -48,7 +48,7 @@ export const ThemeProvider = ({ children }) => {
         return `${r}, ${g}, ${b}`;
     };
 
-    const applyTheme = (mode, color) => {
+    const applyTheme = useCallback((mode, color) => {
         const root = document.documentElement;
         const currentTheme = mode === 'night' ? nightTheme : dayTheme;
 
@@ -94,7 +94,7 @@ export const ThemeProvider = ({ children }) => {
         root.style.setProperty('--th-text', '#FFFFFF');
         root.style.setProperty('--td-border', mode === 'night' ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0');
         root.style.setProperty('--row-hover', mode === 'night' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(var(--primary-rgb), 0.02)');
-    };
+    }, [secondaryAccent]);
 
     useEffect(() => {
         let mode = themeMode;
@@ -105,7 +105,7 @@ export const ThemeProvider = ({ children }) => {
         localStorage.setItem('themeMode', themeMode);
         localStorage.setItem('accentColor', accentColor);
         localStorage.setItem('secondaryAccent', secondaryAccent);
-    }, [themeMode, accentColor, secondaryAccent]);
+    }, [themeMode, accentColor, secondaryAccent, applyTheme]);
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
@@ -139,7 +139,7 @@ export const ThemeProvider = ({ children }) => {
             mediaQuery.addEventListener('change', handleChange);
             return () => mediaQuery.removeEventListener('change', handleChange);
         }
-    }, [themeMode, accentColor]);
+    }, [themeMode, accentColor, applyTheme]);
 
     return (
         <ThemeContext.Provider value={{

@@ -253,62 +253,68 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
                 SizedBox(
-                  height: 48,
+                  height: 34,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
                     itemCount: 7,
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
                       if (i == 0) {
                         final dateActive = _selectedDate != null;
-                        return GestureDetector(
-                          onTap: () => _openDatePicker(provider.reminders),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: dateActive ? AppColors.accent : AppColors.surface,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: dateActive ? AppColors.accent : AppColors.border,
-                              ),
-                              boxShadow: !dateActive ? [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ] : [
-                                BoxShadow(
-                                  color: AppColors.accent.withValues(alpha: 0.25),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  LucideIcons.calendarDays,
-                                  size: 13,
-                                  color: dateActive ? Colors.white : AppColors.textMid,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  dateActive
-                                      ? '${_selectedDate!.day}/${_selectedDate!.month}'
-                                      : 'Date',
-                                  style: GoogleFonts.nunito(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: dateActive ? Colors.white : AppColors.textMid,
+                        return Center(
+                          child: GestureDetector(
+                            onTap: () => _openDatePicker(provider.reminders),
+                            child: SizedBox(
+                              height: 30,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: dateActive ? AppColors.accent : AppColors.surface,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: dateActive ? AppColors.accent : AppColors.border,
                                   ),
+                                  boxShadow: !dateActive ? [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.04),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ] : [
+                                    BoxShadow(
+                                      color: AppColors.accent.withValues(alpha: 0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.calendarDays,
+                                      size: 12,
+                                      color: dateActive ? Colors.white : AppColors.textMid,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      dateActive
+                                          ? '${_selectedDate!.day}/${_selectedDate!.month}'
+                                          : 'Date',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: dateActive ? Colors.white : AppColors.textMid,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         );
@@ -323,41 +329,46 @@ class _LocationRemindersScreenState extends State<LocationRemindersScreen> {
                       ];
                       final f = filters[i - 1];
                       final active = f == _activeFilter && _selectedDate == null;
-                      return GestureDetector(
-                        onTap: () => setState(() {
-                          _activeFilter = f;
-                          _selectedDate = null;
-                        }),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: active ? AppColors.accent : AppColors.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: active ? AppColors.accent : AppColors.border,
-                            ),
-                            boxShadow: !active ? [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 6,
-                                offset: const Offset(0, 1),
+                      return Center(
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            _activeFilter = f;
+                            _selectedDate = null;
+                          }),
+                          child: SizedBox(
+                            height: 30,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: active ? AppColors.accent : AppColors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: active ? AppColors.accent : AppColors.border,
+                                ),
+                                boxShadow: !active ? [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ] : [
+                                  BoxShadow(
+                                    color: AppColors.accent.withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                            ] : [
-                              BoxShadow(
-                                color: AppColors.accent.withValues(alpha: 0.25),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
+                              child: Text(
+                                f,
+                                style: GoogleFonts.nunito(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: active ? Colors.white : AppColors.textMid,
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            f,
-                            style: GoogleFonts.nunito(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: active ? Colors.white : AppColors.textMid,
                             ),
                           ),
                         ),

@@ -39,7 +39,8 @@ KEY ARCHITECTURAL DECISIONS:
     authentication, no multi-tenancy, and CORS is open (`allow_origins=*`).
 
 ENDPOINTS:
-  GET  /                    - Returns API name and list of endpoints.
+  GET  /                    - Redirects to /app/ (frontend).
+  GET  /app, /app/*         - Serves the frontend (static files) when frontend/ exists.
   GET  /api                 - Returns API name and list of endpoints.
   GET  /health              - Returns status of all services (for monitoring).
   POST /chat                - General chat (non-streaming).
@@ -88,7 +89,12 @@ from fastapi.middleware.gzip import GZipMiddleware
 # StreamingResponse — returns an iterable/generator to the client chunk by
 #   chunk instead of buffering the entire response body in memory first.
 #   Used for SSE streaming and TTS audio streaming.
-from fastapi.responses import StreamingResponse
+# RedirectResponse — sends an HTTP 302 redirect (GET / → /app/).
+from fastapi.responses import StreamingResponse, RedirectResponse
+
+# StaticFiles — mounts a directory so FastAPI serves its contents as static
+# files (HTML, CSS, JS).  Used to serve the frontend under /app.
+from fastapi.staticfiles import StaticFiles
 
 # BaseHTTPMiddleware — Starlette base class for writing custom middleware.
 # TimingMiddleware (below) subclasses this to log request duration.
@@ -401,7 +407,7 @@ async def lifespan(app: FastAPI):
         logger.info("=" * 60)
         logger.info("Hey buddy is online and ready!")
         logger.info("API: http://localhost:8000")
-        logger.info("API index: http://localhost:8000/api")
+        logger.info("Frontend: http://localhost:8000/app/ (open in browser)")
         # Security reminder — warn loudly if no API key is configured
         if not _os.getenv("BUDDY_API_KEY", ""):
             logger.warning("[SECURITY] BUDDY_API_KEY is not set — all /chat endpoints are unprotected!")
@@ -487,6 +493,40 @@ async def _require_api_key(x_api_key: _Optional[str] = Header(default=None)):
         return
     if x_api_key != _BUDDY_API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")
+
+
+_REALTIME_KEYWORDS = {
+    "current", "latest", "today", "now", "recent", "breaking", "news", "headline",
+    "headlines", "live", "update", "updates", "global", "world", "weather",
+    "price", "prices", "stock", "stocks", "market", "markets", "score", "scores",
+    "trend", "trends", "happening", "affairs",
+}
+
+_REALTIME_PATTERNS = [
+    re.compile(r"\bwho\s+is\s+(the\s+)?(cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\b", re.I),
+    re.compile(r"\b(cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\s+of\b", re.I),
+    re.compile(r"\b(current|new|present)\s+(cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\b", re.I),
+]
+
+
+def _request_text(message) -> str:
+    if isinstance(message, str):
+        return message
+    if isinstance(message, list):
+        parts = []
+        for item in message:
+            if isinstance(item, dict) and "text" in item:
+                parts.append(str(item["text"]))
+            else:
+                parts.append(str(item))
+        return " ".join(parts)
+    return str(message or "")
+
+
+def _requires_realtime_search(message) -> bool:
+    text = _request_text(message).lower()
+    words = set(re.findall(r"[a-z0-9']+", text))
+    return bool(words & _REALTIME_KEYWORDS) or any(pattern.search(text) for pattern in _REALTIME_PATTERNS)
 
 
 # =============================================================================
@@ -648,23 +688,28 @@ async def chat(request: ChatRequest):
     # Prevent token overflow and potential abuse by rejecting messages that are
     # too long or empty. ~32 000 chars ≈ ~8 000 tokens — well within model limits.
     _MAX_MSG_LEN = 32_000
-    if not request.message or not request.message.strip():
+    message_text = _request_text(request.message)
+    if not message_text.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
-    if len(request.message) > _MAX_MSG_LEN:
+    if len(message_text) > _MAX_MSG_LEN:
         raise HTTPException(
             status_code=400,
-            detail=f"Message too long ({len(request.message)} chars). Maximum is {_MAX_MSG_LEN}."
+            detail=f"Message too long ({len(message_text)} chars). Maximum is {_MAX_MSG_LEN}."
         )
 
     logger.info("[API /chat] Incoming | session_id=%s | message_len=%d | message=%.100s",
-                request.session_id or "new", len(request.message), request.message)
+                request.session_id or "new", len(message_text), message_text)
     try:
         # Retrieve an existing session or create a new one (returns session_id string).
         session_id = await chat_service.get_or_create_session(request.session_id)
 
-        # Send the message through the non-streaming pipeline:
-        #   chat_service → groq_service → vector_store (RAG) → Groq LLM → response text
-        response_text = chat_service.process_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
+        if realtime_service and _requires_realtime_search(request.message):
+            logger.info("[API /chat] Auto-routing freshness-sensitive request to realtime search")
+            response_text = chat_service.process_realtime_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
+        else:
+            # Send the message through the non-streaming pipeline:
+            #   chat_service → groq_service → vector_store (RAG) → Groq LLM → response text
+            response_text = chat_service.process_message(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
 
         # Persist the updated session (including the new user + assistant messages)
         # to a JSON file on disk so it survives server restarts.
@@ -788,6 +833,7 @@ _SPLIT_RE = re.compile(r"(?<=[.!?,;:])")
 _MIN_WORDS_FIRST = 1
 _MIN_WORDS = 1
 _MERGE_IF_WORDS = 1
+STREAM_FAILURE_MESSAGE = "I couldn't complete that response right now. Please try again in a moment."
 
 
 def _split_sentences(buf: str):
@@ -972,6 +1018,7 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
     held = None       # Last complete sentence, held back in case the next chunk extends it
     is_first = True   # Whether we've submitted the first TTS sentence yet
     audio_queue = []  # Ordered list of (Future, sentence_text) — preserves playback order
+    sent_text = False
 
     def _submit(text):
         """Submit a sentence to the TTS thread pool and add the Future to audio_queue."""
@@ -1023,6 +1070,7 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
 
             # --- Text goes out instantly — TTS never blocks text delivery ---
             yield f"data: {json.dumps({'chunk': chunk, 'done': False})}\n\n"
+            sent_text = True
 
             if not tts_enabled:
                 continue
@@ -1075,7 +1123,12 @@ def _stream_generator(session_id: str, chunk_iter, is_realtime: bool, tts_enable
         # an error event so the client knows the stream terminated abnormally.
         for fut, _ in audio_queue:
             fut.cancel()
-        yield f"data: {json.dumps({'chunk': '', 'done': True, 'error': str(e)})}\n\n"
+        logger.error("[STREAM] Response generation failed: %s", e, exc_info=True)
+        if sent_text:
+            yield f"data: {json.dumps({'chunk': '', 'done': True, 'session_id': session_id})}\n\n"
+            return
+        error_message = str(e) if isinstance(e, AllGroqApisFailedError) else STREAM_FAILURE_MESSAGE
+        yield f"data: {json.dumps({'chunk': '', 'done': True, 'error': error_message})}\n\n"
         return
 
     # --- Flush remaining TTS after the LLM finishes ---
@@ -1140,21 +1193,27 @@ async def chat_stream(request: ChatRequest):
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
     _MAX_MSG_LEN = 32_000
-    if not request.message or not request.message.strip():
+    message_text = _request_text(request.message)
+    if not message_text.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
-    if len(request.message) > _MAX_MSG_LEN:
-        raise HTTPException(status_code=400, detail=f"Message too long ({len(request.message)} chars). Maximum is {_MAX_MSG_LEN}.")
+    if len(message_text) > _MAX_MSG_LEN:
+        raise HTTPException(status_code=400, detail=f"Message too long ({len(message_text)} chars). Maximum is {_MAX_MSG_LEN}.")
     logger.info("[API /chat/stream] Incoming | session_id=%s | message_len=%d | message=%.100s",
-                request.session_id or "new", len(request.message), request.message)
+                request.session_id or "new", len(message_text), message_text)
     try:
         session_id = await chat_service.get_or_create_session(request.session_id)
-        # process_message_stream returns a generator that yields text chunks.
-        chunk_iter = chat_service.process_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
+        auto_realtime = realtime_service is not None and _requires_realtime_search(request.message)
+        if auto_realtime:
+            logger.info("[API /chat/stream] Auto-routing freshness-sensitive request to realtime search")
+            chunk_iter = chat_service.process_realtime_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
+        else:
+            # process_message_stream returns a generator that yields text chunks.
+            chunk_iter = chat_service.process_message_stream(session_id, request.message, api_key=getattr(request, 'api_key', None), provider=getattr(request, 'provider', None), model=getattr(request, 'model', None), user_id=request.userId, memory_context=request.memory_context or "", fallback_groq_key=getattr(request, 'fallback_groq_key', None), api_keys_dict=getattr(request, 'api_keys', None))
         # Detect language of user message to set the context
-        user_lang = language_service.detect_language(request.message)
+        user_lang = language_service.detect_language(message_text)
 
         return StreamingResponse(
-            _stream_generator(session_id, chunk_iter, is_realtime=False, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone, voice_id=request.voice_id),
+            _stream_generator(session_id, chunk_iter, is_realtime=auto_realtime, tts_enabled=request.tts, initial_language=user_lang, gender=request.gender, tone=request.tone, voice_id=request.voice_id),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -1532,10 +1591,40 @@ async def text_to_speech(request: TTSRequest):
     )
 
 
+# =============================================================================
+# FRONTEND STATIC FILE SERVING
+# =============================================================================
+# The frontend (HTML/CSS/JS) lives in the `frontend/` directory at the project
+# root (one level up from app/).  We mount it under the /app URL prefix so
+# that API routes (/, /health, /chat, …) don't collide with frontend routes.
+#
+# Architecture:
+#   http://localhost:8000/           → 302 redirect to /app/
+#   http://localhost:8000/app/       → serves frontend/index.html
+#   http://localhost:8000/app/style.css → serves frontend/style.css
+#   http://localhost:8000/chat       → API endpoint (JSON)
+#
+# This lets us run BOTH the API and the frontend on a single port (8000),
+# which simplifies deployment — no separate web server needed.
+#
+# The `html=True` flag tells StaticFiles to serve index.html for directory
+# requests (e.g. /app/ serves frontend/index.html).
+
+_frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+if _frontend_dir.exists():
+    app.mount("/app", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
+
+
 @app.get("/")
-async def root():
-    """Return the API index at the root URL."""
-    return await api_info()
+async def root_redirect():
+    """
+    Redirect the bare root URL to the frontend app.
+
+    When a user opens http://localhost:8000/ in their browser, they probably
+    want the UI — not a JSON API response.  This 302 redirect sends them
+    to /app/ where the frontend is served.
+    """
+    return RedirectResponse(url="/app/", status_code=302)
 
 
 # =============================================================================

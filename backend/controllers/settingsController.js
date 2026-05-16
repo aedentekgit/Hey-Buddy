@@ -22,7 +22,12 @@ const getPublicSettings = async (req, res) => {
             return res.json({ success: true, data: publicSettingsCache });
         }
 
-        const settings = await Settings.findOne().select('appearance general mobileApp googleAuth.webClientId googleAuth.enabled googleMaps.apiKey googleMaps.enabled ai.availableVoices');
+        const settings = await Settings.findOne().select(
+            'appearance general mobileApp googleAuth.webClientId googleAuth.enabled googleMaps.apiKey googleMaps.enabled ai.availableVoices ' +
+            'notification.enabled notification.firebasePublicVapidKey notification.firebaseApiKey notification.firebaseAuthDomain ' +
+            'notification.firebaseProjectId notification.firebaseStorageBucket notification.firebaseMessageSenderId ' +
+            'notification.firebaseAppId notification.firebaseMeasurementId'
+        );
         publicSettingsCache = settings;
         res.json({ success: true, data: settings });
     } catch (error) {
@@ -283,13 +288,20 @@ const testNotification = async (req, res) => {
 
 const fs = require('fs');
 
+const uploadsRoot = path.resolve(__dirname, '..', 'uploads');
+
+const resolveUploadPath = (relativePath) => {
+    if (!relativePath || typeof relativePath !== 'string') return null;
+    const cleaned = relativePath.replace(/^\/+/, '');
+    const resolved = path.resolve(uploadsRoot, cleaned);
+    if (!resolved.startsWith(uploadsRoot + path.sep) && resolved !== uploadsRoot) {
+        return null;
+    }
+    return resolved;
+};
+
 const internalFileSync = async (req, res) => {
     try {
-        const syncSecret = req.headers['x-vps-sync-secret'];
-        if (syncSecret !== process.env.JWT_SECRET) {
-            return res.status(403).json({ success: false, message: 'Unauthorized sync request' });
-        }
-
         if (!req.files || !req.files['file'] || !req.body.destination) {
             return res.status(400).json({ success: false, message: 'Missing file or destination' });
         }
@@ -297,7 +309,10 @@ const internalFileSync = async (req, res) => {
         const syncFile = req.files['file'][0];
         const destination = req.body.destination;
 
-        const fullPath = path.join(__dirname, '..', 'uploads', destination);
+        const fullPath = resolveUploadPath(destination);
+        if (!fullPath) {
+            return res.status(400).json({ success: false, message: 'Invalid destination path' });
+        }
         const dir = path.dirname(fullPath);
 
         // Ensure directory exists
@@ -316,11 +331,6 @@ const internalFileSync = async (req, res) => {
 
 const internalFileDeleteSync = async (req, res) => {
     try {
-        const syncSecret = req.headers['x-vps-sync-secret'];
-        if (syncSecret !== process.env.JWT_SECRET) {
-            return res.status(403).json({ success: false, message: 'Unauthorized sync request' });
-        }
-
         const { fileUrl } = req.body;
         if (!fileUrl) {
             return res.status(400).json({ success: false, message: 'Missing fileUrl' });
@@ -329,7 +339,10 @@ const internalFileDeleteSync = async (req, res) => {
         // Expected format: /uploads/filename.ext
         if (fileUrl.startsWith('/uploads/')) {
             const relativePath = fileUrl.replace('/uploads/', '');
-            const fullPath = path.join(__dirname, '..', 'uploads', relativePath);
+            const fullPath = resolveUploadPath(relativePath);
+            if (!fullPath) {
+                return res.status(400).json({ success: false, message: 'Invalid file path' });
+            }
             try {
                 await fs.promises.unlink(fullPath);
                 console.log(`🗑️ Synced DELETION from local dev: ${relativePath}`);

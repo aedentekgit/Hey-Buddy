@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-    MapPin, Bell, AlertTriangle, Users, Plus, Trash2,
-    Search, Loader2, Calendar, Clock, X, Share2, Eye, EyeOff
+    MapPin, Plus, Trash2,
+    Search, Loader2, Eye
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import locationReminderService from '../services/locationReminderService';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -13,7 +13,7 @@ import SmartReminderDetails from '../components/SmartReminderDetails';
 import MobileTaskCard from '../components/MobileTaskCard';
 import GoogleMapPicker from '../components/GoogleMapPicker';
 import CustomTimePicker from '../components/CustomTimePicker';
-import { ThStyle, TdStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, ActionButtonStyle } from '../styles/tableStyles';
+import { ThStyle, TableElementStyle } from '../styles/tableStyles';
 import { useAuth } from '../context/AuthContext';
 
 const LocationReminders = () => {

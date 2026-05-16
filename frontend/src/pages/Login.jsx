@@ -52,7 +52,7 @@ const Login = () => {
         // Set the global handler for our custom button
         window.handleGoogleLoginCode = () => client.requestCode();
 
-    }, [publicSettings, googleLogin, navigate]);
+    }, [publicSettings, googleLogin, navigate, refreshSettings]);
 
 
 

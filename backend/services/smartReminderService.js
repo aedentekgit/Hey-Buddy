@@ -197,16 +197,31 @@ async function checkEarlyWarnings(io) {
         const currentTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); // HH:MM
         const currentDate = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
 
-        // Find reminders with early warning enabled, scheduled for today/future
-        const reminders = await Reminder.find({
-            'smartFeatures.earlyWarning': true,
-            status: 'pending',
-            location: { $ne: null },
-            'coordinates.lat': { $exists: true },
-            'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences');
+        // Find reminders with early warning enabled, scheduled for today/future from BOTH collections
+        const [remindersStd, remindersLoc] = await Promise.all([
+            Reminder.find({
+                'smartFeatures.earlyWarning': true,
+                status: 'pending',
+                location: { $ne: null },
+                'coordinates.lat': { $exists: true },
+                'coordinates.lng': { $exists: true }
+            }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences'),
+            require('../models/LocationReminder').find({
+                earlyWarningSet: true,
+                status: 'on_track',
+                location: { $ne: null },
+                'coordinates.lat': { $exists: true },
+                'coordinates.lng': { $exists: true }
+            }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences')
+        ]);
 
-        for (const reminder of reminders) {
+        const allReminders = [
+            ...remindersStd.map(r => ({ ...r.toObject(), _model: 'Reminder' })),
+            ...remindersLoc.map(r => ({ ...r.toObject(), _model: 'LocationReminder' }))
+        ];
+
+        for (const reminderData of allReminders) {
+            const reminder = reminderData;
             let user = reminder.userId;
 
             if (!user || typeof user === "string") {
@@ -324,7 +339,8 @@ async function checkEarlyWarnings(io) {
                 }
 
                 // Add to timeline to prevent duplicate
-                await Reminder.findByIdAndUpdate(reminder._id, {
+                const Model = reminder._model === 'LocationReminder' ? require('../models/LocationReminder') : Reminder;
+                await Model.findByIdAndUpdate(reminder._id, {
                     $push: {
                         timeline: {
                             action: 'Early Warning Alert',
@@ -348,15 +364,30 @@ async function checkEarlyWarnings(io) {
  */
 async function adjustReminderTimesForTraffic(io) {
     try {
-        const reminders = await Reminder.find({
-            'smartFeatures.trafficAware': true,
-            status: 'pending',
-            location: { $ne: null },
-            'coordinates.lat': { $exists: true },
-            'coordinates.lng': { $exists: true }
-        }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences');
+        const [remindersStd, remindersLoc] = await Promise.all([
+            Reminder.find({
+                'smartFeatures.trafficAware': true,
+                status: 'pending',
+                location: { $ne: null },
+                'coordinates.lat': { $exists: true },
+                'coordinates.lng': { $exists: true }
+            }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences'),
+            require('../models/LocationReminder').find({
+                trafficAware: true,
+                status: 'on_track',
+                location: { $ne: null },
+                'coordinates.lat': { $exists: true },
+                'coordinates.lng': { $exists: true }
+            }).populate('userId', 'name email fcmTokens currentLocation timezone notificationPreferences voicePreferences')
+        ]);
 
-        for (const reminder of reminders) {
+        const allReminders = [
+            ...remindersStd.map(r => ({ ...r.toObject(), _model: 'Reminder' })),
+            ...remindersLoc.map(r => ({ ...r.toObject(), _model: 'LocationReminder' }))
+        ];
+
+        for (const reminderData of allReminders) {
+            const reminder = reminderData;
             let user = reminder.userId;
 
             if (!user || typeof user === "string") {
@@ -465,7 +496,8 @@ async function adjustReminderTimesForTraffic(io) {
                 }
 
                 // Add to timeline to prevent duplicate
-                await Reminder.findByIdAndUpdate(reminder._id, {
+                const Model = reminder._model === 'LocationReminder' ? require('../models/LocationReminder') : Reminder;
+                await Model.findByIdAndUpdate(reminder._id, {
                     $push: {
                         timeline: {
                             action: 'Traffic Alert',
@@ -502,9 +534,24 @@ async function checkItemExitGuards(specificUserId = null, io) {
             query.userId = specificUserId;
         }
 
-        const reminders = await Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation timezone notificationPreferences voicePreferences');
+        const [remindersStd, remindersLoc] = await Promise.all([
+            Reminder.find(query).populate('userId', 'name email fcmTokens currentLocation previousLocation timezone notificationPreferences voicePreferences'),
+            require('../models/LocationReminder').find({
+                itemExitGuards: true,
+                status: 'on_track',
+                location: { $ne: null },
+                'coordinates.lat': { $exists: true },
+                'coordinates.lng': { $exists: true }
+            }).populate('userId', 'name email fcmTokens currentLocation previousLocation timezone notificationPreferences voicePreferences')
+        ]);
 
-        for (const reminder of reminders) {
+        const allReminders = [
+            ...remindersStd.map(r => ({ ...r.toObject(), _model: 'Reminder' })),
+            ...remindersLoc.map(r => ({ ...r.toObject(), _model: 'LocationReminder' }))
+        ];
+
+        for (const reminderData of allReminders) {
+            const reminder = reminderData;
             let user = reminder.userId;
 
             if (!user || typeof user === "string") {
@@ -577,7 +624,8 @@ async function checkItemExitGuards(specificUserId = null, io) {
                 });
 
                 // 2. Add to Reminder Timeline to prevent double-alerting
-                await Reminder.findByIdAndUpdate(reminder._id, {
+                const Model = reminder._model === 'LocationReminder' ? require('../models/LocationReminder') : Reminder;
+                await Model.findByIdAndUpdate(reminder._id, {
                     $push: {
                         timeline: {
                             action: 'Exit Guard Alert',

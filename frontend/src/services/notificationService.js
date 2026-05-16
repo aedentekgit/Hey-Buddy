@@ -1,16 +1,21 @@
-import { initializeApp } from "firebase/app";
+import { getApps, initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import api from "./api";
 
 let messaging = null;
+let notificationConfig = null;
 
 export const initNotifications = async () => {
     try {
+        if (messaging && notificationConfig) {
+            return { messaging, vapidKey: notificationConfig.vapidKey };
+        }
+
         // 1. Fetch config from server
-        const response = await api.get('/settings');
+        const response = await api.get('/settings/public');
         const settings = response.data.data.notification;
 
-        if (!settings || !settings.firebaseApiKey || !settings.firebaseProjectId) {
+        if (!settings?.enabled || !settings.firebaseApiKey || !settings.firebaseProjectId) {
             console.warn("Firebase not fully configured in settings");
             return null;
         }
@@ -26,10 +31,11 @@ export const initNotifications = async () => {
         };
 
         // 2. Initialize Firebase
-        const app = initializeApp(firebaseConfig);
+        const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
         messaging = getMessaging(app);
+        notificationConfig = { vapidKey: settings.firebasePublicVapidKey };
 
-        return { messaging, vapidKey: settings.firebasePublicVapidKey };
+        return { messaging, vapidKey: notificationConfig.vapidKey };
     } catch (error) {
         console.error("Failed to init Firebase:", error);
         return null;

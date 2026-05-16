@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Brain, Trash2, Search, Clock, Loader2, Eye, Edit2, Save, Mic, MicOff, FileText, ExternalLink, Info, Upload, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import voiceService from '../services/voiceService';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';

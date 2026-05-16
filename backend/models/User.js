@@ -123,7 +123,11 @@ const userSchema = new mongoose.Schema({
         }
     },
     resetPasswordOtp: String,
-    resetPasswordExpires: Date
+    resetPasswordExpires: Date,
+    resetPasswordAttempts: {
+        type: Number,
+        default: 0
+    }
 }, { timestamps: true });
 
 // Hash password before saving

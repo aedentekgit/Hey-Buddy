@@ -715,10 +715,7 @@ class GroqService:
                 break
 
         logger.error("All AI providers (Primary + Fallbacks) failed to generate a response.")
-        if last_exc:
-             raise AllGroqApisFailedError(f"{ALL_APIS_FAILED_MESSAGE} (Last Error: {str(last_exc)})") from last_exc
-        else:
-             raise AllGroqApisFailedError(f"DEBUG - LLMs is ZERO. Dict state was empty.")
+        raise AllGroqApisFailedError(ALL_APIS_FAILED_MESSAGE) from last_exc
 
 
     # ─── PROMPT ASSEMBLY ─────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Users, UserPlus, ShieldAlert, MessageCircle, UserMinus,
-    Check, X, Mail, Phone, Clock, Loader2, Send, Info,
-    Lock, MoreVertical, Smartphone, ShieldCheck, Heart
+    Check, X, Mail, Loader2, Send,
+    Lock, ShieldCheck, Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';

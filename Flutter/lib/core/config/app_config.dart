@@ -29,8 +29,8 @@ class AppConfig {
       return localhostHost;
     }
     
-    // Priority 3: Default to Staging
-    return stagingHost;
+    // Priority 3: Default to Production (Live)
+    return productionHost;
   }
 
   static String get protocol {

@@ -1,5 +1,4 @@
-import React from 'react';
-import { Clock, MapPin, HelpCircle, Car, AlertTriangle, Users, Edit2, Trash2 } from 'lucide-react';
+import { Clock, MapPin, HelpCircle, Car, AlertTriangle, Users, Trash2 } from 'lucide-react';
 
 const TaskCard = ({
     title,

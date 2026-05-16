@@ -24,7 +24,7 @@ if (process.env.NODE_ENV === 'development') {
 // General API rate limit
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'development' ? 2000 : 100, // Allow more requests in dev for testing
+    max: process.env.NODE_ENV === 'development' ? 2000 : 1000, // Increased from 100 to 1000 for production
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' }
@@ -95,10 +95,11 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-platform']
 }));
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ extended: true, limit: '200mb' }));
-// Express 5-compatible XSS sanitization middleware.
-// Sanitize req.body + req.params only; query strings should not contain HTML.
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.FORM_BODY_LIMIT || '5mb' }));
+// Express 5-compatible XSS sanitization middleware
+// xss-clean is broken on Express 5 because it tries to overwrite req.query which is now read-only.
+// We use the 'xss' library and sanitize req.body + req.params only (query strings shouldn't contain HTML).
 const xssSanitize = (obj) => {
     if (!obj || typeof obj !== 'object') return obj;
     for (const key of Object.keys(obj)) {
@@ -118,13 +119,14 @@ app.use((req, _res, next) => {
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Fallback: if file doesn't exist locally, redirect to VPS Staging
-app.use('/uploads', (req, res) => {
-    // If we hit this, express.static failed to find a local file
-    const subPath = req.url; // This will be the path after /uploads
-    const vpsUrl = `https://staging.ayuskart.com/uploads${subPath}`;
-    console.log(`[Upload-Fallback] File not found locally: /uploads${subPath} -> Redirecting to staging VPS`);
-    res.redirect(vpsUrl);
-});
+if (process.env.NODE_ENV === 'development') {
+    app.use('/uploads', (req, res) => {
+        const subPath = req.url;
+        const vpsUrl = `https://staging.ayuskart.com/uploads${subPath}`;
+        console.log(`[Upload-Fallback] File not found locally: /uploads${subPath} -> Redirecting to staging VPS`);
+        res.redirect(vpsUrl);
+    });
+}
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
@@ -220,10 +222,17 @@ const startServer = async () => {
 
         console.log('Connecting to MongoDB...');
         mongoose.set('bufferCommands', false);
-        await mongoose.connect(MONGODB_URI, {
-            serverSelectionTimeoutMS: 5000, // Fail fast (5s) instead of 30s
+        const mongoOptions = {
+            serverSelectionTimeoutMS: 5000,
             connectTimeoutMS: 10000,
-        });
+        };
+        // Enable TLS for non-development environments
+        if (process.env.MONGODB_TLS === 'true') {
+            mongoOptions.tls = true;
+            mongoOptions.tlsAllowInvalidCertificates = process.env.NODE_ENV === 'development';
+            mongoOptions.tlsAllowInvalidHostnames = process.env.NODE_ENV === 'development';
+        }
+        await mongoose.connect(MONGODB_URI, mongoOptions);
         console.log('✅ Connected to MongoDB');
 
         // Start listening after successful DB connection

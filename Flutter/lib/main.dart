@@ -65,17 +65,17 @@ void main() async {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BuddyProvider()),
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
+        // Proxy provider logic to connect Socket events to Providers
+        ProxyProvider<BuddyProvider, RealtimeSyncManager>(
+          update: (context, buddy, _) => 
+              RealtimeSyncManager(context, buddy.socketService),
+          lazy: false,
+        ),
         ChangeNotifierProxyProvider<BuddyProvider, FamilyProvider>(
           create: (context) =>
               FamilyProvider(context.read<BuddyProvider>().socketService),
           update: (context, buddy, family) =>
               family ?? FamilyProvider(buddy.socketService),
-        ),
-        // Proxy provider logic to connect Socket events to Providers
-        ProxyProvider<BuddyProvider, RealtimeSyncManager>(
-          update: (context, buddy, _) =>
-              RealtimeSyncManager(context, buddy.socketService),
-          lazy: false,
         ),
       ],
       child: const BuddyApp(),
@@ -84,19 +84,10 @@ void main() async {
 }
 
 class RealtimeSyncManager {
+  final BuildContext context;
   final SocketService socketService;
-  final TasksProvider tasksProvider;
-  final LocationRemindersProvider locationRemindersProvider;
-  final MemoriesProvider memoriesProvider;
-  final UserProvider userProvider;
-  final FamilyProvider familyProvider;
 
-  RealtimeSyncManager(BuildContext context, this.socketService)
-    : tasksProvider = context.read<TasksProvider>(),
-      locationRemindersProvider = context.read<LocationRemindersProvider>(),
-      memoriesProvider = context.read<MemoriesProvider>(),
-      userProvider = context.read<UserProvider>(),
-      familyProvider = context.read<FamilyProvider>() {
+  RealtimeSyncManager(this.context, this.socketService) {
     _init();
   }
 
@@ -107,17 +98,22 @@ class RealtimeSyncManager {
 
       // Use try-catch to safely access providers even if context is no longer mounted
       try {
-        if (type == 'task' || type == 'reminder') {
-          tasksProvider.loadTasks(silent: true);
-        } else if (type == 'location_reminder') {
-          locationRemindersProvider.loadReminders();
-        } else if (type == 'memory') {
-          memoriesProvider.loadMemories(silent: true);
-        } else if (type == 'profile') {
-          userProvider.loadProfile();
-        } else if (type == 'family') {
-          familyProvider.loadData();
-        }
+	        if (type == 'task' || type == 'reminder') {
+	          // ignore: use_build_context_synchronously
+	          context.read<TasksProvider>().loadTasks(silent: true);
+	        } else if (type == 'location_reminder') {
+	          // ignore: use_build_context_synchronously
+	          context.read<LocationRemindersProvider>().loadReminders();
+	        } else if (type == 'memory') {
+	          // ignore: use_build_context_synchronously
+	          context.read<MemoriesProvider>().loadMemories(silent: true);
+	        } else if (type == 'profile') {
+	          // ignore: use_build_context_synchronously
+	          context.read<UserProvider>().loadProfile();
+	        } else if (type == 'family') {
+	          // ignore: use_build_context_synchronously
+	          context.read<FamilyProvider>().loadData();
+	        }
       } catch (e) {
         debugPrint('RealtimeSyncManager: Error accessing context - $e');
       }

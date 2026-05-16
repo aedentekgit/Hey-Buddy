@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Trash2, Calendar, Clock, MapPin, Search, Loader2, Eye, Edit2, Save, X, Plus, Share2, Users } from 'lucide-react';
-import api from '../services/api';
+import { useState, useEffect } from 'react';
+import { Trash2, Calendar, Clock, MapPin, Search, Loader2, Eye, Save, X, Plus, Share2, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import voiceService from '../services/voiceService';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SmartReminderDetails from '../components/SmartReminderDetails';
 import Pagination from '../components/Pagination';
-import {
-    ThStyle, TdStyle, TableElementStyle, SearchBoxStyle, SearchInputStyle, ActionButtonStyle
+import { TableElementStyle
 } from '../styles/tableStyles';
 import MobileTaskCard from '../components/MobileTaskCard';
 import GlobalSlideOver from '../components/GlobalSlideOver';

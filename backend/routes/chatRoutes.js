@@ -17,7 +17,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.txt']);
+        const allowedMimes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'text/plain']);
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (allowedExtensions.has(ext) && allowedMimes.has(file.mimetype)) return cb(null, true);
+        cb(new Error('Unsupported chat attachment type'));
+    }
 });
 
 router.get('/private/start', protect, chatController.startPrivateChat);

@@ -1,21 +1,15 @@
-import api from '../services/api';
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    Mic, MicOff, Send, Calendar, CheckCircle2, Clock, MapPin, Repeat, Loader2,
-    Zap, Volume2, Sparkles, Plus, List, CalendarDays, Brain, FilePlus, Heart,
-    ShieldPlus, Shield, X, Trash2, Camera, ArrowRight, Search
+import { Calendar, Loader2, Sparkles, Plus, List, Brain,
+    ShieldPlus, X, Camera
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 import { useSettings } from '../context/SettingsContext';
 import toast from 'react-hot-toast';
-import { requestNotificationPermission, saveTokenToServer } from '../services/notificationService';
-import { TableContainerStyle } from '../styles/tableStyles';
 import GeminiVoiceAssistant from '../components/GeminiVoiceAssistant';
 import voiceService from '../services/voiceService';
-import ConfirmationModal from '../components/ConfirmationModal';
 import { formatTime, formatDate } from '../utils/dateUtils';
 import '../styles/BuddyAssistant.css';
 

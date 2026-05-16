@@ -1,9 +1,6 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Users, BarChart2, ShoppingBag, Contact, Lightbulb,
-    Presentation, Smartphone, Settings, HelpCircle,
-    GitBranch, ScanLine, Eye, Calendar, BookOpen, Cpu, ShieldCheck, User, MapPin, Heart
+    Users, Settings, Eye, Calendar, BookOpen, Cpu, ShieldCheck, User, MapPin, Heart
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 

@@ -18,7 +18,7 @@ const ProtectedRoute = ({ children, pageId }) => {
         return () => {
             stopLocationTracking();
         };
-    }, [user?._id]);
+    }, [user]);
 
     if (loading) return (
         <div style={{

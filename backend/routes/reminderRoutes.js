@@ -12,7 +12,7 @@ const {
     getTravelStats,
     getAdjustedNotification,
     getCalendarStats
-} = require('../controllers/reminderController');
+} = require('../controllers/reminders');
 
 router.use(protect);
 

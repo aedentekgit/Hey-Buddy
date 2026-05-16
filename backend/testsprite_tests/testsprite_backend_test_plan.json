@@ -1,0 +1,32 @@
+[
+  {
+    "id": "TC001",
+    "title": "user authentication login",
+    "description": "Test the POST /api/auth/login endpoint for successful login with valid credentials, invalid password, and missing fields to verify authentication and error handling."
+  },
+  {
+    "id": "TC002",
+    "title": "user registration",
+    "description": "Test the POST /api/auth/register endpoint for successful user registration with valid data, validation errors on missing fields, and duplicate email handling."
+  },
+  {
+    "id": "TC003",
+    "title": "voice assistant session management",
+    "description": "Test the GET /api/voice/session endpoint and socket connection for real-time voice interaction including microphone permission handling, streaming audio, receiving transcription and responses, and error scenarios like expired token and Gemini Live errors."
+  },
+  {
+    "id": "TC004",
+    "title": "reminder creation and retrieval",
+    "description": "Test the GET and POST /api/reminders endpoints for creating reminders with valid and invalid data, retrieving reminders list, and authorization enforcement."
+  },
+  {
+    "id": "TC005",
+    "title": "settings and preferences update",
+    "description": "Test the GET and POST/PUT /api/settings endpoints for fetching and updating user preferences with valid and invalid data, and handling expired authentication tokens."
+  },
+  {
+    "id": "TC006",
+    "title": "knowledge rag query handling",
+    "description": "Test the POST /api/knowledge endpoint for submitting queries to the RAG system, including valid queries, empty or ambiguous queries, and handling external service failures or timeouts."
+  }
+]

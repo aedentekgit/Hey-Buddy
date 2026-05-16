@@ -191,16 +191,23 @@ export const VoiceAssistantProvider = ({ children }) => {
     };
 
     const handleApiAudio = async (base64) => {
-        return new Promise(async (resolve) => {
+        return new Promise((resolve) => {
             try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-                const bytes = decode(base64);
-                const buffer = await decodeAudioData(bytes, audioContext, 24000, 1);
-                const source = audioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioContext.destination);
-                source.onended = () => resolve();
-                source.start(0);
+                const playAudio = async () => {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                    const bytes = decode(base64);
+                    const buffer = await decodeAudioData(bytes, audioContext, 24000, 1);
+                    const source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioContext.destination);
+                    source.onended = () => resolve();
+                    source.start(0);
+                };
+
+                playAudio().catch((err) => {
+                    console.error("API Audio playback failed:", err);
+                    resolve();
+                });
             } catch (err) {
                 console.error("API Audio playback failed:", err);
                 resolve();

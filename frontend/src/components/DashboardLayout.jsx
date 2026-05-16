@@ -7,9 +7,9 @@ import {
     initNotifications,
     onMessageListener,
     requestNotificationPermission,
-    saveTokenToServer,
+    saveTokenToServer
 } from '../services/notificationService';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 
 import MobileNavbar from './MobileNavbar';

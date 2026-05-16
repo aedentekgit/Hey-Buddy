@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import api from '../services/api';
 import { config as envConfig } from '../config/env';
 
@@ -10,7 +10,74 @@ export const SettingsProvider = ({ children }) => {
 
     const [publicSettings, setPublicSettings] = useState(null);
 
-    const fetchSettings = async () => {
+    const getCircularFavicon = useCallback((url) => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const size = 128;
+                canvas.width = size;
+                canvas.height = size;
+
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.clip();
+
+                const scale = Math.min(size / img.width, size / img.height);
+                const x = (size / 2) - (img.width / 2) * scale;
+                const y = (size / 2) - (img.height / 2) * scale;
+                ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(url);
+            img.src = url;
+        });
+    }, []);
+
+    const updateDocumentBranding = useCallback(async (data) => {
+        if (!data || !data.general) return;
+
+        const { companyName, logo } = data.general;
+        const backendUrl = (envConfig.BACKEND_URL || '').replace(/\/$/, '');
+        const logoPath = (logo || '').replace(/^\//, '');
+        const fullLogoUrl = logo ? `${backendUrl}/${logoPath}` : null;
+
+        const setMetaTag = (property, content) => {
+            let meta = document.querySelector(`meta[property='${property}']`);
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.setAttribute('property', property);
+                document.getElementsByTagName('head')[0].appendChild(meta);
+            }
+            meta.setAttribute('content', content);
+        };
+
+        if (companyName) {
+            document.title = companyName;
+            setMetaTag('og:title', companyName);
+            setMetaTag('og:site_name', companyName);
+        }
+
+        if (fullLogoUrl) {
+            const circularLogo = await getCircularFavicon(fullLogoUrl);
+
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.getElementsByTagName('head')[0].appendChild(link);
+            }
+            link.href = circularLogo;
+
+            setMetaTag('og:image', fullLogoUrl);
+        }
+    }, [getCircularFavicon]);
+
+    const fetchSettings = useCallback(async () => {
         const token = localStorage.getItem('token');
         if (!token) {
             setLoading(false);
@@ -26,7 +93,7 @@ export const SettingsProvider = ({ children }) => {
                     setLoading(false);
                     return;
                 }
-            } catch (e) { }
+            } catch (_) {}
         }
 
         if (window.location.pathname === '/login' || window.location.pathname === '/signup') {
@@ -47,9 +114,9 @@ export const SettingsProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [updateDocumentBranding]);
 
-    const fetchPublicSettings = async () => {
+    const fetchPublicSettings = useCallback(async () => {
         try {
             const res = await api.get('/settings/public');
             if (res.data.success) {
@@ -60,95 +127,16 @@ export const SettingsProvider = ({ children }) => {
         } catch (error) {
             console.error('Failed to fetch public settings:', error);
         }
-    };
-
-    const getCircularFavicon = (url) => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                // Use a standard favicon size (64x64 or 128x128)
-                const size = 128;
-                canvas.width = size;
-                canvas.height = size;
-
-                // Smooth out corners with clipping
-                ctx.beginPath();
-                ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-                ctx.closePath();
-                ctx.clip();
-
-                // Fill with white or transparent if desired? 
-                // Usually user wants it trimmed, so no fill.
-
-                // Draw image centered and scaled
-                const scale = Math.min(size / img.width, size / img.height);
-                const x = (size / 2) - (img.width / 2) * scale;
-                const y = (size / 2) - (img.height / 2) * scale;
-                ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-
-                resolve(canvas.toDataURL('image/png'));
-            };
-            img.onerror = () => resolve(url);
-            img.src = url;
-        });
-    };
-
-    const updateDocumentBranding = async (data) => {
-        if (!data || !data.general) return;
-
-        const { companyName, logo } = data.general;
-        const backendUrl = (envConfig.BACKEND_URL || '').replace(/\/$/, '');
-        const logoPath = (logo || '').replace(/^\//, '');
-        const fullLogoUrl = logo ? `${backendUrl}/${logoPath}` : null;
-
-        // Helper to set meta tag
-        const setMetaTag = (property, content) => {
-            let meta = document.querySelector(`meta[property='${property}']`);
-            if (!meta) {
-                meta = document.createElement('meta');
-                meta.setAttribute('property', property);
-                document.getElementsByTagName('head')[0].appendChild(meta);
-            }
-            meta.setAttribute('content', content);
-        };
-
-        // Update title
-        if (companyName) {
-            document.title = companyName;
-            setMetaTag('og:title', companyName);
-            setMetaTag('og:site_name', companyName);
-        }
-
-        // Update Favicon & OG Image
-        if (fullLogoUrl) {
-            // Generate circular version
-            const circularLogo = await getCircularFavicon(fullLogoUrl);
-
-            // Favicon
-            let link = document.querySelector("link[rel~='icon']");
-            if (!link) {
-                link = document.createElement('link');
-                link.rel = 'icon';
-                document.getElementsByTagName('head')[0].appendChild(link);
-            }
-            link.href = circularLogo;
-
-            // OG Image
-            setMetaTag('og:image', fullLogoUrl);
-        }
-    };
+    }, [updateDocumentBranding]);
 
     useEffect(() => {
         fetchPublicSettings();
         fetchSettings();
-    }, []);
+    }, [fetchPublicSettings, fetchSettings]);
 
-    const refreshSettings = () => {
+    const refreshSettings = useCallback(() => {
         fetchSettings();
-    };
+    }, [fetchSettings]);
 
     return (
         <SettingsContext.Provider value={{ settings, publicSettings, loading, refreshSettings, fetchPublicSettings }}>

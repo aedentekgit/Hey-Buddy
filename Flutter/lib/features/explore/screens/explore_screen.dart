@@ -544,34 +544,35 @@ class _ActionCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            action.color.withValues(alpha: 0.15),
-                            action.color.withValues(alpha: 0.05),
+                            action.color.withValues(alpha: isLight ? 0.15 : 0.2),
+                            action.color.withValues(alpha: isLight ? 0.05 : 0.08),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
-                          color: action.color.withValues(alpha: 0.25),
+                          color: action.color.withValues(alpha: isLight ? 0.25 : 0.35),
                           width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: action.color.withValues(alpha: 0.2),
-                            blurRadius: 12,
+                            color: action.color.withValues(alpha: isLight ? 0.2 : 0.35),
+                            blurRadius: isLight ? 12 : 16,
                             offset: const Offset(0, 4),
                           ),
-                          BoxShadow(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            blurRadius: 4,
-                            offset: const Offset(-2, -2),
-                          ),
+                          if (isLight)
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              blurRadius: 4,
+                              offset: const Offset(-2, -2),
+                            ),
                         ],
                       ),
                       child: Icon(
-                        action.icon, 
-                        size: 22, 
-                        color: action.color.withValues(alpha: 0.9),
+                        action.icon,
+                        size: 22,
+                        color: isLight ? action.color.withValues(alpha: 0.9) : action.color.withValues(alpha: 1.0),
                       ),
                     ),
                     if (action.count != null)

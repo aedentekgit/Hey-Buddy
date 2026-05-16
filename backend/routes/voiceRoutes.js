@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const voiceControllerV2 = require('../controllers/voiceControllerV2');
 const recordController = require('../controllers/recordController');
-const reminderController = require('../controllers/reminderController');
+const reminderController = require('../controllers/reminders');
 const { protect, protectOptional } = require('../middlewares/auth');
 const multer = require('multer');
 const path = require('path');
@@ -30,8 +30,6 @@ router.get('/news/local', protectOptional, voiceControllerV2.getLocalNews);
 
 // Reminder CRUD (Refactored to separate controller)
 router.get('/', protect, reminderController.getReminders);
-router.delete('/:id', protect, reminderController.deleteReminder);
-router.put('/:id', protect, reminderController.updateReminder);
 
 // Medical / Prescription routes
 router.post('/upload-prescription', protect, upload.single('document'), recordController.uploadPrescription);
@@ -52,5 +50,9 @@ router.delete('/memories/:id', protect, recordController.deleteMemory);
 // Google Calendar OAuth
 router.get('/google/auth', protect, reminderController.getGoogleAuthUrl);
 router.get('/google/callback', reminderController.googleCallback);
+
+// Generic reminder routes must stay after specific /prescriptions, /memories, and /google routes.
+router.delete('/:id', protect, reminderController.deleteReminder);
+router.put('/:id', protect, reminderController.updateReminder);
 
 module.exports = router;

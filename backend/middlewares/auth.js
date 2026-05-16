@@ -106,7 +106,10 @@ const protectOptional = async (req, res, next) => {
                 req.decodedUserId = decoded.id;
                 req.user = await User.findById(decoded.id).select('-password');
             } catch (error) {
-                console.warn('[AUTH] Optional token verification failed:', error.message);
+                // Log the decoded userId even on failure — helps trace which sessions had auth issues
+                const decodedOnFailure = jwt.decode(token);
+                const attemptedId = decodedOnFailure ? decodedOnFailure.id : 'unknown';
+                console.warn(`[AUTH] Optional token verification failed for userId=${attemptedId}: ${error.message}`);
             }
         }
     }

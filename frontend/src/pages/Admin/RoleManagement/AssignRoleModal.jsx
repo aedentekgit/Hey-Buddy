@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../../services/api';
 import { toast } from 'react-hot-toast';
-import { Search, Loader2, Save, UserCheck } from 'lucide-react';
+import { Search, Loader2, UserCheck } from 'lucide-react';
 
 const AssignRoleModal = ({ onClose, refreshRoles }) => {
     const [searchTerm, setSearchTerm] = useState('');

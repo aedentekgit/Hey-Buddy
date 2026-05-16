@@ -1,0 +1,27 @@
+const io = require('socket.io-client');
+const jwt = require('jsonwebtoken');
+require('dotenv').config({ path: '.env' });
+
+if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is required.');
+const token = jwt.sign({ id: process.env.TEST_USER_ID }, process.env.JWT_SECRET, { expiresIn: '1y' });
+
+const socket = io('http://localhost:5001', {
+    auth: { token },
+    transports: ['websocket']
+});
+
+socket.on('connect', () => {
+    console.log('Connected to socket server');
+    socket.emit('setup_agent', { language: 'en-US', standby: false });
+
+    setTimeout(() => {
+        console.log('Sending text payload...');
+        socket.emit('text_message', 'set reminder to call my mom tomorrow morning at 9');
+    }, 2000);
+});
+
+socket.on('caption', (text) => process.stdout.write(text));
+socket.on('user_caption', (text) => console.log('\nUser: ' + text));
+socket.on('response_done', () => setTimeout(() => process.exit(0), 4000));
+socket.on('error', (err) => console.error('Socket error:', err));
+socket.on('disconnect', () => console.log('Disconnected.'));

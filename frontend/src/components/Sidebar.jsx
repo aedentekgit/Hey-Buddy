@@ -1,10 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import {
-    LayoutDashboard,
     Settings,
     Users,
     User,
-    BarChart3,
     LogOut,
     ShieldCheck,
     X,
@@ -12,9 +10,7 @@ import {
     ListTodo,
     Brain,
     Home,
-    ChevronRight,
     Calendar,
-    Plus,
     Eye,
     Cpu,
     BookOpen,
@@ -25,7 +21,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { AnimatePresence, motion } from 'framer-motion';
-import { config as envConfig } from '../config/env';
 import { getImageUrl } from '../utils/imageUrl';
 
 const Sidebar = ({ isOpen, setIsOpen, isCollapsed }) => {

@@ -5,26 +5,41 @@ yarn.lock
 
 # Environment Variables — ALL env files with real secrets must be excluded
 .env
-.env.*
-!.env.example
 .env.local
 .env.production
 .env.staging
 .env.development
+.env.live
 .env.*.local
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.staging
+backend/.env.development
+backend/.env.live
+backend/.env.*.local
 ai-service/.env
 ai-service/.env.production
 ai-service/.env.staging
+ai-service/.env.development
+ai-service/.env.local
+ai-service/.env.*.local
 frontend/.env
-backend/.env
-backend/.env.*
+frontend/.env.local
 frontend/.env.production
 frontend/.env.staging
+frontend/.env.development
+frontend/.env.*.local
+python/.env
+python/.env.production
+python/.env.staging
+python/.env.development
+python/.env.local
+python/.env.example
 
 # Build outputs
 dist/
 build/
-frontend/dist/
 *.log
 
 # IDE
@@ -91,18 +106,8 @@ build/
 # Debug
 ai_debug.txt
 Flutter/analyze_output*.txt
-backend/test.gif
-
-# Generated/prototype outputs
-backend/testsprite_tests/
-backend/tests/
-backend/scripts/
-backend/testApi.js
-backend/checkDB.js
-python/frontend/
 
 # Large Binaries
-*.gif
 *.apk
 *.ipa
 *.docx

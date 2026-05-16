@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, Search, Globe, ExternalLink } from 'lucide-react';
 import '../styles/SearchResults.css';
 

@@ -17,10 +17,16 @@ const voiceHandler = (io) => {
     io.use((socket, next) => {
         const token = socket.handshake.auth.token;
 
-        if (!token || token === 'null' || token === 'undefined') {
-            // Allow Guest connections ONLY if no token was attempted
-            socket.userId = `guest_${socket.id}`;
+        // DEVELOPMENT ONLY: Allow unauthenticated connections when explicitly enabled.
+        // NEVER enable this flag in production or staging environments.
+        if (process.env.DISABLE_AUTH === 'true') {
+            socket.userId = `dev_${socket.id}`;
             return next();
+        }
+
+        if (!token || token === 'null' || token === 'undefined') {
+            console.warn(`[Socket] Rejected unauthenticated connection from ${socket.id}`);
+            return next(new Error('Authentication required. Please provide a valid JWT token.'));
         }
 
         try {
@@ -29,7 +35,6 @@ const voiceHandler = (io) => {
             next();
         } catch (err) {
             console.warn(`[Socket] Auth failed for ${socket.id}: ${err.message}`);
-            // Return error instead of guest fallback to force re-login on the app
             return next(new Error('Authentication failed: session may have expired.'));
         }
     });
@@ -85,7 +90,7 @@ const voiceHandler = (io) => {
 
         socket.on('activate_agent', () => {
             const agent = activeAgents.get(socket.id);
-            if (agent) agent.activate();
+            if (agent) agent.activate(true); // Continuous mode by default for web/Flutter
         });
 
         socket.on('disconnect', (reason) => {

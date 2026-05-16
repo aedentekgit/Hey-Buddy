@@ -1,4 +1,3 @@
-import React from 'react';
 import RealtimeBuddy from '../components/RealtimeBuddy';
 
 const RealtimeChat = () => {

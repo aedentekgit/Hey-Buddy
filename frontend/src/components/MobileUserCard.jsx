@@ -1,5 +1,4 @@
-import React from 'react';
-import { User, Eye, Edit2, Trash2, Mail } from 'lucide-react';
+import { User, Eye, Edit2, Trash2 } from 'lucide-react';
 
 const MobileUserCard = ({
     user,

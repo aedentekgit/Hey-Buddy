@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../../services/api';
 import { toast } from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
@@ -8,7 +8,6 @@ import Pagination from '../../../components/Pagination';
 import GlobalSlideOver from '../../../components/GlobalSlideOver';
 import RoleFormModal from './RoleFormModal';
 import AssignRoleModal from './AssignRoleModal';
-import { formatDate } from '../../../utils/dateUtils';
 import { useAuth } from '../../../context/AuthContext';
 import { TableElementStyle } from '../../../styles/tableStyles';
 

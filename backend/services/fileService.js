@@ -7,6 +7,17 @@ const { initFirebase } = require('./notificationService');
 const axios = require('axios');
 const FormData = require('form-data');
 
+const uploadsRoot = path.resolve(__dirname, '..', 'uploads');
+
+const resolveUploadPath = (relativePath) => {
+    const cleaned = String(relativePath || '').replace(/^\/+/, '');
+    const resolved = path.resolve(uploadsRoot, cleaned);
+    if (!resolved.startsWith(uploadsRoot + path.sep) && resolved !== uploadsRoot) {
+        throw new Error('Invalid upload path');
+    }
+    return resolved;
+};
+
 /**
  * Saves a file buffer locally to the server (or forwards to VPS if in local dev)
  */
@@ -23,7 +34,7 @@ const saveFileLocally = async (fileBuffer, destination) => {
                 const response = await axios.post(`https://staging.ayuskart.com/api/settings/internal-file-sync`, form, {
                     headers: {
                         ...form.getHeaders(),
-                        'x-vps-sync-secret': process.env.JWT_SECRET
+                        'Authorization': `Bearer ${process.env.INTERNAL_SECRET || ''}`
                     }
                 });
                 if (response.data.success) {
@@ -34,7 +45,7 @@ const saveFileLocally = async (fileBuffer, destination) => {
             }
         }
 
-        const fullPath = path.join(__dirname, '..', 'uploads', destination);
+        const fullPath = resolveUploadPath(destination);
         const dir = path.dirname(fullPath);
 
         // Ensure directory exists
@@ -125,7 +136,7 @@ const deleteFileLocally = async (fileUrl) => {
             try {
                 const response = await axios.delete(`https://staging.ayuskart.com/api/settings/internal-file-sync`, {
                     headers: {
-                        'x-vps-sync-secret': process.env.JWT_SECRET,
+                        'Authorization': `Bearer ${process.env.INTERNAL_SECRET || ''}`,
                         'Content-Type': 'application/json'
                     },
                     data: { fileUrl }
@@ -142,7 +153,7 @@ const deleteFileLocally = async (fileUrl) => {
 
         if (fileUrl.startsWith('/uploads/')) {
             const relativePath = fileUrl.replace('/uploads/', '');
-            const fullPath = path.join(__dirname, '..', 'uploads', relativePath);
+            const fullPath = resolveUploadPath(relativePath);
             try {
                 await fs.unlink(fullPath);
                 console.log(`🗑️ Deleted local file: ${fullPath}`);

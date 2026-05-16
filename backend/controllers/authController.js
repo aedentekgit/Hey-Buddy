@@ -12,6 +12,24 @@ const generateToken = (id) => {
     });
 };
 
+const hashOtp = (email, otp) => {
+    return crypto
+        .createHash('sha256')
+        .update(`${String(email).toLowerCase()}:${otp}:${process.env.JWT_SECRET}`)
+        .digest('hex');
+};
+
+const validateResetOtp = async (user, email, otp) => {
+    if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) return false;
+    if ((user.resetPasswordAttempts || 0) >= 5) return false;
+    const isValid = user.resetPasswordOtp === hashOtp(email, otp);
+    if (!isValid) {
+        user.resetPasswordAttempts = (user.resetPasswordAttempts || 0) + 1;
+        await user.save();
+    }
+    return isValid;
+};
+
 const login = async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -355,7 +373,7 @@ const setupVPS = async (req, res) => {
         const adminEmail = 'admin@buddy.com';
         let admin = await User.findOne({ email: adminEmail });
 
-        // SECURITY: Generate a random one-time password instead of hardcoded 'admin123'.
+        // SECURITY: Generate a random one-time password instead of using a hardcoded default.
         // The generated password is returned ONCE in the response and never stored in plaintext.
         const tempPassword = crypto.randomBytes(12).toString('base64url');
 
@@ -391,7 +409,7 @@ const forgotPassword = async (req, res) => {
         if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
         const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ success: false, message: 'If the email exists, an OTP will be sent.' }); // Generic message for security
+        if (!user) return res.json({ success: true, message: 'If the email exists, an OTP will be sent.' });
 
         // SECURITY: Use cryptographically secure random OTP instead of Math.random().
         // Math.random() is not suitable for security-sensitive values.
@@ -400,7 +418,7 @@ const forgotPassword = async (req, res) => {
 
         await User.updateOne(
             { _id: user._id },
-            { $set: { resetPasswordOtp: otp, resetPasswordExpires: expires } }
+            { $set: { resetPasswordOtp: hashOtp(user.email, otp), resetPasswordExpires: expires, resetPasswordAttempts: 0 } }
         );
 
         const { sendEmail } = require('../services/emailService');
@@ -434,7 +452,7 @@ const verifyResetOtp = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
 
-        if (user.resetPasswordOtp !== otp || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+        if (!(await validateResetOtp(user, email, otp))) {
             return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
         }
 
@@ -452,7 +470,7 @@ const resetPassword = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
 
-        if (user.resetPasswordOtp !== otp || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+        if (!(await validateResetOtp(user, email, otp))) {
             return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
         }
 
@@ -461,7 +479,7 @@ const resetPassword = async (req, res) => {
 
         await User.updateOne(
             { _id: user._id },
-            { $set: { password: hashedPassword }, $unset: { resetPasswordOtp: "", resetPasswordExpires: "" } }
+            { $set: { password: hashedPassword }, $unset: { resetPasswordOtp: "", resetPasswordExpires: "", resetPasswordAttempts: "" } }
         );
 
         res.json({ success: true, message: 'Password reset successfully' });

@@ -31,8 +31,6 @@ class _MainScreenState extends State<MainScreen> {
   late PageController _pageController;
   late final List<int> _tabHistory;
   bool _isSettingsSubPage = false;
-  OverlayEntry? _fabOverlay;
-  final ValueNotifier<int> _tabIndexNotifier = ValueNotifier<int>(1);
 
   late final List<Widget> _pages;
 
@@ -52,7 +50,7 @@ class _MainScreenState extends State<MainScreen> {
       curve: Curves.easeInOut,
     );
     // Notify the overlay so it can show/hide
-    _tabIndexNotifier.value = index;
+    // _tabIndexNotifier.value = index;
 
     if (index == 1) { // Explore is index 1
       Future.microtask(() {
@@ -74,7 +72,6 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _tabIndexNotifier.value = widget.initialIndex;
     _tabHistory = [widget.initialIndex];
     _pageController = PageController(initialPage: _currentIndex);
     _requestLocationPermission();
@@ -123,77 +120,7 @@ class _MainScreenState extends State<MainScreen> {
         Provider.of<UserProvider>(context, listen: false).loadProfile();
       }
       auth.addListener(_onAuthChanged);
-      _insertFab();
     });
-  }
-
-  void _insertFab() {
-    _fabOverlay?.remove();
-    _fabOverlay = OverlayEntry(
-      builder: (ctx) {
-        final branding = Provider.of<BrandingProvider>(ctx);
-        final auth = Provider.of<AuthProvider>(ctx);
-        return Positioned(
-          bottom: 28,
-          right: 16,
-          child: ValueListenableBuilder<int>(
-            valueListenable: _tabIndexNotifier,
-            builder: (context, tabIndex, child) {
-              // Hide on AI Assistant page (index 0) or if user is logged out
-              if (tabIndex == 0 || auth.token == null) return const SizedBox.shrink();
-              return GestureDetector(
-                onTap: () => _updateTab(0),
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: branding.primaryColor.withValues(alpha: 0.35),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 6),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.14),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: branding.logoUrl!,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
-                              color: branding.primaryColor.withValues(alpha: 0.1),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: branding.primaryColor,
-                                ),
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => Image.asset(
-                              'assets/images/buddy_logo.gif',
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Image.asset(
-                            'assets/images/buddy_logo.gif',
-                            fit: BoxFit.cover,
-                          ),
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-    Overlay.of(context).insert(_fabOverlay!);
   }
 
   void _onAuthChanged() {
@@ -210,9 +137,6 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
-    _tabIndexNotifier.dispose();
-    _fabOverlay?.remove();
-    _fabOverlay = null;
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       auth.removeListener(_onAuthChanged);
@@ -272,57 +196,105 @@ class _MainScreenState extends State<MainScreen> {
           left: false,
           right: false,
           bottom: false,
-          child: Column(
+          child: Stack(
             children: [
-              if (showHeader)
-                MobileAppHeader(
-                  currentIndex: _currentIndex,
-                  onTabTapped: _onTabTapped,
-                  onProfileTapped: () {
-                    final auth = Provider.of<AuthProvider>(
-                      context,
-                      listen: false,
-                    );
-                    if (auth.token != null) {
-                      _updateTab(2);
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginScreen(),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    final auth = Provider.of<AuthProvider>(context, listen: false);
-                    if (auth.token == null && index != 0) {
-                      // User is logged out and swiped to a protected tab.
-                      _pageController.jumpToPage(0);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      );
-                      return;
-                    }
+              Column(
+                children: [
+                  if (showHeader)
+                    MobileAppHeader(
+                      currentIndex: _currentIndex,
+                      onTabTapped: _onTabTapped,
+                      onProfileTapped: () {
+                        final auth = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
+                        if (auth.token != null) {
+                          _updateTab(2);
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        if (auth.token == null && index != 0) {
+                          // User is logged out and swiped to a protected tab.
+                          _pageController.jumpToPage(0);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          );
+                          return;
+                        }
 
-                    setState(() {
-                      _currentIndex = index;
-                      if (_tabHistory.isEmpty || _tabHistory.last != index) {
-                        _tabHistory.add(index);
-                      }
-                    });
-                  },
-                  physics: Provider.of<AuthProvider>(context).token == null 
-                      ? const NeverScrollableScrollPhysics() 
-                      : const BouncingScrollPhysics(),
-                  children: _pages,
-                ),
+                        setState(() {
+                          _currentIndex = index;
+                          if (_tabHistory.isEmpty || _tabHistory.last != index) {
+                            _tabHistory.add(index);
+                          }
+                        });
+                      },
+                      physics: Provider.of<AuthProvider>(context).token == null 
+                          ? const NeverScrollableScrollPhysics() 
+                          : const BouncingScrollPhysics(),
+                      children: _pages,
+                    ),
+                  ),
+                ],
               ),
+              
+              // ── Floating Buddy Button (FAB Replacement) ──────────────────
+              // Only show if not on AI Assistant page (index 0) and logged in
+              if (_currentIndex != 0 && Provider.of<AuthProvider>(context).token != null)
+                Positioned(
+                  bottom: 28,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: () => _updateTab(0),
+                    child: Consumer<BrandingProvider>(
+                      builder: (context, branding, _) => Container(
+                        width: 60,
+                        height: 60,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                        ),
+                        child: ClipOval(
+                          child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: branding.logoUrl!,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    color: branding.primaryColor.withValues(alpha: 0.1),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: branding.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) => Image.asset(
+                                    'assets/images/buddy_logo.gif',
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Image.asset(
+                                  'assets/images/buddy_logo.gif',
+                                  fit: BoxFit.cover,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

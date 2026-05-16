@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
 import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
 import 'package:buddy_mobile/shared/utils/toast_utils.dart';
 import 'package:google_fonts/google_fonts.dart';

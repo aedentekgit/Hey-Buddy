@@ -3,9 +3,9 @@ import api from '../services/api';
 import CustomSelect from '../components/CustomSelect';
 import { toast } from 'react-hot-toast';
 import {
-    UserPlus, Edit2, Trash2, Search, X, Loader2, User as UserIcon, Mail, Phone, ShieldCheck, Eye, EyeOff, Save, Camera
+    UserPlus, Edit2, Trash2, Search, Loader2, User as UserIcon, Mail, Phone, ShieldCheck, Eye, EyeOff, Save, Camera
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Pagination from '../components/Pagination';
 import MobileUserCard from '../components/MobileUserCard';
@@ -13,8 +13,7 @@ import GlobalSlideOver from '../components/GlobalSlideOver';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import { getImageUrl } from '../utils/imageUrl';
-import {
-    ThStyle, TdStyle, TableElementStyle, SearchInputStyle, SearchBoxStyle, TableRowStyle
+import { TableElementStyle
 } from '../styles/tableStyles';
 
 

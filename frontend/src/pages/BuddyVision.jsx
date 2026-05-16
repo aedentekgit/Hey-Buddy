@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { Upload, Image as ImageIcon, Search, CheckCircle2, X, Loader2, Save, ShoppingCart, Pill, Receipt, FileText } from 'lucide-react';
 import visionService from '../services/visionService';
 import toast from 'react-hot-toast';

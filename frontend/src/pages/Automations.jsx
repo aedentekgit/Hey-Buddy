@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Cpu, Plus, Trash2, Copy, Check, ExternalLink, Terminal, Shield, Zap, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Copy, Check, ExternalLink, Terminal, Zap, Loader2 } from 'lucide-react';
 import automationService from '../services/automationService';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../components/ConfirmationModal';

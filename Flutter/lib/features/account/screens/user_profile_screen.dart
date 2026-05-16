@@ -1014,7 +1014,9 @@ class _PhotoOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.15)),
+          border: Border.all(
+            color: color.withValues(alpha: 0.15),
+          ),
         ),
         child: Row(
           children: [

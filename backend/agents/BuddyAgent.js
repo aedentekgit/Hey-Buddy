@@ -249,7 +249,7 @@ class BuddyAgent extends EventEmitter {
 
                         // 4. Check for Finalization
                         if (data.done === true) {
-                            this.finishTurn();
+                            this.finishTurn(this.isContinuousMode === true); // Only keep active if explicitly enabled
                         }
                     } catch (e) {
                         // console.error('[BuddyAgent] JSON Parse Error on line:', cleanLine);
@@ -274,13 +274,25 @@ class BuddyAgent extends EventEmitter {
         }
     }
 
-    finishTurn() {
+    finishTurn(keepActive = true) {
         if (!this.isThinking) return;
         this.isThinking = false;
-        this.isStandby = true; // Return to waiting for wake word or manual click
-        this.socket.emit('response_done');
-        this.socket.emit('conversation_updated', { conversationId: this.conversationId });
-        console.log(`[BuddyAgent] 🏁 Response Finished`);
+        this.isSpeaking = false;
+
+        if (keepActive) {
+            // CONTINUOUS MODE: Stay active for next turn - just reset state
+            this.socket.emit('response_done');
+            this.socket.emit('conversation_updated', { conversationId: this.conversationId });
+            this.socket.emit('continuous_mode_active', { active: true });
+            console.log(`[BuddyAgent] 🏁 Response Finished (continuous mode - staying active)`);
+        } else {
+            // STANDARD MODE: Return to standby waiting for wake word or manual click
+            this.isStandby = true;
+            this.socket.emit('response_done');
+            this.socket.emit('conversation_updated', { conversationId: this.conversationId });
+            this.socket.emit('continuous_mode_active', { active: false });
+            console.log(`[BuddyAgent] 🏁 Response Finished (standby mode)`);
+        }
     }
 
     handleIncomingAudio(audioBuffer) {
@@ -296,19 +308,25 @@ class BuddyAgent extends EventEmitter {
         this.processMessage(text);
     }
 
-    interrupt() {
+    interrupt(keepActive = false) {
         this.isInterrupted = true;
         this.isThinking = false;
         this.isSpeaking = false;
         if (this.ai) this.ai.cancelResponse();
         this.socket.emit('clear_audio_queue');
         this.socket.emit('response_done');
+
+        // In continuous mode, stay active after interruption
+        if (!keepActive) {
+            this.isStandby = true;
+        }
     }
 
-    activate() {
-        console.log(`[BuddyAgent] 🏃 Manual Activation — clearing Standby for user: ${this.userId}`);
+    activate(continuousMode = true) {
+        console.log(`[BuddyAgent] 🏃 Manual Activation (continuous: ${continuousMode}) — clearing Standby for user: ${this.userId}`);
         this.isStandby = false;
-        this.interrupt(); // Ensure no previous state blocks new input
+        this.isContinuousMode = continuousMode;
+        this.interrupt(true); // Ensure no previous state blocks new input, but stay active
     }
 
     cleanup() {

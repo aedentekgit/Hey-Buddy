@@ -82,22 +82,47 @@ const recordController = {
     },
 
     deletePrescription: async (req, res) => {
-        const prescription = await Prescription.findOne({ _id: req.params.id, userId: req.user._id });
-        if (!prescription) return res.status(404).json({ success: false });
+        try {
+            const userId = req.user._id;
+            const prescription = await Prescription.findOne({ _id: req.params.id, userId });
+            if (!prescription) return res.status(404).json({ success: false, message: "Not found" });
 
-        if (prescription.fileUrl) {
-            await deleteFile(prescription.fileUrl);
+            if (prescription.fileUrl) {
+                await deleteFile(prescription.fileUrl);
+            }
+
+            // Cleanup associated reminders AND their Google Calendar events
+            const reminders = await Reminder.find({ prescriptionId: prescription._id });
+            if (reminders.length > 0) {
+                const { deleteGoogleCalendarEvent } = require('../services/googleCalendarService');
+                for (const r of reminders) {
+                    if (r.googleEventId) {
+                        await deleteGoogleCalendarEvent(userId, r.googleEventId).catch(() => { });
+                    }
+                }
+                await Reminder.deleteMany({ prescriptionId: prescription._id });
+            }
+
+            await Prescription.deleteOne({ _id: req.params.id });
+
+            // Pipeline Sync
+            const { triggerVectorReload } = require('./reminders/helpers');
+            emitDataSync(req, res, userId, 'task', 'delete', { type: 'prescription', id: req.params.id });
+            triggerVectorReload();
+
+            res.json({ success: true, message: "Deleted successfully." });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
-
-        await Reminder.deleteMany({ prescriptionId: prescription._id });
-        await Prescription.deleteOne({ _id: req.params.id });
-        res.json({ success: true, message: "Deleted." });
     },
 
     confirmMedicalReminders: async (req, res) => {
         try {
             const { prescriptionId, confirmationData } = req.body;
+            const userId = req.user._id;
             const created = [];
+            const { syncReminder } = require('../services/googleCalendarService');
+
             for (const med of confirmationData.medicines) {
                 const times = [];
                 if (med.frequency.morning) times.push("09:00");
@@ -106,7 +131,7 @@ const recordController = {
 
                 for (const time of times) {
                     const reminder = await Reminder.create({
-                        userId: req.user._id,
+                        userId,
                         prescriptionId,
                         title: `Take ${med.name}`,
                         intent: 'medicine',
@@ -115,12 +140,27 @@ const recordController = {
                         repeat: true,
                         medicineDetails: { ...med }
                     });
+                    
+                    // Sync to Google Calendar
+                    syncReminder(req.user, reminder).then(async (googleEventId) => {
+                        if (googleEventId) {
+                            await Reminder.findByIdAndUpdate(reminder._id, { googleEventId, source: 'google' });
+                        }
+                    }).catch(() => { });
+
                     created.push(reminder);
                 }
             }
+
+            // Pipeline Sync
+            const { triggerVectorReload } = require('./reminders/helpers');
+            emitDataSync(req, res, userId, 'task', 'create', { type: 'medical_batch' });
+            triggerVectorReload();
+
             res.json({ success: true, data: created });
         } catch (error) {
-            res.status(500).json({ success: false });
+            console.error('Confirm Medical Reminders Error:', error);
+            res.status(500).json({ success: false, message: "Failed to create medical reminders." });
         }
     },
 

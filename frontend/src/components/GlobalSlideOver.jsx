@@ -1,6 +1,5 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Edit2 } from 'lucide-react';
+import { X } from 'lucide-react';
 
 const GlobalSlideOver = ({
     isOpen,

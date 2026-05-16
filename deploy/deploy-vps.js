@@ -16,6 +16,7 @@ if (!['staging', 'production'].includes(env)) {
 // Environment specific variables
 const isProd = env === 'production';
 const BASE_DIR = isProd ? `/var/www/${PROJECT_NAME}_prod` : `/var/www/${PROJECT_NAME}_staging`;
+const GLOBAL_VENV = `/var/www/${PROJECT_NAME}_global_venv`;
 const PM2_NAME = isProd ? `${PROJECT_NAME}-backend-prod` : `${PROJECT_NAME}-backend-staging`;
 
 // Directory structure
@@ -73,11 +74,12 @@ try {
         cd ../ai-service &&
         ln -nfs ${sharedDir}/ai.env .env &&
         
-        # Virtual Environment setup to avoid PEP 668 issues
-        if [ ! -d "${sharedDir}/venv" ]; then
-            python3 -m venv ${sharedDir}/venv
+        # Global Virtual Environment setup to save space across Prod/Staging
+        if [ ! -d "${GLOBAL_VENV}" ]; then
+            python3 -m venv ${GLOBAL_VENV}
         fi
-        ${sharedDir}/venv/bin/pip install -r requirements.txt
+        ${GLOBAL_VENV}/bin/pip install --upgrade pip &&
+        ${GLOBAL_VENV}/bin/pip install -r requirements.txt
     `;
     execSync(`ssh ${SERVER} '${extractCommand}'`, { stdio: 'inherit' });
 
@@ -92,7 +94,7 @@ try {
         pm2 start server.js --name ${PM2_NAME} &&
         cd ../ai-service &&
         pm2 delete ${PM2_NAME}-ai || true &&
-        pm2 start "${sharedDir}/venv/bin/python3 run.py" --name ${PM2_NAME}-ai &&
+        pm2 start "${GLOBAL_VENV}/bin/python3 run.py" --name ${PM2_NAME}-ai &&
         pm2 save
     `;
     execSync(`ssh ${SERVER} '${updateCommand}'`, { stdio: 'inherit' });
@@ -109,9 +111,9 @@ try {
     console.log(`Ensure your Nginx server config root points to:`);
     console.log(`root ${currentDir}/frontend/dist;`);
 
-    // Step 7: Cleanup old releases (keep only last 5)
-    console.log(`\n[7/7] 🧹 Pruning old releases on VPS (keeping last 5)...`);
-    const cleanupCommand = `cd ${BASE_DIR}/releases && ls -t | tail -n +6 | xargs rm -rf`;
+    // Step 7: Cleanup old releases (keep only last 2)
+    console.log(`\n[7/7] 🧹 Pruning old releases on VPS (keeping last 2)...`);
+    const cleanupCommand = `cd ${BASE_DIR}/releases && ls -t | tail -n +3 | xargs rm -rf`;
     execSync(`ssh ${SERVER} '${cleanupCommand}'`, { stdio: 'inherit' });
 
     console.log(`\n✨ DONE! Server space optimized.`);

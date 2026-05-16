@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin,
-    Filter, Search, Plus, X, Mic, CheckCircle2, Circle, Loader2
+    Filter, X, Mic, CheckCircle2, Circle, Loader2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';

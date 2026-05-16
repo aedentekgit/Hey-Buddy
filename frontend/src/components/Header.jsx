@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { Menu, Home, Mic, Send, Search, Bell, User, Trash2, CheckCircle, Clock, Info, X, Settings, LogOut, Brain } from 'lucide-react';
+import { Menu, Home, Mic, Search, Bell, User, Trash2, Clock, Info, X, Settings, LogOut, Brain } from 'lucide-react';
 import { useVoiceAssistant } from '../context/VoiceAssistantContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';

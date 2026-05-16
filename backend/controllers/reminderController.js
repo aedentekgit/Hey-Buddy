@@ -280,7 +280,7 @@ exports.createReminder = async (req, res) => {
             location,
             coordinates: finalCoordinates,
             geofenceRadius: geofenceRadius || 500,
-            reminderType: reminderType || (location ? 'location' : 'time'),
+            reminderType: reminderType || 'time',
             intent: intent || 'generic',
             priority: priority || 'medium',
             bufferTime: bufferTime || 0,
@@ -427,11 +427,10 @@ exports.updateReminder = async (req, res) => {
             }
         }
 
-        // AUTO-ADJUST REMINDER TYPE: If location is added/changed, ensure it's categorized as 'location'
-        if (updateData.location !== undefined) {
-             updateData.reminderType = updateData.location ? 'location' : 'time';
-        } else if (reminder.location) {
-             updateData.reminderType = 'location';
+        // Manual category adjustments follow if explicitly requested
+        if (updateData.reminderType === 'location') {
+             // In current design, we maintain separation. If it's truly a geofence rule, it should be in LocationReminder collection.
+             // We allow existing ones to remain or explicit overrides if needed, but discourage auto-switching.
         }
 
         // Explicitly handle sharedWith assignment to ensure Mongoose detects change

@@ -65,8 +65,12 @@ import logging
 import os
 import time
 import asyncio
+import re
+import requests
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
+from html import unescape
+from urllib.parse import parse_qs, unquote, urlparse
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 
 from app.services.groq_service import GroqService, escape_curly_braces, AllGroqApisFailedError
@@ -83,7 +87,13 @@ logger = logging.getLogger("Hey buddy")
 # This is much lower than the main LLM timeout (60s) because query extraction
 # is a simple task — if it takes more than 15 seconds, something is wrong and
 # we should fall back to using the raw question.
-GROQ_REQUEST_TIMEOUT_FAST = 15
+GROQ_REQUEST_TIMEOUT_FAST = 4
+TAVILY_SEARCH_TIMEOUT = 5
+DDG_HTML_TIMEOUT = 3
+SEARCH_CACHE_TTL_SECONDS = 600
+_SEARCH_RESULT_CACHE = {}
+WEATHER_CACHE_TTL_SECONDS = 300
+_WEATHER_CACHE = {}
 
 # ─── QUERY EXTRACTION PROMPT ────────────────────────────────────────────────
 # This prompt is sent to the fast LLM to convert messy conversational text into
@@ -105,6 +115,52 @@ _QUERY_EXTRACTION_PROMPT = (
     "information the user needs. Resolve any references (like 'that website', 'him', 'it') "
     "using the conversation history. Output ONLY the search query, nothing else."
 )
+
+_FRESHNESS_KEYWORDS = {
+    "current", "latest", "today", "now", "recent", "breaking", "news", "live",
+    "update", "updates", "global", "world", "weather", "price", "prices",
+    "stock", "stocks", "market", "markets", "score", "scores", "trend", "trends",
+}
+
+_GLOBAL_DETAILS_PATTERNS = [
+    re.compile(r"\b(current|latest|today'?s|recent)\s+(global|world)\s+(detail|details|update|updates|news|headlines)\b", re.I),
+    re.compile(r"\b(global|world)\s+(detail|details|update|updates|news|headlines)\b", re.I),
+    re.compile(r"\bwhat'?s\s+happening\s+(globally|in the world)\b", re.I),
+]
+
+_PUBLIC_OFFICE_PATTERNS = [
+    re.compile(r"\bwho\s+is\s+(the\s+)?(cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\b", re.I),
+    re.compile(r"\b(cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\s+of\b", re.I),
+    re.compile(r"\b(current|new|present)\s+(cm|chief\s+minister|pm|prime\s+minister|president|governor|mayor)\b", re.I),
+]
+
+_PLACE_ALIASES = {
+    "tn": "Tamil Nadu",
+}
+
+_WEATHER_CODE_DESCRIPTIONS = {
+    0: "clear sky",
+    1: "mainly clear",
+    2: "partly cloudy",
+    3: "overcast",
+    45: "foggy",
+    48: "depositing rime fog",
+    51: "light drizzle",
+    53: "moderate drizzle",
+    55: "dense drizzle",
+    61: "light rain",
+    63: "moderate rain",
+    65: "heavy rain",
+    71: "light snow",
+    73: "moderate snow",
+    75: "heavy snow",
+    80: "light rain showers",
+    81: "moderate rain showers",
+    82: "violent rain showers",
+    95: "thunderstorm",
+    96: "thunderstorm with slight hail",
+    99: "thunderstorm with heavy hail",
+}
 
 
 # =============================================================================
@@ -249,6 +305,198 @@ class RealtimeGroqService(GroqService):
         # similar messages. Uses a simple dict with max 200 entries.
         self._query_extraction_cache = {}
         self._query_cache_max_size = 200
+
+    def _needs_live_search(self, question: str) -> bool:
+        """Return True when answering from model memory would likely be stale."""
+        text = self.get_text_content(question).lower()
+        words = set(re.findall(r"[a-z0-9']+", text))
+        return bool(words & _FRESHNESS_KEYWORDS) or any(pattern.search(text) for pattern in _PUBLIC_OFFICE_PATTERNS)
+
+    def _deterministic_search_query(self, question: str) -> Optional[str]:
+        """Fast path for common freshness queries that do not need LLM rewriting."""
+        text = self.get_text_content(question).strip()
+        normalized = text.lower()
+
+        if any(pattern.search(normalized) for pattern in _PUBLIC_OFFICE_PATTERNS):
+            office = None
+            if re.search(r"\b(cm|chief\s+minister)\b", normalized):
+                office = "chief minister"
+            elif re.search(r"\b(pm|prime\s+minister)\b", normalized):
+                office = "prime minister"
+            elif "president" in normalized:
+                office = "president"
+            elif "governor" in normalized:
+                office = "governor"
+            elif "mayor" in normalized:
+                office = "mayor"
+
+            place_match = re.search(
+                r"\b(?:of|for|in)\s+([a-z][a-z\s.]{1,60}?)(?:\?|$|\bnow\b|\btoday\b)",
+                normalized,
+            )
+            place = place_match.group(1).strip(" ?.") if place_match else ""
+            place = re.sub(r"\b(the|current|new|present)\b", "", place).strip()
+            place = _PLACE_ALIASES.get(place, place.title() if place else "")
+
+            if office and place:
+                return f"current {office} of {place}"
+
+        if any(pattern.search(text) for pattern in _GLOBAL_DETAILS_PATTERNS):
+            return "latest world news headlines today"
+
+        return None
+
+    def _extract_weather_location(self, question: str) -> Optional[str]:
+        """Extract the requested place from simple weather questions."""
+        text = self.get_text_content(question).strip()
+        normalized = text.lower()
+        if "weather" not in normalized and "temperature" not in normalized:
+            return None
+
+        location_match = re.search(
+            r"\b(?:weather|temperature)\s+(?:in|at|for|near)\s+([a-z][a-z\s,.-]{1,80}?)(?:\?|$|\btoday\b|\bnow\b|\bcurrent\b)",
+            normalized,
+        )
+        if not location_match:
+            location_match = re.search(
+                r"\b(?:in|at|for|near)\s+([a-z][a-z\s,.-]{1,80}?)(?:\?|$|\btoday\b|\bnow\b)",
+                normalized,
+            )
+
+        if not location_match:
+            return None
+
+        location = location_match.group(1).strip(" ?.,")
+        location = re.sub(r"\b(current|today|now|right now)\b", "", location).strip(" ?.,")
+        return _PLACE_ALIASES.get(location, location.title()) if location else None
+
+    def _get_direct_weather_response(self, question: str) -> Optional[str]:
+        """Return current weather without using the LLM provider."""
+        location = self._extract_weather_location(question)
+        if not location:
+            return None
+
+        cache_key = location.lower()
+        cached = _WEATHER_CACHE.get(cache_key)
+        if cached and time.time() - cached["time"] < WEATHER_CACHE_TTL_SECONDS:
+            logger.info("[WEATHER] Cache hit for: %s", location)
+            return cached["response"]
+
+        try:
+            geo = requests.get(
+                "https://geocoding-api.open-meteo.com/v1/search",
+                params={"name": location, "count": 1, "language": "en", "format": "json"},
+                timeout=3,
+            )
+            geo.raise_for_status()
+            geo_results = geo.json().get("results") or []
+            if not geo_results:
+                return f"I couldn't find weather data for {location} right now."
+
+            place = geo_results[0]
+            lat = place["latitude"]
+            lon = place["longitude"]
+            display_name = place.get("name") or location
+            admin = place.get("admin1")
+            country = place.get("country")
+
+            weather = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
+                    "timezone": "auto",
+                },
+                timeout=3,
+            )
+            weather.raise_for_status()
+            current = weather.json().get("current") or {}
+
+            temp = current.get("temperature_2m")
+            feels_like = current.get("apparent_temperature")
+            humidity = current.get("relative_humidity_2m")
+            wind = current.get("wind_speed_10m")
+            code = current.get("weather_code")
+            condition = _WEATHER_CODE_DESCRIPTIONS.get(code, "current conditions")
+
+            place_bits = [display_name]
+            if admin and admin != display_name:
+                place_bits.append(admin)
+            if country:
+                place_bits.append(country)
+            place_label = ", ".join(place_bits)
+
+            response = (
+                f"The current weather in {place_label} is {condition}, around {temp}°C"
+                f" and feels like {feels_like}°C. Humidity is {humidity}%"
+                f" with wind around {wind} km/h."
+            )
+            _WEATHER_CACHE[cache_key] = {"time": time.time(), "response": response}
+            return response
+        except Exception as e:
+            logger.warning("[WEATHER] Direct weather lookup failed for %s: %s", location, e)
+            return "I couldn't fetch the current weather right now. Please try again in a moment."
+
+    def _normalize_search_query(self, extracted_query: str, original_question: str) -> str:
+        """
+        Turn vague freshness requests into search-engine-friendly queries.
+
+        Users often say things like "current global details"; as a search query that
+        is too vague, but the intent is usually today's world headlines.
+        """
+        question_text = self.get_text_content(original_question).strip()
+        query = (extracted_query or question_text).strip()
+
+        if any(pattern.search(question_text) for pattern in _GLOBAL_DETAILS_PATTERNS):
+            return "latest world news headlines today"
+
+        query_words = set(re.findall(r"[a-z0-9']+", query.lower()))
+        if "global" in query_words and "details" in query_words and len(query_words) <= 5:
+            return "latest world news headlines today"
+
+        return query
+
+    def _live_search_unavailable_message(self, search_query: str) -> str:
+        return (
+            "I couldn't access live search right now, so I don't want to give stale details. "
+            f"Please try again in a moment. Search attempted: {search_query}."
+        )
+
+    def _prepare_search_query(self, question: str, chat_history: Optional[List[tuple]] = None) -> str:
+        deterministic_query = self._deterministic_search_query(question)
+        if deterministic_query:
+            logger.info("[REALTIME] Deterministic search query: '%s' -> '%s'", question[:80], deterministic_query)
+            return deterministic_query
+
+        return self._normalize_search_query(
+            self._extract_search_query(question, chat_history),
+            question,
+        )
+
+    def _search_web(self, query: str, num_results: int = 7) -> Tuple[str, Optional[dict]]:
+        cache_key = query.strip().lower()
+        cached = _SEARCH_RESULT_CACHE.get(cache_key)
+        if cached and time.time() - cached["time"] < SEARCH_CACHE_TTL_SECONDS:
+            logger.info("[REALTIME] Search cache hit for: %s", query)
+            return cached["formatted"], cached["payload"]
+
+        formatted_results, payload = self.search_tavily(query, num_results=num_results)
+        if not formatted_results:
+            logger.info("[REALTIME] Falling back to DuckDuckGo search...")
+            formatted_results, payload = self.search_duckduckgo(query, num_results=min(num_results, 5))
+
+        if formatted_results:
+            _SEARCH_RESULT_CACHE[cache_key] = {
+                "time": time.time(),
+                "formatted": formatted_results,
+                "payload": payload,
+            }
+            if len(_SEARCH_RESULT_CACHE) > 100:
+                oldest_key = min(_SEARCH_RESULT_CACHE, key=lambda key: _SEARCH_RESULT_CACHE[key]["time"])
+                _SEARCH_RESULT_CACHE.pop(oldest_key, None)
+
+        return formatted_results, payload
 
     # ─── QUERY EXTRACTION ────────────────────────────────────────────────────
     # Raw user messages are often conversational and contain pronouns, references,
@@ -474,10 +722,10 @@ class RealtimeGroqService(GroqService):
                 # Execute the Tavily call in a thread pool with a 10-second timeout
                 executor = ThreadPoolExecutor(max_workers=1)
                 future = executor.submit(_tavily_search_with_retry)
-                response = future.result(timeout=10.0)
+                response = future.result(timeout=TAVILY_SEARCH_TIMEOUT)
                 executor.shutdown(wait=False)
             except TimeoutError:
-                logger.warning("Tavily search timeout (10s) for query: %s", query)
+                logger.warning("Tavily search timeout (%ss) for query: %s", TAVILY_SEARCH_TIMEOUT, query)
                 return ("", None)
 
             results = response.get("results", [])
@@ -539,9 +787,19 @@ class RealtimeGroqService(GroqService):
         """
         try:
             t0 = time.perf_counter()
-            # DuckDuckGo query
-            results = self.ddg_search.results(query, max_results=num_results)
-            
+            results = self._search_duckduckgo_html(query, num_results)
+
+            if not results:
+                executor = ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(self.ddg_search.results, query, max_results=num_results)
+                try:
+                    results = future.result(timeout=DDG_HTML_TIMEOUT)
+                except TimeoutError:
+                    logger.warning("DuckDuckGo package timeout (%ss) for query: %s", DDG_HTML_TIMEOUT, query)
+                    results = []
+                finally:
+                    executor.shutdown(wait=False)
+
             if not results:
                 logger.warning("No DuckDuckGo search results for query: %s", query)
                 return ("", None)
@@ -582,6 +840,38 @@ class RealtimeGroqService(GroqService):
         except Exception as e:
             logger.error("Error performing DuckDuckGo search: %s", e)
             return ("", None)
+
+    def _search_duckduckgo_html(self, query: str, num_results: int = 5) -> List[dict]:
+        """Direct HTML fallback for environments where the DDG package returns no rows."""
+        try:
+            response = requests.get(
+                "https://duckduckgo.com/html/",
+                params={"q": query},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=DDG_HTML_TIMEOUT,
+            )
+            response.raise_for_status()
+            html = response.text
+            rows = re.findall(
+                r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>.*?'
+                r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',
+                html,
+                re.S,
+            )
+            parsed = []
+            for href, title_html, snippet_html in rows[:num_results]:
+                url = unescape(href)
+                if url.startswith("//duckduckgo.com/l/"):
+                    params = parse_qs(urlparse("https:" + url).query)
+                    url = unquote(params.get("uddg", [url])[0])
+                title = re.sub(r"<.*?>", "", unescape(title_html)).strip()
+                snippet = re.sub(r"<.*?>", "", unescape(snippet_html)).strip()
+                if title:
+                    parsed.append({"title": title, "snippet": snippet, "link": url})
+            return parsed
+        except Exception as e:
+            logger.error("DuckDuckGo HTML fallback failed: %s", e)
+            return []
 
     # ─── PUBLIC API OVERRIDES ────────────────────────────────────────────────
     # These methods OVERRIDE the parent GroqService's get_response/stream_response.
@@ -630,21 +920,21 @@ class RealtimeGroqService(GroqService):
             AllGroqApisFailedError: If all Groq API keys fail.
         """
         try:
-            # Step 1: Extract a clean, focused search query from the user's message.
-            # Example: "tell me more about him" → "Elon Musk latest news 2026"
-            search_query = self._extract_search_query(question, chat_history)
+            weather_response = self._get_direct_weather_response(question)
+            if weather_response:
+                return weather_response
+
+            search_query = self._prepare_search_query(question, chat_history)
             logger.info("[REALTIME] Searching Tavily for: %s", search_query)
 
-            # Step 2: Run web search (Tavily first, then DuckDuckGo fallback).
-            formatted_results, _ = self.search_tavily(search_query, num_results=7)
-            if not formatted_results:
-                logger.info("[REALTIME] Falling back to DuckDuckGo search...")
-                formatted_results, _ = self.search_duckduckgo(search_query)
+            formatted_results, _ = self._search_web(search_query, num_results=7)
 
             if formatted_results:
                 logger.info("[REALTIME] Web search returned results (length: %d chars)", len(formatted_results))
             else:
                 logger.warning("[REALTIME] All search providers returned no results for: %s", search_query)
+                if self._needs_live_search(question):
+                    return self._live_search_unavailable_message(search_query)
 
             # Step 3: Build the prompt with search results injected as extra_system_parts.
             extra_parts = [formatted_results] if formatted_results else None
@@ -682,18 +972,23 @@ class RealtimeGroqService(GroqService):
             Then: text chunks (str) from the LLM.
         """
         try:
-            search_query = self._extract_search_query(question, chat_history)
+            weather_response = self._get_direct_weather_response(question)
+            if weather_response:
+                yield weather_response
+                return
+
+            search_query = self._prepare_search_query(question, chat_history)
             logger.info("[REALTIME] Searching Tavily for: %s", search_query)
 
-            formatted_results, payload = self.search_tavily(search_query, num_results=7)
-            if not formatted_results:
-                logger.info("[REALTIME-STREAM] Falling back to DuckDuckGo search...")
-                formatted_results, payload = self.search_duckduckgo(search_query)
+            formatted_results, payload = self._search_web(search_query, num_results=7)
 
             if formatted_results:
                 logger.info("[REALTIME] Web search returned results (length: %d chars)", len(formatted_results))
             else:
                 logger.warning("[REALTIME] All search providers returned no results for: %s", search_query)
+                if self._needs_live_search(question):
+                    yield self._live_search_unavailable_message(search_query)
+                    return
 
             # Send search results to the client for the right-side widget (before any text).
             if payload:

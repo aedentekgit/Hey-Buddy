@@ -3,6 +3,21 @@ const ChatMessage = require('../models/ChatMessage');
 const User = require('../models/User');
 const path = require('path');
 
+const ensureChatMember = async (chatId, userId) => {
+    const room = await ChatRoom.findById(chatId);
+    if (!room) {
+        const err = new Error('Chat not found');
+        err.status = 404;
+        throw err;
+    }
+    if (!room.members.map(String).includes(userId.toString())) {
+        const err = new Error('Access denied to this chat');
+        err.status = 403;
+        throw err;
+    }
+    return room;
+};
+
 // GET /chat/private/start?member_id=202
 exports.startPrivateChat = async (req, res) => {
     try {
@@ -80,6 +95,7 @@ exports.getChatMessages = async (req, res) => {
     try {
         const { chat_id } = req.query;
         if (!chat_id) return res.status(400).json({ success: false, message: "Chat ID is required" });
+        await ensureChatMember(chat_id, req.user._id);
 
         const messages = await ChatMessage.find({ roomId: chat_id, clearedBy: { $ne: req.user._id } })
             .sort({ createdAt: 1 })
@@ -106,7 +122,7 @@ exports.getChatMessages = async (req, res) => {
 
         res.status(200).json({ success: true, data: formattedMessages });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to fetch messages" });
+        res.status(error.status || 500).json({ success: false, message: error.status ? error.message : "Failed to fetch messages" });
     }
 };
 
@@ -117,6 +133,7 @@ exports.sendMessage = async (req, res) => {
         const senderId = req.user._id;
 
         if (!chat_id || !content) return res.status(400).json({ success: false, message: "Chat ID and content are required" });
+        const chatRoom = await ensureChatMember(chat_id, senderId);
 
         const message = new ChatMessage({
             roomId: chat_id,
@@ -126,14 +143,14 @@ exports.sendMessage = async (req, res) => {
         await message.save();
 
         // Update ChatRoom lastMessage
-        await ChatRoom.findByIdAndUpdate(chat_id, {
+        await ChatRoom.findByIdAndUpdate(chatRoom._id, {
             lastMessage: content,
             lastMessageAt: Date.now()
         });
 
         res.status(200).json({ success: true, message: "Message sent", data: message });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to send message" });
+        res.status(error.status || 500).json({ success: false, message: error.status ? error.message : "Failed to send message" });
     }
 };
 
@@ -142,6 +159,7 @@ exports.deleteChatHistory = async (req, res) => {
     try {
         const { chat_id } = req.params;
         const userId = req.user._id;
+        await ensureChatMember(chat_id, userId);
         
         await ChatMessage.updateMany(
             { roomId: chat_id },
@@ -150,7 +168,7 @@ exports.deleteChatHistory = async (req, res) => {
 
         res.status(200).json({ success: true, message: "Chat history cleared" });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to clear chat history" });
+        res.status(error.status || 500).json({ success: false, message: error.status ? error.message : "Failed to clear chat history" });
     }
 };
 
@@ -160,8 +178,7 @@ exports.muteChat = async (req, res) => {
         const { chat_id } = req.params;
         const userId = req.user._id;
 
-        const chatRoom = await ChatRoom.findById(chat_id);
-        if (!chatRoom) return res.status(404).json({ success: false, message: "Chat not found" });
+        const chatRoom = await ensureChatMember(chat_id, userId);
 
         const idx = chatRoom.mutedBy.indexOf(userId);
         let msg = "";
@@ -176,7 +193,7 @@ exports.muteChat = async (req, res) => {
 
         res.status(200).json({ success: true, message: msg, isMuted: idx === -1 });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to mute chat" });
+        res.status(error.status || 500).json({ success: false, message: error.status ? error.message : "Failed to mute chat" });
     }
 };
 
@@ -186,8 +203,7 @@ exports.archiveChat = async (req, res) => {
         const { chat_id } = req.params;
         const userId = req.user._id;
 
-        const chatRoom = await ChatRoom.findById(chat_id);
-        if (!chatRoom) return res.status(404).json({ success: false, message: "Chat not found" });
+        const chatRoom = await ensureChatMember(chat_id, userId);
 
         const idx = chatRoom.archivedBy.indexOf(userId);
         let msg = "";
@@ -202,6 +218,6 @@ exports.archiveChat = async (req, res) => {
 
         res.status(200).json({ success: true, message: msg, isArchived: idx === -1 });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to archive chat" });
+        res.status(error.status || 500).json({ success: false, message: error.status ? error.message : "Failed to archive chat" });
     }
 };

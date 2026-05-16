@@ -83,14 +83,16 @@ exports.analyzeImage = async (req, res) => {
 exports.saveVisionReminders = async (req, res) => {
     try {
         const { items } = req.body;
+        const userId = req.user._id;
         if (!items || !Array.isArray(items)) {
             return res.status(400).json({ success: false, message: "Invalid items" });
         }
 
+        const { syncReminder } = require('../services/googleCalendarService');
         const createdReminders = [];
         for (const item of items) {
             const reminder = await Reminder.create({
-                userId: req.user._id,
+                userId,
                 title: item.title,
                 description: item.details || '',
                 date: item.date || new Date().toISOString().split('T')[0],
@@ -98,16 +100,31 @@ exports.saveVisionReminders = async (req, res) => {
                 source: 'buddy',
                 intent: 'generic'
             });
+
+            // Background Google Sync
+            syncReminder(req.user, reminder).then(async (googleEventId) => {
+                if (googleEventId) {
+                    await Reminder.findByIdAndUpdate(reminder._id, { googleEventId, source: 'google' });
+                }
+            }).catch(() => { });
+
             createdReminders.push(reminder);
         }
 
         // Create a summary notification
         await Notification.create({
-            userId: req.user._id,
+            userId,
             title: 'Vision Import Complete',
             message: `Successfully imported ${items.length} items from your image analysis.`,
             type: 'reminder'
         });
+
+        // Pipeline Sync
+        const { emitDataSync } = require('../utils/socketEmitter');
+        const { triggerVectorReload } = require('./reminders/helpers');
+        
+        emitDataSync(req, res, userId, 'task', 'create', { type: 'vision_import' });
+        triggerVectorReload();
 
         res.status(201).json({ success: true, count: createdReminders.length });
     } catch (error) {
