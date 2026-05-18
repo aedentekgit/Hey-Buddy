@@ -20,6 +20,8 @@ const contextService = {
             const mongoose = require('mongoose');
             const User = mongoose.model('User') || require('../models/User');
 
+            const Settings = mongoose.model('Settings') || require('../models/Settings');
+
             let userDoc = preFetchedUser;
             if (!userDoc && userId) {
                 userDoc = await User.findById(userId).select('voicePreferences dateFormat timeFormat timezone');
@@ -71,12 +73,15 @@ const contextService = {
                 status: { $in: ['on_track', 'risk_alert'] }
             }).sort({ createdAt: -1 }).limit(10) : Promise.resolve([]);
 
+            const settingsPromise = Settings.findOne().select('general.language');
+
             // 3. Execute in parallel
-            const [conversation, memoriesDocs, stdRemindersDocs, locRemindersDocs] = await Promise.all([
+            const [conversation, memoriesDocs, stdRemindersDocs, locRemindersDocs, settingsDoc] = await Promise.all([
                 historyPromise,
                 memoriesPromise,
                 remindersPromise,
-                locationRemindersPromise
+                locationRemindersPromise,
+                settingsPromise
             ]);
 
             // 4. Process results
@@ -133,6 +138,7 @@ const contextService = {
             let voicePreferences = userDoc?.voicePreferences || { gender: 'female', tone: 'soft' };
             let dateFormat = userDoc?.dateFormat || 'DD/MM/YYYY';
             let timeFormat = userDoc?.timeFormat || '12';
+            const systemLanguage = settingsDoc?.general?.language || 'en-US';
 
             return {
                 history: history.map(m => ({ role: m.role, content: m.content })),
@@ -143,7 +149,8 @@ const contextService = {
                     localDate: userDate,
                     voicePreferences,
                     dateFormat,
-                    timeFormat
+                    timeFormat,
+                    systemLanguage
                 }
             };
         } catch (error) {

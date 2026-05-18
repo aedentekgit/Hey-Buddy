@@ -53,8 +53,8 @@ try {
     // Step 3: Ensure server directories exist and upload archives
     console.log(`\n[3/6] 📤 Uploading packages to VPS (${SERVER})...`);
     console.log(`(You may be asked for the VPS password)`);
-    execSync(`ssh ${SERVER} "mkdir -p ${releaseDir}/backend ${releaseDir}/frontend ${releaseDir}/ai-service ${sharedDir}/uploads"`, { stdio: 'inherit' });
-    execSync(`scp ${backendArchiveName} ${frontendArchiveName} ${aiArchiveName} ${SERVER}:${releaseDir}/`, { stdio: 'inherit' });
+    execSync(`sshpass -p 'Aedentek@123#' ssh -o StrictHostKeyChecking=no ${SERVER} "mkdir -p ${releaseDir}/backend ${releaseDir}/frontend ${releaseDir}/ai-service ${sharedDir}/uploads"`, { stdio: 'inherit' });
+    execSync(`sshpass -p 'Aedentek@123#' scp -o StrictHostKeyChecking=no ${backendArchiveName} ${frontendArchiveName} ${aiArchiveName} ${SERVER}:${releaseDir}/`, { stdio: 'inherit' });
 
     // Step 4: Extract code and install dependencies securely on the server
     console.log(`\n[4/6] ⚙️  Extracting backend and frontend code...`);
@@ -81,7 +81,7 @@ try {
         ${GLOBAL_VENV}/bin/pip install --upgrade pip &&
         ${GLOBAL_VENV}/bin/pip install -r requirements.txt
     `;
-    execSync(`ssh ${SERVER} '${extractCommand}'`, { stdio: 'inherit' });
+    execSync(`sshpass -p 'Aedentek@123#' ssh -o StrictHostKeyChecking=no ${SERVER} '${extractCommand}'`, { stdio: 'inherit' });
 
     // Step 5: Atomic switch (zero-downtime) and restart
     console.log(`\n[5/6] 🔄 Switching live traffic and updating PM2 path...`);
@@ -97,7 +97,7 @@ try {
         pm2 start "${GLOBAL_VENV}/bin/python3 run.py" --name ${PM2_NAME}-ai &&
         pm2 save
     `;
-    execSync(`ssh ${SERVER} '${updateCommand}'`, { stdio: 'inherit' });
+    execSync(`sshpass -p 'Aedentek@123#' ssh -o StrictHostKeyChecking=no ${SERVER} '${updateCommand}'`, { stdio: 'inherit' });
 
     // Step 6: Cleanup local archives
     console.log(`\n[6/6] 🧹 Cleaning up local temporary files...`);
@@ -114,7 +114,7 @@ try {
     // Step 7: Cleanup old releases (keep only last 2)
     console.log(`\n[7/7] 🧹 Pruning old releases on VPS (keeping last 2)...`);
     const cleanupCommand = `cd ${BASE_DIR}/releases && ls -t | tail -n +3 | xargs rm -rf`;
-    execSync(`ssh ${SERVER} '${cleanupCommand}'`, { stdio: 'inherit' });
+    execSync(`sshpass -p 'Aedentek@123#' ssh -o StrictHostKeyChecking=no ${SERVER} '${cleanupCommand}'`, { stdio: 'inherit' });
 
     console.log(`\n✨ DONE! Server space optimized.`);
 

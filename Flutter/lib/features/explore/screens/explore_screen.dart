@@ -850,12 +850,19 @@ class _MarqueeRowState extends State<_MarqueeRow> {
 
   @override
   Widget build(BuildContext context) {
-    final repeated = [...widget.items, ...widget.items, ...widget.items];
+    // Ensure we have enough items to actually scroll/marquee by repeating them
+    final int repeatCount = widget.items.isEmpty ? 1 : (30 / widget.items.length).ceil().clamp(3, 50);
+    final repeated = List<String>.generate(
+      widget.items.length * repeatCount,
+      (index) => widget.items[index % widget.items.length],
+    );
+
     return ListView.builder(
       controller: _ctrl,
       scrollDirection: Axis.horizontal,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: repeated.length,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       itemBuilder: (_, i) {
         final label = repeated[i % repeated.length];
         return Pressable(

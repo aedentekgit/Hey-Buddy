@@ -1,0 +1,18 @@
+{
+  "identity": {},
+  "preferences": {
+    "favorite_coffee": {
+      "value": "green coffee",
+      "updated": "2026-05-18"
+    }
+  },
+  "projects": {},
+  "relationships": {},
+  "wishes": {},
+  "notes": {
+    "next_invoice_number_format": {
+      "value": "CM007",
+      "updated": "2026-05-18"
+    }
+  }
+}

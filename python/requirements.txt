@@ -1,39 +1,24 @@
-# Core Framework
-fastapi==0.115.0
-uvicorn[standard]==0.32.0
-python-dotenv==1.0.1
-pydantic==2.9.2
-
-# LangChain Ecosystem
-langchain==0.3.7
-langchain-core==0.3.17
-langchain-community==0.3.7
-langchain-groq==0.2.1
-langchain-huggingface==0.1.2
-langchain-google-genai==2.0.5
-langchain-openai==0.2.9
-langchain-anthropic==0.3.0
-
-# AI Models & APIs
-openai==1.54.4
-google-generativeai==0.8.3
-cohere==5.11.3
-anthropic==0.39.0
-
-# Vector Store & Embeddings
-sentence-transformers==3.3.1
-faiss-cpu==1.9.0
-torch==2.5.1
-transformers==4.46.3
-
-# Search & Tools
-tavily-python==0.5.0
+﻿sounddevice
+google-genai
+google-generativeai
+pillow
+requests
+beautifulsoup4
 duckduckgo-search
-
-# Utilities
-requests==2.32.3
-numpy<2.0.0
-httpx==0.27.2
-rich==13.9.4
-edge-tts==6.1.18
-gtts
+playwright          
+pyautogui
+pyperclip
+pygetwindow       
+opencv-python
+numpy
+mss
+Pillow
+psutil
+comtypes
+pycaw               
+win10toast          
+send2trash
+youtube-transcript-api
+pywinauto
+python-pptx
+pyqt6

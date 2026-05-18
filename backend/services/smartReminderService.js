@@ -608,7 +608,7 @@ async function checkItemExitGuards(specificUserId = null, io) {
             // Logic B: Immediate Alert (If turned on while already outside and never notified)
             const immediateAlertNeeded = isNowFarAway && !alreadyNotifiedExit;
 
-            if (standardExit || immediateAlertNeeded) {
+            if ((standardExit || immediateAlertNeeded) && !alreadyNotifiedExit) {
                 const notesPart = reminder.notes ? `\nNote: ${reminder.notes}` : '';
                 const message = `Don't forget: "${reminder.title}" - Make sure you have everything you need!${notesPart}`;
 

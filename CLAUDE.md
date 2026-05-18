@@ -27,7 +27,7 @@ Multi-service AI assistant platform with a Node.js API server, Python AI process
 | Service | Port | Description |
 |---------|------|-------------|
 | Node.js API | 5001 | REST API, auth, reminders, socket.io |
-| Python AI | 8000 | RAG, voice synthesis, action execution |
+| Python AI (Mark-XXXIX) | 5002 / 5003 | Real-time Voice (5002) & Remote Control (5003) |
 | React Frontend | 5173 | Admin dashboard |
 
 ---
@@ -44,7 +44,7 @@ Multi-service AI assistant platform with a Node.js API server, Python AI process
 | `backend/models/` | Mongoose models |
 | `frontend/` | React + Vite admin dashboard |
 | `frontend/src/pages/AdminSettings/` | Split Admin Settings (see below) |
-| `python/` | Python FastAPI AI service |
+| `python/` | Python AI Service (Mark-XXXIX Engine) |
 | `Flutter/` | Flutter mobile app |
 
 ### AdminSettings Refactor
@@ -101,7 +101,7 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 
 # Python AI Service
-cd python && pip install -r requirements.txt && python run.py
+cd python && pip install -r requirements.txt && python main.py
 ```
 
 ---

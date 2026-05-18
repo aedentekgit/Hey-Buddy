@@ -116,6 +116,28 @@ const sendPushNotification = async (token, title, body, data = {}) => {
         // Log clearly with the token prefix for debugging
         const tokenPrefix = token ? token.substring(0, 20) + '...' : 'null';
         console.error(`[FCM] ❌ Send failed for token ${tokenPrefix}:`, error.message);
+
+        // Self-healing: If the token is unregistered or not found, remove it from all Users and Guests
+        const isUnregistered = 
+            error.code === 'messaging/registration-token-not-registered' || 
+            error.code === 'messaging/invalid-registration-token' ||
+            error.message.includes('Requested entity was not found') ||
+            error.message.includes('not-registered') ||
+            error.message.includes('invalid-registration-token');
+
+        if (isUnregistered && token) {
+            console.log(`[FCM] 🗑️ Cleaning up invalid/unregistered token: ${tokenPrefix}`);
+            const User = require('../models/User');
+            const Guest = require('../models/Guest');
+            try {
+                const userUpdate = await User.updateMany({ fcmTokens: token }, { $pull: { fcmTokens: token } });
+                const guestUpdate = await Guest.updateMany({ fcmTokens: token }, { $pull: { fcmTokens: token } });
+                console.log(`[FCM] 🗑️ Successfully removed token from ${userUpdate.modifiedCount} user(s) and ${guestUpdate.modifiedCount} guest(s).`);
+            } catch (cleanupErr) {
+                console.error(`[FCM] ❌ Failed to clean up invalid token:`, cleanupErr.message);
+            }
+        }
+
         throw error;
     }
 };

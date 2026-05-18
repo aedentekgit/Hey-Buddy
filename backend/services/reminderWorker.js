@@ -221,6 +221,7 @@ const startReminderWorker = (io) => {
                 const userNow = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
 
                 let shouldTrigger = false;
+                let shouldExpire = false;
                 let triggerBySharedUser = null; // To keep track of who triggered it
                 const type = reminder.reminderType || 'time';
 
@@ -260,8 +261,21 @@ const startReminderWorker = (io) => {
                         (rYear === userNow.getFullYear() && rMonthAdjusted < userNow.getMonth()) ||
                         (rYear === userNow.getFullYear() && rMonthAdjusted === userNow.getMonth() && rDay < userNow.getDate());
 
-                    if (isPastDueCurrentDay || isOverduePastDay) {
-                        shouldTrigger = true;
+                    if (isToday) {
+                        // Trigger only if we are at or after the adjusted target,
+                        // but NOT if the actual scheduled time has already passed by more than 10 minutes (grace window)
+                        const graceLimit = reminderTargetMinutes + 10;
+                        if (userNowMinutes >= adjustedTarget && userNowMinutes <= graceLimit) {
+                            shouldTrigger = true;
+                        } else if (userNowMinutes > graceLimit) {
+                            // Silently expire because the time has passed
+                            console.log(`[Worker] Expiring stale reminder silently (Time passed by ${userNowMinutes - reminderTargetMinutes}m): "${reminder.title}"`);
+                            shouldExpire = true;
+                        }
+                    } else if (isOverduePastDay) {
+                        // Silently expire because the day has passed
+                        console.log(`[Worker] Expiring stale reminder silently (Past day): "${reminder.title}"`);
+                        shouldExpire = true;
                     }
                 } else if (type === 'location') {
                     // --- LOCATION-BASED LOGIC ---
@@ -349,6 +363,9 @@ const startReminderWorker = (io) => {
                     }
 
                     // Update database
+                    await Reminder.findByIdAndUpdate(reminder._id, { notified: true });
+                } else if (shouldExpire) {
+                    // Silently mark as notified so it won't trigger or query again
                     await Reminder.findByIdAndUpdate(reminder._id, { notified: true });
                 }
             }
