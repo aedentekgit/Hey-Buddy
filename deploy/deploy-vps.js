@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 // 1. Configuration
-const SERVER = 'root@82.29.167.22'; // Your Hostinger VPS
+const SERVER = 'root@194.238.23.158'; // Your Hostinger VPS
 const PROJECT_NAME = 'buddy';
 
 // Parse argument (staging or production)
@@ -47,7 +47,7 @@ try {
     execSync(`cd backend && tar ${excludeFlags} -czvf ../${backendArchiveName} .`, { stdio: 'inherit' });
 
     // Package AI Service
-    const aiExcludeFlags = `--exclude='./venv' --exclude='./__pycache__' --exclude='./.env' --exclude='./.git' --exclude='./database/chats_data' --exclude='./database/vector_store' --exclude='*.tar.gz'`;
+    const aiExcludeFlags = `--exclude='./venv' --exclude='./.venv' --exclude='.venv' --exclude='./__pycache__' --exclude='./.env' --exclude='./.git' --exclude='./database/chats_data' --exclude='./database/vector_store' --exclude='*.tar.gz'`;
     execSync(`cd python && tar ${aiExcludeFlags} -czvf ../${aiArchiveName} .`, { stdio: 'inherit' });
 
     // Step 3: Ensure server directories exist and upload archives
@@ -94,7 +94,7 @@ try {
         pm2 start server.js --name ${PM2_NAME} &&
         cd ../ai-service &&
         pm2 delete ${PM2_NAME}-ai || true &&
-        pm2 start "${GLOBAL_VENV}/bin/python3 run.py" --name ${PM2_NAME}-ai &&
+        pm2 start "${GLOBAL_VENV}/bin/python3 main.py" --name ${PM2_NAME}-ai -- --headless &&
         pm2 save
     `;
     execSync(`sshpass -p 'Aedentek@123#' ssh -o StrictHostKeyChecking=no ${SERVER} '${updateCommand}'`, { stdio: 'inherit' });

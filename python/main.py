@@ -1,8 +1,30 @@
+import sys
+import os
+from unittest.mock import MagicMock
+
+# Mock GUI and other unavailable libraries when running headlessly on VPS
+if "--headless" in sys.argv or (sys.platform.startswith('linux') and not os.environ.get('DISPLAY')):
+    os.environ['DISPLAY'] = ':99'
+    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+    
+    class MockModule(MagicMock):
+        @classmethod
+        def __getattr__(cls, name):
+            return MagicMock()
+
+    sys.modules['pyautogui'] = MockModule()
+    sys.modules['pygetwindow'] = MockModule()
+    sys.modules['pyscreeze'] = MockModule()
+    sys.modules['mouseinfo'] = MockModule()
+    sys.modules['pywinauto'] = MockModule()
+    sys.modules['win10toast'] = MockModule()
+    sys.modules['pycaw'] = MockModule()
+    sys.modules['comtypes'] = MockModule()
+
 import asyncio
 import re
 import threading
 import json
-import sys
 import traceback
 from pathlib import Path
 
@@ -1370,7 +1392,8 @@ class BuddyLive:
                     self.ui.write_log("SYS: Buddy online.")
 
                     tg.create_task(self._send_realtime())
-                    tg.create_task(self._listen_audio())
+                    if not self.headless:
+                        tg.create_task(self._listen_audio())
                     tg.create_task(self._receive_audio())
                     tg.create_task(self._play_audio())
 

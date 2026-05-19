@@ -474,6 +474,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
             isSpeaking: false,
             isVoiceSessionActive: false,
             isEnabled: true,
+            isMuted: _isMuted,
             onMicPressed: () => _sendAction('mute_volume'),
             onAttachPressed: _showAttachOptions,
             onSendPressed: () => _sendTextCommand(_commandController.text),

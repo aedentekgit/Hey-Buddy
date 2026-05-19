@@ -14,7 +14,7 @@ const config = require('../config/env');
  * Now routes all "Thinking" to the Python AI service for web-platform consistency.
  */
 class BuddyAgent extends EventEmitter {
-    constructor(userId, socket, language = 'auto', conversationId = null, standby = false) {
+    constructor(userId, socket, language = 'en-US', conversationId = null, standby = false) {
         super();
         this.userId = userId;
         this.socket = socket;

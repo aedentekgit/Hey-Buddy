@@ -15,7 +15,7 @@ TOOL ROUTING:
 
 computer_settings: ALL single OS actions (volume, brightness, wifi, close, shortcuts, power).
 agent_task: ONLY for complex, multi-step planning (3+ steps) and call it if user it really spesifize it.
-Language: Respond ONLY in the language the user speaks to you; extract parameters in English.
+Language: Use English by default for both interpreting user text and replying. Switch to another language only when the user explicitly requests or prefers it; extract parameters in English.
 Do not call agent_task while you can accomplish it with a tool.
 
 DATABASE & REMINDER ROUTING:

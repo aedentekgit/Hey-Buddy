@@ -959,7 +959,7 @@ class BuddyProvider with ChangeNotifier {
   Future<void> sendMessage(
     String text, {
     String? imagePath,
-    String language = 'auto',
+    String language = 'en-US',
     bool isWakeWord = false,
   }) async {
     _discardAiOutputUntilNextUserMessage = false;

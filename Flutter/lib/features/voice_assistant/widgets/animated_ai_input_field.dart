@@ -15,6 +15,7 @@ class AnimatedAIInputField extends StatefulWidget {
   final bool isSpeaking;
   final bool isVoiceSessionActive;
   final bool isEnabled;
+  final bool isMuted;
 
   const AnimatedAIInputField({
     super.key,
@@ -26,6 +27,7 @@ class AnimatedAIInputField extends StatefulWidget {
     this.isSpeaking = false,
     this.isVoiceSessionActive = false,
     this.isEnabled = true,
+    this.isMuted = false,
   });
 
   @override
@@ -308,10 +310,14 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
 
                             // Mic Button
                             _buildActionIconButton(
-                              icon: widget.isVoiceSessionActive
+                              icon: widget.isMuted
+                                  ? LucideIcons.micOff
+                                  : widget.isVoiceSessionActive
                                   ? LucideIcons.stopCircle
                                   : LucideIcons.mic,
-                              color: widget.isVoiceSessionActive
+                              color: widget.isMuted
+                                  ? const Color(0xFFEF4444)
+                                  : widget.isVoiceSessionActive
                                   ? const Color(0xFFEF4444)
                                   : AppColors.textMid,
                               onTap: widget.isEnabled

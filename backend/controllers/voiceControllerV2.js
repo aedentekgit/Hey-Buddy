@@ -20,7 +20,7 @@ const mongoose = require('mongoose'); // Added for ObjectId operations
 exports.processVoice = async (req, res) => {
     try {
         const startTime = Date.now();
-        const { text, image = null, language = 'auto', conversationId = null, timeZone = 'UTC' } = req.body;
+        const { text, image = null, language = 'en-US', conversationId = null, timeZone = 'UTC' } = req.body;
 
         // Use req.user._id if available, else fall back to req.decodedUserId (valid JWT but user not in this DB)
         // This prevents the Python AI from treating a JWT-verified user as a guest just because

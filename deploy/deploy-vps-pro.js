@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const SERVER = 'root@82.29.167.22';
+const SERVER = 'root@194.238.23.158';
 const args = process.argv.slice(2);
 const environment = args[0]; // 'staging' or 'production'
 
@@ -41,7 +41,7 @@ try {
 
     // 3. Package AI Service
     console.log('📦 Packaging AI Service...');
-    const aiExcludeFlags = "--exclude='venv' --exclude='.env' --exclude='__pycache__' --exclude='database' --exclude='.git' --exclude='server_log.txt' --exclude='*.tar.gz'";
+    const aiExcludeFlags = "--exclude='venv' --exclude='.venv' --exclude='.env' --exclude='__pycache__' --exclude='database' --exclude='.git' --exclude='server_log.txt' --exclude='*.tar.gz'";
     execSync(`tar ${aiExcludeFlags} -czf ai-service.tar.gz -C python .`);
 
     // 4. Upload to VPS
@@ -97,7 +97,7 @@ try {
         
         # Restart AI Service
         pm2 delete ${PM2_AI_NAME} || true &&
-        PORT=${AI_PORT} pm2 start run.py --name ${PM2_AI_NAME} --interpreter ${SHARED_VENV}/bin/python3 --cwd ${REMOTE_PATH}/current/ai-service &&
+        PORT=${AI_PORT} pm2 start main.py --name ${PM2_AI_NAME} --interpreter ${SHARED_VENV}/bin/python3 --cwd ${REMOTE_PATH}/current/ai-service -- --headless &&
         
         # Cleanup archives on VPS
         rm frontend.tar.gz backend.tar.gz ai-service.tar.gz &&

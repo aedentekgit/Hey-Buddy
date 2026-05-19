@@ -13,6 +13,10 @@
     "next_invoice_number_format": {
       "value": "CM007",
       "updated": "2026-05-18"
+    },
+    "wallet_location": {
+      "value": "in my bag",
+      "updated": "2026-05-19"
     }
   }
 }
