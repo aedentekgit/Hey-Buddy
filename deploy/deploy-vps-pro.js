@@ -46,7 +46,7 @@ try {
 
     // 4. Upload to VPS
     console.log(`📤 Uploading packages to VPS ${TITLE}...`);
-    execSync(`scp frontend.tar.gz backend.tar.gz ai-service.tar.gz ${SERVER}:${REMOTE_PATH}/`);
+    execSync(`sshpass -p 'Aedentek@123#' scp -o StrictHostKeyChecking=no frontend.tar.gz backend.tar.gz ai-service.tar.gz ${SERVER}:${REMOTE_PATH}/`);
 
     // 5. Extract and Restart on VPS
     console.log(`⚙️  Extracting and Restarting on VPS ${TITLE}...`);
@@ -109,13 +109,13 @@ try {
         pm2 save
     `;
 
-    execSync(`ssh ${SERVER} "${remoteCommands}"`, { stdio: 'inherit' });
+    execSync(`sshpass -p 'Aedentek@123#' ssh -o StrictHostKeyChecking=no ${SERVER} "${remoteCommands}"`, { stdio: 'inherit' });
 
     // 6. Verification
     console.log('\n🔍 Verifying services...');
     setTimeout(() => {
         try {
-            const status = execSync(`ssh ${SERVER} "pm2 status ${PM2_NAME} && pm2 status ${PM2_AI_NAME}"`).toString();
+            const status = execSync(`sshpass -p 'Aedentek@123#' ssh -o StrictHostKeyChecking=no ${SERVER} "pm2 status ${PM2_NAME} && pm2 status ${PM2_AI_NAME}"`).toString();
             console.log(status);
             console.log(`\n✅ ${TITLE} DEPLOYMENT SUCCESSFUL AND VERIFIED!`);
         } catch (e) {
