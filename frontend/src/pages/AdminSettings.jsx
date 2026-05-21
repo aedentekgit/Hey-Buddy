@@ -16,11 +16,18 @@ import { requestNotificationPermission } from '../services/notificationService';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { getImageUrl } from '../utils/imageUrl';
 import { config as envConfig } from '../config/env';
-import './AdminSettings/styles/settings.module.css';
+import './AdminSettings/styles/settings.css';
 
 // Extracted components
 import SMSSettingsComp from './AdminSettings/components/SMSSettings';
 import GoogleMapsSettingsComp from './AdminSettings/components/GoogleMapsSettings';
+import GoogleCalendarSettings from './AdminSettings/components/GoogleCalendarSettings';
+import NotificationSettings from './AdminSettings/components/NotificationSettings';
+import StorageSettings from './AdminSettings/components/StorageSettings';
+import PaymentSettings from './AdminSettings/components/PaymentSettings';
+import GoogleAuthSettings from './AdminSettings/components/GoogleAuthSettings';
+import MobileAppSettings from './AdminSettings/components/MobileAppSettings';
+import { SectionTitle, InputGroup, TestSection, LabelStyle, InputStyle } from './AdminSettings/components/shared/sharedComponents';
 
 const FONTS = [
     { value: "'Inter', sans-serif", label: "Inter (Modern)" },

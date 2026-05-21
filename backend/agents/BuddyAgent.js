@@ -5,6 +5,7 @@ const GeminiLiveService = require('../services/geminiLiveService');
 const User = require('../models/User');
 const contextService = require('../services/contextService');
 const { getAiConfig } = require('../controllers/ai/aiController');
+const { getFallbackKey } = require('../utils/configHelper');
 
 const { getPersonality } = require('../utils/personality');
 const config = require('../config/env');
@@ -28,18 +29,18 @@ class BuddyAgent extends EventEmitter {
         this.currentOutputText = '';
         this.isConnecting = false;
         this.isThinking = false;
-
+ 
         console.log(`[BuddyAgent] 🚀 New Unified Session: ${socket.id} (User: ${userId})`);
-
+ 
         // Initialize AI Hub (Gemini for Ears, Python for Brain)
         this.ai = null;
         this.initialize(language);
     }
-
+ 
     async initialize(targetLanguage) {
         if (this.isConnecting && this.ai) return;
         this.isConnecting = true;
-
+ 
         try {
             // 1. Fetch AI Config and User Data
             const isGuest = this.userId.toString().startsWith('guest_');
@@ -48,9 +49,9 @@ class BuddyAgent extends EventEmitter {
                 Settings.findOne().select('+ai.geminiApiKey'),
                 getAiConfig()
             ]);
-
+ 
             this.aiConfig = aiConfig;
-            const geminiKey = aiConfig.voiceApiKey || process.env.GEMINI_API_KEY;
+            const geminiKey = aiConfig.voiceApiKey || getFallbackKey('GEMINI_API_KEY');
 
             // 2. Initialize Gemini (USED ONLY FOR STT NOW)
             if (!this.ai && geminiKey) {
@@ -177,6 +178,10 @@ class BuddyAgent extends EventEmitter {
                 });
             }
 
+            if (!this.aiConfig) {
+                this.aiConfig = await getAiConfig();
+            }
+
             let forceProvider = this.aiConfig.provider;
             let forceModel = this.aiConfig.model;
             let forceApiKey = this.aiConfig.apiKey;
@@ -195,6 +200,9 @@ class BuddyAgent extends EventEmitter {
                 message: text,
                 session_id: this.userId.toString(), // Unified session across web and mobile
                 tts: true,
+                voice_id: this.personality?.voice || 'Puck',
+                gender: this.personality?.gender || 'male',
+                tone: this.personality?.tone || 'normal',
                 api_key: forceApiKey,
                 provider: forceProvider,
                 model: forceModel,

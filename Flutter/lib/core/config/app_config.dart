@@ -19,23 +19,41 @@ class AppConfig {
     return 'localhost:5001'; // Default for other platforms
   }
 
+  // Developer override
+  static String? customHostOverride;
+
   static String get host {
+    // Priority 0: Custom Host Override configured in Developer Settings
+    if (customHostOverride != null && customHostOverride!.isNotEmpty) {
+      return customHostOverride!;
+    }
+
     // Priority 1: Manual override via --dart-define=API_URL=...
     const String envUrl = String.fromEnvironment('API_URL');
     if (envUrl.isNotEmpty) return envUrl;
-
-    // Priority 2: Use Localhost in Debug mode
+    
+    // Priority 2: In debug mode, auto-detect local development address
     if (kDebugMode) {
       return localhostHost;
     }
-    
-    // Priority 3: Default to Production (Live)
+
+    // Priority 3: Default to Production (Live) for release builds
     return productionHost;
   }
 
+
   static String get protocol {
-    // We use HTTP for Localhost, HTTPS for Staging/Production
-    return (host == localhostHost || host == webLocalhostHost) ? 'http' : 'https';
+    final String currentHost = host.toLowerCase();
+    
+    // Check if host matches common local IP patterns or localhost
+    final bool isLocal = currentHost.contains('localhost') ||
+        currentHost.contains('127.0.0.1') ||
+        currentHost.contains('10.0.2.2') ||
+        RegExp(r'^192\.168\.').hasMatch(currentHost) ||
+        RegExp(r'^172\.(1[6-9]|2[0-9]|3[0-1])\.').hasMatch(currentHost) ||
+        RegExp(r'^10\.').hasMatch(currentHost);
+        
+    return isLocal ? 'http' : 'https';
   }
 
   static String get baseUrl {
@@ -44,6 +62,39 @@ class AppConfig {
 
   static String get socketUrl {
     return '$protocol://$host';
+  }
+
+  static String get voiceWsUrl {
+    final String baseHost = host.contains(':') ? host.split(':')[0] : host;
+    final String scheme = protocol == 'https' ? 'wss' : 'ws';
+    
+    // Use path-based routing for production to avoid firewall/port issues
+    if (baseHost == productionHost) {
+      return '$scheme://$baseHost/voice-ws';
+    }
+    
+    // Dynamic port based on environment for staging/local
+    int port = 5002; // Default for local / default
+    if (baseHost == stagingHost) {
+      port = 5008;
+    }
+    return '$scheme://$baseHost:$port';
+  }
+
+  static String get controlHttpUrl {
+    final String baseHost = host.contains(':') ? host.split(':')[0] : host;
+    
+    // Use path-based routing for production to avoid firewall/port issues
+    if (baseHost == productionHost) {
+      return '$protocol://$baseHost/control';
+    }
+    
+    // Dynamic port based on environment for staging/local
+    int port = 5003; // Default for local / default
+    if (baseHost == stagingHost) {
+      port = 5007;
+    }
+    return '$protocol://$baseHost:$port';
   }
 
   static String get assetBaseUrl {

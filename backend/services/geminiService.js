@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Reminder = require('../models/Reminder');
 const Memory = require('../models/Memory');
 const Settings = require('../models/Settings');
+const { getFallbackKey } = require('../utils/configHelper');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -36,7 +37,7 @@ async function getGenAI() {
 
     // 2. Fallback to .env (Lowest Priority)
     if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey.trim() === '') {
-        apiKey = process.env.GEMINI_API_KEY;
+        apiKey = getFallbackKey('GEMINI_API_KEY');
     }
 
     if (!apiKey || apiKey.trim() === '') {

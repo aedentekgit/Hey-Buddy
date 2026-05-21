@@ -1,30 +1,49 @@
 const GeminiLiveService = require('./geminiLiveService');
 const { getPersonality } = require('../utils/personality');
 const Settings = require('../models/Settings');
+const { getFallbackKey } = require('../utils/configHelper');
 
 /**
  * ttsService: Generates high-quality AI audio from text.
- * Optimized for low latency by allowing pre-buffered connections.
+ * Uses Gemini Live API with voice selection, with retry logic
+ * and exponential backoff to handle transient WebSocket failures.
  */
 class TTSService {
     constructor() {
         this.activeSessions = new Map();
+        this._lastGeminiCallMs = 0;
     }
 
     /**
-     * Internal method to establish a connection
+     * Internal method to establish a Gemini Live WebSocket connection.
+     * Includes a minimum inter-call delay to avoid rapid connection storms.
      */
     async _createSession(personality, language = 'en-US') {
         const settings = await Settings.findOne().select('+ai.geminiApiKey');
-        const apiKey = settings?.ai?.geminiApiKey || process.env.GEMINI_API_KEY;
+        const apiKey = settings?.ai?.geminiApiKey || getFallbackKey('GEMINI_API_KEY');
+
         if (!apiKey) throw new Error("Gemini API Key for TTS not configured.");
+
+        // Enforce a minimum 500ms gap between WebSocket connections to avoid rate limits
+        const now = Date.now();
+        const elapsed = now - this._lastGeminiCallMs;
+        if (elapsed < 500) {
+            await new Promise(r => setTimeout(r, 500 - elapsed));
+        }
+        this._lastGeminiCallMs = Date.now();
+
+        // Resolve the voice model from Settings
+        const activeVoiceStr = settings?.ai?.activeVoiceModel || 'google/gemini-2.5-flash-native-audio-latest';
+        const voiceModelName = activeVoiceStr.includes('/') ? activeVoiceStr.split('/')[1] : activeVoiceStr;
+        const modelPath = `models/${voiceModelName}`;
+        console.log(`[TTS] Creating session with model: ${modelPath}, voice: ${personality.voice}`);
 
         return new Promise((resolve, reject) => {
             const ai = new GeminiLiveService(apiKey);
             const timeout = setTimeout(() => {
                 ai.disconnect();
                 reject(new Error("TTS Connection Timeout"));
-            }, 3000); // Shorter timeout for faster fallback
+            }, 10000); // 10s timeout — give WebSocket enough time to handshake
 
             ai.on('ready', () => {
                 clearTimeout(timeout);
@@ -32,17 +51,18 @@ class TTSService {
             });
 
             ai.on('error', (err) => {
+                console.error("[TTS] Gemini Live WebSocket Error:", err);
                 clearTimeout(timeout);
                 reject(err);
             });
 
             ai.on('close', (code, reason) => {
+                console.log(`[TTS] Gemini Live WebSocket Closed: Code ${code}, Reason: ${reason}`);
                 clearTimeout(timeout);
                 reject(new Error(`TTS Connection Closed: ${code} - ${reason}`));
             });
 
-            const systemInstruction = `Read this naturally: [TEXT]`;
-            ai.connect(systemInstruction, personality.voice, false);
+            ai.connect(null, personality.voice, false, modelPath);
         });
     }
 
@@ -70,10 +90,6 @@ class TTSService {
         return Buffer.concat([header, pcmBuffer]);
     }
 
-    /**
-     * Higher-level method to generate audio for a given personality.
-     * Includes fallback to Google TTS if Gemini fails.
-     */
     /**
      * Call the Python backend's edge-tts endpoint for high-quality audio
      */
@@ -108,58 +124,78 @@ class TTSService {
     }
 
     /**
-     * Higher-level method to generate audio for a given personality.
-     * Includes fallback to Google TTS if Gemini fails.
+     * Attempt a single Gemini TTS generation. Returns { audio, format, voiceName } or null.
      */
-    async generateAudio(text, gender = 'male', tone = 'normal', language = 'en-US') {
+    async _tryGeminiGeneration(text, personality, language) {
+        const ai = await this._createSession(personality, language).catch(e => {
+            console.warn("[TTS] Gemini Session Failed:", e.message);
+            return null;
+        });
+
+        if (!ai) return null;
+
+        const audioChunks = [];
+        ai.on('audio_delta', (data) => {
+            audioChunks.push(Buffer.from(data, 'base64'));
+        });
+
+        const success = await new Promise((resolve) => {
+            const timeout = setTimeout(() => resolve(false), 8000); // 8s for audio generation
+            ai.on('response_done', () => {
+                clearTimeout(timeout);
+                resolve(true);
+            });
+            ai.sendText(text);
+        });
+
+        ai.disconnect();
+
+        if (success && audioChunks.length > 0) {
+            const fullPcm = Buffer.concat(audioChunks);
+            const wavData = this._addWavHeader(fullPcm, 24000, 1);
+            return {
+                audio: wavData.toString('base64'),
+                format: 'wav',
+                voiceName: personality.voice
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Higher-level method to generate audio for a given personality.
+     * Uses Gemini Live with up to 2 retries before falling to Google TTS.
+     */
+    async generateAudio(text, gender = 'male', tone = 'normal', language = 'en-US', voiceId = null) {
         try {
-            const personality = getPersonality(gender, tone);
-
-            // 1. If the voice is 'Ryan' (our new default), use the Python edge-tts service directly
-            // This ensures perfect parity with the web version!
-            if (personality.voice === 'Ryan') {
-                const pyAudio = await this._callPythonTTS(text, gender, tone);
-                if (pyAudio) return pyAudio;
-                // Fall through if Python fails
+            // Shallow copy to avoid modifying the global PERSONALITIES object
+            const personality = { ...getPersonality(gender, tone) };
+            
+            if (voiceId) {
+                personality.voice = voiceId;
             }
 
-            // 2. Try Gemini Live Service (for Aoede, Charon, etc)
-            const ai = await this._createSession(personality, language).catch(e => {
-                console.warn("[TTS] Gemini Session Failed:", e.message);
-                return null;
-            });
+            // Try Gemini Live with retries (up to 2 attempts)
+            const MAX_RETRIES = 2;
+            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                console.log(`[TTS] Gemini attempt ${attempt}/${MAX_RETRIES} for voice: ${personality.voice}`);
+                const result = await this._tryGeminiGeneration(text, personality, language);
+                if (result) {
+                    console.log(`[TTS] ✅ Gemini succeeded on attempt ${attempt} | Voice: ${result.voiceName}`);
+                    return result;
+                }
 
-            if (!ai) {
-                // Return null delegates to native client (with pitch/rate) or we could try Google fallback
-                console.log("[TTS] Gemini unavailable, trying Google fallback or native...");
-                return await this._googleFallback(text, language);
+                // Brief delay before retry (exponential backoff: 500ms, 1500ms)
+                if (attempt < MAX_RETRIES) {
+                    const delay = 500 * attempt;
+                    console.log(`[TTS] Retrying in ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                }
             }
 
-            const audioChunks = [];
-            ai.on('audio_delta', (data) => {
-                audioChunks.push(Buffer.from(data, 'base64'));
-            });
-
-            const success = await new Promise((resolve) => {
-                const timeout = setTimeout(() => resolve(false), 8000);
-                ai.on('response_done', () => {
-                    clearTimeout(timeout);
-                    resolve(true);
-                });
-                ai.sendText(text);
-            });
-
-            ai.disconnect();
-
-            if (success && audioChunks.length > 0) {
-                const fullPcm = Buffer.concat(audioChunks);
-                const wavData = this._addWavHeader(fullPcm, 24000, 1);
-                return {
-                    audio: wavData.toString('base64'),
-                    voiceName: personality.voice
-                };
-            }
-
+            // All Gemini attempts failed — fall back to Google Translate TTS
+            console.log("[TTS] All Gemini attempts failed, trying Google fallback...");
             return await this._googleFallback(text, language);
 
         } catch (error) {
@@ -182,6 +218,7 @@ class TTSService {
             const resp = await axios.get(url, { responseType: 'arraybuffer' });
             return {
                 audio: Buffer.from(resp.data).toString('base64'),
+                format: 'mp3',  // Google Translate returns MP3
                 voiceName: `Google Fallback (${language})`
             };
         } catch (e) {

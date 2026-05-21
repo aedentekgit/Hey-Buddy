@@ -8,11 +8,12 @@ const paginate = require('../utils/paginate');
 const { uploadFile, deleteFile } = require('../services/fileService');
 const Settings = require('../models/Settings');
 const { emitDataSync } = require('../utils/socketEmitter');
+const { getFallbackKey } = require('../utils/configHelper');
 
 // Helper to get openai instance dynamically
 async function getOpenAI() {
     const settings = await Settings.findOne().select('+ai.openaiApiKey');
-    const apiKey = settings?.ai?.openaiApiKey || process.env.OPENAI_API_KEY;
+    const apiKey = settings?.ai?.openaiApiKey || getFallbackKey('OPENAI_API_KEY');
     if (!apiKey) throw new Error("OpenAI API Key not configured.");
     return new OpenAI({ apiKey });
 }

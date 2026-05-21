@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:buddy_mobile/core/theme/app_colors.dart';
 import 'package:buddy_mobile/features/account/providers/user_provider.dart';
@@ -24,7 +25,17 @@ class VoicePreferenceScreen extends StatefulWidget {
 class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
   bool _processing = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   String? _playingVoiceId;
+
+  // Fallback voices shown when the server hasn't configured any yet
+  static const List<Map<String, dynamic>> _defaultVoices = [
+    {'name': 'Puck (British Male)', 'voiceId': 'Puck', 'gender': 'male', 'isDefault': true},
+    {'name': 'Charon (Deep Male)', 'voiceId': 'Charon', 'gender': 'male', 'isDefault': false},
+    {'name': 'Fenrir (Strong Male)', 'voiceId': 'Fenrir', 'gender': 'male', 'isDefault': false},
+    {'name': 'Aoede (Soft Female)', 'voiceId': 'Aoede', 'gender': 'female', 'isDefault': false},
+    {'name': 'Kore (Bright Female)', 'voiceId': 'Kore', 'gender': 'female', 'isDefault': false},
+  ];
 
   @override
   void dispose() {
@@ -39,10 +50,26 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
       return;
     }
 
+    // Stop any currently playing audio before starting new preview
+    await _audioPlayer.stop();
     if (mounted) setState(() => _playingVoiceId = voiceId);
 
     try {
-      final dio = Dio(BaseOptions(baseUrl: AppConfig.baseUrl));
+      // Retrieve the JWT auth token — required by the backend 'protect' middleware
+      final token = await _storage.read(key: 'jwt');
+      final targetUrl = '${AppConfig.baseUrl}ai/tts';
+      debugPrint('[VoicePreview] POST $targetUrl | voice=$voiceId, gender=$gender | token=${token != null ? "present" : "MISSING"}');
+
+      final dio = Dio(BaseOptions(
+        baseUrl: AppConfig.baseUrl,
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'x-platform': 'mobile',
+          'Content-Type': 'application/json',
+        },
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+      ));
       final response = await dio.post(
         'ai/tts',
         data: {
@@ -53,9 +80,19 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
         options: Options(responseType: ResponseType.bytes),
       );
 
+      debugPrint('[VoicePreview] Response: ${response.statusCode} | ${response.data.length} bytes');
+
       final bytes = response.data as Uint8List;
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/preview.mp3');
+
+      // Use the correct file extension based on what the backend actually returned.
+      // Backend sends X-Audio-Format: 'wav' (Gemini) or 'mp3' (Google/edge-tts).
+      final xFormat = response.headers.value('x-audio-format');
+      final contentType = response.headers.value('content-type') ?? '';
+      final audioFormat = xFormat ?? (contentType.contains('wav') ? 'wav' : 'mp3');
+      debugPrint('[VoicePreview] Audio format: $audioFormat | Content-Type: $contentType');
+      
+      final tempFile = File('${tempDir.path}/preview_$voiceId.$audioFormat');
       await tempFile.writeAsBytes(bytes);
 
       await _audioPlayer.play(DeviceFileSource(tempFile.path));
@@ -63,13 +100,34 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
       _audioPlayer.onPlayerComplete.listen((_) {
         if (mounted) setState(() => _playingVoiceId = null);
       });
-    } catch (e) {
+    } on DioException catch (e) {
+      debugPrint('[VoicePreview] DioException: type=${e.type} | status=${e.response?.statusCode} | msg=${e.message}');
+      if (e.response != null) {
+        debugPrint('[VoicePreview] Response data: ${e.response?.data}');
+      }
       if (mounted) {
         setState(() => _playingVoiceId = null);
-        ToastUtils.showErrorToast("Failed to preview voice.");
+        String errorMsg = "Failed to preview voice.";
+        if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+          errorMsg = "Voice preview timed out. Please try again.";
+        } else if (e.type == DioExceptionType.connectionError) {
+          errorMsg = "Cannot reach the server. Check your connection.";
+        } else if (e.response?.statusCode == 401) {
+          errorMsg = "Session expired. Please log in again.";
+        } else if (e.response?.statusCode == 500) {
+          errorMsg = "Voice generation failed on server. Try another voice.";
+        }
+        ToastUtils.showErrorToast(errorMsg);
+      }
+    } catch (e) {
+      debugPrint('[VoicePreview] Error previewing voice $voiceId: $e');
+      if (mounted) {
+        setState(() => _playingVoiceId = null);
+        ToastUtils.showErrorToast("Failed to preview voice. Please check your connection.");
       }
     }
   }
+
 
   Future<void> _handleSelectVoice(String voiceId, String gender) async {
     setState(() => _processing = true);
@@ -212,28 +270,13 @@ class _VoicePreferenceScreenState extends State<VoicePreferenceScreen> {
           Expanded(
             child: Consumer2<BrandingProvider, UserProvider>(
               builder: (context, brandingProvider, userProvider, _) {
-                final availableVoices = brandingProvider.availableVoices;
+                // Use server voices; fall back to built-in defaults so the list
+                // is never empty even when the backend hasn't configured voices yet.
+                final serverVoices = brandingProvider.availableVoices;
+                final availableVoices = serverVoices.isNotEmpty
+                    ? serverVoices
+                    : _defaultVoices;
                 
-                if (availableVoices.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.settings, size: 40, color: AppColors.textDim),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No voices configured.',
-                          style: GoogleFonts.nunito(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textMid,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
                 // Initial current voice
                 final userPrefs = userProvider.user['voicePreferences'] ?? {};
                 String currentVoiceId = userPrefs['voiceId'] ?? '';

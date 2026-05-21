@@ -249,7 +249,7 @@ class HudCanvas(QWidget):
         self.setMinimumSize(300, 300)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        self.muted    = False
+        self.muted    = True
         self.speaking = False
         self.state    = "INITIALISING"
 
@@ -1001,7 +1001,7 @@ class MainWindow(QMainWindow):
         )
 
         self.on_text_command  = None
-        self._muted           = False
+        self._muted           = True
         self._current_file: str | None = None
 
         central = QWidget()

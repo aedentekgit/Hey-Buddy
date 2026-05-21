@@ -70,29 +70,43 @@
 @media (min-width: 768px) {
     .save-btn {
         width: auto !important;
+        min-width: 200px;
     }
 }
 .save-btn {
     width: 100%;
-    padding: 0.8rem 2rem !important;
-    background: transparent !important;
-    border: 1px solid var(--primary-color) !important;
-    color: var(--primary-color) !important;
-    border-radius: 12px !important;
+    padding: 12px 28px !important;
+    background: linear-gradient(135deg, var(--primary-color), color-mix(in srgb, var(--primary-color) 80%, black)) !important;
+    border: none !important;
+    color: white !important;
+    border-radius: 14px !important;
     font-size: 0.9rem !important;
     font-weight: 700 !important;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 10px;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     justify-content: center;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
-.save-btn:hover {
-    background: var(--primary-color) !important;
-    color: white !important;
-    box-shadow: 0 4px 15px color-mix(in srgb, var(--primary-color) 40%, transparent);
+.save-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--primary-color) 45%, transparent);
+    filter: brightness(1.1);
 }
+.save-btn:active:not(:disabled) {
+    transform: translateY(1px);
+    filter: brightness(0.95);
+}
+.save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--border-color) !important;
+    color: var(--text-sub) !important;
+    box-shadow: none !important;
+}
+
 .btn-outline {
     transition: all 0.2s ease;
 }

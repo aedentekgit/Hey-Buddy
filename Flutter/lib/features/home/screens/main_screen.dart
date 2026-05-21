@@ -282,12 +282,12 @@ class _MainScreenState extends State<MainScreen> {
                                     ),
                                   ),
                                   errorWidget: (context, url, error) => Image.asset(
-                                    'assets/images/buddy_logo.gif',
+                                    'assets/images/buddy_logo.png',
                                     fit: BoxFit.cover,
                                   ),
                                 )
                               : Image.asset(
-                                  'assets/images/buddy_logo.gif',
+                                  'assets/images/buddy_logo.png',
                                   fit: BoxFit.cover,
                                 ),
                         ),

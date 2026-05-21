@@ -35,6 +35,24 @@ class GeminiLiveService extends EventEmitter {
             return;
         }
 
+        // Ensure we only use supported native audio models for Live API to prevent Code 1008 rejection
+        const supportedModels = [
+            'models/gemini-2.5-flash-native-audio-latest',
+            'models/gemini-2.5-flash-native-audio-preview-09-2025'
+        ];
+        
+        let targetModel = this.model;
+        if (!targetModel.startsWith('models/')) {
+            targetModel = `models/${targetModel}`;
+        }
+        
+        if (!supportedModels.includes(targetModel)) {
+            console.log(`[Gemini Live] Model "${this.model}" is unsupported for Multimodal Live on this tier. Forcing "models/gemini-2.5-flash-native-audio-latest".`);
+            this.model = 'models/gemini-2.5-flash-native-audio-latest';
+        } else {
+            this.model = targetModel;
+        }
+
         console.log(`[Gemini Live] 🔗 Dynamic Initialization: ${this.model} (Voice: ${resolvedVoice})...`);
         this.systemInstructionOverride = systemInstruction;
         this.voiceOverride = resolvedVoice;
@@ -80,12 +98,12 @@ class GeminiLiveService extends EventEmitter {
         const setupMessage = {
             setup: {
                 model: modelName,
-                generation_config: {
-                    response_modalities: ["AUDIO"],
-                    speech_config: {
-                        voice_config: {
-                            prebuilt_voice_config: {
-                                voice_name: this.voiceOverride || "Aoede"
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: {
+                                voiceName: this.voiceOverride || "Aoede"
                             }
                         }
                     }
@@ -227,7 +245,17 @@ class GeminiLiveService extends EventEmitter {
     }
 
     disconnect() {
-        if (this.ws) this.ws.close();
+        this.isConnected = false;
+        if (this.ws) {
+            // Remove all listeners before closing to prevent ghost events
+            this.ws.removeAllListeners();
+            try {
+                this.ws.close();
+            } catch (e) {
+                // Ignore close errors on already-closed sockets
+            }
+            this.ws = null;
+        }
     }
 }
 

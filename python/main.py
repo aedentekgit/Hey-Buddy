@@ -1,5 +1,18 @@
 import sys
 import os
+
+try:
+    dotenv_path = os.path.join(os.getcwd(), ".env")
+    if os.path.exists(dotenv_path):
+        with open(dotenv_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    os.environ[key.strip()] = val.strip().strip("'\"")
+except Exception as e:
+    print(f"[BUDDY] ⚠️ Warning loading .env manually: {e}")
+
 from unittest.mock import MagicMock
 
 # Mock GUI and other unavailable libraries when running headlessly on VPS
@@ -26,6 +39,7 @@ import re
 import threading
 import json
 import traceback
+import base64
 from pathlib import Path
 
 import sounddevice as sd
@@ -54,6 +68,8 @@ from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
 from actions.game_updater      import game_updater
 
+
+BACKEND_PORT = int(os.environ.get("PORT", 5001))
 
 def get_base_dir():
     if getattr(sys, "frozen", False):
@@ -557,6 +573,15 @@ TOOL_DECLARATIONS = [
             "required": ["memory_id", "content"]
         }
     },
+    {
+        "name": "get_reminders",
+        "description": "Fetches all active, pending, calendar-based, and location-based reminders from the database.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+            "required": []
+        }
+    },
 ]
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -648,6 +673,15 @@ class RemoteControlHandler(BaseHTTPRequestHandler):
                             )
                     else:
                         res = "No UI to mute"
+                elif action == "clear_history" and RemoteControlHandler.buddy_live:
+                    live = RemoteControlHandler.buddy_live
+                    live.chat_history = []
+                    res = "History cleared"
+                    if live._loop:
+                        asyncio.run_coroutine_threadsafe(
+                            live._sync_history_to_db(),
+                            live._loop
+                        )
                 else:
                     from actions.computer_settings import computer_settings
                     res = computer_settings(parameters={"action": action, **params})
@@ -666,9 +700,11 @@ class BuddyHTTPServer(HTTPServer):
 
 def start_remote_server():
     try:
-        server_address = ('', 5003)
+        port = int(os.environ.get("REMOTE_PORT", 5003))
+        host = os.environ.get("AI_HOST", "0.0.0.0")
+        server_address = (host, port)
         httpd = BuddyHTTPServer(server_address, RemoteControlHandler)
-        print("[BUDDY] 🌐 Remote control server running on port 5003")
+        print(f"[BUDDY] 🌐 Remote control server running on port {port} on host {host}")
         httpd.serve_forever()
     except Exception as e:
         print(f"[BUDDY] ❌ Remote Server Error: {e}")
@@ -684,6 +720,14 @@ class MobileVoiceServer:
         if cls.buddy_live:
             cls.buddy_live.mobile_websocket = websocket
             cls.buddy_live._is_speaking = False
+            
+            # Send current state to sync client immediately
+            state_str = "MUTED" if cls.buddy_live.ui.muted else "LISTENING"
+            try:
+                await websocket.send(json.dumps({"type": "state", "state": state_str}))
+                print(f"[BUDDY] 🎙️ Sent initial state '{state_str}' to mobile client.")
+            except Exception as ex:
+                print(f"[BUDDY] 🎙️ Failed to send initial state: {ex}")
             
             # Send history
             history_logs = []
@@ -702,17 +746,67 @@ class MobileVoiceServer:
         try:
             async for message in websocket:
                 if isinstance(message, bytes) and cls.buddy_live:
-                    cls.buddy_live.out_queue.put_nowait({
-                        "data": message,
-                        "mime_type": "audio/pcm"
-                    })
+                    # Throttled logging to avoid flooding the logs
+                    if not hasattr(cls, "_chunk_count"):
+                        cls._chunk_count = 0
+                    cls._chunk_count += 1
+                    
+                    # Calculate peak amplitude to verify if mic is actually recording voice
+                    max_amp = -1
+                    try:
+                        import struct
+                        count = len(message) // 2
+                        if count > 0:
+                            shorts = struct.unpack(f"<{count}h", message)
+                            max_amp = max(abs(x) for x in shorts) if shorts else 0
+                    except Exception:
+                        pass
+
+                    if cls._chunk_count % 50 == 1 or cls._chunk_count < 5:
+                        amp_str = f"MaxAmp: {max_amp}" if max_amp != -1 else "MaxAmp: N/A"
+                        hex_prefix = message[:20].hex()
+                        print(f"[BUDDY] 🎙️ Received audio chunk #{cls._chunk_count} ({len(message)} bytes, {amp_str}) from mobile client. Hex preview: {hex_prefix}")
+
+                    # Proactive user interruption: User talks while Buddy is speaking
+                    if cls.buddy_live._is_speaking:
+                        print("[BUDDY] 🎙️ Mic bytes received while speaking! Triggering proactive interruption.")
+                        cls.buddy_live.set_speaking(False)
+                        
+                        # Clear playback queues
+                        if cls.buddy_live.audio_in_queue:
+                            while not cls.buddy_live.audio_in_queue.empty():
+                                try:
+                                    cls.buddy_live.audio_in_queue.get_nowait()
+                                except asyncio.QueueEmpty:
+                                    break
+                                
+                        # Cancel mobile playback
+                        try:
+                            await websocket.send(json.dumps({"type": "audio_cancel"}))
+                        except Exception:
+                            pass
+
+                    if cls.buddy_live.session and cls.buddy_live.out_queue:
+                        try:
+                            cls.buddy_live.out_queue.put_nowait({
+                                "data": message,
+                                "mime_type": "audio/pcm;rate=16000"
+                            })
+                        except asyncio.QueueFull:
+                            if cls._chunk_count % 100 == 0:
+                                print(f"[BUDDY] ⚠️ Warning: out_queue is FULL (size={cls.buddy_live.out_queue.qsize()})! Dropping audio packet.")
                 elif isinstance(message, str) and cls.buddy_live:
+                    print(f"[BUDDY] 🎙️ Received string message: {message}")
                     try:
                         data = json.loads(message)
                         if data.get("type") == "text":
                             cls.buddy_live._on_text_command(data.get("text", ""))
-                    except Exception:
-                        pass
+                        elif data.get("type") == "clear_history":
+                            cls.buddy_live.chat_history = []
+                            asyncio.create_task(cls.buddy_live._sync_history_to_db())
+                            print("[BUDDY] 🎙️ Chat history cleared by mobile client and synced.")
+                    except Exception as e:
+                        print(f"[BUDDY] 🎙️ Error handling websocket message: {e}")
         except websockets.exceptions.ConnectionClosed:
             print("[BUDDY] 🔌 Mobile voice client disconnected.")
         finally:
@@ -721,8 +815,10 @@ class MobileVoiceServer:
 
 async def start_voice_server():
     try:
-        async with websockets.serve(MobileVoiceServer.handler, "0.0.0.0", 5002):
-            print("[BUDDY] 🎙️ Voice streaming server running on port 5002")
+        port = int(os.environ.get("VOICE_PORT", 5002))
+        host = os.environ.get("AI_HOST", "0.0.0.0")
+        async with websockets.serve(MobileVoiceServer.handler, host, port):
+            print(f"[BUDDY] 🎙️ Voice streaming server running on port {port} on host {host}")
             await asyncio.Future()
     except Exception as e:
         print(f"[BUDDY] ❌ Voice Server Error: {e}")
@@ -753,7 +849,7 @@ class BuddyLive:
             user_id = self._get_primary_user_id()
             print(f"[BUDDY] 🔍 Fetching history for user: {user_id}")
             if not user_id: return []
-            res = requests.get(f"http://localhost:5001/api/conversations/internal/{user_id}", headers=headers, timeout=2)
+            res = requests.get(f"http://localhost:{BACKEND_PORT}/api/conversations/internal/{user_id}", headers=headers, timeout=2)
             print(f"[BUDDY] 🔍 History API response code: {res.status_code}")
             if res.status_code == 200:
                 data = res.json().get("data", {})
@@ -798,8 +894,8 @@ class BuddyLive:
             self._is_speaking = value
         if value:
             self.ui.set_state("SPEAKING")
-        elif not self.ui.muted:
-            self.ui.set_state("LISTENING")
+        else:
+            self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
 
     def speak(self, text: str):
         if not self._loop or not self.session:
@@ -821,7 +917,7 @@ class BuddyLive:
         try:
             import requests
             headers = {"Authorization": "Bearer 562af79bd1304d6e96b59cd9ad727e99ee07f057d0a8bfcd35c7bd77c9547bde"}
-            res = requests.get("http://localhost:5001/api/conversations/internal/users/first", headers=headers, timeout=2)
+            res = requests.get(f"http://localhost:{BACKEND_PORT}/api/conversations/internal/users/first", headers=headers, timeout=2)
             if res.status_code == 200:
                 user_data = res.json().get("data", {})
                 if user_data and "_id" in user_data:
@@ -846,7 +942,7 @@ class BuddyLive:
             if item_id:
                 body["id"] = item_id
 
-            res = requests.post("http://localhost:5001/api/ai/action", json=body, headers=headers, timeout=5)
+            res = requests.post(f"http://localhost:{BACKEND_PORT}/api/ai/action", json=body, headers=headers, timeout=5)
             if res.status_code == 200:
                 res_data = res.json()
                 msg = res_data.get("message") or res_data.get("msg") or "Action executed successfully."
@@ -877,7 +973,7 @@ class BuddyLive:
             
             res = await asyncio.to_thread(
                 lambda: requests.post(
-                    "http://localhost:5001/api/conversations/sync",
+                    f"http://localhost:{BACKEND_PORT}/api/conversations/sync",
                     json=payload,
                     headers=headers,
                     timeout=5
@@ -902,7 +998,7 @@ class BuddyLive:
             if not user_id:
                 return {}
             
-            res = requests.get(f"http://localhost:5001/api/conversations/internal/{user_id}/context", headers=headers, timeout=3)
+            res = requests.get(f"http://localhost:{BACKEND_PORT}/api/conversations/internal/{user_id}/context", headers=headers, timeout=3)
             if res.status_code == 200:
                 data = res.json()
                 if data.get("success"):
@@ -982,12 +1078,11 @@ class BuddyLive:
         # 5. Add dynamic language configuration
         system_lang = user_ctx_cfg.get("systemLanguage", "en-US")
         lang_prompt = (
-            f"\n[LANGUAGE CONFIGURATION]\n"
-            f"- User Preferred Language: {system_lang}\n"
-            f"- CRITICAL: Always respond ONLY in the EXACT same language that the user is currently speaking to you (e.g. Tamil, English, Telugu, etc.). "
-            f"If the user speaks to you in English, you MUST respond ONLY in English. "
-            f"If the user speaks to you in Tamil (e.g., 'ஹே பட்டி...'), you MUST respond ONLY in Tamil. "
-            f"Never output multiple translations or respond in more than one language at a time. Keep it clean and matching the user's language of the active turn.\n"
+            f"\n[LANGUAGE PROTOCOL]\n"
+            f"- User Preferred Language (Default): {system_lang}\n"
+            f"- STRICT LANGUAGE RULE: Always detect the language of the user's latest input (speech or text) and respond in that EXACT same language. If the user speaks/types in Tamil, you MUST respond in Tamil. If in English, you MUST respond in English. If in Hindi, you MUST respond in Hindi.\n"
+            f"- The input language takes absolute priority over the user's default preferred language setting and over the language of any past conversational history. Under no circumstances should you respond in English if the user asked in Tamil or Hindi.\n"
+            f"- For tool calls and parameters, always use English.\n"
         )
         parts.append(lang_prompt)
 
@@ -1008,10 +1103,33 @@ class BuddyLive:
         voice_gender = user_ctx_cfg.get("voicePreferences", {}).get("gender", "female").lower()
         voice_name = "Charon" if voice_gender == "male" else "Puck"
 
+        # Prioritize the user's preferred language, with others as fallback candidates
+        candidate_langs = ["en-US", "ta-IN", "hi-IN", "te-IN", "kn-IN", "ml-IN"]
+        preferred_lang = system_lang
+        # Handle simple language codes
+        if preferred_lang == "ta":
+            preferred_lang = "ta-IN"
+        elif preferred_lang == "hi":
+            preferred_lang = "hi-IN"
+        elif preferred_lang == "te":
+            preferred_lang = "te-IN"
+        elif preferred_lang == "kn":
+            preferred_lang = "kn-IN"
+        elif preferred_lang == "ml":
+            preferred_lang = "ml-IN"
+        elif preferred_lang == "en":
+            preferred_lang = "en-US"
+
+        if preferred_lang in candidate_langs:
+            candidate_langs.remove(preferred_lang)
+        candidate_langs.insert(0, preferred_lang)
+
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
-            output_audio_transcription={},
-            input_audio_transcription={},
+            output_audio_transcription=types.AudioTranscriptionConfig(),
+            input_audio_transcription=types.AudioTranscriptionConfig(
+                language_codes=candidate_langs
+            ),
             system_instruction="\n".join(parts),
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
             session_resumption=types.SessionResumptionConfig(),
@@ -1047,8 +1165,7 @@ class BuddyLive:
                 }
                 loop.run_in_executor(None, lambda: self._send_node_action("SAVE_MEMORY", payload))
 
-            if not self.ui.muted:
-                self.ui.set_state("LISTENING")
+            self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
             return types.FunctionResponse(
                 id=fc.id, name=name,
                 response={"result": "ok", "silent": True}
@@ -1128,6 +1245,19 @@ class BuddyLive:
                 }
                 result = await loop.run_in_executor(None, lambda: self._send_node_action("UPDATE_MEMORY", payload, memory_id))
 
+            elif name == "get_reminders":
+                try:
+                    import json
+                    db_context = self._get_mongodb_context()
+                    db_reminders = db_context.get("reminders", [])
+                    if not db_reminders:
+                        result = "There are no reminders currently set in your database."
+                    else:
+                        result = json.dumps(db_reminders)
+                except Exception as ex:
+                    print(f"[get_reminders] Error: {ex}")
+                    result = "Error fetching reminders."
+
             elif name == "youtube_video":
                 r = await loop.run_in_executor(None, lambda: youtube_video(parameters=args, response=None, player=self.ui))
                 result = r or "Done."
@@ -1191,11 +1321,16 @@ class BuddyLive:
             elif name == "shutdown_buddy":
                 self.ui.write_log("SYS: Shutdown requested.")
                 self.speak("Goodbye, sir.")
-                def _shutdown():
-                    import time, os
-                    time.sleep(1)
-                    os._exit(0)
-                threading.Thread(target=_shutdown, daemon=True).start()
+                if not self.headless and not self.mobile_websocket:
+                    def _shutdown():
+                        import time, os
+                        time.sleep(1)
+                        os._exit(0)
+                    threading.Thread(target=_shutdown, daemon=True).start()
+                else:
+                    self.ui.muted = True
+                    self.ui.set_state("MUTED")
+                result = "Shutdown requested."
 
             else:
                 result = f"Unknown tool: {name}"
@@ -1205,8 +1340,7 @@ class BuddyLive:
             traceback.print_exc()
             self.speak_error(name, e)
 
-        if not self.ui.muted:
-            self.ui.set_state("LISTENING")
+        self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
 
         print(f"[BUDDY] 📤 {name} → {str(result)[:80]}")
         return types.FunctionResponse(
@@ -1224,13 +1358,15 @@ class BuddyLive:
         loop = asyncio.get_event_loop()
 
         def callback(indata, frames, time_info, status):
+            if self.mobile_websocket is not None or self.headless:
+                return
             with self._speaking_lock:
                 buddy_speaking = self._is_speaking
             if not buddy_speaking and not self.ui.muted:
                 data = indata.tobytes()
                 loop.call_soon_threadsafe(
                     self.out_queue.put_nowait,
-                    {"data": data, "mime_type": "audio/pcm"}
+                    {"data": data, "mime_type": "audio/pcm;rate=16000"}
                 )
 
         try:
@@ -1245,8 +1381,7 @@ class BuddyLive:
                 while True:
                     await asyncio.sleep(0.1)
         except Exception as e:
-            print(f"[BUDDY] ❌ Mic: {e}")
-            raise
+            print(f"[BUDDY] ⚠️ Local mic stream error: {e}")
 
     async def _receive_audio(self):
         print("[BUDDY] 👂 Recv started")
@@ -1263,6 +1398,22 @@ class BuddyLive:
 
                     if response.server_content:
                         sc = response.server_content
+
+                        # Handle server-driven interruption (user talked over Buddy)
+                        if getattr(sc, "interrupted", False):
+                            print("[BUDDY] 🛑 Server-driven interruption detected! Clearing playback buffers.")
+                            self.set_speaking(False)
+                            if self.audio_in_queue:
+                                while not self.audio_in_queue.empty():
+                                    try:
+                                        self.audio_in_queue.get_nowait()
+                                    except asyncio.QueueEmpty:
+                                        break
+                            if self.mobile_websocket:
+                                try:
+                                    await self.mobile_websocket.send(json.dumps({"type": "audio_cancel"}))
+                                except Exception:
+                                    pass
 
                         if sc.output_transcription and sc.output_transcription.text:
                             txt = _clean_transcript(sc.output_transcription.text)
@@ -1341,16 +1492,23 @@ class BuddyLive:
                     ):
                         self.set_speaking(False)
                         self._turn_done_event.clear()
+                        # Notify mobile client that speaking turn is finished
+                        if self.mobile_websocket:
+                            try:
+                                await self.mobile_websocket.send(json.dumps({"type": "audio_end"}))
+                            except Exception:
+                                pass
                     continue
                 
                 self.set_speaking(True)
                 
-                if getattr(self, "mobile_websocket", None) is not None:
+                # Stream audio chunk to mobile client if connected
+                if self.mobile_websocket:
                     try:
-                        await self.mobile_websocket.send(chunk)
+                        b64_data = base64.b64encode(chunk).decode("utf-8")
+                        await self.mobile_websocket.send(json.dumps({"type": "audio", "data": b64_data}))
                     except Exception as e:
-                        print(f"[BUDDY] ❌ Mobile send error: {e}")
-                        self.mobile_websocket = None
+                        print(f"[BUDDY] ⚠️ Error sending audio chunk to mobile: {e}")
 
                 if stream is not None:
                     await asyncio.to_thread(stream.write, chunk)
@@ -1364,6 +1522,15 @@ class BuddyLive:
                 stream.close()
 
     async def run(self):
+        self._loop          = asyncio.get_event_loop()
+        self.audio_in_queue = asyncio.Queue()
+        self.out_queue      = asyncio.Queue(maxsize=200)
+        self._turn_done_event = asyncio.Event()
+        MobileVoiceServer.buddy_live = self
+        
+        # Start the persistent voice server immediately on startup
+        asyncio.create_task(start_voice_server())
+
         client = genai.Client(
             api_key=_get_api_key(),
             http_options={"api_version": "v1beta"}
@@ -1371,7 +1538,7 @@ class BuddyLive:
 
         while True:
             try:
-                print("[BUDDY] 🔌 Connecting...")
+                print("[BUDDY] 🔌 Connecting to Gemini Live API...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
@@ -1380,29 +1547,22 @@ class BuddyLive:
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session        = session
-                    self._loop          = asyncio.get_event_loop()
-                    MobileVoiceServer.buddy_live = self
-                    tg.create_task(start_voice_server())
-                    self.audio_in_queue = asyncio.Queue()
-                    self.out_queue      = asyncio.Queue(maxsize=10)
-                    self._turn_done_event = asyncio.Event()
-
-                    print("[BUDDY] ✅ Connected.")
-                    self.ui.set_state("LISTENING")
+                    print("[BUDDY] ✅ Connected to Gemini Live API.")
+                    self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
                     self.ui.write_log("SYS: Buddy online.")
 
                     tg.create_task(self._send_realtime())
-                    if not self.headless:
-                        tg.create_task(self._listen_audio())
+                    tg.create_task(self._listen_audio())
                     tg.create_task(self._receive_audio())
                     tg.create_task(self._play_audio())
 
             except Exception as e:
                 print(f"[BUDDY] ⚠️ {e}")
                 traceback.print_exc()
+            self.session = None
             self.set_speaking(False)
             self.ui.set_state("THINKING")
-            print("[BUDDY] 🔄 Reconnecting in 3s...")
+            print("[BUDDY] 🔄 Reconnecting to Gemini Live API in 3s...")
             await asyncio.sleep(3)
 
 class HeadlessUI:
@@ -1439,7 +1599,47 @@ class HeadlessUI:
             except Exception:
                 pass
 
+def print_local_ips():
+    import socket
+    try:
+        hostname = socket.gethostname()
+        print(f"[BUDDY] 🖥️ Hostname: {hostname}")
+        ips = []
+        try:
+            ips = socket.gethostbyname_ex(hostname)[2]
+        except Exception:
+            pass
+        ips = [ip for ip in ips if not ip.startswith("127.")]
+        
+        # Primary interface connection fallback
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('10.255.255.255', 1))
+            primary_ip = s.getsockname()[0]
+            if primary_ip not in ips and not primary_ip.startswith("127."):
+                ips.append(primary_ip)
+        except Exception:
+            pass
+        finally:
+            s.close()
+            
+        print("\n" + "="*60)
+        print("📱 TO CONNECT A PHYSICAL MOBILE PHONE / APK:")
+        print("1. Ensure phone is on the SAME Wi-Fi network as this computer.")
+        print("2. Tap the settings/gear icon in the top-right of the app's Splash screen.")
+        print("3. Enter this IP address in the configuration:")
+        if ips:
+            for ip in ips:
+                print(f"   👉 {ip}:5001")
+        else:
+            print("   👉 [YOUR_COMPUTER_IP]:5001")
+        print("4. Tap 'Save & Connect'.")
+        print("="*60 + "\n")
+    except Exception as e:
+        print(f"[BUDDY] ⚠️ Local IP detection warning: {e}")
+
 def main():
+    print_local_ips()
     headless_mode = "--headless" in sys.argv
     if headless_mode:
         print("[BUDDY] 🚀 Starting in HEADLESS server mode...")
@@ -1451,6 +1651,8 @@ def main():
             asyncio.run(buddy.run())
         except KeyboardInterrupt:
             print("\n🔴 Shutting down...")
+            import os
+            os._exit(0)
     else:
         ui = BuddyUI("face.png")
 
@@ -1463,6 +1665,8 @@ def main():
                 asyncio.run(buddy.run())
             except KeyboardInterrupt:
                 print("\n🔴 Shutting down...")
+                import os
+                os._exit(0)
 
         threading.Thread(target=runner, daemon=True).start()
         ui.root.mainloop()

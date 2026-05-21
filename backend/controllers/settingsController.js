@@ -14,7 +14,16 @@ const getSettings = async (req, res) => {
     }
 };
 
-let publicSettingsCache = null; // Sync with .env
+// Default voices injected when the DB has none configured yet
+const DEFAULT_AVAILABLE_VOICES = [
+    { name: 'Puck (British Male)', voiceId: 'Puck', gender: 'male', isDefault: true },
+    { name: 'Charon (Deep Male)', voiceId: 'Charon', gender: 'male', isDefault: false },
+    { name: 'Fenrir (Strong Male)', voiceId: 'Fenrir', gender: 'male', isDefault: false },
+    { name: 'Aoede (Soft Female)', voiceId: 'Aoede', gender: 'female', isDefault: false },
+    { name: 'Kore (Bright Female)', voiceId: 'Kore', gender: 'female', isDefault: false },
+];
+
+let publicSettingsCache = null;
 
 const getPublicSettings = async (req, res) => {
     try {
@@ -28,8 +37,21 @@ const getPublicSettings = async (req, res) => {
             'notification.firebaseProjectId notification.firebaseStorageBucket notification.firebaseMessageSenderId ' +
             'notification.firebaseAppId notification.firebaseMeasurementId'
         );
-        publicSettingsCache = settings;
-        res.json({ success: true, data: settings });
+
+        // Only cache when a real settings document exists (avoids caching empty state on startup)
+        if (settings) {
+            const settingsObj = settings.toObject ? settings.toObject() : settings;
+            if (!settingsObj.ai) settingsObj.ai = {};
+            // Inject defaults if DB has an empty availableVoices array
+            if (!settingsObj.ai.availableVoices || settingsObj.ai.availableVoices.length === 0) {
+                settingsObj.ai.availableVoices = DEFAULT_AVAILABLE_VOICES;
+            }
+            publicSettingsCache = settingsObj;
+            return res.json({ success: true, data: settingsObj });
+        }
+
+        // No settings document yet — return defaults without caching so next request retries DB
+        res.json({ success: true, data: { ai: { availableVoices: DEFAULT_AVAILABLE_VOICES } } });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

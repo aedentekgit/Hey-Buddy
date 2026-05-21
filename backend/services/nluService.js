@@ -1,6 +1,7 @@
 const { OpenAI } = require('openai');
 const axios = require('axios');
 const Settings = require('../models/Settings');
+const { getFallbackKey } = require('../utils/configHelper');
 
 const nluService = {
 
@@ -9,7 +10,7 @@ const nluService = {
      */
     generateResponse: async (text, context, targetLanguage = 'en-US') => {
         const settings = await Settings.findOne().select('+ai.openaiApiKey ai.activeModel');
-        const apiKey = settings?.ai?.openaiApiKey || process.env.OPENAI_API_KEY;
+        const apiKey = settings?.ai?.openaiApiKey || getFallbackKey('OPENAI_API_KEY');
         if (!apiKey) throw new Error("OpenAI API Key not configured.");
 
         // Dynamic model selection for OpenAI

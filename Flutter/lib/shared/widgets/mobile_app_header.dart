@@ -133,20 +133,21 @@ class _NavTab extends StatelessWidget {
             height: 34,
             decoration: const BoxDecoration(shape: BoxShape.circle),
             clipBehavior: Clip.antiAlias,
-            child: branding.logoUrl != null
+            child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
                 ? CachedNetworkImage(
                     imageUrl: branding.logoUrl!,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => const Center(
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    errorWidget: (context, url, error) => const Icon(
-                      LucideIcons.image,
-                      size: 20,
+                    errorWidget: (context, url, error) => Image.asset(
+                      'assets/images/buddy_logo.png',
+                      fit: BoxFit.cover,
                     ),
                   )
-                : const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                : Image.asset(
+                    'assets/images/buddy_logo.png',
+                    fit: BoxFit.cover,
                   ),
           ),
         ),

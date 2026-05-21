@@ -20,3 +20,4 @@ router.post('/action', protect, aiController.proxyActionToPython);
 router.get('/chat/history/:session_id', protect, aiController.proxyHistoryToPython);
 
 module.exports = router;
+

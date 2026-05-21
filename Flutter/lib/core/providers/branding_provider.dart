@@ -80,6 +80,10 @@ class BrandingProvider extends ChangeNotifier {
   String? get updateUrl => _updateUrl;
 
   Future<void> fetchBranding() async {
+    _isLoading = true;
+    _hasError = false;
+    _errorMessage = null;
+    notifyListeners();
     try {
       debugPrint(
         '[BRANDING] Fetching public settings from: ${AppConfig.baseUrl}',

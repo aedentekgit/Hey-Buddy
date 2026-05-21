@@ -8,6 +8,7 @@ class SettingsService {
 
   Future<Map<String, dynamic>> getPublicSettings() async {
     try {
+      _dio.options.baseUrl = AppConfig.baseUrl;
       final response = await _dio.get('settings/public');
       return response.data;
     } catch (e) {

@@ -13,6 +13,7 @@ import 'package:buddy_mobile/core/providers/security_provider.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
 
 
+import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -51,6 +52,7 @@ void main() async {
 
   // Pre-load SharedPreferences to eliminate hydration lag
   final prefs = await SharedPreferences.getInstance();
+  AppConfig.customHostOverride = prefs.getString('custom_server_host');
 
   runApp(
     MultiProvider(

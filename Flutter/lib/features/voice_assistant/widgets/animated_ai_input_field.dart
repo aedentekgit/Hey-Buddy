@@ -313,17 +313,17 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
                               icon: widget.isMuted
                                   ? LucideIcons.micOff
                                   : widget.isVoiceSessionActive
-                                  ? LucideIcons.stopCircle
+                                  ? LucideIcons.mic
                                   : LucideIcons.mic,
                               color: widget.isMuted
-                                  ? const Color(0xFFEF4444)
+                                  ? const Color(0xFFEF4444)   // Red when muted/shutdown
                                   : widget.isVoiceSessionActive
-                                  ? const Color(0xFFEF4444)
-                                  : AppColors.textMid,
+                                  ? const Color(0xFF6366F1)   // Purple when active
+                                  : AppColors.textMid,        // Dim when idle
                               onTap: widget.isEnabled
                                   ? widget.onMicPressed
                                   : null,
-                              isPulsing: widget.isVoiceSessionActive,
+                              isPulsing: !widget.isMuted && widget.isVoiceSessionActive,
                               pulseVal: pulseVal,
                             ),
 
@@ -445,13 +445,13 @@ class _AnimatedAIInputFieldState extends State<AnimatedAIInputField>
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isPulsing
-              ? Colors.red.withValues(alpha: 0.1 + (0.1 * pulseVal))
+              ? const Color(0xFF6366F1).withValues(alpha: 0.1 + (0.1 * pulseVal))
               : Colors.transparent,
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
-          color: (isPulsing || widget.isSpeaking) ? AppColors.textMid : color,
+          color: color,   // always use the explicitly passed color
           size: 20 + (isPulsing ? (2 * pulseVal) : 0),
         ),
       ),

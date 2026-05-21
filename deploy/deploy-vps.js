@@ -72,7 +72,7 @@ try {
         npm install --omit=dev &&
         
         cd ../ai-service &&
-        ln -nfs ${sharedDir}/ai.env .env &&
+        ln -nfs ${sharedDir}/.env .env &&
         
         # Global Virtual Environment setup to save space across Prod/Staging
         if [ ! -d "${GLOBAL_VENV}" ]; then

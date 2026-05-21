@@ -4,7 +4,14 @@ import 'package:buddy_mobile/core/config/app_config.dart';
 class AuthService {
   final Dio _dio = Dio(
     BaseOptions(baseUrl: AppConfig.baseUrl, headers: {'x-platform': 'mobile'}),
-  );
+  )..interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.baseUrl = AppConfig.baseUrl;
+          return handler.next(options);
+        },
+      ),
+    );
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 import 'package:buddy_mobile/core/services/socket_service.dart';
 import 'package:buddy_mobile/features/voice_assistant/services/audio_stream_service.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:path_provider/path_provider.dart';
 
 class BuddyProvider with ChangeNotifier {
   final BuddyService _buddyService = BuddyService();
@@ -128,8 +130,7 @@ class BuddyProvider with ChangeNotifier {
   }
 
   Future<void> _configureAudioPlayer() async {
-    // Configure audio player for iOS
-    if (Platform.isIOS) {
+    try {
       await _audioPlayer.setAudioContext(
         AudioContext(
           iOS: AudioContextIOS(
@@ -140,14 +141,41 @@ class BuddyProvider with ChangeNotifier {
             },
           ),
           android: AudioContextAndroid(
-            isSpeakerphoneOn: false,
-            stayAwake: false,
+            isSpeakerphoneOn: true,
+            stayAwake: true,
             contentType: AndroidContentType.speech,
             usageType: AndroidUsageType.media,
             audioFocus: AndroidAudioFocus.gain,
           ),
         ),
       );
+    } catch (e) {
+      debugPrint("Warning: Failed to configure audio context: $e");
+    }
+  }
+
+  /// Detect audio format from byte header: RIFF = WAV, else assume MP3
+  String _detectAudioFormat(Uint8List bytes) {
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x52 && // R
+        bytes[1] == 0x49 && // I
+        bytes[2] == 0x46 && // F
+        bytes[3] == 0x46    // F
+    ) {
+      return 'wav';
+    }
+    return 'mp3';
+  }
+
+  Future<void> _playBytesSafely(Uint8List bytes) async {
+    try {
+      final format = _detectAudioFormat(bytes);
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/buddy_chunk_${DateTime.now().millisecondsSinceEpoch}.$format');
+      await tempFile.writeAsBytes(bytes, flush: true);
+      await _audioPlayer.play(DeviceFileSource(tempFile.path));
+    } catch (e) {
+      debugPrint("Error playing audio chunk via temp file: $e");
     }
   }
 
@@ -225,7 +253,7 @@ class BuddyProvider with ChangeNotifier {
         });
 
         try {
-          await _audioPlayer.play(BytesSource(audioBytes));
+          await _playBytesSafely(audioBytes);
           // Add timeout to prevent hanging
           await completer.future.timeout(
             const Duration(seconds: 10),
@@ -425,7 +453,7 @@ class BuddyProvider with ChangeNotifier {
 
             _isSpeaking = true;
             notifyListeners();
-            await _audioPlayer.play(BytesSource(audioBytes));
+            await _playBytesSafely(audioBytes);
             await completer.future;
 
             await compSub.cancel();
@@ -610,7 +638,7 @@ class BuddyProvider with ChangeNotifier {
           notifyListeners();
 
           try {
-            await _audioPlayer.play(BytesSource(audioBytes));
+            await _playBytesSafely(audioBytes);
 
             // Since this is a stream of chunks, we might want to track if it's still playing
             // but for now, simple toggle
@@ -761,7 +789,7 @@ class BuddyProvider with ChangeNotifier {
           if (body['success'] == true && body['audio'] != null) {
             await _flutterTts.stop(); // Clear local TTS
             final audioBytes = base64Decode(body['audio']);
-            await _audioPlayer.play(BytesSource(audioBytes));
+            await _playBytesSafely(audioBytes);
           }
         }
       } catch (e) {

@@ -130,7 +130,7 @@ const settingsSchema = new mongoose.Schema({
     },
     ai: {
         activeModel: { type: String, default: 'openai/gpt-4o-mini' },
-        activeVoiceModel: { type: String, default: 'google/gemini-2.5-flash-native-audio-latest' },
+        activeVoiceModel: { type: String, default: 'google/gemini-2.0-flash' },
         consensusMode: { type: Boolean, default: false },
         listeningDuration: { type: Number, default: 2 }, // Seconds to listen
         models: {

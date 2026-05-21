@@ -8,11 +8,12 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require('fs');
 const { uploadFile } = require('../services/fileService');
 const path = require('path');
+const { getFallbackKey } = require('../utils/configHelper');
 
 // Helper to get genAI instance dynamically
 async function getGenAI() {
     const settings = await Settings.findOne().select('+ai.geminiApiKey');
-    const apiKey = settings?.ai?.geminiApiKey || process.env.GEMINI_API_KEY;
+    const apiKey = settings?.ai?.geminiApiKey || getFallbackKey('GEMINI_API_KEY');
     if (!apiKey) throw new Error("Gemini API Key not configured.");
     return new GoogleGenerativeAI(apiKey);
 }

@@ -1,6 +1,7 @@
 const axios = require('axios');
 const config = require('../../config/env');
 const Settings = require('../../models/Settings');
+const { getFallbackKey } = require('../../utils/configHelper');
 const Memory = require('../../models/Memory');
 const User = require('../../models/User');
 const { getContext } = require('../../services/contextService');
@@ -66,7 +67,7 @@ const getAiConfig = async () => {
     // Defaults
     const aiConfig = {
         provider: 'openai',
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: getFallbackKey('OPENAI_API_KEY'),
         model: 'gpt-4o-mini'
     };
 
@@ -109,20 +110,20 @@ const getAiConfig = async () => {
         deepseek: aiSettings.deepseekApiKey || null
     };
 
-    // Voice Config Integration - Default to Gemini 2.0 Flash for Live Voice Support
-    const activeVoiceStr = aiSettings.activeVoiceModel || 'google/gemini-2.0-flash-exp';
+    // Voice Config Integration - Default to Gemini 2.5 Flash Native Audio for Live Voice Support
+    const activeVoiceStr = aiSettings.activeVoiceModel || 'google/gemini-2.5-flash-native-audio-latest';
     const [voiceProvider, voiceModelName] = activeVoiceStr.split('/');
 
     aiConfig.voiceProvider = voiceProvider || 'google';
-    aiConfig.voiceModel = voiceModelName || 'gemini-1.5-flash';
+    aiConfig.voiceModel = voiceModelName || 'gemini-2.5-flash-native-audio-latest';
 
     // Voice API Key Mapping
     if (aiConfig.voiceProvider === 'google') {
-        aiConfig.voiceApiKey = aiSettings.geminiApiKey || process.env.GEMINI_API_KEY;
+        aiConfig.voiceApiKey = aiSettings.geminiApiKey || getFallbackKey('GEMINI_API_KEY');
     }
 
     // Always include Groq key as fallback (used by Python when primary provider fails)
-    aiConfig.groqApiKey = aiSettings.groqApiKey || process.env.GROQ_API_KEY || null;
+    aiConfig.groqApiKey = aiSettings.groqApiKey || getFallbackKey('GROQ_API_KEY') || null;
 
     cachedAiConfig = aiConfig;
     lastCacheTime = now;
@@ -567,33 +568,117 @@ exports.proxyHealthToPython = async (req, res) => {
 const ttsCache = new Map();
 
 exports.proxyTtsToPython = async (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.join(__dirname, '../../tts_debug.log');
+    const logDebug = (msg) => {
+        try {
+            const formatted = `[${new Date().toISOString()}] ${msg}\n`;
+            fs.appendFileSync(logPath, formatted);
+            console.log(`[TTS DEBUG] ${msg}`);
+        } catch (e) {
+            console.error("Failed to write to tts_debug.log:", e);
+        }
+    };
+
     try {
         const { text, voice_id, gender, tone } = req.body;
+        logDebug(`--- Incoming TTS Request ---`);
+        logDebug(`Body: ${JSON.stringify(req.body)}`);
+        logDebug(`Headers: ${JSON.stringify(req.headers)}`);
+        logDebug(`Authenticated User: ${req.user ? req.user._id : 'None'}`);
+
+        if (!text || !text.trim()) {
+            logDebug(`Error: Text is empty`);
+            return res.status(400).json({ success: false, message: 'Text is required' });
+        }
         
-        // Create a unique cache key based on the request parameters
         const cacheKey = `${text}_${voice_id}_${gender}_${tone}`;
-        
         if (ttsCache.has(cacheKey)) {
-            console.log('[TTS Cache] Serving cached audio for preview.');
-            const cachedData = ttsCache.get(cacheKey);
-            res.setHeader('Content-Type', 'audio/mpeg');
-            return res.send(cachedData);
+            logDebug(`Cache hit for key: ${cacheKey}`);
+            const { buffer, format } = ttsCache.get(cacheKey);
+            const contentType = format === 'wav' ? 'audio/wav' : 'audio/mpeg';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('X-Audio-Format', format);
+            return res.send(buffer);
         }
 
-        const aiServiceUrl = config.AI_SERVICE_URL;
-        console.log('[TTS] Generating new audio for preview...');
-        const pythonResponse = await axios.post(`${aiServiceUrl}/tts`, req.body, {
-            responseType: 'arraybuffer', // Get as buffer to cache it
-            headers: { 'X-API-Key': config.BUDDY_API_KEY }
-        });
+        // Check MongoDB configuration keys
+        try {
+            const settings = await Settings.findOne().select('+ai.geminiApiKey');
+            logDebug(`MongoDB Settings found: ${!!settings}`);
+            if (settings) {
+                logDebug(`Settings Active Voice Model: ${settings.ai?.activeVoiceModel}`);
+                logDebug(`Settings Gemini Key Exists: ${!!settings.ai?.geminiApiKey}`);
+                if (settings.ai?.geminiApiKey) {
+                    logDebug(`Gemini Key Prefix: ${settings.ai.geminiApiKey.substring(0, 8)}...`);
+                }
+            }
+        } catch (dbErr) {
+            logDebug(`MongoDB settings fetch error: ${dbErr.message}`);
+        }
 
-        // Store in cache for future requests
-        ttsCache.set(cacheKey, Buffer.from(pythonResponse.data));
+        const ttsService = require('../../services/ttsService');
+        logDebug(`Generating audio via local ttsService...`);
+        let result = null;
+        try {
+            result = await ttsService.generateAudio(text.trim(), gender || 'male', tone || 'normal', 'en-US', voice_id);
+            logDebug(`ttsService result success: ${!!result && !!result.audio} | Format: ${result?.format} | Voice: ${result?.voiceName}`);
+        } catch (ttsErr) {
+            logDebug(`ttsService.generateAudio threw error: ${ttsErr.message}\nStack: ${ttsErr.stack}`);
+        }
 
-        res.setHeader('Content-Type', 'audio/mpeg');
-        res.send(Buffer.from(pythonResponse.data));
+        if (!result || !result.audio) {
+            logDebug(`Both Gemini and Google failed — trying Python edge-tts fallback...`);
+            try {
+                const aiServiceUrl = config.AI_SERVICE_URL || 'http://localhost:8000';
+                logDebug(`Python URL: ${aiServiceUrl}/tts`);
+                const edgeResp = await axios.post(
+                    `${aiServiceUrl}/tts`,
+                    { text: text.trim(), gender: gender || 'male', tone: tone || 'normal' },
+                    { headers: { 'X-API-Key': config.BUDDY_API_KEY || '' }, responseType: 'arraybuffer', timeout: 15000 }
+                );
+                logDebug(`Python status code: ${edgeResp.status} | Data length: ${edgeResp.data ? edgeResp.data.byteLength : 0}`);
+                if (edgeResp.data && edgeResp.data.byteLength > 0) {
+                    result = {
+                        audio: Buffer.from(edgeResp.data).toString('base64'),
+                        format: 'mp3',
+                        voiceName: 'edge-tts'
+                    };
+                    logDebug(`Python edge-tts fallback succeeded.`);
+                }
+            } catch (edgeErr) {
+                logDebug(`Python edge-tts fallback failed: ${edgeErr.message}`);
+                if (edgeErr.response) {
+                    logDebug(`Python error response status: ${edgeErr.response.status}`);
+                    logDebug(`Python error response data: ${JSON.stringify(edgeErr.response.data)}`);
+                }
+            }
+        }
+
+        if (result && result.audio) {
+            const audioBuffer = Buffer.from(result.audio, 'base64');
+            const format = result.format || 'mp3';
+            const contentType = format === 'wav' ? 'audio/wav' : 'audio/mpeg';
+
+            // Only cache Gemini results (WAV) — never cache Google fallback
+            // because fallback loses voice identity and we want to retry Gemini next time
+            const isGeminiResult = format === 'wav' && !result.voiceName?.includes('Fallback');
+            if (isGeminiResult) {
+                ttsCache.set(cacheKey, { buffer: audioBuffer, format });
+            }
+
+            logDebug(`Sending audio response. Length: ${audioBuffer.length} bytes | Format: ${format} | Voice: ${result.voiceName} | Content-Type: ${contentType} | Cached: ${isGeminiResult}`);
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('X-Audio-Format', format);
+            return res.send(audioBuffer);
+        }
+
+
+        logDebug(`Error: No audio produced by any TTS provider`);
+        res.status(500).json({ success: false, message: 'TTS generation failed - no audio produced.' });
     } catch (error) {
-        console.error('[TTS Proxy] Error:', error.message);
+        logDebug(`Error caught in exports.proxyTtsToPython: ${error.message}\nStack: ${error.stack}`);
         res.status(500).json({ success: false, message: 'TTS Service is currently unavailable.' });
     }
 };
