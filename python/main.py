@@ -682,6 +682,35 @@ class RemoteControlHandler(BaseHTTPRequestHandler):
                             live._sync_history_to_db(),
                             live._loop
                         )
+                elif action == "attach_file" and RemoteControlHandler.buddy_live:
+                    live = RemoteControlHandler.buddy_live
+                    file_url = params.get("fileUrl", "")
+                    file_name = params.get("fileName", "")
+                    if file_url.startswith("/uploads/"):
+                        relative_path = file_url[len("/uploads/"):]
+                        from pathlib import Path
+                        base_dir = Path(__file__).resolve().parent
+                        local_path = base_dir.parent / "backend" / "uploads" / relative_path
+                        if local_path.exists():
+                            abs_path = str(local_path.resolve())
+                            print(f"[BUDDY] 🌐 Mobile HTTP file attached: {abs_path}")
+                            live.ui.current_file = abs_path
+                            alert_text = (
+                                f"<system_instruction>\n"
+                                f"System Alert: The user has attached a file.\n"
+                                f"Filename: {file_name}\n"
+                                f"Local File Path: {abs_path}\n"
+                                f"It has been set as the active file. If the user asks you to read, analyze, explain, "
+                                f"or perform actions on this file, you must call the 'file_processor' tool "
+                                f"with file_path='{abs_path}' and the appropriate action.\n"
+                                f"</system_instruction>"
+                            )
+                            live._on_text_command(alert_text)
+                            res = "File attached"
+                        else:
+                            res = f"File path does not exist: {local_path}"
+                    else:
+                        res = "Invalid fileUrl format"
                 else:
                     from actions.computer_settings import computer_settings
                     res = computer_settings(parameters={"action": action, **params})
@@ -716,8 +745,37 @@ class MobileVoiceServer:
 
     @classmethod
     async def handler(cls, websocket, path=None):
-        print("[BUDDY] 🎙️ Mobile voice client connected!")
+        if path is None and hasattr(websocket, 'request') and hasattr(websocket.request, 'path'):
+            path = websocket.request.path
+
+        print(f"[BUDDY] 🎙️ Mobile voice client connected! Path: {path}")
         if cls.buddy_live:
+            # Token validation and user id extraction
+            import urllib.parse
+            import requests
+            cls.buddy_live.current_mobile_user_id = None
+            
+            if path:
+                parsed_url = urllib.parse.urlparse(path)
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                token = query_params.get("token", [None])[0]
+                if token:
+                    try:
+                        headers = {"Authorization": f"Bearer {token}"}
+                        res = await asyncio.to_thread(lambda: requests.get(f"http://localhost:{BACKEND_PORT}/api/auth/me", headers=headers, timeout=2))
+                        if res.status_code == 200:
+                            user_data = res.json()
+                            cls.buddy_live.current_mobile_user_id = user_data.get("data", {}).get("_id")
+                            print(f"[BUDDY] 🎙️ Authenticated mobile user: {cls.buddy_live.current_mobile_user_id}")
+                        else:
+                            print(f"[BUDDY] ⚠️ Invalid token passed from mobile client.")
+                    except Exception as e:
+                        print(f"[BUDDY] ⚠️ Error validating token: {e}")
+                else:
+                    print(f"[BUDDY] 🎙️ Unauthenticated (guest) mobile user connected.")
+            else:
+                print(f"[BUDDY] 🎙️ Unauthenticated (guest) mobile user connected.")
+                
             cls.buddy_live.mobile_websocket = websocket
             cls.buddy_live._is_speaking = False
             
@@ -805,6 +863,31 @@ class MobileVoiceServer:
                             cls.buddy_live.chat_history = []
                             asyncio.create_task(cls.buddy_live._sync_history_to_db())
                             print("[BUDDY] 🎙️ Chat history cleared by mobile client and synced.")
+                        elif data.get("type") == "file":
+                            file_url = data.get("fileUrl", "")
+                            file_name = data.get("fileName", "")
+                            if file_url.startswith("/uploads/"):
+                                relative_path = file_url[len("/uploads/"):]
+                                from pathlib import Path
+                                base_dir = Path(__file__).resolve().parent
+                                local_path = base_dir.parent / "backend" / "uploads" / relative_path
+                                if local_path.exists():
+                                    abs_path = str(local_path.resolve())
+                                    print(f"[BUDDY] 🎙️ Mobile file attached: {abs_path}")
+                                    cls.buddy_live.ui.current_file = abs_path
+                                    alert_text = (
+                                        f"<system_instruction>\n"
+                                        f"System Alert: The user has attached a file.\n"
+                                        f"Filename: {file_name}\n"
+                                        f"Local File Path: {abs_path}\n"
+                                        f"It has been set as the active file. If the user asks you to read, analyze, explain, "
+                                        f"or perform actions on this file, you must call the 'file_processor' tool "
+                                        f"with file_path='{abs_path}' and the appropriate action.\n"
+                                        f"</system_instruction>"
+                                    )
+                                    cls.buddy_live._on_text_command(alert_text)
+                                else:
+                                    print(f"[BUDDY] 🎙️ Resolved file path does not exist: {local_path}")
                     except Exception as e:
                         print(f"[BUDDY] 🎙️ Error handling websocket message: {e}")
         except websockets.exceptions.ConnectionClosed:
@@ -914,6 +997,15 @@ class BuddyLive:
         self.speak(f"Sir, {tool_name} encountered an error. {short}")
 
     def _get_primary_user_id(self) -> str:
+        # 1. Prioritize authenticated mobile user
+        if hasattr(self, "current_mobile_user_id") and self.current_mobile_user_id:
+            return self.current_mobile_user_id
+            
+        # 2. If mobile is connected but unauthenticated, NO user context!
+        if getattr(self, "mobile_websocket", None) is not None:
+            return None
+            
+        # 3. Fallback for Desktop/Headless mode (Legacy)
         try:
             import requests
             headers = {"Authorization": "Bearer 562af79bd1304d6e96b59cd9ad727e99ee07f057d0a8bfcd35c7bd77c9547bde"}
@@ -1083,6 +1175,7 @@ class BuddyLive:
             f"- STRICT LANGUAGE RULE: Always detect the language of the user's latest input (speech or text) and respond in that EXACT same language. If the user speaks/types in Tamil, you MUST respond in Tamil. If in English, you MUST respond in English. If in Hindi, you MUST respond in Hindi.\n"
             f"- The input language takes absolute priority over the user's default preferred language setting and over the language of any past conversational history. Under no circumstances should you respond in English if the user asked in Tamil or Hindi.\n"
             f"- For tool calls and parameters, always use English.\n"
+            f"- TRANSCRIPTION ACCURACY RULE: Do not phonetically transliterate English words or phrases into regional scripts. If the user speaks English words (such as 'Hey Buddy', 'okay', 'good', 'yes', 'stop', etc.), you must transcribe them in standard English Latin characters (e.g. 'Hey Buddy'), NOT in regional scripts (e.g. NOT 'हे बडी', NOT 'ఓకే గుడ్'). Only transcribe in regional scripts if the user is speaking in the actual native grammar/vocabulary of that regional language.\n"
         )
         parts.append(lang_prompt)
 
@@ -1465,13 +1558,14 @@ class BuddyLive:
 
         stream = None
         try:
-            stream = sd.RawOutputStream(
-                samplerate=RECEIVE_SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype="int16",
-                blocksize=CHUNK_SIZE,
-            )
-            stream.start()
+            if not self.headless and self.mobile_websocket is None:
+                stream = sd.RawOutputStream(
+                    samplerate=RECEIVE_SAMPLE_RATE,
+                    channels=CHANNELS,
+                    dtype="int16",
+                    blocksize=CHUNK_SIZE,
+                )
+                stream.start()
         except Exception as e:
             print(f"[BUDDY] ⚠️ Local speaker not available: {e}")
 

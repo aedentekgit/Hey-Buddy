@@ -89,9 +89,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "app_icon_new"
   ios: true
-  image_path: "assets/new_logo.jpg"
+  image_path: "assets/new_logo.png"
   adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "assets/new_logo.jpg"
+  adaptive_icon_foreground: "assets/new_logo.png"
   min_sdk_android: 21
 
 

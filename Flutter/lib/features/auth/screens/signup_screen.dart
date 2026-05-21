@@ -107,7 +107,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ],
                       ),
-                      child: branding.logoUrl != null
+                      child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: branding.logoUrl!,
                               height: 40,

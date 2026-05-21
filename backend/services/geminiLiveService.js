@@ -15,7 +15,7 @@ class GeminiLiveService extends EventEmitter {
     }
 
 
-    connect(systemInstruction = null, voice = 'Aoede', useTools = true, modelOverride = null) {
+    connect(systemInstruction = null, voice = 'Aoede', useTools = true, modelOverride = null, languageCode = 'en-US') {
         // Map unsupported voice names to Gemini-compatible ones
         const VOICE_MAP = {
             'en-GB-RyanNeural': 'Puck',
@@ -53,10 +53,11 @@ class GeminiLiveService extends EventEmitter {
             this.model = targetModel;
         }
 
-        console.log(`[Gemini Live] 🔗 Dynamic Initialization: ${this.model} (Voice: ${resolvedVoice})...`);
+        console.log(`[Gemini Live] 🔗 Dynamic Initialization: ${this.model} (Voice: ${resolvedVoice}, Language: ${languageCode})...`);
         this.systemInstructionOverride = systemInstruction;
         this.voiceOverride = resolvedVoice;
         this.useTools = useTools;
+        this.languageCode = languageCode;
         const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
 
         this.ws = new WebSocket(url);
@@ -94,6 +95,19 @@ class GeminiLiveService extends EventEmitter {
         console.log(`[Gemini Live] 📤 Sending setup with model: ${modelName}...`);
 
         const systemInstruction = this.systemInstructionOverride || `You are Buddy, a professional health and personal assistant. 1. DO NOT THINK ALOUD OR NARRATE ACTIONS (CRITICAL): You must execute your tool calls perfectly silently. NEVER output transitional phrases like "I will search google for...", "Initiating search", or "I am starting research". NEVER say "I've decided to use...". Just reply naturally like a human WITHOUT explaining what you are doing. 2. NO INTERNAL REASONING: NEVER include your internal thoughts, planning, or focus in the response. (e.g., "My next step is", "I'll then prepare"). 3. NO SEARCH COMMENTARY: When using Google Search, DO NOT explain that you are searching. Just provide the final answer immediately. 4. NO MARKDOWN HEADERS: NEVER use bold headers like "**Noting Contextual Details**" or emojis. Just give a direct, final, simple answer.`;
+
+        let targetLang = this.languageCode || 'en-US';
+        if (targetLang === 'ta') targetLang = 'ta-IN';
+        if (targetLang === 'hi') targetLang = 'hi-IN';
+        if (targetLang === 'te') targetLang = 'te-IN';
+        if (targetLang === 'kn') targetLang = 'kn-IN';
+        if (targetLang === 'ml') targetLang = 'ml-IN';
+        if (targetLang === 'en') targetLang = 'en-US';
+
+        const languageCodes = [targetLang];
+        if (targetLang !== 'en-US') {
+            languageCodes.push('en-US');
+        }
 
         const setupMessage = {
             setup: {

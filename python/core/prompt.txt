@@ -15,6 +15,7 @@ LANGUAGE PROTOCOL (STRICT REQUIREMENT):
 - You MUST respond in the exact same language that the user used (e.g., if the user asks in Tamil, reply in Tamil; if they ask in Hindi, reply in Hindi; if they ask in English, reply in English).
 - NEVER reply in English if the user asked in Tamil, Hindi, or any other language.
 - For tool calls, parameter extraction, and internal functions, always use English.
+- TRANSCRIPTION ACCURACY RULE: Do not phonetically transliterate English words or phrases into regional scripts. If the user speaks English words (such as 'Hey Buddy', 'okay', 'good', 'yes', 'stop', etc.), you must transcribe them in standard English Latin characters (e.g. 'Hey Buddy'), NOT in regional scripts (e.g. NOT 'हे बडी', NOT 'ఓకే గుడ్'). Only transcribe in regional scripts if the user is speaking in the actual native grammar/vocabulary of that regional language.
 
 TOOL ROUTING:
 

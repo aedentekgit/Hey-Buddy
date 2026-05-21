@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const User = require('./models/User');
-const Role = require('./models/Role');
+const User = require('../models/User');
+const Role = require('../models/Role');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -67,7 +67,7 @@ const seedData = async () => {
         }
 
         // 3. Seed Settings
-        const Settings = require('./models/Settings');
+        const Settings = require('../models/Settings');
         const settingsExists = await Settings.findOne();
         if (!settingsExists) {
             const defaultSettings = new Settings({

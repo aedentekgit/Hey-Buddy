@@ -173,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Hero(
                           tag: 'app_logo',
                           child: Container(
-                            child: branding.logoUrl != null
+                            child: branding.logoUrl != null && branding.logoUrl!.isNotEmpty
                                 ? CachedNetworkImage(
                                     imageUrl: branding.logoUrl!,
                                     height: 50,

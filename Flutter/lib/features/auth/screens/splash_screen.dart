@@ -92,89 +92,24 @@ class _SplashScreenState extends State<SplashScreen> {
         }
         return Scaffold(
           backgroundColor: AppColors.bg,
-          body: Stack(
-            children: [
-              // ── Background Gradients ────────────────────────
-              Positioned(
-                top: -150,
-                right: -150,
+          body: Center(
+            child: GestureDetector(
+              onLongPress: () => _showConfigureIpDialog(context),
+              child: Hero(
+                tag: 'app_logo',
                 child: Container(
-                  width: 400,
-                  height: 400,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: branding.primaryColor.withValues(alpha: 0.08),
-                  ),
+                  child: branding.splashUrl != null && branding.splashUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: branding.splashUrl!,
+                          height: 320,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => const SizedBox(),
+                          errorWidget: (context, url, error) => const SizedBox(),
+                        )
+                      : const SizedBox(),
                 ),
               ),
-              Positioned(
-                bottom: -100,
-                left: -100,
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accent.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-
-              Center(
-                child: Hero(
-                  tag: 'app_logo',
-                  child: Container(
-                    child: branding.splashUrl != null && branding.splashUrl!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: branding.splashUrl!,
-                            height: 320,
-                            fit: BoxFit.contain,
-                            placeholder: (context, url) => Image.asset(
-                              'assets/images/buddy_logo.png',
-                              height: 120,
-                            ),
-                            errorWidget: (context, url, error) => Image.asset(
-                              'assets/images/buddy_logo.png',
-                              height: 120,
-                            ),
-                          )
-                        : Image.asset(
-                            'assets/images/buddy_logo.png',
-                            height: 120,
-                          ),
-                  ),
-                ),
-              ),
-
-              // Developer Gear Button
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                right: 20,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _showConfigureIpDialog(context),
-                    borderRadius: BorderRadius.circular(50),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.07),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.15),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: const Icon(
-                        LucideIcons.settings,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },

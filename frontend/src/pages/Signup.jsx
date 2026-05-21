@@ -509,7 +509,7 @@ const Signup = () => {
 
                 .toggle-item.active {
                     background: var(--card-bg);
-                    color: #1e293b;
+                    color: var(--text-main);
                     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
                 }
 
@@ -806,7 +806,7 @@ const Signup = () => {
                 input:-webkit-autofill:hover,
                 input:-webkit-autofill:focus,
                 input:-webkit-autofill:active {
-                    -webkit-box-shadow: 0 0 0 1000px var(--bg-lite) inset !important;
+                    -webkit-box-shadow: 0 0 0 1000px #1e293b inset !important;
                     -webkit-text-fill-color: var(--text-main) !important;
                     caret-color: var(--text-main) !important;
                     transition: background-color 5000s ease-in-out 0s;

@@ -13,6 +13,13 @@ import 'package:buddy_mobile/core/config/app_config.dart';
 import 'package:buddy_mobile/features/voice_assistant/widgets/animated_ai_input_field.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:provider/provider.dart';
+import 'package:buddy_mobile/core/providers/branding_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:buddy_mobile/features/auth/providers/auth_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:buddy_mobile/features/voice_assistant/services/buddy_service.dart';
 
 class BuddyAssistantPage extends StatefulWidget {
   final bool isIntegrated;
@@ -40,6 +47,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
 
   final TextEditingController _commandController = TextEditingController();
   final ScrollController _logScrollController = ScrollController();
+  final BuddyService _buddyService = BuddyService();
 
   WebSocket? _wsChannel;
   bool _isConnected = false;
@@ -97,6 +105,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
     _audioPlayer.stop();
     _audioPlayer.dispose();
     _flutterTts.stop();
+    _buddyService.dispose();
     super.dispose();
   }
 
@@ -354,8 +363,12 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
 
   void _connectWebSocket() async {
     try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      final url = token != null ? '$_voiceUrl?token=$token' : _voiceUrl;
+
       _wsChannel = await WebSocket.connect(
-        _voiceUrl,
+        url,
       ).timeout(const Duration(seconds: 4));
 
       setState(() {
@@ -436,7 +449,9 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
                   _updateVoiceStreamState();
                   _wsChannel?.close();
                 }
-                if (text.startsWith('[System]') || text.startsWith('[Error]')) {
+                if (text.startsWith('[Error]')) {
+                  debugPrint(text);
+                } else if (text.startsWith('[System]')) {
                   _addLog(text);
                 } else if (text.startsWith('SYS:')) {
                   _addLog(text.replaceFirst('SYS:', '[System]'));
@@ -487,7 +502,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
               } else if (data['type'] == 'history') {
                 final List<dynamic> historyLogs = data['logs'] ?? [];
                 setState(() {
-                  _logs.removeWhere((log) => !log.startsWith('[Error]'));
+                  _logs.clear();
                   _logs.addAll(
                     historyLogs.map(
                       (e) => e.toString().endsWith(' (final)')
@@ -577,7 +592,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
           body: json.encode({'text': text}),
         );
       } catch (e) {
-        _addLog('[Error] Could not submit command: $e');
+        debugPrint('[Error] Could not submit command: $e');
       }
     }
   }
@@ -616,7 +631,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
         json.decode(response.body);
       }
     } catch (e) {
-      _addLog('[Error] Action execution failed: $e');
+      debugPrint('[Error] Action execution failed: $e');
     }
   }
 
@@ -704,7 +719,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
         openAppSettings();
       }
     } catch (e) {
-      _addLog('[Error] Failed to start microphone recording: $e');
+      debugPrint('[Error] Failed to start microphone recording: $e');
     }
   }
 
@@ -749,6 +764,8 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final branding = Provider.of<BrandingProvider>(context);
+    final themeColor = branding.primaryColor;
     final allVisibleLogs = _logs;
     final hasMoreMessages = allVisibleLogs.length > _messageLimit;
     final visibleLogs = hasMoreMessages
@@ -810,12 +827,35 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         if (!isUser) ...[
-                          const CircleAvatar(
-                            radius: 16,
-                            backgroundColor: Colors.transparent,
-                            backgroundImage: AssetImage(
-                              'assets/images/buddy_logo.png',
-                            ),
+                          Consumer<BrandingProvider>(
+                            builder: (context, branding, _) {
+                              return Container(
+                                width: 32,
+                                height: 32,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.transparent,
+                                ),
+                                child: ClipOval(
+                                  child: branding.logoUrl != null &&
+                                          branding.logoUrl!.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: branding.logoUrl!,
+                                          fit: BoxFit.cover,
+                                          errorWidget:
+                                              (context, url, error) =>
+                                                  Image.asset(
+                                            'assets/images/buddy_logo.png',
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : Image.asset(
+                                          'assets/images/buddy_logo.png',
+                                          fit: BoxFit.cover,
+                                        ),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(width: 8),
                         ],
@@ -826,7 +866,7 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: isUser ? Colors.purple : Colors.white,
+                              color: isUser ? themeColor : Colors.white,
                               borderRadius: BorderRadius.only(
                                 topLeft: const Radius.circular(20),
                                 topRight: const Radius.circular(20),
@@ -845,13 +885,20 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
                                 ),
                               ],
                             ),
-                            child: Text(
-                              messageText,
-                              style: GoogleFonts.outfit(
-                                color: isUser ? Colors.white : Colors.black87,
-                                fontSize: 15,
-                              ),
-                            ),
+                            child: () {
+                              final attData = messageText.startsWith('[Attachment]')
+                                  ? _parseAttachment(messageText)
+                                  : null;
+                              return attData != null
+                                  ? _buildAttachmentContent(attData, isUser)
+                                  : Text(
+                                      messageText,
+                                      style: GoogleFonts.outfit(
+                                        color: isUser ? Colors.white : Colors.black87,
+                                        fontSize: 15,
+                                      ),
+                                    );
+                            }(),
                           ),
                         ),
                         if (isUser) ...[
@@ -1025,15 +1072,360 @@ class _BuddyAssistantPageState extends State<BuddyAssistantPage>
   }
 
   void _showAttachOptions() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Attachments are not available in this chat mode yet.',
-          style: GoogleFonts.outfit(),
+    final branding = Provider.of<BrandingProvider>(context, listen: false);
+    final themeColor = branding.primaryColor;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Attach file',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildAttachOptionItem(
+                    icon: LucideIcons.image,
+                    label: 'Gallery',
+                    color: themeColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleAttachment('gallery');
+                    },
+                  ),
+                  _buildAttachOptionItem(
+                    icon: LucideIcons.camera,
+                    label: 'Camera',
+                    color: themeColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleAttachment('camera');
+                    },
+                  ),
+                  _buildAttachOptionItem(
+                    icon: LucideIcons.fileText,
+                    label: 'Document',
+                    color: themeColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleAttachment('document');
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAttachOptionItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 90,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ],
         ),
-        behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _handleAttachment(String type) async {
+    File? fileObj;
+    String? name;
+
+    try {
+      if (type == 'document') {
+        final res = await FilePicker.platform.pickFiles();
+        if (res != null && res.files.single.path != null) {
+          fileObj = File(res.files.single.path!);
+          name = res.files.single.name;
+        }
+      } else {
+        final picker = ImagePicker();
+        final xFile = await picker.pickImage(
+          source: type == 'camera' ? ImageSource.camera : ImageSource.gallery,
+        );
+        if (xFile != null) {
+          fileObj = File(xFile.path);
+          name = xFile.name;
+        }
+      }
+
+      if (fileObj != null && name != null) {
+        _showLoadingDialog('Uploading attachment...');
+
+        final uploadRes = await _buddyService.uploadChatFile(fileObj);
+        
+        if (mounted) Navigator.pop(context); // close loading dialog
+        if (!mounted) return;
+
+        if (uploadRes['success'] == true && uploadRes['data'] != null) {
+          final data = uploadRes['data'];
+          final fileUrl = data['fileUrl'] ?? '';
+          final fileType = data['fileType'] ?? 'document';
+          
+          _addLog('You: [Attachment] name: $name | url: $fileUrl | type: $fileType');
+
+          if (_wsChannel != null && _isConnected) {
+            _wsChannel!.add(json.encode({
+              'type': 'file',
+              'fileUrl': fileUrl,
+              'fileName': name,
+            }));
+          } else {
+            // HTTP Fallback
+            try {
+              await http.post(
+                Uri.parse('$_controlUrl/api/action'),
+                headers: {'Content-Type': 'application/json'},
+                body: json.encode({
+                  'action': 'attach_file',
+                  'parameters': {
+                    'fileUrl': fileUrl,
+                    'fileName': name,
+                  }
+                }),
+              );
+            } catch (e) {
+              debugPrint('[Error] Could not submit file command: $e');
+            }
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Upload failed: ${uploadRes['message'] ?? 'Unknown error'}'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Attachment error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Attachment error: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.purple)),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Map<String, String>? _parseAttachment(String text) {
+    try {
+      final regex = RegExp(r'^\[Attachment\] name:\s*(.*?)\s*\|\s*url:\s*(.*?)\s*\|\s*type:\s*(.*)$');
+      final match = regex.firstMatch(text);
+      if (match != null) {
+        return {
+          'name': match.group(1) ?? '',
+          'url': match.group(2) ?? '',
+          'type': match.group(3) ?? '',
+        };
+      }
+    } catch (e) {
+      debugPrint('Parse attachment error: $e');
+    }
+    return null;
+  }
+
+  Widget _buildAttachmentContent(Map<String, String> data, bool isUser) {
+    final name = data['name'] ?? '';
+    final url = data['url'] ?? '';
+    final type = data['type'] ?? '';
+
+    final backendUrl = AppConfig.baseUrl.replaceAll('/api/', '');
+    final fullUrl = '$backendUrl$url';
+
+    final textStyle = GoogleFonts.outfit(
+      color: isUser ? Colors.white70 : Colors.black54,
+      fontSize: 13,
+    );
+
+    if (type == 'image') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: CachedNetworkImage(
+              imageUrl: fullUrl,
+              placeholder: (context, url) => Container(
+                width: 150,
+                height: 150,
+                color: Colors.black12,
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (context, url, error) => Container(
+                width: 150,
+                height: 150,
+                color: Colors.black12,
+                child: const Icon(Icons.broken_image, size: 40),
+              ),
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                LucideIcons.image,
+                size: 14,
+                color: isUser ? Colors.white70 : Colors.black54,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  name,
+                  style: GoogleFonts.outfit(
+                    color: isUser ? Colors.white : Colors.black87,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isUser ? Colors.white24 : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              LucideIcons.fileText,
+              color: isUser ? Colors.white : Colors.purple,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.outfit(
+                    color: isUser ? Colors.white : Colors.black87,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Document',
+                  style: textStyle,
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
   }
 
   void _showClearHistoryDialog() {

@@ -987,6 +987,7 @@ class SetupOverlay(QWidget):
 class MainWindow(QMainWindow):
     _log_sig   = pyqtSignal(str)
     _state_sig = pyqtSignal(str)
+    _file_sig  = pyqtSignal(str)
 
     def __init__(self, face_path: str):
         super().__init__()
@@ -1043,6 +1044,7 @@ class MainWindow(QMainWindow):
 
         self._log_sig.connect(self._log.append_log)
         self._state_sig.connect(self._apply_state)
+        self._file_sig.connect(self._set_file_via_sig)
 
         self._overlay: SetupOverlay | None = None
         self._ready = self._check_config()
@@ -1053,6 +1055,12 @@ class MainWindow(QMainWindow):
         sc_mute.activated.connect(self._toggle_mute)
         sc_full = QShortcut(QKeySequence("F11"), self)
         sc_full.activated.connect(self._toggle_fullscreen)
+
+    def _set_file_via_sig(self, path: str):
+        if path:
+            self._drop_zone._set_file(path)
+        else:
+            self._drop_zone.clear_file()
 
     def _toggle_fullscreen(self):
         if self.isFullScreen():
@@ -1477,6 +1485,10 @@ class BuddyUI:
     @property
     def current_file(self) -> str | None:
         return self._win._drop_zone.current_file()
+
+    @current_file.setter
+    def current_file(self, v: str | None):
+        self._win._file_sig.emit(v or "")
 
     @property
     def on_text_command(self):

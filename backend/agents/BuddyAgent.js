@@ -67,11 +67,13 @@ class BuddyAgent extends EventEmitter {
             this.timeZone = timeZone;
 
             // 3. Connect Ears (Gemini STT)
-            const sttInstruction = "You are the 'Ears' of Buddy. Listen to the user and transcribe their words exactly. DO NOT RESPOND. Just provide transcripts.";
+            const sttInstruction = "You are the 'Ears' of Buddy. Listen to the user and transcribe their words exactly. DO NOT RESPOND. Just provide transcripts. " +
+                                    "TRANSCRIPTION ACCURACY RULE: Do not phonetically transliterate English words or phrases into regional scripts. If the user speaks English words (such as 'Hey Buddy', 'okay', 'good', 'yes', 'stop', etc.), you must transcribe them in standard English Latin characters (e.g. 'Hey Buddy'), NOT in regional scripts (e.g. NOT 'हे बडी', NOT 'ఓకే గుడ్'). Only transcribe in regional scripts if the user is speaking in the actual native grammar/vocabulary of that regional language.";
             const modelPath = aiConfig.voiceModel.includes('/') ? aiConfig.voiceModel : `models/${aiConfig.voiceModel}`;
+            const systemLanguage = dbSettings?.general?.language || targetLanguage || 'en-US';
 
             if (this.ai) {
-                this.ai.connect(sttInstruction, personality.voice, false, modelPath);
+                this.ai.connect(sttInstruction, personality.voice, false, modelPath, systemLanguage);
             }
 
         } catch (err) {

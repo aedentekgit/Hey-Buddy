@@ -333,7 +333,7 @@ const ForgotPassword = () => {
                 input:-webkit-autofill:hover,
                 input:-webkit-autofill:focus,
                 input:-webkit-autofill:active {
-                    -webkit-box-shadow: 0 0 0 1000px var(--bg-lite) inset !important;
+                    -webkit-box-shadow: 0 0 0 1000px #1e293b inset !important;
                     -webkit-text-fill-color: var(--text-main) !important;
                     caret-color: var(--text-main) !important;
                     transition: background-color 5000s ease-in-out 0s;
