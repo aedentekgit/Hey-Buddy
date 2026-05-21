@@ -1127,9 +1127,7 @@ class BuddyLive:
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription=types.AudioTranscriptionConfig(),
-            input_audio_transcription=types.AudioTranscriptionConfig(
-                language_codes=candidate_langs
-            ),
+            input_audio_transcription=types.AudioTranscriptionConfig(),
             system_instruction="\n".join(parts),
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
             session_resumption=types.SessionResumptionConfig(),
