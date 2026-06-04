@@ -1352,15 +1352,46 @@ class BuddyLive:
         else:
             _other_langs = ["en-US"]
 
+        active_langs = [preferred_lang_normalized]
+        if _other_langs:
+            active_langs.extend(_other_langs)
+
+        lang_info = {
+            "en-US": {"name": "English", "script": "English (Latin script)", "reply": "English"},
+            "ta-IN": {"name": "Tamil", "script": "Tamil script", "reply": "Tamil"},
+            "hi-IN": {"name": "Hindi", "script": "Devanagari script", "reply": "Hindi"},
+            "te-IN": {"name": "Telugu", "script": "Telugu script", "reply": "Telugu"},
+            "kn-IN": {"name": "Kannada", "script": "Kannada script", "reply": "Kannada"},
+            "ml-IN": {"name": "Malayalam", "script": "Malayalam script", "reply": "Malayalam"},
+            "ur-IN": {"name": "Urdu", "script": "Urdu script", "reply": "Urdu"}
+        }
+
+        stt_rules = []
+        reply_rules = []
+
+        for lang in active_langs:
+            info = lang_info.get(lang)
+            if info:
+                stt_rules.append(f"If the user speaks {info['name']}, transcribe in {info['script']}.")
+                reply_rules.append(f"- If user spoke {info['name']} → reply in {info['reply']}.")
+
+        stt_rules_str = "\n- ".join(stt_rules)
+        
+        if len(active_langs) == 1:
+            info = lang_info.get(active_langs[0], {"reply": "English"})
+            response_rules_str = f"- Always respond in {info['reply']}."
+        else:
+            response_rules_str = "- Always respond in the EXACT same language the user just spoke, regardless of history.\n" + "\n".join(reply_rules)
+
         lang_prompt = (
             f"\n[SPEECH RECOGNITION — MULTILINGUAL]\n"
             f"- User's primary language: {preferred_lang_normalized}\n"
             f"- Other languages the user MAY speak in the same session: {', '.join(_other_langs) if _other_langs else 'None'}\n"
-            f"- CRITICAL STT RULE: Detect the ACTUAL language of each spoken input purely from its phonetics, vocabulary and grammar. Do NOT assume a language based on anything else in this system prompt. Transcribe verbatim in whatever language is actually spoken.\n"
-            f"- If the user speaks English, transcribe as English (Latin script). If the user speaks Hindi, transcribe as Hindi (Devanagari). Never transliterate — match the script to the actual spoken language.\n"
+            f"- CRITICAL STT RULE: Detect the ACTUAL language of each spoken input purely from its phonetics, vocabulary and grammar. Do NOT transcribe in or assume any language outside the listed primary/other languages.\n"
+            f"- {stt_rules_str}\n"
+            f"- Never transliterate — match the script to the actual spoken language.\n"
             f"\n[RESPONSE LANGUAGE RULE]\n"
-            f"- Always respond in the EXACT same language the user just spoke, regardless of history or default settings.\n"
-            f"- If user spoke English → reply in English. If user spoke Hindi → reply in Hindi. If user spoke Tamil → reply in Tamil.\n"
+            f"{response_rules_str}\n"
             f"- For tool call parameters, always use English internally.\n"
         )
         parts.append(lang_prompt)
