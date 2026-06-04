@@ -1344,13 +1344,18 @@ class BuddyLive:
         # Build candidate language list for multilingual STT support
         _lang_map = {"ta": "ta-IN", "hi": "hi-IN", "te": "te-IN", "kn": "kn-IN", "ml": "ml-IN", "en": "en-US", "ur": "ur-IN"}
         preferred_lang_normalized = _lang_map.get(system_lang, system_lang)
-        _all_langs = ["en-US", "hi-IN", "ta-IN", "te-IN", "kn-IN", "ml-IN", "ur-IN"]
-        _other_langs = [l for l in _all_langs if l != preferred_lang_normalized]
+        
+        # Limit candidate languages to the preferred language and English (as fallback/mixed candidate)
+        # to prevent cross-language speech recognition confusion (e.g. transcribing English as Telugu or Kannada).
+        if preferred_lang_normalized == "en-US":
+            _other_langs = []
+        else:
+            _other_langs = ["en-US"]
 
         lang_prompt = (
             f"\n[SPEECH RECOGNITION — MULTILINGUAL]\n"
             f"- User's primary language: {preferred_lang_normalized}\n"
-            f"- Other languages the user MAY speak in the same session: {', '.join(_other_langs)}\n"
+            f"- Other languages the user MAY speak in the same session: {', '.join(_other_langs) if _other_langs else 'None'}\n"
             f"- CRITICAL STT RULE: Detect the ACTUAL language of each spoken input purely from its phonetics, vocabulary and grammar. Do NOT assume a language based on anything else in this system prompt. Transcribe verbatim in whatever language is actually spoken.\n"
             f"- If the user speaks English, transcribe as English (Latin script). If the user speaks Hindi, transcribe as Hindi (Devanagari). Never transliterate — match the script to the actual spoken language.\n"
             f"\n[RESPONSE LANGUAGE RULE]\n"
