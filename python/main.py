@@ -21,8 +21,7 @@ if "--headless" in sys.argv or (sys.platform.startswith('linux') and not os.envi
     os.environ['QT_QPA_PLATFORM'] = 'offscreen'
     
     class MockModule(MagicMock):
-        @classmethod
-        def __getattr__(cls, name):
+        def __getattr__(self, name):
             return MagicMock()
 
     sys.modules['pyautogui'] = MockModule()
@@ -38,11 +37,13 @@ import asyncio
 import re
 import threading
 import json
+import subprocess
+from typing import Any
 import traceback
 import base64
 from pathlib import Path
 
-import sounddevice as sd
+import sounddevice as sd  # type: ignore
 from google import genai
 from google.genai import types
 from ui import BuddyUI
@@ -492,7 +493,8 @@ TOOL_DECLARATIONS = [
             "Save an important personal fact about the user to long-term memory. "
             "Call this silently whenever the user reveals something worth remembering: "
             "name, age, city, job, preferences, hobbies, relationships, projects, or future plans. "
-            "Do NOT call for: weather, reminders, searches, or one-time commands. "
+            "Also call this when the user explicitly asks to save or remember an attached image/file with a name. "
+            "Do NOT call for: weather, reminders, searches, or one-time commands that are not save/remember requests. "
             "Do NOT announce that you are saving — just call it silently. "
             "Values must be in English regardless of the conversation language."
         ),
@@ -507,11 +509,14 @@ TOOL_DECLARATIONS = [
                         "projects — active projects, goals, things being built | "
                         "relationships — friends, family, partner, colleagues | "
                         "wishes — future plans, things to buy, travel dreams | "
+                        "files — named saved images/files/documents | "
                         "notes — habits, schedule, anything else worth remembering"
                     )
                 },
                 "key":   {"type": "STRING", "description": "Short snake_case key (e.g. name, favorite_food, sister_name)"},
                 "value": {"type": "STRING", "description": "Concise value in English (e.g. Fatih, pizza, older sister)"},
+                "file_url": {"type": "STRING", "description": "Optional attached image/file URL to save with this memory."},
+                "file_name": {"type": "STRING", "description": "Optional attached image/file display name to save with this memory."},
             },
             "required": ["category", "key", "value"]
         }
@@ -582,12 +587,36 @@ TOOL_DECLARATIONS = [
             "required": []
         }
     },
+    {
+        "name": "delete_reminder",
+        "description": "Deletes one or more existing reminders from the database. Use this when the user explicitly asks to delete, remove, cancel, or clear reminders. If the user says 'both', 'all', or 'them' after reminders were listed, pass every relevant reminder Database ID from the active reminder context or recent get_reminders result.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "reminder_ids": {
+                    "type": "ARRAY",
+                    "items": {"type": "STRING"},
+                    "description": "One or more Mongo Database IDs of reminders to delete"
+                }
+            },
+            "required": ["reminder_ids"]
+        }
+    },
+    {
+        "name": "get_current_time",
+        "description": "Gets the current date and time in the user's timezone. Use this whenever the user asks for the time, date, or when you need the fresh current time for setting reminders.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+            "required": []
+        }
+    },
 ]
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 class RemoteControlHandler(BaseHTTPRequestHandler):
-    buddy_live = None
+    buddy_live: Any = None
 
     def _set_headers(self, status=200, content_type="application/json"):
         self.send_response(status)
@@ -661,7 +690,7 @@ class RemoteControlHandler(BaseHTTPRequestHandler):
                             live.ui.set_state("MUTED" if new_mute else "LISTENING")
                         else:
                             new_mute = not live.ui.muted
-                            from PyQt6.QtCore import QTimer
+                            from PyQt6.QtCore import QTimer  # type: ignore
                             QTimer.singleShot(0, live.ui._win._toggle_mute)
                         
                         res = f"Muted set to {new_mute}"
@@ -695,14 +724,19 @@ class RemoteControlHandler(BaseHTTPRequestHandler):
                             abs_path = str(local_path.resolve())
                             print(f"[BUDDY] 🌐 Mobile HTTP file attached: {abs_path}")
                             live.ui.current_file = abs_path
+                            live.current_file_url = file_url
+                            live.current_file_name = file_name
                             alert_text = (
                                 f"<system_instruction>\n"
                                 f"System Alert: The user has attached a file.\n"
                                 f"Filename: {file_name}\n"
+                                f"File URL: {file_url}\n"
                                 f"Local File Path: {abs_path}\n"
                                 f"It has been set as the active file. If the user asks you to read, analyze, explain, "
                                 f"or perform actions on this file, you must call the 'file_processor' tool "
                                 f"with file_path='{abs_path}' and the appropriate action.\n"
+                                f"If the user asks you to save or remember this attached file/image with a name, "
+                                f"call the 'save_memory' tool with file_url='{file_url}' and file_name='{file_name}'.\n"
                                 f"</system_instruction>"
                             )
                             live._on_text_command(alert_text)
@@ -741,12 +775,15 @@ def start_remote_server():
 import websockets
 
 class MobileVoiceServer:
-    buddy_live = None
+    buddy_live: Any = None
 
     @classmethod
     async def handler(cls, websocket, path=None):
         if path is None and hasattr(websocket, 'request') and hasattr(websocket.request, 'path'):
             path = websocket.request.path
+
+        with open("ws_debug.log", "a") as f:
+            f.write(f"[BUDDY] Mobile connected! Path resolved: {path}\n")
 
         print(f"[BUDDY] 🎙️ Mobile voice client connected! Path: {path}")
         if cls.buddy_live:
@@ -759,10 +796,18 @@ class MobileVoiceServer:
                 parsed_url = urllib.parse.urlparse(path)
                 query_params = urllib.parse.parse_qs(parsed_url.query)
                 token = query_params.get("token", [None])[0]
+                
+                with open("ws_debug.log", "a") as f:
+                    f.write(f"Token found: {bool(token)}\n")
+                    
                 if token:
                     try:
                         headers = {"Authorization": f"Bearer {token}"}
                         res = await asyncio.to_thread(lambda: requests.get(f"http://localhost:{BACKEND_PORT}/api/auth/me", headers=headers, timeout=2))
+                        
+                        with open("ws_debug.log", "a") as f:
+                            f.write(f"Auth res status: {res.status_code}\n")
+                            
                         if res.status_code == 200:
                             user_data = res.json()
                             cls.buddy_live.current_mobile_user_id = user_data.get("data", {}).get("_id")
@@ -770,6 +815,8 @@ class MobileVoiceServer:
                         else:
                             print(f"[BUDDY] ⚠️ Invalid token passed from mobile client.")
                     except Exception as e:
+                        with open("ws_debug.log", "a") as f:
+                            f.write(f"Auth exception: {e}\n")
                         print(f"[BUDDY] ⚠️ Error validating token: {e}")
                 else:
                     print(f"[BUDDY] 🎙️ Unauthenticated (guest) mobile user connected.")
@@ -875,14 +922,19 @@ class MobileVoiceServer:
                                     abs_path = str(local_path.resolve())
                                     print(f"[BUDDY] 🎙️ Mobile file attached: {abs_path}")
                                     cls.buddy_live.ui.current_file = abs_path
+                                    cls.buddy_live.current_file_url = file_url
+                                    cls.buddy_live.current_file_name = file_name
                                     alert_text = (
                                         f"<system_instruction>\n"
                                         f"System Alert: The user has attached a file.\n"
                                         f"Filename: {file_name}\n"
+                                        f"File URL: {file_url}\n"
                                         f"Local File Path: {abs_path}\n"
                                         f"It has been set as the active file. If the user asks you to read, analyze, explain, "
                                         f"or perform actions on this file, you must call the 'file_processor' tool "
                                         f"with file_path='{abs_path}' and the appropriate action.\n"
+                                        f"If the user asks you to save or remember this attached file/image with a name, "
+                                        f"call the 'save_memory' tool with file_url='{file_url}' and file_name='{file_name}'.\n"
                                         f"</system_instruction>"
                                     )
                                     cls.buddy_live._on_text_command(alert_text)
@@ -908,24 +960,26 @@ async def start_voice_server():
 
 class BuddyLive:
 
-    def __init__(self, ui: BuddyUI):
+    def __init__(self, ui: Any):
         self.ui             = ui
-        self.mobile_websocket = None
+        self.mobile_websocket: Any = None
         self.headless       = False
-        RemoteControlHandler.buddy_live = self
+        RemoteControlHandler.buddy_live = self # type: ignore
         threading.Thread(target=start_remote_server, daemon=True).start()
-        self.session        = None
-        self.audio_in_queue = None
-        self.out_queue      = None
-        self._loop          = None
+        self.session: Any        = None
+        self.audio_in_queue: Any = None
+        self.out_queue: Any      = None
+        self._loop: Any          = None
         self._is_speaking   = False
         self._speaking_lock = threading.Lock()
+        self.current_file_url: str | None = None
+        self.current_file_name: str | None = None
         self.ui.on_text_command = self._on_text_command
-        self._turn_done_event: asyncio.Event | None = None
+        self._turn_done_event = None
         self.conversation_id = None
-        self.chat_history   = self._fetch_initial_history()
+        self.chat_history: list = self._fetch_initial_history()
 
-    def _fetch_initial_history(self):
+    def _fetch_initial_history(self) -> list:
         try:
             import requests
             headers = {"Authorization": "Bearer 562af79bd1304d6e96b59cd9ad727e99ee07f057d0a8bfcd35c7bd77c9547bde"}
@@ -964,9 +1018,12 @@ class BuddyLive:
     def _on_text_command(self, text: str):
         if not self._loop or not self.session:
             return
+        self._last_user_text = text
+        current_time = self._format_current_time_instruction()
+        text_with_time = f"{current_time}\n\nUser request: {text}"
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
-                turns={"parts": [{"text": text}]},
+                turns={"parts": [{"text": text_with_time}]},
                 turn_complete=True
             ),
             self._loop
@@ -996,10 +1053,11 @@ class BuddyLive:
         self.ui.write_log(f"ERR: {tool_name} — {short}")
         self.speak(f"Sir, {tool_name} encountered an error. {short}")
 
-    def _get_primary_user_id(self) -> str:
+    def _get_primary_user_id(self):
         # 1. Prioritize authenticated mobile user
-        if hasattr(self, "current_mobile_user_id") and self.current_mobile_user_id:
-            return self.current_mobile_user_id
+        mobile_user = getattr(self, "current_mobile_user_id", None)
+        if mobile_user:
+            return mobile_user
             
         # 2. If mobile is connected but unauthenticated, NO user context!
         if getattr(self, "mobile_websocket", None) is not None:
@@ -1018,7 +1076,99 @@ class BuddyLive:
             print(f"[BUDDY] ⚠️ Warning fetching primary user ID from internal route: {e}")
         return "65f123456789abcdef012345"
 
-    def _send_node_action(self, action_type: str, payload: dict, item_id: str = None) -> str:
+    def _is_mobile_guest(self) -> bool:
+        return (
+            getattr(self, "mobile_websocket", None) is not None
+            and not getattr(self, "current_mobile_user_id", None)
+        )
+
+    def _guest_login_required_response(self, fc, name: str) -> types.FunctionResponse:
+        message = (
+            "Please sign in to use personal features like reminders, memories, "
+            "documents, and location-based actions. I can still answer general "
+            "questions without login."
+        )
+        print(f"[BUDDY] 🔒 Blocked guest personal tool: {name}")
+        return types.FunctionResponse(
+            id=fc.id,
+            name=name,
+            response={"result": message, "requires_login": True},
+        )
+
+    def _get_current_datetime(self):
+        from datetime import datetime
+
+        try:
+            import pytz
+            db_context = self._get_mongodb_context()
+            tz_name = db_context.get("userContext", {}).get("timeZone")
+            if tz_name:
+                return datetime.now(pytz.timezone(tz_name)), tz_name
+        except Exception as ex:
+            print(f"[BUDDY] ⚠️ Timezone lookup failed, using local time: {ex}")
+
+        local_now = datetime.now().astimezone()
+        tz_name = local_now.tzname() or "local"
+        return local_now, tz_name
+
+    def _format_current_time_instruction(self) -> str:
+        now, tz_name = self._get_current_datetime()
+        return (
+            "[FRESH CURRENT DATE & TIME]\n"
+            f"Timezone: {tz_name}\n"
+            f"Current date: {now.strftime('%Y-%m-%d')}\n"
+            f"Current time: {now.strftime('%I:%M %p')}\n"
+            "For relative reminders like 'in 5 min' or 'next 5 minutes', "
+            "calculate from this fresh timestamp, not from older session context."
+        )
+
+    def _apply_relative_reminder_time(self, args: dict) -> dict:
+        from datetime import timedelta
+
+        text = getattr(self, "_last_user_text", "") or ""
+        lower = text.lower()
+        number_words = {
+            "one": 1,
+            "two": 2,
+            "three": 3,
+            "four": 4,
+            "five": 5,
+            "six": 6,
+            "seven": 7,
+            "eight": 8,
+            "nine": 9,
+            "ten": 10,
+            "fifteen": 15,
+            "thirty": 30,
+        }
+        number_pattern = r"(\d+|" + "|".join(number_words.keys()) + r")"
+        match = re.search(
+            rf"\b(?:in|after|next)\s+{number_pattern}\s*(minutes?|mins?|min|hours?|hrs?|hr)\b",
+            lower,
+        )
+        if not match:
+            return args
+
+        raw_amount = match.group(1)
+        amount = int(raw_amount) if raw_amount.isdigit() else number_words.get(raw_amount, 0)
+        unit = match.group(2)
+        if amount <= 0:
+            return args
+
+        now, tz_name = self._get_current_datetime()
+        delta = timedelta(hours=amount) if unit.startswith(("hour", "hr")) else timedelta(minutes=amount)
+        target = now + delta
+
+        args = dict(args)
+        args["date"] = target.strftime("%Y-%m-%d")
+        args["time"] = target.strftime("%I:%M %p").lstrip("0")
+        print(
+            f"[BUDDY] ⏰ Relative reminder override: '{text}' -> "
+            f"{args['date']} {args['time']} ({tz_name})"
+        )
+        return args
+
+    def _send_node_action(self, action_type: str, payload: dict, item_id=None) -> str:
         try:
             import requests
             headers = {
@@ -1035,9 +1185,12 @@ class BuddyLive:
                 body["id"] = item_id
 
             res = requests.post(f"http://localhost:{BACKEND_PORT}/api/ai/action", json=body, headers=headers, timeout=5)
-            if res.status_code == 200:
+            if res.status_code in (200, 201):
                 res_data = res.json()
-                msg = res_data.get("message") or res_data.get("msg") or "Action executed successfully."
+                if isinstance(res_data, dict):
+                    msg = res_data.get("message") or res_data.get("msg") or "Action executed successfully."
+                else:
+                    msg = "Action executed successfully."
                 return f"[Database Success] {msg}"
             else:
                 return f"[Database Error] {res.text}"
@@ -1120,11 +1273,23 @@ class BuddyLive:
         time_ctx = (
             f"[CURRENT DATE & TIME]\n"
             f"User Timezone: {tz_name}\n"
-            f"Right now it is: {time_str}\n"
-            f"Use this current date & time to calculate exact times for reminders relative to the user.\n\n"
+            f"Connection established at: {time_str}\n"
+            f"WARNING: This time was captured at connection start. Since this is a live, long-running audio session, "
+            f"you MUST call the 'get_current_time' tool to fetch the fresh current time whenever the user asks for "
+            f"the time, date, or when you need to schedule reminders relative to now.\n\n"
         )
 
         parts = [time_ctx]
+
+        if self._is_mobile_guest():
+            parts.append(
+                "[GUEST MODE]\n"
+                "The mobile user is not signed in. Do not use or mention personal "
+                "memories, reminders, documents, location data, calendar data, or user "
+                "profile details. If the user asks to check, create, update, or delete "
+                "personal data, say they need to sign in first. Never say they have no "
+                "reminders or that a reminder was set while in guest mode.\n"
+            )
 
         # 2. Add Saved Memories from MongoDB
         db_memories = db_context.get("memories", [])
@@ -1134,9 +1299,14 @@ class BuddyLive:
                 cat = m.get("category", "general")
                 content = m.get("content", "")
                 m_id = m.get("id", "")
+                file_url = m.get("fileUrl") or m.get("file_url")
+                file_name = m.get("fileName") or m.get("file_name") or "attachment"
                 if content:
-                    mem_lines.append(f"- [{cat.upper()}] {content} (Database ID: {m_id})")
-            mem_lines.append("Use these details as active user preferences. Refer to them or update them if the user clarifies details.\n")
+                    line = f"- [{cat.upper()}] {content} (Database ID: {m_id})"
+                    if file_url:
+                        line += f" [Attachment: {file_name} -> {file_url}]"
+                    mem_lines.append(line)
+            mem_lines.append("Use these details as active user preferences. If the user asks to show, open, or retrieve a saved image/file, use the exact attachment name and URL from the matching memory. Refer to them or update them if the user clarifies details.\n")
             parts.append("\n".join(mem_lines))
 
         # 3. Add Active Reminders from MongoDB
@@ -1158,24 +1328,35 @@ class BuddyLive:
                 details += f' (Database ID: {r_id})'
                 
                 rem_lines.append(details)
-            rem_lines.append("To reschedule or change any of these, use the update_reminder tool and pass its unique Database ID.\n")
+            rem_lines.append("To reschedule or change any of these, use update_reminder with its unique Database ID. To delete one or more, use delete_reminder with the matching Database ID values.\n")
             parts.append("\n".join(rem_lines))
 
-        # 4. Add local backup memories
-        memory     = load_memory()
-        mem_str    = format_memory_for_prompt(memory)
-        if mem_str:
-            parts.append(mem_str)
+        # 4. Add local backup memories only outside unauthenticated mobile guest mode.
+        if not self._is_mobile_guest():
+            memory     = load_memory()
+            mem_str    = format_memory_for_prompt(memory)
+            if mem_str:
+                parts.append(mem_str)
 
         # 5. Add dynamic language configuration
         system_lang = user_ctx_cfg.get("systemLanguage", "en-US")
+
+        # Build candidate language list for multilingual STT support
+        _lang_map = {"ta": "ta-IN", "hi": "hi-IN", "te": "te-IN", "kn": "kn-IN", "ml": "ml-IN", "en": "en-US", "ur": "ur-IN"}
+        preferred_lang_normalized = _lang_map.get(system_lang, system_lang)
+        _all_langs = ["en-US", "hi-IN", "ta-IN", "te-IN", "kn-IN", "ml-IN", "ur-IN"]
+        _other_langs = [l for l in _all_langs if l != preferred_lang_normalized]
+
         lang_prompt = (
-            f"\n[LANGUAGE PROTOCOL]\n"
-            f"- User Preferred Language (Default): {system_lang}\n"
-            f"- STRICT LANGUAGE RULE: Always detect the language of the user's latest input (speech or text) and respond in that EXACT same language. If the user speaks/types in Tamil, you MUST respond in Tamil. If in English, you MUST respond in English. If in Hindi, you MUST respond in Hindi.\n"
-            f"- The input language takes absolute priority over the user's default preferred language setting and over the language of any past conversational history. Under no circumstances should you respond in English if the user asked in Tamil or Hindi.\n"
-            f"- For tool calls and parameters, always use English.\n"
-            f"- TRANSCRIPTION ACCURACY RULE: Do not phonetically transliterate English words or phrases into regional scripts. If the user speaks English words (such as 'Hey Buddy', 'okay', 'good', 'yes', 'stop', etc.), you must transcribe them in standard English Latin characters (e.g. 'Hey Buddy'), NOT in regional scripts (e.g. NOT 'हे बडी', NOT 'ఓకే గుడ్'). Only transcribe in regional scripts if the user is speaking in the actual native grammar/vocabulary of that regional language.\n"
+            f"\n[SPEECH RECOGNITION — MULTILINGUAL]\n"
+            f"- User's primary language: {preferred_lang_normalized}\n"
+            f"- Other languages the user MAY speak in the same session: {', '.join(_other_langs)}\n"
+            f"- CRITICAL STT RULE: Detect the ACTUAL language of each spoken input purely from its phonetics, vocabulary and grammar. Do NOT assume a language based on anything else in this system prompt. Transcribe verbatim in whatever language is actually spoken.\n"
+            f"- If the user speaks English, transcribe as English (Latin script). If the user speaks Hindi, transcribe as Hindi (Devanagari). Never transliterate — match the script to the actual spoken language.\n"
+            f"\n[RESPONSE LANGUAGE RULE]\n"
+            f"- Always respond in the EXACT same language the user just spoke, regardless of history or default settings.\n"
+            f"- If user spoke English → reply in English. If user spoke Hindi → reply in Hindi. If user spoke Tamil → reply in Tamil.\n"
+            f"- For tool call parameters, always use English internally.\n"
         )
         parts.append(lang_prompt)
 
@@ -1193,8 +1374,10 @@ class BuddyLive:
         parts.append(sys_prompt)
 
         # Resolve dynamic voice options
-        voice_gender = user_ctx_cfg.get("voicePreferences", {}).get("gender", "female").lower()
-        voice_name = "Charon" if voice_gender == "male" else "Puck"
+        voice_prefs = user_ctx_cfg.get("voicePreferences", {})
+        voice_gender = voice_prefs.get("gender", "female").lower()
+        # Use the specific voiceId the user selected; fall back to gender-based default
+        voice_name = voice_prefs.get("voiceId") or ("Charon" if voice_gender == "male" else "Puck")
 
         # Prioritize the user's preferred language, with others as fallback candidates
         candidate_langs = ["en-US", "ta-IN", "hi-IN", "te-IN", "kn-IN", "ml-IN"]
@@ -1218,7 +1401,7 @@ class BuddyLive:
         candidate_langs.insert(0, preferred_lang)
 
         return types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
+            response_modalities=["AUDIO"], # type: ignore
             output_audio_transcription=types.AudioTranscriptionConfig(),
             input_audio_transcription=types.AudioTranscriptionConfig(),
             system_instruction="\n".join(parts),
@@ -1229,7 +1412,8 @@ class BuddyLive:
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(
                         voice_name=voice_name
                     )
-                )
+                ),
+                language_code="en-US",
             ),
         )
 
@@ -1239,6 +1423,20 @@ class BuddyLive:
 
         print(f"[BUDDY] 🔧 {name}  {args}")
         self.ui.set_state("THINKING")
+
+        personal_tools = {
+            "save_memory",
+            "reminder",
+            "schedule_location_reminder",
+            "save_document",
+            "update_reminder",
+            "update_memory",
+            "get_reminders",
+            "delete_reminder",
+        }
+        if self._is_mobile_guest() and name in personal_tools:
+            self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
+            return self._guest_login_required_response(fc, name)
 
         if name == "save_memory":
             category = args.get("category", "notes")
@@ -1254,6 +1452,17 @@ class BuddyLive:
                     "content": f"{key}: {value}" if key else value,
                     "category": category
                 }
+                memory_text = f"{category} {key} {value}".lower()
+                wants_file_memory = bool(args.get("file_url")) or any(
+                    token in memory_text
+                    for token in ("file", "image", "photo", "picture", "attachment", "document")
+                )
+                file_url = args.get("file_url") or (self.current_file_url if wants_file_memory else None)
+                file_name = args.get("file_name") or (self.current_file_name if wants_file_memory else None)
+                if file_url:
+                    payload["fileUrl"] = file_url
+                if file_name:
+                    payload["fileName"] = file_name
                 loop.run_in_executor(None, lambda: self._send_node_action("SAVE_MEMORY", payload))
 
             self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
@@ -1287,6 +1496,7 @@ class BuddyLive:
                 result = r or f"Message sent to {args.get('receiver')}."
 
             elif name == "reminder":
+                args = self._apply_relative_reminder_time(args)
                 payload = {
                     "title": args.get("message", "Reminder"),
                     "date": args.get("date"),
@@ -1348,6 +1558,17 @@ class BuddyLive:
                 except Exception as ex:
                     print(f"[get_reminders] Error: {ex}")
                     result = "Error fetching reminders."
+
+            elif name == "delete_reminder":
+                reminder_ids = args.get("reminder_ids") or args.get("ids") or args.get("reminder_id")
+                if isinstance(reminder_ids, str):
+                    reminder_ids = [reminder_ids]
+                reminder_ids = [str(rid).strip() for rid in (reminder_ids or []) if str(rid).strip()]
+                if not reminder_ids:
+                    result = "No reminder IDs were provided to delete."
+                else:
+                    payload = {"reminder_ids": reminder_ids}
+                    result = await loop.run_in_executor(None, lambda: self._send_node_action("DELETE_REMINDERS", payload))
 
             elif name == "youtube_video":
                 r = await loop.run_in_executor(None, lambda: youtube_video(parameters=args, response=None, player=self.ui))
@@ -1423,13 +1644,18 @@ class BuddyLive:
                     self.ui.set_state("MUTED")
                 result = "Shutdown requested."
 
+            elif name == "get_current_time":
+                now, tz_name = self._get_current_datetime()
+                time_str = now.strftime("%A, %B %d, %Y — %I:%M %p %Z")
+                result = f"Current date and time: {time_str} ({tz_name})"
+
             else:
                 result = f"Unknown tool: {name}"
 
         except Exception as e:
             result = f"Tool '{name}' failed: {e}"
             traceback.print_exc()
-            self.speak_error(name, e)
+            self.speak_error(name, str(e))
 
         self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
 
@@ -1613,12 +1839,12 @@ class BuddyLive:
                 stream.stop()
                 stream.close()
 
-    async def run(self):
+    async def run(self) -> None:
         self._loop          = asyncio.get_event_loop()
         self.audio_in_queue = asyncio.Queue()
         self.out_queue      = asyncio.Queue(maxsize=200)
         self._turn_done_event = asyncio.Event()
-        MobileVoiceServer.buddy_live = self
+        MobileVoiceServer.buddy_live = self # type: ignore
         
         # Start the persistent voice server immediately on startup
         asyncio.create_task(start_voice_server())
@@ -1634,19 +1860,18 @@ class BuddyLive:
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
-                async with (
-                    client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
-                    asyncio.TaskGroup() as tg,
-                ):
+                async with client.aio.live.connect(model=LIVE_MODEL, config=config) as session:
                     self.session        = session
                     print("[BUDDY] ✅ Connected to Gemini Live API.")
                     self.ui.set_state("MUTED" if self.ui.muted else "LISTENING")
                     self.ui.write_log("SYS: Buddy online.")
 
-                    tg.create_task(self._send_realtime())
-                    tg.create_task(self._listen_audio())
-                    tg.create_task(self._receive_audio())
-                    tg.create_task(self._play_audio())
+                    await asyncio.gather(
+                        self._send_realtime(),
+                        self._listen_audio(),
+                        self._receive_audio(),
+                        self._play_audio()
+                    )
 
             except Exception as e:
                 print(f"[BUDDY] ⚠️ {e}")
@@ -1738,7 +1963,7 @@ def main():
         ui = HeadlessUI()
         buddy = BuddyLive(ui)
         buddy.headless = True
-        ui.buddy = buddy
+        ui.buddy = buddy # type: ignore
         try:
             asyncio.run(buddy.run())
         except KeyboardInterrupt:
@@ -1752,7 +1977,7 @@ def main():
             ui.wait_for_api_key()
             buddy = BuddyLive(ui)
             buddy.headless = False
-            ui.buddy = buddy
+            ui.buddy = buddy # type: ignore
             try:
                 asyncio.run(buddy.run())
             except KeyboardInterrupt:
